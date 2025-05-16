@@ -1,14 +1,17 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-
+import Login from './components/auths/Login'
+import Admindashboard from './components/dashboard/Admindashboard'
+import AuthHeader from './components/common/AuthHeader'
 
 function App() {
-  const [count, setCount] = useState(0)
+
 
   return (
     <>
-   <h1 className=' text-3xl'>Hello Word</h1>
+      {/* <Login /> */}
+       <AuthHeader />
+      <Admindashboard /> 
+      
     </>
   )
 }
