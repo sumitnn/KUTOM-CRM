@@ -1,11 +1,10 @@
 import React from 'react'
-import Header from '../common/Header'
-
+import { Link } from "react-router-dom";
 
 const Login = () => {
   return (
       <>
-          <Header />
+         
           <div className="w-full h-screen flex items-center justify-center bg-[#E5E7EB]">
   <div className="w-full max-w-md p-10 bg-white rounded-xl shadow-xl flex flex-col items-center gap-6">
     
@@ -31,9 +30,9 @@ const Login = () => {
           <input type="checkbox" className="w-4 h-4" />
           Remember me
         </label>
-        <a href="#" className="text-indigo-600 hover:underline">
+        <Link to="/forget-password" className="text-indigo-600 hover:underline">
           Forgot Password?
-        </a>
+        </Link>
       </div>
 
       <button
