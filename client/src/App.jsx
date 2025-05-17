@@ -1,19 +1,16 @@
-import { useState } from 'react'
-import Login from './components/auths/Login'
-import Admindashboard from './components/dashboard/Admindashboard'
-import AuthHeader from './components/common/AuthHeader'
+// App.jsx
+import { BrowserRouter } from "react-router-dom";
+import AppRoutes from "./AppRoutes";
+import { AuthProvider } from "./context/AuthContext";
 
 function App() {
-
-
   return (
-    <>
-      {/* <Login /> */}
-       <AuthHeader />
-      <Admindashboard /> 
-      
-    </>
-  )
+    <AuthProvider>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </AuthProvider>
+  );
 }
 
-export default App
+export default App;
