@@ -14,6 +14,9 @@ import Profile from "./pages/Profile";
 import ChangePassword from "./components/auths/ChangePassword";
 import ForgetPasswordForm from "./components/auths/ForgetPasswordForm";
 import CommonLayout from "./layout/CommonLayout";
+
+import OrderManagementPage from "./pages/admin/OrderManagementPage";
+import WalletManagementPage from "./pages/admin/WalletManagementPage";
 const AppRoutes = () => {
   return (
     <Routes>
@@ -36,10 +39,26 @@ const AppRoutes = () => {
           }
         />
         <Route
+          path="/admin/wallet"
+          element={
+            <MainLayout>
+              <WalletManagementPage/>
+            </MainLayout>
+          }
+        />
+        <Route
           path="/admin/products"
           element={
             <MainLayout>
               <AdminProducts/>
+            </MainLayout>
+          }
+        />
+        <Route
+          path="/admin/orders"
+          element={
+            <MainLayout>
+             <OrderManagementPage/>
             </MainLayout>
           }
         />
