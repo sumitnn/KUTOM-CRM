@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const CreateSellerModal = ({ onClose, onAddVendor }) => {
+const CreateStockistModal = ({ onClose, onAddVendor }) => {
   const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
 
   const handleChange = (e) => {
@@ -63,4 +63,4 @@ const CreateSellerModal = ({ onClose, onAddVendor }) => {
   );
 };
 
-export default CreateSellerModal;
+export default CreateStockistModal;

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const CreateVendorModal = ({ onClose, onAddVendor }) => {
+const CreateVendorModal = ({ onClose, onAddVendor, loading ,error}) => {
   const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
 
   const handleChange = (e) => {
@@ -17,14 +17,14 @@ const CreateVendorModal = ({ onClose, onAddVendor }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-white/60  flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-white/70  flex items-center justify-center z-50">
       <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-xl">
         <h2 className="text-xl font-bold mb-4">Create New Vendor</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             type="text"
-            name="name"
-            placeholder="Name"
+            name="username"
+            placeholder="Username"
             className="input input-bordered w-full"
             onChange={handleChange}
             required
@@ -54,8 +54,12 @@ const CreateVendorModal = ({ onClose, onAddVendor }) => {
             required
           />
           <div className="flex justify-end gap-2">
-            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary">Create</button>
+            {error && <p className="text-red-500">{error}</p>}
+            <button type="button" className="btn btn-ghost" onClick={onClose} disabled={loading}>Cancel</button>
+            {loading ? (
+              <span className="loading loading-dots loading-xl"></span>
+            ) : (<button type="submit" className="btn btn-primary">Create</button>)}
+            
           </div>
         </form>
       </div>
