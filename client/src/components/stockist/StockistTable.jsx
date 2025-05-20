@@ -1,8 +1,7 @@
-import React,{useState} from 'react';
+import {useState} from 'react';
 
-import SellerTableRow from './SellerTableRow';
-
-import EditSellerModal from './EditSellerModal';
+import StockistTableRow from './StockistTableRow';
+import EditStockistModal from './EditStockistModal';
 const users = [
     {
       name: 'Hart Hagerty',
@@ -37,7 +36,7 @@ const users = [
       avatar: 'https://img.daisyui.com/images/profile/demo/5@94.webp',
     },
   ];
-export default function SellerTable() {
+export default function StockistTable() {
     const [selectedVendor, setSelectedVendor] = useState(null);
 
   const handleEditClick = (vendor) => {
@@ -65,7 +64,8 @@ export default function SellerTable() {
         </thead>
         <tbody>
           {users.map((user, index) => (
-            <SellerTableRow key={index} user={user} onEdit={handleEditClick} />
+            <StockistTableRow key={index} user={user} onEdit={handleEditClick} />
+            
           ))}
         </tbody>
       
@@ -73,11 +73,12 @@ export default function SellerTable() {
         
       </div>
         {selectedVendor && (
-            <EditSellerModal
+            <EditStockistModal
               vendor={selectedVendor}
               onClose={() => setSelectedVendor(null)}
               onSave={handleUpdateVendor}
-            />
+          />
+          
           )}</>
   );
 }

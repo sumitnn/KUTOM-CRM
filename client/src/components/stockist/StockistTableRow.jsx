@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function SellerTableRow({ user, onEdit }) {
+export default function StockistTableRow({ user, onEdit }) {
   return (
     <tr>
       <th>

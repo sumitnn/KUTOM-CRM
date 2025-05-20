@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
+import StockistTable from '../../components/stockist/StockistTable';
+import CreateStockistModal from '../../components/stockist/CreateStockistModal';
 
-import CreateSellerModal from '../../components/seller/CreateSellerModal';
-import SellerTable from '../../components/seller/SellerTable';
 
-const AdminSeller = () => {
+const AdminStockist = () => {
   const [vendors, setVendors] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -17,25 +17,28 @@ const AdminSeller = () => {
       {/* Header Section */}
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">
-          All Seller ({vendors.length})
+          All Stockist ({vendors.length})
         </h1>
         <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
-          + Create New Seller
+          + Create New Stockist
         </button>
       </div>
 
       {/* Table */}
-      <SellerTable vendors={vendors} setVendors={setVendors} />
+      <StockistTable vendors={vendors} setVendors={setVendors} />
 
       {/* Modal */}
       {isModalOpen && (
-        <CreateSellerModal
+        <CreateStockistModal
           onClose={() => setIsModalOpen(false)}
           onAddVendor={handleAddVendor}
         />
+    
+        
+        
       )}
     </div>
   );
 };
 
-export default AdminSeller;
+export default AdminStockist;

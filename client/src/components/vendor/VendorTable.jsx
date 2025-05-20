@@ -1,42 +1,10 @@
 import React,{useState} from 'react';
 import VendorTableRow from './VendorTableRow';
 import EditVendorModal from './EditVendorModal';
-const users = [
-    {
-      name: 'Hart Hagerty',
-      country: 'United States',
-      company: 'Zemlak, Daniel and Leannon',
-      role: 'Desktop Support Technician',
-      color: 'Purple',
-      avatar: 'https://img.daisyui.com/images/profile/demo/2@94.webp',
-    },
-    {
-      name: 'Brice Swyre',
-      country: 'China',
-      company: 'Carroll Group',
-      role: 'Tax Accountant',
-      color: 'Red',
-      avatar: 'https://img.daisyui.com/images/profile/demo/3@94.webp',
-    },
-    {
-      name: 'Marjy Ferencz',
-      country: 'Russia',
-      company: 'Rowe-Schoen',
-      role: 'Office Assistant I',
-      color: 'Crimson',
-      avatar: 'https://img.daisyui.com/images/profile/demo/4@94.webp',
-    },
-    {
-      name: 'Yancy Tear',
-      country: 'Brazil',
-      company: 'Wyman-Ledner',
-      role: 'Community Outreach Specialist',
-      color: 'Indigo',
-      avatar: 'https://img.daisyui.com/images/profile/demo/5@94.webp',
-    },
-  ];
-export default function VendorTable() {
-    const [selectedVendor, setSelectedVendor] = useState(null);
+
+export default function VendorTable({vendors,onEdit,onDelete}) {
+  const [selectedVendor, setSelectedVendor] = useState(null);
+  console.log(vendors);
 
   const handleEditClick = (vendor) => {
     setSelectedVendor(vendor);
@@ -54,15 +22,17 @@ export default function VendorTable() {
       <table className="table">
         <thead>
           <tr>
-            <th><input type="checkbox" className="checkbox" /></th>
-            <th>Name</th>
-            <th>Job</th>
-            <th>Favorite Color</th>
+            <th>Vendor Id</th>
+            <th>Profile</th>
+            <th>UserName</th>
+            <th>Email</th>
+            <th>City</th>
+            <th>State</th>
             <th>Action</th>
           </tr>
         </thead>
         <tbody>
-          {users.map((user, index) => (
+          {vendors.map((user, index) => (
             <VendorTableRow key={index} user={user} onEdit={handleEditClick} />
           ))}
         </tbody>

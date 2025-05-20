@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function EditSellerModal({ vendor, onClose, onSave }) {
+export default function EditStockistModal({ vendor, onClose, onSave }) {
   const [form, setForm] = useState({ ...vendor });
 
   const handleChange = (e) => {

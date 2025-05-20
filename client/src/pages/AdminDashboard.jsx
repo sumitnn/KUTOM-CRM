@@ -1,6 +1,7 @@
 import React from 'react'
 import StatCard from "../components/StatCard";
 import ChartDashboard from '../components/ChartDashboard';
+import { ToastContainer } from 'react-toastify';
 const stats = [
     {
       title: "Total Products",
@@ -75,6 +76,7 @@ const stats = [
 const AdminDashboard = () => {
     return (
       <>
+        
        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-[10px]">
     {stats.map((stat, index) => (
       <div key={index} className="w-full">

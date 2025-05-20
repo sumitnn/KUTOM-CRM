@@ -11,6 +11,7 @@ import { RxDashboard } from "react-icons/rx";
 import { FaUsersGear } from "react-icons/fa6";
 import { NavLink, useLocation } from "react-router-dom";
 import { useState } from "react";
+import { useAuth } from "../context/AuthContext";
 
 const Sidebar = ({ expanded, setExpanded }) => {
   const location = useLocation();
@@ -20,12 +21,14 @@ const Sidebar = ({ expanded, setExpanded }) => {
 
   const mainItems = [
     { icon: <FaTachometerAlt />, label: "Dashboard", path: "/admin/dashboard" },
-    { icon: <FaUsersGear />, label: "Seller", path: "/admin/seller" },
+    { icon: <FaUsersGear />, label: "Stockist", path: "/admin/stockist" },
     { icon: <FaCalendarAlt />, label: "Vendor", path: "/admin/vendor" },
     { icon: <FaLayerGroup />, label: "Orders", path: "/admin/orders" },
     { icon: <RxDashboard />, label: "Products", path: "/admin/products" },
     { icon: <CiWallet />, label: "Wallet", path: "/admin/wallet" },
   ];
+  const { logout } = useAuth();
+  
 
   return (
     <div
@@ -115,17 +118,15 @@ const Sidebar = ({ expanded, setExpanded }) => {
         </div>
       </nav>
       <div className="px-2 pb-40">
-        <NavLink
-          to="/logout"
-          className={({ isActive }) =>
-            `flex items-center gap-4 p-2 rounded-md hover:bg-red-100 text-red-600 transition ${
-              isActive ? "bg-red-200 font-semibold" : ""
-            }`
-          }
-        >
-          <CiLogout className="text-lg" />
-          {expanded && <span className="font-medium">Logout</span>}
-        </NavLink>
+      <button
+      onClick={logout}
+      className={`flex items-center gap-4 p-2 rounded-md hover:bg-red-100 text-red-600 transition w-full text-left ${
+        location.pathname === "/logout" ? "bg-red-200 font-semibold" : ""
+      }`}
+    >
+      <CiLogout className="text-lg" />
+      {expanded && <span className="font-medium">Logout</span>}
+    </button>
       </div>
      
      
