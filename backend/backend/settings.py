@@ -132,11 +132,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'accounts.User'
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173/",
+    # "http://localhost:5173/",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173/",
+    # "http://localhost:5173/",
 ]
 SECURE_SSL_REDIRECT = True
 SESSION_COOKIE_SECURE = True
