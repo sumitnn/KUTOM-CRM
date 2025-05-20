@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const CreateVendorModal = ({ onClose, onAddVendor,loading,error }) => {
+const CreateVendorModal = ({ onClose, onAddVendor, loading ,error}) => {
   const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
 
   const handleChange = (e) => {
@@ -23,7 +23,7 @@ const CreateVendorModal = ({ onClose, onAddVendor,loading,error }) => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             type="text"
-            name="name"
+            name="username"
             placeholder="Username"
             className="input input-bordered w-full"
             onChange={handleChange}

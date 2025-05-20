@@ -8,26 +8,25 @@ from django.contrib.auth import authenticate
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
-from .models import User
+from .models import User,Profile
 from .permissions import IsAdminRole, IsVendorRole, IsStockistRole
 from rest_framework import generics
+from django.shortcuts import get_object_or_404
 
 class RegisterView(APIView):
-    permission_classes = [AllowAny]
+    # permission_classes = [AllowAny]
+    permission_classes = [IsAdminRole]
 
     def post(self, request):
+        import pdb;pdb.set_trace()
+
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
 
             return Response({
                 "message": "User registered successfully",
-                "success":True,
-                "user": {
-                    "email": serializer.data.get("email"),
-                    "role": serializer.data.get("role"),
-                    "username": serializer.data.get("username")
-                }
+                "success":True
  
             }, status=status.HTTP_201_CREATED)
         return Response({"message":serializer.errors,"success":False}, status=status.HTTP_400_BAD_REQUEST)
@@ -87,6 +86,7 @@ class ListUsersView(APIView):
     permission_classes = [IsAdminRole]
 
     def get(self, request):
+
         if request.GET.get("role")=="vendor":
             users = User.objects.filter(role="vendor")
         elif request.GET.get("role")=="stockist":
@@ -97,12 +97,21 @@ class ListUsersView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
 class DeleteUserView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ IsAdminRole]
 
     def delete(self, request):
-        user = request.user
+        user_id = request.data.get('user_id')  
+
+        if not user_id:
+            return Response({"message": "User ID is required","success":False}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = get_object_or_404(User, id=user_id)
+
+        if user == request.user:
+            return Response({"message": "You cannot delete yourself","success":False}, status=status.HTTP_400_BAD_REQUEST)
+
         user.delete()
-        return Response({"detail": "User deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+        return Response({"message": "User deleted successfully","success":True}, status=status.HTTP_204_NO_CONTENT)
 
 class UserProfileView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ProfileSerializer

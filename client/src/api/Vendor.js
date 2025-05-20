@@ -1,3 +1,4 @@
+
 import axios from "../utils/axiosInstance";
 
 export const fetchVendors = async () => {
@@ -5,13 +6,17 @@ export const fetchVendors = async () => {
 };
 
 export const createVendor = async (data) => {
-    return await axios.post("/register/", data);
+    const vendorData = { ...data, role: "vendor" };
+    return await axios.post("/register/", vendorData);
 };
 
 export const updateVendor = async (id, data) => {
-    return await axios.put(`/user/${id}/`, data);
+    return await axios.put(`/vendors/${id}/`, data);
 };
 
-export const deleteVendor = async (id) => {
-    return await axios.delete(`/user/${id}/`);
+export const deleteVendor = async (user_id) => {
+    return await axios.delete("/delete-user/", {
+        data: { user_id: user_id }
+    });
 };
+
