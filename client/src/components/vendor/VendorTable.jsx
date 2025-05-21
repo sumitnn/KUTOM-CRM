@@ -10,7 +10,7 @@ export default function VendorTable({ vendors, onEdit, onDelete }) {
   };
 
   const handleUpdateVendor = (updatedVendor) => {
-    onEdit(updatedVendor._id, updatedVendor); // pass ID and data to parent
+    onEdit(updatedVendor.id, updatedVendor);
     setSelectedVendor(null);
   };
 

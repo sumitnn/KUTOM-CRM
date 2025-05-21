@@ -18,7 +18,7 @@ class RegisterView(APIView):
     permission_classes = [IsAdminRole]
 
     def post(self, request):
-        import pdb;pdb.set_trace()
+        
 
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
@@ -74,13 +74,27 @@ class GetUserView(APIView):
 class UpdateUserAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def put(self, request):
-        user = request.user
-        serializer = UserSerializer(user, data=request.data, partial=True)  
+    def put(self, request, pk):
+
+        try:
+            user_to_update = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({"success": False, "message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Only admin or the user themselves can update
+        if request.user != user_to_update and request.user.role != 'admin':
+            return Response({"success": False, "message": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = UserSerializer(user_to_update, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return Response({"message": "User updated successfully", "user": serializer.data}, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                "success": True,
+                "message": "User Data updated successfully"
+                
+            }, status=status.HTTP_200_OK)
+
+        return Response({"success": False, "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 class ListUsersView(APIView):
     permission_classes = [IsAdminRole]
@@ -96,11 +110,11 @@ class ListUsersView(APIView):
         serializer = UserSerializer(users, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
-class DeleteUserView(APIView):
+class DeleteUserAPIView(APIView):
     permission_classes = [ IsAdminRole]
 
-    def delete(self, request):
-        user_id = request.data.get('user_id')  
+    def delete(self, request,pk):
+        user_id = pk
 
         if not user_id:
             return Response({"message": "User ID is required","success":False}, status=status.HTTP_400_BAD_REQUEST)

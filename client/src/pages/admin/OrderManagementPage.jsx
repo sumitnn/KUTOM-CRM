@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import UnapprovedOrdersTable from './UnapprovedOrdersTable';
 import OrderTabs from './OrderTabs';
 import AdminOrderModal from './AdminOrderModal';

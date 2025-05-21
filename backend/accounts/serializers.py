@@ -10,8 +10,11 @@ class UserSerializer(serializers.ModelSerializer):
         }
 
     def validate_email(self, value):
-        """Ensure the email is unique."""
-        if User.objects.filter(email=value).exists():
+        """Ensure the email is unique except for the current user."""
+        user_qs = User.objects.filter(email=value)
+        if self.instance:
+            user_qs = user_qs.exclude(pk=self.instance.pk)  # Exclude current user
+        if user_qs.exists():
             raise serializers.ValidationError("A user with this email already exists.")
         return value
 
@@ -33,6 +36,7 @@ class UserSerializer(serializers.ModelSerializer):
         """Update user and optionally update password."""
         instance.email = validated_data.get('email', instance.email)
         instance.role = validated_data.get('role', instance.role)
+        instance.username = validated_data.get('username', instance.username) 
 
         if 'password' in validated_data:
             instance.set_password(validated_data['password'])
