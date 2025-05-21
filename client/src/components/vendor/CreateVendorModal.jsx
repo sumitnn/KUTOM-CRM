@@ -22,6 +22,7 @@ const CreateVendorModal = ({ onClose, onAddVendor, loading ,error}) => {
         <h2 className="text-xl font-bold mb-4">Create New Vendor</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
+            id="username"
             type="text"
             name="username"
             placeholder="Username"
@@ -30,6 +31,7 @@ const CreateVendorModal = ({ onClose, onAddVendor, loading ,error}) => {
             required
           />
           <input
+            id="email"
             type="email"
             name="email"
             placeholder="Email"
@@ -38,6 +40,7 @@ const CreateVendorModal = ({ onClose, onAddVendor, loading ,error}) => {
             required
           />
           <input
+            id="password"
             type="password"
             name="password"
             placeholder="Password"
@@ -46,6 +49,7 @@ const CreateVendorModal = ({ onClose, onAddVendor, loading ,error}) => {
             required
           />
           <input
+            id="confirmPassword"
             type="password"
             name="confirmPassword"
             placeholder="Confirm Password"

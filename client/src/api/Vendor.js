@@ -10,12 +10,12 @@ export const createVendor = async (data) => {
     return await axios.post("/register/", vendorData);
 };
 
-export const updateVendor = async (id, data) => {
-    return await axios.put(`/vendors/${id}/`, data);
+export const updateVendor = async (user_id, data) => {
+    return await axios.put(`/update-user/${user_id}/`, data);
 };
 
 export const deleteVendor = async (user_id) => {
-    return await axios.delete("/delete-user/", {
+    return await axios.delete(`/delete-user/${user_id}/`, {
         data: { user_id: user_id }
     });
 };

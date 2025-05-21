@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { fetchVendors, createVendor, updateVendor, deleteVendor } from "../../api/Vendor";
 import VendorTable from "../../components/vendor/VendorTable";
 import CreateVendorModal from "../../components/vendor/CreateVendorModal";
-
+import { toast } from "react-toastify";
 
 const AdminVendor = () => {
   const [vendors, setVendors] = useState([]);
@@ -34,12 +34,14 @@ const AdminVendor = () => {
     
       if (res.status === 201) {
         loadVendors(); 
-      setModalOpen(false);
+        setModalOpen(false);
+        
       }
-      
+      toast.success("Vendor created successfully!");
     } catch (err) {
       console.log(err);
       setError(err);
+      toast.error(err.response.data.message || "Failed to create vendor");
     } finally {
       setLoading(false);
     }
@@ -47,12 +49,16 @@ const AdminVendor = () => {
 
   const handleEditVendor = async (id, data) => {
     try {
-      await updateVendor(id, data);
-   
-      loadVendors();
+      const res=await updateVendor(id, data);
+      if (res.status === 200) {
+        loadVendors();
+        toast.success("Vendor Data updated successfully!");
+      }
+      
     } catch (err) {
       
       toast.error("Failed to update vendor");
+      console.log(err);
     }
   };
 
@@ -61,8 +67,9 @@ const AdminVendor = () => {
       await deleteVendor(id);
       
       loadVendors();
+      toast.success("Vendor deleted successfully!");
     } catch (err) {
-    
+      toast.error("Failed to delete vendor");
       console.log(err);
     }
   };
