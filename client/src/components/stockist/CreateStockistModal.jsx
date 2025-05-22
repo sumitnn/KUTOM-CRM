@@ -1,7 +1,12 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 
-const CreateStockistModal = ({ onClose, onAddStockist, loading ,error}) => {
-  const [form, setForm] = useState({ username: '', email: '', password: '', confirmPassword: '' });
+const CreateStockistModal = ({ onClose, onAddStockist, loading, error }) => {
+  const [form, setForm] = useState({
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -13,13 +18,13 @@ const CreateStockistModal = ({ onClose, onAddStockist, loading ,error}) => {
       alert('Passwords do not match');
       return;
     }
-    onAddStockist({ ...form });
+    onAddStockist({ username: form.username, email: form.email, password: form.password });
   };
 
   return (
-    <div className="fixed inset-0 bg-white/70  flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-white/70 flex items-center justify-center z-50">
       <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-xl">
-        <h2 className="text-xl font-bold mb-4">Create New Stockist</h2>
+        <h2 className="text-xl font-bold mb-4">Create New Vendor</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             id="username"
@@ -27,6 +32,7 @@ const CreateStockistModal = ({ onClose, onAddStockist, loading ,error}) => {
             name="username"
             placeholder="Username"
             className="input input-bordered w-full"
+            value={form.username}
             onChange={handleChange}
             required
           />
@@ -36,6 +42,7 @@ const CreateStockistModal = ({ onClose, onAddStockist, loading ,error}) => {
             name="email"
             placeholder="Email"
             className="input input-bordered w-full"
+            value={form.email}
             onChange={handleChange}
             required
           />
@@ -45,6 +52,7 @@ const CreateStockistModal = ({ onClose, onAddStockist, loading ,error}) => {
             name="password"
             placeholder="Password"
             className="input input-bordered w-full"
+            value={form.password}
             onChange={handleChange}
             required
           />
@@ -54,16 +62,25 @@ const CreateStockistModal = ({ onClose, onAddStockist, loading ,error}) => {
             name="confirmPassword"
             placeholder="Confirm Password"
             className="input input-bordered w-full"
+            value={form.confirmPassword}
             onChange={handleChange}
             required
           />
+          {error && (
+            <p className="text-red-600 mt-1">{error}</p>
+          )}
           <div className="flex justify-end gap-2">
-            {error && <p className="text-red-500">{error}</p>}
-            <button type="button" className="btn btn-ghost" onClick={onClose} disabled={loading}>Cancel</button>
-            {loading ? (
-              <span className="loading loading-dots loading-xl"></span>
-            ) : (<button type="submit" className="btn btn-primary">Create</button>)}
-            
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={onClose}
+              disabled={loading}
+            >
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? <span className="loading loading-dots loading-xl"></span> : 'Create'}
+            </button>
           </div>
         </form>
       </div>

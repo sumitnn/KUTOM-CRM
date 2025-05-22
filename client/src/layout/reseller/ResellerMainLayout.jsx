@@ -1,8 +1,8 @@
 import { useState } from "react";
-import Navbar from "../components/Navbar";
-import Sidebar from "../components/Sidebar";
+import Navbar from "../../components/Navbar";
+import Sidebar from "../../components/Sidebar";
 
-const MainLayout = ({ children }) => {
+const ResellerMainLayout = ({ children }) => {
   const [expanded, setExpanded] = useState(true);
 
   return (
@@ -22,4 +22,4 @@ const MainLayout = ({ children }) => {
   );
 };
 
-export default MainLayout;
+export default ResellerMainLayout;

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import {EditProfileModal} from "../components/EditProfileModal"
+import {EditProfileModal} from "../../components/EditProfileModal"
 
 export default function Profile() {
   const [isEditing, setIsEditing] = useState(false);

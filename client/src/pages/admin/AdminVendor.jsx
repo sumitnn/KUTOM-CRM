@@ -1,76 +1,65 @@
-import { useState, useEffect } from "react";
-import { fetchVendors, createVendor, updateVendor, deleteVendor } from "../../api/Vendor";
-import VendorTable from "../../components/vendor/VendorTable";
-import CreateVendorModal from "../../components/vendor/CreateVendorModal";
-import { toast } from "react-toastify";
+import React, { useState } from 'react';
+import { toast } from 'react-toastify';
+import {
+  useFetchVendorsQuery,
+  useCreateVendorMutation,
+  useUpdateVendorMutation,
+  useDeleteVendorMutation,
+} from "../../features/vendor/VendorApi";
+
+import VendorTable from '../../components/vendor/VendorTable';
+import CreateVendorModal from '../../components/vendor/CreateVendorModal';
 
 const AdminVendor = () => {
-  const [vendors, setVendors] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const { data: vendors = [], isLoading, refetch } = useFetchVendorsQuery();
+  const [createVendor, { isLoading: creating }] = useCreateVendorMutation();
+  const [updateVendor] = useUpdateVendorMutation();
+  const [deleteVendor] = useDeleteVendorMutation();
+
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState(null);
 
-  const loadVendors = async () => {
-    setLoading(true);
-    try {
-      const res = await fetchVendors();
-      setVendors(res.data);
-    } catch (err) {
-
-      console.log("Failed to fetch vendors");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadVendors();
-  }, []);
-
   const handleAddVendor = async (vendorData) => {
+    setError(null);
     try {
-      setLoading(true);
-      const res = await createVendor(vendorData);
-    
-      if (res.status === 201) {
-        loadVendors(); 
-        setModalOpen(false);
-        
-      }
-      toast.success("Vendor created successfully!");
+      await createVendor(vendorData).unwrap();
+      toast.success('Vendor created successfully!');
+      setModalOpen(false);
+      refetch();
     } catch (err) {
-      console.log(err);
-      setError(err);
-      toast.error(err.response.data.message || "Failed to create vendor");
-    } finally {
-      setLoading(false);
+      console.error('Create vendor error:', err);
+  
+      // Extract error message from the nested message.email array
+      const errorMessage =
+        err?.data?.message?.email?.[0] ||    
+        err?.data?.message ||                 
+        err?.error ||                       
+        'Failed to create vendor';
+  
+      setError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
   const handleEditVendor = async (id, data) => {
     try {
-      const res=await updateVendor(id, data);
-      if (res.status === 200) {
-        loadVendors();
-        toast.success("Vendor Data updated successfully!");
-      }
-      
+      await updateVendor({ id, data }).unwrap();
+      toast.success('Vendor updated successfully!');
+      refetch();
     } catch (err) {
-      
-      toast.error("Failed to update vendor");
-      console.log(err);
+      console.error('Update vendor error:', err);
+      toast.error('Failed to update vendor');
     }
   };
 
   const handleDeleteVendor = async (id) => {
     try {
-      await deleteVendor(id);
-      
-      loadVendors();
-      toast.success("Vendor deleted successfully!");
+      await deleteVendor(id).unwrap();
+      toast.success('Vendor deleted successfully!');
+      refetch();
     } catch (err) {
-      toast.error("Failed to delete vendor");
-      console.log(err);
+      console.error('Delete vendor error:', err);
+      toast.error('Failed to delete vendor');
     }
   };
 
@@ -83,7 +72,7 @@ const AdminVendor = () => {
         </button>
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <div>Loading...</div>
       ) : (
         <VendorTable vendors={vendors} onEdit={handleEditVendor} onDelete={handleDeleteVendor} />
@@ -91,9 +80,12 @@ const AdminVendor = () => {
 
       {modalOpen && (
         <CreateVendorModal
-          onClose={() => setModalOpen(false)}
+          onClose={() => {
+            setModalOpen(false);
+            setError(null);
+          }}
           onAddVendor={handleAddVendor}
-          loading={loading}
+          loading={creating}
           error={error}
         />
       )}

@@ -1,6 +1,4 @@
-import React from 'react';
-
-const AdminOrderModal = ({ orders, onClose }) => {
+const AdminOrderModal = ({ orders, isLoading, onClose }) => {
   return (
     <>
       <input type="checkbox" id="AdminOrderModal" className="modal-toggle" checked readOnly />
@@ -14,37 +12,42 @@ const AdminOrderModal = ({ orders, onClose }) => {
             ✕
           </button>
           <h3 className="text-xl font-bold mb-4">User Order History</h3>
+
           <div className="overflow-x-auto max-h-96">
-            <table className="table w-full table-zebra">
-              <thead>
-                <tr>
-                  <th>Order ID</th>
-                  <th>Product</th>
-                  <th>Quantity</th>
-                  <th>Price ($)</th>
-                  <th>Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orders.length === 0 ? (
+            {isLoading ? (
+              <p className="text-center py-4">Loading order history...</p>
+            ) : (
+              <table className="table w-full table-zebra">
+                <thead>
                   <tr>
-                    <td colSpan="5" className="text-center text-gray-500 py-4">
-                      No orders found.
-                    </td>
+                    <th>Order ID</th>
+                    <th>Product</th>
+                    <th>Quantity</th>
+                    <th>Price ($)</th>
+                    <th>Date</th>
                   </tr>
-                ) : (
-                  orders.map(({ id, product, quantity, price, date }) => (
-                    <tr key={id}>
-                      <td>{id}</td>
-                      <td>{product}</td>
-                      <td>{quantity}</td>
-                      <td>{price.toFixed(2)}</td>
-                      <td>{date}</td>
+                </thead>
+                <tbody>
+                  {orders.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="text-center text-gray-500 py-4">
+                        No orders found.
+                      </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    orders.map(({ id, product, quantity, price, date }) => (
+                      <tr key={id}>
+                        <td>{id}</td>
+                        <td>{product}</td>
+                        <td>{quantity}</td>
+                        <td>{price.toFixed(2)}</td>
+                        <td>{date}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </div>

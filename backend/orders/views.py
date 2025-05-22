@@ -8,7 +8,7 @@ from accounts.permissions import IsAdminRole, IsStockistRole, IsVendorRole
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import status
-
+from rest_framework.pagination import PageNumberPagination
 
 
 
@@ -52,22 +52,23 @@ class AdminOrderListView(APIView):
     permission_classes = [IsAdminRole]
 
     def get(self, request):
-        # Get the filter type from query parameters
         filter_type = request.query_params.get('filter', 'all')
-
         today = timezone.now().date()
 
-        if filter_type == 'approved':
-            orders = Order.objects.filter(status='approved')
-        elif filter_type == 'rejected':
-            orders = Order.objects.filter(status='rejected')
-        elif filter_type == 'today':
-            orders = Order.objects.filter(created_at__date=today)
-        else:  # 'all'
-            orders = Order.objects.all()
+        filters = {
+            'approved': Q(status='approved'),
+            'rejected': Q(status='rejected'),
+            'today': Q(created_at__date=today),
+        }
 
-        serializer = OrderSerializer(orders, many=True)
-        return Response({"success": True, "data": serializer.data})
+        filter_q = filters.get(filter_type, Q())
+        orders = Order.objects.filter(filter_q).order_by('-created_at')
+
+        paginator = PageNumberPagination()
+        paginated_orders = paginator.paginate_queryset(orders, request)
+        serializer = OrderSerializer(paginated_orders, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
 
 class AdminApproveRejectOrderAPIView(APIView):
     permission_classes = [permissions.IsAdminUser]
