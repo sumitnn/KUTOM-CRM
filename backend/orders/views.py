@@ -58,7 +58,7 @@ class AdminOrderListView(APIView):
         filters = {
             'approved': Q(status='approved'),
             'rejected': Q(status='rejected'),
-            'today': Q(created_at__date=today),
+            'today': Q(created_at__date=today,status="forwarded"),
         }
 
         filter_q = filters.get(filter_type, Q())

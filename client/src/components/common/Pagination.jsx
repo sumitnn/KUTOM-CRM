@@ -7,13 +7,13 @@ const Pagination = ({ page, totalPages, onPageChange }) => {
   
     return (
       <div className="flex justify-center items-center gap-4 my-20">
-        <button onClick={handlePrev} className="btn btn-outline btn-sm" disabled={page === 1}>
+        <button onClick={handlePrev} className="btn btn-outline btn-primary" disabled={page === 1} >
           Previous
         </button>
-        <span className="text-sm">
+        <span className="text-xl">
           Page <strong>{page}</strong> of <strong>{totalPages}</strong>
         </span>
-        <button onClick={handleNext} className="btn btn-outline btn-sm" disabled={page === totalPages}>
+        <button onClick={handleNext} className="btn btn-outline btn-primary" disabled={page === totalPages}>
           Next
         </button>
       </div>
