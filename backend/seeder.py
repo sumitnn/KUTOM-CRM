@@ -3,18 +3,19 @@ import django
 import random
 from faker import Faker
 from decimal import Decimal
-
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings")  
+import uuid
+from django.utils import timezone
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings")
 django.setup()
 
-from accounts.models import User, Profile
+from accounts.models import User, Profile,WalletTransaction, TopUpRequest ,Wallet
 from orders.models import Order, OrderItem
 from products.models import Brand, Category, Product
 
 fake = Faker()
 
 def create_users(num=10):
-    roles = ['admin', 'reseller', 'stockist',]
+    roles = ['admin', 'reseller', 'stockist',"vendor"]
     users = []
     for _ in range(num):
         email = fake.unique.email()
@@ -27,35 +28,21 @@ def create_users(num=10):
         )
         profile = user.profile
         profile.full_name = fake.name()
-        profile.date_of_birth = fake.date_of_birth(minimum_age=18, maximum_age=60)
-        profile.phone = fake.phone_number()
-        profile.address = fake.address()
-        profile.city = fake.city()
-        profile.state = fake.state()
-        profile.pincode = fake.postcode()
         profile.save()
         users.append(user)
     return users
 
 def create_brands(num=5):
-    brands = []
-    for _ in range(num):
-        brand = Brand.objects.create(
-            name=fake.unique.company(),
-            description=fake.text(max_nb_chars=200)
-        )
-        brands.append(brand)
-    return brands
+    return [Brand.objects.create(
+        name=fake.unique.company(),
+        description=fake.text(max_nb_chars=200)
+    ) for _ in range(num)]
 
 def create_categories(num=5):
-    categories = []
-    for _ in range(num):
-        category = Category.objects.create(
-            name=fake.unique.word().capitalize(),
-            description=fake.sentence()
-        )
-        categories.append(category)
-    return categories
+    return [Category.objects.create(
+        name=fake.unique.word().capitalize(),
+        description=fake.sentence()
+    ) for _ in range(num)]
 
 def create_products(brands, categories, num=20):
     products = []
@@ -74,7 +61,6 @@ def create_products(brands, categories, num=20):
     return products
 
 def create_orders(resellers, stockists, products, num=15):
-
     for _ in range(num):
         reseller = random.choice(resellers)
         stockist = random.choice(stockists) if stockists else None
@@ -92,29 +78,61 @@ def create_orders(resellers, stockists, products, num=15):
             quantity = random.randint(1, 5)
             price = product.price
             total += quantity * price
-            OrderItem.objects.create(
-                order=order,
-                product=product,
-                quantity=quantity,
-                price=price
-            )
+            OrderItem.objects.create(order=order, product=product, quantity=quantity, price=price)
         order.total_price = total
         order.save()
 
-# ==== RUN SEEDING ====
-print("Seeding data...")
+def create_wallets_and_transactions(users):
+ 
+    for user in users:
+        wallet = user.wallet
 
-users = create_users(20)
+        for _ in range(random.randint(1, 5)):
+            amount = Decimal(random.randint(10, 1000))
+            WalletTransaction.objects.create(
+                wallet=wallet,
+                transaction_type=random.choice(['CREDIT', 'DEBIT']),
+                amount=amount,
+                description=fake.sentence(),
+                transaction_status=random.choice(['SUCCESS', 'FAILED', 'PENDING', 'RECEIVED', 'REFUND'])
+            )
+
+def create_topup_requests(users):
+    for user in users:
+        for _ in range(random.randint(0, 2)):
+            reviewed_at = (
+                timezone.make_aware(fake.date_time_this_year())
+                if random.random() > 0.5
+                else None
+            )
+            TopUpRequest.objects.create(
+                user=user,
+                amount=Decimal(random.randint(100, 2000)),
+                status=random.choice(['PENDING', 'APPROVED', 'REJECTED', 'INVALID_SCREENSHOT', 'INVALID_AMOUNT']),
+                note=fake.sentence(),
+                rejected_reason=random.choice([fake.sentence(), None, ""]),
+                reviewed_at=reviewed_at,
+                approved_by=random.choice(users) if random.random() > 0.5 else None
+            )
+
+# === RUN SEEDING ===
+print("🌱 Seeding data...")
+
+users = create_users(30)
+print("user creation done")
 brands = create_brands(15)
+print("brand creation done")
 categories = create_categories(5)
+print("category creation done")
 products = create_products(brands, categories, 20)
-
-# users=User.objects.exclude(role='superuser')
-# products=Product.objects.all()
-
+print("product creation done")
 resellers = [u for u in users if u.role == 'reseller']
 stockists = [u for u in users if u.role == 'stockist']
 
 create_orders(resellers, stockists, products, 10)
-
+print("create orders done")
+create_wallets_and_transactions(users)
+print("wallet transactions done")
+create_topup_requests(users)
+print("topup request done")
 print("✅ Done seeding.")

@@ -1,61 +1,68 @@
-import React from 'react';
+import React,{useState} from 'react';
 
-const OrderCard = ({ order, onViewUserOrders, isApproved }) => {
-  // Assuming order shape: { id, reseller: {name, profile}, items: [{product, quantity, price}], status }
-  const user = order.reseller || { name: 'Unknown', profile: 'https://i.pravatar.cc/150' };
+
+const OrderCard = ({ order, onViewUserOrders, onApprove, onReject}) => {
+  const user = order.reseller || { name: 'Unknown Reseller' };
+  const stockist = order.stockist || { name: 'Unknown Stockist' };
   const firstItem = order.items?.[0] || {};
   const productName = firstItem.product?.name || 'N/A';
   const quantity = firstItem.quantity || 0;
   const price = firstItem.price ?? 0;
+  const status = order.status?.toLowerCase(); 
+
+  const isDisabled = status === 'approved' || status === 'rejected';
 
   return (
-    <div className="card bg-white shadow-md rounded-lg p-5 flex flex-col space-y-4 hover:shadow-xl transition-shadow">
-      <div className="flex items-center space-x-4">
-        <img
-          src={user.profile}
-          alt={user.name}
-          className="w-14 h-14 rounded-full object-cover"
-        />
+    <div className="bg-white border border-gray-200 rounded-xl shadow-md p-6 transition hover:shadow-lg flex flex-col gap-4 w-full">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:justify-between gap-2">
         <div>
-          <h3 className="text-lg font-semibold">{user.name}</h3>
-          <p className="text-gray-600">{productName}</p>
+          <h3 className="text-lg font-semibold text-gray-800">Reseller: {user.username}</h3>
+          <p className="text-sm font-bold text-gray-500">Stockist: {stockist.username}</p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className={`px-3 py-1 rounded-full text-white text-sm font-medium
+            ${status === 'approved' ? 'bg-green-500' : 
+              status === 'rejected' ? 'bg-red-500' :
+              status === 'forward' ? 'bg-blue-500' : 'bg-yellow-500'}`}>
+            {status || 'Pending'}
+          </span>
         </div>
       </div>
 
-      <div className="flex justify-between text-gray-700 font-medium">
-        <span>Quantity: {quantity}</span>
-        <span>Price: ${price}</span>
+      {/* Product Info */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-gray-700 text-sm font-medium">
+        <div>Product: <span className="font-semibold text-gray-900">{productName}</span></div>
+        <div>Quantity: {quantity}</div>
+        <div className='font-bold'>Price: ₹ {price}</div>
       </div>
 
-      <div className="flex justify-end space-x-3">
-        {!isApproved && (
-          <>
-            <button
-              className="btn btn-success btn-sm"
-              onClick={() => alert(`Approved order ${order.id}`)}
-              type="button"
-            >
-              Approve
-            </button>
-            <button
-              className="btn btn-error btn-sm"
-              onClick={() => alert(`Rejected order ${order.id}`)}
-              type="button"
-            >
-              Reject
-            </button>
-          </>
-        )}
-
+      {/* Buttons */}
+      <div className="flex flex-wrap justify-end gap-3 pt-2">
+        <button
+          className="btn btn-success btn-sm"
+          onClick={() => onApprove(order.id)}
+          disabled={isDisabled}
+        >
+          Approve
+        </button>
+        <button
+          className="btn btn-error btn-sm"
+          onClick={() => onReject(order.id)}
+          disabled={isDisabled}
+        >
+          Reject
+        </button>
         <button
           className="btn btn-info btn-sm"
           onClick={() => onViewUserOrders(order.items)}
-          aria-label={`View all orders for ${user.name}`}
-          type="button"
+          disabled={isDisabled}
         >
           View All
         </button>
       </div>
+      
     </div>
   );
 };

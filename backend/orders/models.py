@@ -1,5 +1,5 @@
 from django.db import models
-
+import uuid
 # Create your models here.
 from django.conf import settings
 from products.models import Product  
@@ -12,6 +12,7 @@ ORDER_STATUS = (
 )
 
 class Order(models.Model):
+   
     reseller = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reseller_orders')
     stockist = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='stockist_orders')
     status = models.CharField(max_length=20, choices=ORDER_STATUS, default='pending')

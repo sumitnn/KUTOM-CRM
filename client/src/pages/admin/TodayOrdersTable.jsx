@@ -15,9 +15,9 @@ const TodayOrdersTable = ({ onViewUserOrders }) => {
   const handleReject = (id) => alert(`Reject order ${id}`);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {isLoading ? (
-        <p className="text-center py-8">Loading unapproved orders...</p>
+        <p className="text-center py-8">Loading today orders...</p>
       ) : error ? (
         <p className="text-center text-red-500 py-8">Error loading orders.</p>
       ) : orders.length === 0 ? (
@@ -34,12 +34,12 @@ const TodayOrdersTable = ({ onViewUserOrders }) => {
               return (
                 <div
                   key={id}
-                  className="bg-white rounded-2xl shadow border border-gray-200 p-5 flex flex-col justify-between min-h-[400px] max-h-[500px] overflow-hidden"
+                  className="bg-white hover:shadow-xl rounded-2xl shadow border border-gray-200 p-5 flex flex-col justify-between min-h-[400px] max-h-[500px] overflow-hidden"
                 >
                   {/* Header */}
                   <div className="mb-3">
-                    <p className="font-bold text-lg mb-1">Order #{id}</p>
-                    <p className="text-sm text-gray-500 capitalize">Status: {status}</p>
+                    <p className="font-extrabold text-lg mb-1">Order #{id}</p>
+                    <p className="text-sm font-bold text-gray-500 capitalize ">Status: <span className='text-blue-600 font-bold'>{status}</span></p>
                   </div>
 
                   {/* Reseller and Stockist */}
@@ -52,9 +52,9 @@ const TodayOrdersTable = ({ onViewUserOrders }) => {
                           className="w-10 h-10 rounded-full"
                         />
                         <div className="truncate">
-                          <p className="font-medium text-sm">{user?.username || 'Unknown'}</p>
-                          <p className="text-xs text-gray-500 break-words">{user?.email || 'N/A'}</p>
-                          <p className="text-xs text-gray-400">{idx === 0 ? 'Reseller' : 'Stockist'}</p>
+                          <p className="font-bold text-md text-red-500">{user?.username || 'Guest'}</p>
+                          <p className="text-sm font-bold text-gray-700 break-words">{user?.email || 'N/A'}</p>
+                          <p className="text-md font-bold text-blue-500">{idx === 0 ? 'Reseller' : 'Stockist'}</p>
                         </div>
                       </div>
                     ))}
@@ -68,10 +68,10 @@ const TodayOrdersTable = ({ onViewUserOrders }) => {
                       items.map((item) => (
                         <div key={item.id} className="flex justify-between items-start">
                           <div>
-                            <p className="font-semibold">{item.product?.name || 'Unnamed Product'}</p>
-                            <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
+                            <p className="font-bold">{item.product?.name || 'Unnamed Product'}</p>
+                            <p className="text-sm text-gray-800">Qty: <span className='font-extrabold'>{item.quantity}</span></p>
                           </div>
-                          <p className="text-sm">${item.price}</p>
+                          <p className="text-sm font-bold">₹{item.price}</p>
                         </div>
                       ))
                     )}
@@ -79,29 +79,29 @@ const TodayOrdersTable = ({ onViewUserOrders }) => {
 
                   {/* Summary */}
                   <div className="border-t pt-2 text-sm font-semibold flex justify-between">
-                    <span>Total Qty: {totalQuantity}</span>
-                    <span>Total: ${totalPrice}</span>
+                    <span className='font-bold'>Total Qty: {totalQuantity}</span>
+                    <span className='font-bold'>Total: ₹ {totalPrice}</span>
                   </div>
 
                   {/* Actions */}
-                  <div className="flex flex-wrap gap-2 mt-3">
+                  <div className="flex flex-wrap gap-2 mt-4">
                     <button
                       onClick={() => handleApprove(id)}
-                      className="btn btn-success btn-sm"
+                      className="btn btn-success btn-sm font-bold"
                     >
                       Approve
                     </button>
                     <button
                       onClick={() => handleReject(id)}
-                      className="btn btn-error btn-sm"
+                      className="btn btn-error btn-sm font-bold"
                     >
                       Reject
                     </button>
                     <button
                       onClick={() => onViewUserOrders(order.items)}
-                      className="btn btn-info btn-sm"
+                      className="btn btn-warning btn-sm font-bold"
                     >
-                      View All
+                      View History
                     </button>
                   </div>
                 </div>
