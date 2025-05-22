@@ -11,7 +11,17 @@ urlpatterns = [
     path('users-list/', ListUsersView.as_view(), name='users-list'),
     path('profile/', UserProfileView.as_view(), name='user-profile'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-
-     path('update-user/<int:pk>/', UpdateUserAPIView.as_view(), name='update-user'),
+    path('update-user/<int:pk>/', UpdateUserAPIView.as_view(), name='update-user'),
     path('delete-user/<int:pk>/', DeleteUserAPIView.as_view(), name='delete-user'),
+
+    # password related
+     path('forgot-password/', ForgotPasswordView.as_view(), name='forgot-password'),
+    path('reset-password/', ResetPasswordView.as_view(), name='reset-password'),
+    path('change-password/', ChangePasswordView.as_view(), name='change-password'),
+
+    # wallet apis 
+    path('wallet/', WalletView.as_view(), name='wallet'),         
+    path('wallet/update/<uuid:user__id>/', WalletUpdateView.as_view(), name='wallet-update'), 
+    path('wallet/transactions/', WalletTransactionListView.as_view(), name='wallet-transactions'),
+
 ]
