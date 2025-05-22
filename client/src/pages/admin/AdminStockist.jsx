@@ -1,78 +1,64 @@
-import React, { useState,useEffect } from 'react';
+import React, { useState } from 'react';
+import { toast } from 'react-toastify';
+import {
+  useFetchStockistQuery,
+  useCreateStockistMutation,
+  useUpdateStockistMutation,
+  useDeleteStockistMutation,
+} from '../../features/stockist/stockistApi';
 import StockistTable from '../../components/stockist/StockistTable';
 import CreateStockistModal from '../../components/stockist/CreateStockistModal';
-import { toast } from "react-toastify";
-import { fetchStockist, createStockist, updateStockist, deleteStockist } from "../../api/Stockist";
-
-
 
 const AdminStockist = () => {
-  const [stockist, setStockist] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const { data: stockist = [], isLoading, refetch } = useFetchStockistQuery();
+  const [createStockist, { isLoading: creating }] = useCreateStockistMutation();
+  const [updateStockist] = useUpdateStockistMutation();
+  const [deleteStockist] = useDeleteStockistMutation();
+
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState(null);
 
-  const loadStockist = async () => {
-    setLoading(true);
-    try {
-      const res = await fetchStockist();
-      setStockist(res.data);
-    } catch (err) {
-
-      console.log("Failed to fetch vendors");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadStockist();
-  }, []);
-
   const handleAddStockist = async (stockistData) => {
+    setError(null);
     try {
-      setLoading(true);
-      const res = await createStockist(stockistData);
-    
-      if (res.status === 201) {
-        loadStockist(); 
-        setModalOpen(false);
-        
-      }
-      toast.success("Stockist Account created successfully!");
+      await createStockist(stockistData).unwrap();
+      toast.success('stockist created successfully!');
+      setModalOpen(false);
+      refetch();
     } catch (err) {
-      console.log(err);
-      setError(err);
-      toast.error(err.response.data.message || "Failed to create stockist");
-    } finally {
-      setLoading(false);
+      console.error('Create vendor error:', err);
+  
+      // Extract error message from the nested message.email array
+      const errorMessage =
+        err?.data?.message?.email?.[0] ||    
+        err?.data?.message ||                 
+        err?.error ||                       
+        'Failed to create stockist';
+  
+      setError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
   const handleEditStockist = async (id, data) => {
     try {
-      const res=await updateStockist(id, data);
-      if (res.status === 200) {
-        loadStockist();
-        toast.success("Stockist Account updated successfully!");
-      }
-      
+      await updateStockist({ id, data }).unwrap();
+      toast.success('stockist updated successfully!');
+      refetch();
     } catch (err) {
-      
-      toast.error("Failed to update stockist account");
-      console.log(err);
+      console.error('Update stockist error:', err);
+      toast.error('Failed to update stockist');
     }
   };
 
   const handleDeleteStockist = async (id) => {
     try {
-      await deleteStockist(id);
-      
-      loadStockist();
-      toast.success("Stockist Account deleted successfully!");
+      await deleteStockist(id).unwrap();
+      toast.success('Stockist deleted successfully!');
+      refetch();
     } catch (err) {
-      toast.error("Failed to delete Stockist Account");
-      console.log(err);
+      console.error('Delete stockist error:', err);
+      toast.error('Failed to delete stockist');
     }
   };
 
@@ -85,17 +71,20 @@ const AdminStockist = () => {
         </button>
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <div>Loading...</div>
       ) : (
-        <StockistTable stockists={stockist} onEdit={handleEditStockist} onDelete={handleDeleteStockist} />
+        <StockistTable stockist={stockist} onEdit={handleEditStockist} onDelete={handleDeleteStockist} />
       )}
 
       {modalOpen && (
         <CreateStockistModal
-          onClose={() => setModalOpen(false)}
-          onAddStockist={handleAddStockist}
-          loading={loading}
+          onClose={() => {
+            setModalOpen(false);
+            setError(null);
+          }}
+          onAddVendor={handleAddStockist}
+          loading={creating}
           error={error}
         />
       )}

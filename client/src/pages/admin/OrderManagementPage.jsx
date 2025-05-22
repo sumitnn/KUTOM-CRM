@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import UnapprovedOrdersTable from './UnapprovedOrdersTable';
+import TodayOrdersTable from './TodayOrdersTable';
 import OrderTabs from './OrderTabs';
 import AdminOrderModal from './AdminOrderModal';
 
@@ -18,10 +18,10 @@ const OrderManagementPage = () => {
     <div className="px-6 sm:px-6 md:px-8 lg:px-10 py-6 space-y-10">
       <h1 className="text-4xl font-bold text-center mb-8">Order Request Management</h1>
 
-      {/* Unapproved Orders Table */}
+      {/* Today Orders Table */}
       <section>
-        <h2 className="text-2xl font-semibold mb-4">Unapproved Order Requests</h2>
-        <UnapprovedOrdersTable onViewUserOrders={handleViewUserOrders} />
+        <h2 className="text-2xl font-semibold mb-4">Today's Order Requests</h2>
+        <TodayOrdersTable onViewUserOrders={handleViewUserOrders} />
       </section>
 
       {/* Orders Tabs */}

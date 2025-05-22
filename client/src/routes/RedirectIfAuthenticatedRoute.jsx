@@ -1,8 +1,9 @@
+// src/components/RedirectIfAuthenticatedRoute.jsx
 import { Navigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useSelector } from "react-redux";
 
 const RedirectIfAuthenticatedRoute = ({ children }) => {
-  const { user } = useAuth();
+  const { user } = useSelector((state) => state.auth);
 
   if (!user) return children;
 

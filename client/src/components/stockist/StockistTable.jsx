@@ -1,9 +1,8 @@
-import {useState} from 'react';
-
+import { useState } from 'react';
 import StockistTableRow from './StockistTableRow';
 import EditStockistModal from './EditStockistModal';
 
-export default function StockistTable({ stockists, onEdit, onDelete }) {
+export default function StockistTable({ stockist, onEdit, onDelete }) {
   const [selectedStockist, setSelectedStockist] = useState(null);
 
   const handleEditClick = (stockist) => {
@@ -31,7 +30,7 @@ export default function StockistTable({ stockists, onEdit, onDelete }) {
             </tr>
           </thead>
           <tbody>
-            {stockists.map((user) => (
+            {stockist.map((user) => (
               <StockistTableRow
                 key={user.id}
                 user={user}
@@ -45,7 +44,7 @@ export default function StockistTable({ stockists, onEdit, onDelete }) {
 
       {selectedStockist && (
         <EditStockistModal
-          vendor={selectedStockist}
+          stockist={selectedStockist}
           onClose={() => setSelectedStockist(null)}
           onSave={handleUpdateStockist}
         />

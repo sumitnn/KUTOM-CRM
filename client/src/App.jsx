@@ -1,15 +1,13 @@
 // App.jsx
 import { BrowserRouter } from "react-router-dom";
 import AppRoutes from "./AppRoutes";
-import { AuthProvider } from "./context/AuthContext";
+
 import { ToastContainer } from 'react-toastify';
-
-
 
 
 function App() {
   return (
-    <AuthProvider>
+    
       
       <BrowserRouter>
       <ToastContainer 
@@ -24,8 +22,7 @@ function App() {
       />
         <AppRoutes />
         </BrowserRouter>
-      
-    </AuthProvider>
+   
   );
 }
 

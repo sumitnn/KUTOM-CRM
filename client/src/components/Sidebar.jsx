@@ -9,15 +9,36 @@ import {
 import { CiWallet, CiLogout } from "react-icons/ci";
 import { RxDashboard } from "react-icons/rx";
 import { FaUsersGear } from "react-icons/fa6";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useDispatch } from "react-redux";
+import { useLogoutMutation } from "../features/auth/authApi";
+import { logout as logoutAction } from "../features/auth/authSlice";
 
 const Sidebar = ({ expanded, setExpanded }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const [triggerLogout] = useLogoutMutation();
   const [settingsOpen, setSettingsOpen] = useState(
     location.pathname.startsWith("/dashboard/settings")
   );
+
+  const handleLogout = async () => {
+    const refresh_token = localStorage.getItem("refresh_token");
+
+    try {
+      if (refresh_token) {
+        await triggerLogout(refresh_token).unwrap();
+      }
+    } catch (error) {
+      console.error("Logout failed:", error);
+      // Even if API logout fails, continue local logout
+    } finally {
+      dispatch(logoutAction()); // Clear Redux + localStorage
+      navigate("/login"); // Redirect to login
+    }
+  };
 
   const mainItems = [
     { icon: <FaTachometerAlt />, label: "Dashboard", path: "/admin/dashboard" },
@@ -27,8 +48,6 @@ const Sidebar = ({ expanded, setExpanded }) => {
     { icon: <RxDashboard />, label: "Products", path: "/admin/products" },
     { icon: <CiWallet />, label: "Wallet", path: "/admin/wallet" },
   ];
-  const { logout } = useAuth();
-  
 
   return (
     <div
@@ -46,7 +65,7 @@ const Sidebar = ({ expanded, setExpanded }) => {
         </button>
       </div>
 
-      {/* Main Menu */}
+      {/* Main Navigation */}
       <nav className="flex-1 px-2 py-4 space-y-2 overflow-y-auto">
         {mainItems.map((item, idx) => (
           <NavLink
@@ -63,21 +82,15 @@ const Sidebar = ({ expanded, setExpanded }) => {
           </NavLink>
         ))}
 
-        {/* Settings with Nested Items */}
+        {/* Settings Menu */}
         <div className="text-gray-700">
           <div
             className="flex items-center gap-4 p-2 rounded-md cursor-pointer hover:bg-indigo-100"
             onClick={() => setSettingsOpen(!settingsOpen)}
           >
             <FaCog className="text-lg" />
-            {expanded && (
-              <span className="font-medium flex-1">Settings</span>
-            )}
-            {expanded && (
-              <span className="text-sm">
-                {settingsOpen ? "▲" : "▼"}
-              </span>
-            )}
+            {expanded && <span className="font-medium flex-1">Settings</span>}
+            {expanded && <span className="text-sm">{settingsOpen ? "▲" : "▼"}</span>}
           </div>
 
           {settingsOpen && expanded && (
@@ -102,7 +115,6 @@ const Sidebar = ({ expanded, setExpanded }) => {
               >
                 Change Password
               </NavLink>
-
               <NavLink
                 to="/settings/forget-password"
                 className={({ isActive }) =>
@@ -117,19 +129,17 @@ const Sidebar = ({ expanded, setExpanded }) => {
           )}
         </div>
       </nav>
+
+      {/* Logout Button */}
       <div className="px-2 pb-40">
-      <button
-      onClick={logout}
-      className={`flex items-center gap-4 p-2 rounded-md hover:bg-red-100 text-red-600 transition w-full text-left ${
-        location.pathname === "/logout" ? "bg-red-200 font-semibold" : ""
-      }`}
-    >
-      <CiLogout className="text-lg" />
-      {expanded && <span className="font-medium">Logout</span>}
-    </button>
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-4 p-2 rounded-md hover:bg-red-100 text-red-600 transition w-full text-left"
+        >
+          <CiLogout className="text-lg" />
+          {expanded && <span className="font-medium">Logout</span>}
+        </button>
       </div>
-     
-     
     </div>
   );
 };

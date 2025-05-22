@@ -115,6 +115,6 @@ products = create_products(brands, categories, 20)
 resellers = [u for u in users if u.role == 'reseller']
 stockists = [u for u in users if u.role == 'stockist']
 
-create_orders(resellers, stockists, products, 20)
+create_orders(resellers, stockists, products, 10)
 
 print("✅ Done seeding.")

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
-export default function EditStockistModal({ vendor, onClose, onSave }) {
-  const [form, setForm] = useState({ ...vendor });
+export default function EditStockistModal({ stockist, onClose, onSave }) {
+  const [form, setForm] = useState({ ...stockist });
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -49,7 +49,7 @@ export default function EditStockistModal({ vendor, onClose, onSave }) {
          
           <div className="flex justify-end gap-2">
             <button type="button" onClick={onClose} className="btn btn-outline">Cancel</button>
-            <button type="submit" className="btn btn-primary">Update</button>
+            <button type="submit" className="btn btn-primary">Save</button>
           </div>
         </form>
       </div>

@@ -12,36 +12,35 @@ instance.interceptors.request.use((config) => {
     return config;
 });
 
-// Response interceptor to handle token expiration
 instance.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
 
-        // If token is expired and we haven't retried yet
         if (
             error.response?.status === 401 &&
             error.response.data?.code === "token_not_valid" &&
+            error.response.data?.messages?.[0]?.message === "Token is expired" &&
             !originalRequest._retry
         ) {
             originalRequest._retry = true;
 
-            try {
-                const refreshToken = localStorage.getItem("refresh_token");
-                const res = await axios.post(`${import.meta.env.VITE_BACKEND_API_URL}/token/refresh/`, {
-                    refresh: refreshToken,
-                });
+            const refreshToken = localStorage.getItem("refresh_token");
+            if (!refreshToken) {
+                localStorage.clear();
+                window.location.href = "/login";
+                return Promise.reject(error);
+            }
 
+            try {
+                const res = await instance.post("/token/refresh/", { refresh: refreshToken });
                 const newAccessToken = res.data.access;
                 localStorage.setItem("access_token", newAccessToken);
-
-                // Retry original request with new token
                 originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
                 return instance(originalRequest);
             } catch (refreshError) {
-                console.error("Refresh token invalid:", refreshError);
                 localStorage.clear();
-                window.location.href = "/login"; // Or navigate in React
+                window.location.href = "/login";
                 return Promise.reject(refreshError);
             }
         }
@@ -49,5 +48,6 @@ instance.interceptors.response.use(
         return Promise.reject(error);
     }
 );
+  
 
 export default instance;
