@@ -5,6 +5,7 @@ import { vendorApi } from "../features/vendor/vendorApi";
 import authReducer from "../features/auth/authSlice";
 import { stockistApi } from "../features/stockist/StockistApi";
 import { orderApi } from "../features/order/orderApi";
+import { walletApi } from "../features/walletApi";
 export const store = configureStore({
     reducer: {
         auth: authReducer,
@@ -12,7 +13,10 @@ export const store = configureStore({
         [vendorApi.reducerPath]: vendorApi.reducer,
         [stockistApi.reducerPath]: stockistApi.reducer,
         [orderApi.reducerPath]: orderApi.reducer,
+        [walletApi.reducerPath]: walletApi.reducer,
     },
     middleware: (getDefaultMiddleware) =>
-        getDefaultMiddleware().concat(authApi.middleware, vendorApi.middleware,stockistApi.middleware,orderApi.middleware),
+        getDefaultMiddleware().concat(authApi.middleware, vendorApi.middleware, stockistApi.middleware, orderApi.middleware,
+            walletApi.middleware
+        ),
 });

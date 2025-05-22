@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Profile
+from .models import User, Profile,Wallet,WalletTransaction,TopUpRequest
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -49,3 +49,29 @@ class ProfileSerializer(serializers.ModelSerializer):
         model = Profile
         fields = '__all__'
         read_only_fields = ['user', 'created_at', 'updated_at']
+
+
+
+class WalletTransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WalletTransaction
+        fields = '__all__'
+        read_only_fields = ['wallet', 'created_at']
+
+class WalletSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = Wallet
+        fields = ['id', 'balance']
+        read_only_fields = ['user', 'balance']
+
+
+
+class TopUpRequestSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField(read_only=True)
+    approved_by = serializers.StringRelatedField(read_only=True)
+
+    class Meta:
+        model = TopUpRequest
+        fields = '__all__'
+        read_only_fields = ['status', 'approved_by', 'reviewed_at', 'created_at', 'rejected_reason']

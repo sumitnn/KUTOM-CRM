@@ -12,6 +12,11 @@ from .models import User,Profile
 from .permissions import IsAdminRole, IsVendorRole, IsStockistRole
 from rest_framework import generics
 from django.shortcuts import get_object_or_404
+from decimal import Decimal, InvalidOperation
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+
 
 class RegisterView(APIView):
     # permission_classes = [AllowAny]
@@ -134,24 +139,7 @@ class UserProfileView(generics.RetrieveUpdateDestroyAPIView):
     def get_object(self):
         return self.request.user.profile
 
-class LogoutView(APIView):
-    permission_classes = [IsAuthenticated]
 
-    def post(self, request):
-        try:
-            refresh_token = request.data.get("refresh")
-            if refresh_token is None:
-                return Response({"message": "Refresh token is required", "success": False}, status=status.HTTP_400_BAD_REQUEST)
-            
-            token = RefreshToken(refresh_token)
-            token.blacklist()  # blacklist the refresh token
-
-            return Response({"message": "Logout successful", "success": True}, status=status.HTTP_200_OK)
-        
-        except TokenError as e:
-            return Response({"message": "Invalid or expired token", "success": False}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return Response({"message": str(e), "success": False}, status=status.HTTP_400_BAD_REQUEST)
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
@@ -168,3 +156,172 @@ class LogoutView(APIView):
 
         except Exception as e:
             return Response({"message": str(e), "success": False}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+class WalletView(generics.RetrieveAPIView):
+    serializer_class = WalletSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return Wallet.objects.get(user=self.request.user)
+
+
+# Admin only - update user wallet balance (credit or debit)
+class WalletUpdateView(generics.UpdateAPIView):
+    serializer_class = WalletSerializer
+    permission_classes = [IsAdminRole]
+    lookup_field = 'user__id' 
+    queryset = Wallet.objects.all()
+
+    def update(self, request, *args, **kwargs):
+        
+        wallet = self.get_object()
+        data = request.data
+        transaction_type = data.get("transaction_type")
+        amount = data.get("amount")
+        description = data.get("description", "")
+        status = data.get("transaction_status", "SUCCESS")
+
+        if not amount or not transaction_type:
+            return Response({"message": "Amount and transaction_type are required.", "status": False}, status=400)
+
+        
+
+        try:
+            amount = Decimal(str(amount))  # Safely convert to Decimal
+        except (InvalidOperation, ValueError):
+            return Response({"message": "Invalid amount.", "status": False}, status=400)
+
+        if transaction_type == "CREDIT":
+            wallet.balance += amount
+        elif transaction_type == "DEBIT":
+            if wallet.balance < amount:
+                return Response({"message": "Insufficient wallet balance.", "status": False}, status=400)
+            wallet.balance -= amount
+        else:
+            return Response({"message": "Invalid transaction type.", "status": False}, status=400)
+
+        wallet.save()
+
+        WalletTransaction.objects.create(
+            wallet=wallet,
+            transaction_type=transaction_type,
+            amount=amount,
+            transaction_status=status,
+            description=description,
+        )
+
+        return Response(WalletSerializer(wallet).data)
+
+# All users see their own transactions; Admins can see all
+class WalletTransactionListView(generics.ListAPIView):
+    serializer_class = WalletTransactionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # if self.request.user.is_staff:
+        #     return WalletTransaction.objects.select_related('wallet__user').all()
+        return WalletTransaction.objects.filter(wallet__user=self.request.user)
+    
+
+
+class ForgotPasswordView(APIView):
+    def post(self, request):
+        email = request.data.get("email")
+        if not email:
+            return Response({"detail": "Email is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(email=email)
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+            reset_link = f"http://localhost:8008/reset-password/{uid}/{token}"
+
+            # Simulate email send
+            print(f"Password reset link for {email}: {reset_link}")
+            # Uncomment to send email
+            # send_mail("Reset your password", f"Click here to reset your password: {reset_link}", "noreply@example.com", [email])
+
+            return Response({"detail": "Password reset link sent. Check terminal for now."})
+        except User.DoesNotExist:
+            return Response({"detail": "User with this email does not exist."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ResetPasswordView(APIView):
+    def post(self, request):
+        uidb64 = request.data.get("uid")
+        token = request.data.get("token")
+        new_password = request.data.get("new_password")
+
+        if not uidb64 or not token or not new_password:
+            return Response({"detail": "Invalid request."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=uid)
+
+            if default_token_generator.check_token(user, token):
+                user.set_password(new_password)
+                user.save()
+                return Response({"detail": "Password reset successfully."})
+            else:
+                return Response({"detail": "Invalid or expired token."}, status=status.HTTP_400_BAD_REQUEST)
+        except (User.DoesNotExist, ValueError, TypeError):
+            return Response({"detail": "Invalid reset link."}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        old_password = request.data.get("old_password")
+        new_password = request.data.get("new_password")
+
+        if not old_password or not new_password:
+            return Response({"detail": "Both old and new passwords are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not user.check_password(old_password):
+            return Response({"detail": "Old password is incorrect."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(new_password)
+        user.save()
+        return Response({"detail": "Password changed successfully."})
+    
+
+
+class TopUpRequestListCreateView(generics.ListCreateAPIView):
+    queryset = TopUpRequest.objects.all()
+    serializer_class = TopUpRequestSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if self.request.user.is_staff:
+            return TopUpRequest.objects.all()
+        return TopUpRequest.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class TopUpRequestReviewView(generics.UpdateAPIView):
+    queryset = TopUpRequest.objects.all()
+    serializer_class = TopUpRequestSerializer
+    permission_classes = [IsAdminRole]
+
+    def update(self, request, *args, **kwargs):
+        topup = self.get_object()
+        status_action = request.data.get("status")
+        reason = request.data.get("rejected_reason", "")
+
+        if status_action not in ["APPROVED", "REJECTED", "INVALID_SCREENSHOT", "INVALID_AMOUNT"]:
+            return Response({"detail": "Invalid status action."}, status=status.HTTP_400_BAD_REQUEST)
+
+        topup.status = status_action
+        topup.reviewed_at = now()
+        topup.approved_by = request.user
+        if status_action in ["REJECTED", "INVALID_SCREENSHOT", "INVALID_AMOUNT"]:
+            topup.rejected_reason = reason
+        topup.save()
+
+        return Response(TopUpRequestSerializer(topup).data)
