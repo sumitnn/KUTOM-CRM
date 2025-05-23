@@ -16,7 +16,7 @@ from decimal import Decimal, InvalidOperation
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
-
+from datetime import datetime
 
 class RegisterView(APIView):
     # permission_classes = [AllowAny]
@@ -170,7 +170,7 @@ class WalletView(generics.RetrieveAPIView):
 class WalletUpdateView(generics.UpdateAPIView):
     serializer_class = WalletSerializer
     permission_classes = [IsAdminRole]
-    lookup_field = 'user__id' 
+    lookup_field = 'user__email' 
     queryset = Wallet.objects.all()
 
     def update(self, request, *args, **kwargs):
@@ -184,8 +184,6 @@ class WalletUpdateView(generics.UpdateAPIView):
 
         if not amount or not transaction_type:
             return Response({"message": "Amount and transaction_type are required.", "status": False}, status=400)
-
-        
 
         try:
             amount = Decimal(str(amount))  # Safely convert to Decimal
@@ -235,7 +233,7 @@ class ForgotPasswordView(APIView):
             user = User.objects.get(email=email)
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
-            reset_link = f"http://localhost:8008/reset-password/{uid}/{token}"
+            reset_link = f"http://localhost:3000/reset-password/{uid}/{token}"
 
             # Simulate email send
             print(f"Password reset link for {email}: {reset_link}")
@@ -249,7 +247,8 @@ class ForgotPasswordView(APIView):
 
 class ResetPasswordView(APIView):
     def post(self, request):
-        uidb64 = request.data.get("uid")
+      
+        uidb64 = request.data.get("userid")
         token = request.data.get("token")
         new_password = request.data.get("new_password")
 
@@ -273,7 +272,7 @@ class ResetPasswordView(APIView):
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def post(self, request):
+    def put(self, request):
         user = request.user
         old_password = request.data.get("old_password")
         new_password = request.data.get("new_password")
@@ -291,20 +290,21 @@ class ChangePasswordView(APIView):
 
 
 class TopUpRequestListCreateView(generics.ListCreateAPIView):
+    pagination_class = None
     queryset = TopUpRequest.objects.all()
     serializer_class = TopUpRequestSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        if self.request.user.is_staff:
-            return TopUpRequest.objects.all()
+        if self.request.user.role=="admin":
+            return TopUpRequest.objects.filter(status="PENDING")
         return TopUpRequest.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
 
-class TopUpRequestReviewView(generics.UpdateAPIView):
+class TopUpRequestUpdateView(generics.UpdateAPIView):
     queryset = TopUpRequest.objects.all()
     serializer_class = TopUpRequestSerializer
     permission_classes = [IsAdminRole]
@@ -315,13 +315,13 @@ class TopUpRequestReviewView(generics.UpdateAPIView):
         reason = request.data.get("rejected_reason", "")
 
         if status_action not in ["APPROVED", "REJECTED", "INVALID_SCREENSHOT", "INVALID_AMOUNT"]:
-            return Response({"detail": "Invalid status action."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": "Invalid status action.","status":False}, status=status.HTTP_400_BAD_REQUEST)
 
         topup.status = status_action
-        topup.reviewed_at = now()
+        topup.reviewed_at = datetime.now()
         topup.approved_by = request.user
         if status_action in ["REJECTED", "INVALID_SCREENSHOT", "INVALID_AMOUNT"]:
             topup.rejected_reason = reason
         topup.save()
 
-        return Response(TopUpRequestSerializer(topup).data)
+        return Response({"message":"Update Status Successfully"},status=status.HTTP_200_OK)

@@ -14,7 +14,7 @@ from pathlib import Path
 from decouple import config,Csv
 from datetime import timedelta
 import os
-
+from rest_framework.renderers import JSONRenderer, BrowsableAPIRenderer
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -120,7 +120,12 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 6,
-
+    'DEFAULT_RENDERER_CLASSES': (
+        JSONRenderer,
+    ) if not DEBUG else (
+        JSONRenderer,
+        BrowsableAPIRenderer,
+    )
 }
 
 # Internationalization
@@ -164,7 +169,7 @@ else:
 
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=75),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     'BLACKLIST_AFTER_ROTATION': True,
     'ROTATE_REFRESH_TOKENS': True,

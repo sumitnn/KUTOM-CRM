@@ -3,7 +3,7 @@ import { useGetTransactionsQuery } from "../../features/walletApi";
 
 const WalletTransactionTable = () => {
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = 6;
 
   const {
     data,
@@ -25,9 +25,9 @@ const WalletTransactionTable = () => {
   return (
     <div className="space-y-4">
       <div className="overflow-x-auto">
-        <table className="table w-full">
-          <thead>
-            <tr>
+        <table className="table w-full border-2 border-warning">
+          <thead className='font-extrabold text-md text-black'>
+            <tr >
               <th>Amount</th>
               <th>Type</th>
               <th>Status</th>
@@ -36,13 +36,13 @@ const WalletTransactionTable = () => {
           </thead>
           <tbody>
             {transactions.map((tx) => (
-              <tr key={tx.id}>
+              <tr key={tx.id} className="hover:bg-orange-50 transition duration-200 ease-in-out">
                 <td className={tx.transaction_type === "CREDIT" ? "text-green-600" : "text-red-600"}>
-                  ₹{tx.amount}
+                  <span className="font-bold">₹{tx.amount}</span>
                 </td>
-                <td>{tx.transaction_type}</td>
-                <td>{tx.transaction_status}</td>
-                <td>{new Date(tx.created_at).toLocaleDateString()}</td>
+                <td className="font-medium">{tx.transaction_type}</td>
+                <td >{tx.transaction_status}</td>
+                <td className="font-bold">{new Date(tx.created_at).toLocaleDateString()}</td>
               </tr>
             ))}
           </tbody>
@@ -50,9 +50,9 @@ const WalletTransactionTable = () => {
       </div>
 
       {/* Pagination Controls */}
-      <div className="flex justify-center items-center gap-4">
+      <div className="flex justify-center items-center gap-6 my-10">
         <button
-          className="btn btn-outline btn-sm"
+          className="btn btn-soft btn-error btn-md"
           onClick={handlePrev}
           disabled={page === 1 || isFetching}
         >
@@ -62,7 +62,7 @@ const WalletTransactionTable = () => {
           Page {page} of {totalPages}
         </span>
         <button
-          className="btn btn-outline btn-sm"
+          className="btn btn-soft btn-error btn-md"
           onClick={handleNext}
           disabled={page === totalPages || isFetching}
         >

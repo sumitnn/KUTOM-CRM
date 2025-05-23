@@ -20,15 +20,26 @@ export const authApi = createApi({
                 data: { refresh_token },
             }),
         }),
-        refresh: builder.mutation({
+        refreshToken: builder.mutation({
             query: (refresh) => ({
                 url: "/token/refresh/",
                 method: "POST",
                 data: { refresh },
             }),
+        
         }),
+        updatePassword: builder.mutation({
+            query: (data) => ({
+                url: "/change-password/",
+                method: "PUT",
+                data: {   
+                    old_password: data.oldPassword,
+                    new_password: data.newPassword,
+                },
+            }),
+          }),
     }),
 });
 
 
-export const { useLoginMutation, useLogoutMutation, useRefreshMutation } = authApi;
+export const { useLoginMutation, useLogoutMutation, useRefreshTokenMutation,useUpdatePasswordMutation } = authApi;

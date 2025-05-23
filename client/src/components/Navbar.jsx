@@ -41,13 +41,13 @@ const Navbar = () => {
                 onClick={() => setDropdownOpen(!dropdownOpen)}
                 className="focus:outline-none"
               >
-               <Link to="/settings/profile" className="inline-block">
+               
   <img
     src="https://img.daisyui.com/images/profile/demo/anakeen@192.webp"
     alt="User"
     className="h-10 w-10 rounded-full border-7 border-transparent hover:border-amber-400 transition"
   />
-</Link>
+
               </button>
 
               {dropdownOpen && (

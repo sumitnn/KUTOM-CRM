@@ -1,14 +1,38 @@
 import { useState } from "react";
+import { toast } from "react-toastify";
 
 const ForgetPasswordForm = () => {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // You can call your API here to send the reset email
-    console.log("Reset link sent to:", email);
-    setSubmitted(true);
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_API_URL}/forgot-password/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSubmitted(true);
+        toast.success(data.detail || "Reset link sent. Please check your email.");
+      } else {
+        toast.error(data.detail || "Failed to send reset link.");
+      }
+    } catch (error) {
+      toast.error("Something went wrong. Please try again.");
+      console.error("Forgot password error:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -24,21 +48,23 @@ const ForgetPasswordForm = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="form-control">
               <label className="label">
-                <span className="label-text">Email Address</span>
+                <span className="label-text font-bold mb-2">Enter Your Email Address</span>
               </label>
-              <input
+                <input
+                  
                 type="email"
                 placeholder="Enter your email"
-                className="input input-bordered w-full"
+                className="input input-bordered w-full font-bold"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={loading}
               />
             </div>
 
             <div className="pt-4">
-              <button type="submit" className="btn btn-primary w-full">
-                Send Reset Link
+              <button type="submit" className="btn btn-primary w-full" disabled={loading}>
+                {loading ? "Sending..." : "Send Reset Link"}
               </button>
             </div>
           </form>

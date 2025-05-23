@@ -10,28 +10,28 @@ const WalletManagementPage = () => {
   return (
     <div className="px-4 sm:px-6 lg:px-10 py-6 space-y-12">
       <div className="text-center space-y-2">
-        <h1 className="text-4xl font-bold text-gray-800">Wallet Management</h1>
+        <h1 className="text-4xl font-extrabold text-[#C42847]">Wallet Management</h1>
         <p className="text-lg text-gray-500">Smart wallet. Smarter moves. Manage your funds with ease and transparency.</p>
       </div>
 
       {/* Wallet Summary Section */}
-      <section>
+      <section className="my-4">
         <WalletSummaryCard onAddAmount={() => setShowAddModal(true)} />
       </section>
-
+      {/* Top-Up Requests */}
+      <section className="my-20">
+              <h2 className="text-2xl font-bold text-gray-700 mb-2">💸 Top-Up Requests (via UPI)</h2>
+              <p className="text-sm font-bold text-gray-500 mb-4">Review and manage wallet top-up requests securely.</p>
+              <TopUpRequestsTable />
+            </section>
       {/* Transaction History */}
-      <section>
-        <h2 className="text-2xl font-semibold text-gray-700 mb-2">💳 Transaction History</h2>
-        <p className="text-sm text-gray-500 mb-4">Track all your wallet activity in real-time.</p>
+      <section className="my-25">
+        <h2 className="text-2xl font-bold text-gray-700 mb-2">💳 Your Transaction History</h2>
+        <p className="text-sm font-bold text-gray-500 mb-4">Track all your wallet activity in real-time.</p>
         <WalletTransactionTable />
       </section>
 
-      {/* Top-Up Requests */}
-      <section>
-        <h2 className="text-2xl font-semibold text-gray-700 mb-2">📥 Top-Up Requests (via UPI)</h2>
-        <p className="text-sm text-gray-500 mb-4">Review and manage wallet top-up requests securely.</p>
-        <TopUpRequestsTable />
-      </section>
+      
 
       {/* Modal */}
       <AddWalletAmountModal open={showAddModal} onClose={() => setShowAddModal(false)} />

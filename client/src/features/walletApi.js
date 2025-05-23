@@ -21,8 +21,8 @@ export const walletApi = createApi({
             query: ({ page = 1 } = {}) => `/wallet/transactions/?page=${page}`,
         }),
         updateWalletAmount: builder.mutation({
-            query: ({ userId, data }) => ({
-                url: `/wallet/update/${userId}/`,
+            query: ({ userEmail, data }) => ({
+                url: `/wallet/update/${userEmail}/`,
                 method: "PUT",
                 body: data,
             }),

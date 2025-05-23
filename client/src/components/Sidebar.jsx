@@ -115,16 +115,7 @@ const Sidebar = ({ expanded, setExpanded }) => {
               >
                 Change Password
               </NavLink>
-              <NavLink
-                to="/settings/forget-password"
-                className={({ isActive }) =>
-                  `block p-2 rounded-md text-sm hover:bg-indigo-100 ${
-                    isActive ? "bg-indigo-200 font-semibold" : ""
-                  }`
-                }
-              >
-                Forget Password
-              </NavLink>
+             
             </div>
           )}
         </div>

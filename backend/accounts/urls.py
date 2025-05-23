@@ -21,7 +21,11 @@ urlpatterns = [
 
     # wallet apis 
     path('wallet/', WalletView.as_view(), name='wallet'),         
-    path('wallet/update/<uuid:user__id>/', WalletUpdateView.as_view(), name='wallet-update'), 
+    path('wallet/update/<str:user__email>/', WalletUpdateView.as_view(), name='wallet-update'), 
     path('wallet/transactions/', WalletTransactionListView.as_view(), name='wallet-transactions'),
+
+    # topup request 
+    path('topup-request/update/<int:pk>/', TopUpRequestUpdateView.as_view(), name='topup-update'),
+    path('topup-request/', TopUpRequestListCreateView.as_view(), name='topup-reqeust'),
 
 ]
