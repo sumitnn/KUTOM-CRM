@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function VendorTableRow({ user, onEdit, onDelete }) {
+export default function StockistTableRow({ user, onEdit, onDelete }) {
   const handleDeleteClick = () => {
     if (window.confirm(`Are you sure you want to delete ${user.username || user.email}? Click OK to confirm.`)) {
       onDelete(user.id);

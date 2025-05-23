@@ -2,29 +2,51 @@
 import { Routes, Route } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoutes";
 import AdminDashboard from "./pages/AdminDashboard"
-import SellerDashboard from "./pages/SellerDashboard";
+
 import VendorDashboard from "./pages/VendorDashboard";
 import MainLayout from "./layout/MainLayout";
 import PageNotFound from "./PageNotFound";
 import Login from "./components/auths/Login"
 import AdminProducts from "./pages/admin/AdminProducts";
 import AdminVendor from "./pages/admin/AdminVendor";
-import AdminSeller from "./pages/admin/AdminSeller";
+
 import Profile from "./pages/Profile";
 import ChangePassword from "./components/auths/ChangePassword";
 import ForgetPasswordForm from "./components/auths/ForgetPasswordForm";
 import CommonLayout from "./layout/CommonLayout";
+
+import OrderManagementPage from "./pages/admin/OrderManagementPage";
+import WalletManagementPage from "./pages/admin/WalletManagementPage";
+import StockistDashboard from "./pages/StockistDashboard";
+import AdminStockist from "./pages/admin/AdminStockist";
+import RedirectIfAuthenticatedRoute from "./components/RedirectIfAuthenticatedRoute";
 const AppRoutes = () => {
   return (
     <Routes>
-      <Route path="/" element={<CommonLayout>
-        <Login />
-        </CommonLayout>
-      } />
-      <Route path="/login" element={<CommonLayout>
-        <Login />
-        </CommonLayout>
-      } />
+      <Route
+        path="/"
+        element={
+          <RedirectIfAuthenticatedRoute>
+            <CommonLayout>
+              <Login />
+            </CommonLayout>
+          </RedirectIfAuthenticatedRoute>
+        }
+      />
+
+      <Route
+        path="/login"
+        element={
+          <RedirectIfAuthenticatedRoute>
+            <CommonLayout>
+              <Login />
+            </CommonLayout>
+          </RedirectIfAuthenticatedRoute>
+        }
+      />
+
+
+
       {/* Admin Routes */}
       <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
         <Route
@@ -32,6 +54,14 @@ const AppRoutes = () => {
           element={
             <MainLayout>
               <AdminDashboard />
+            </MainLayout>
+          }
+        />
+        <Route
+          path="/admin/wallet"
+          element={
+            <MainLayout>
+              <WalletManagementPage/>
             </MainLayout>
           }
         />
@@ -44,6 +74,14 @@ const AppRoutes = () => {
           }
         />
         <Route
+          path="/admin/orders"
+          element={
+            <MainLayout>
+             <OrderManagementPage/>
+            </MainLayout>
+          }
+        />
+        <Route
           path="/admin/vendor"
           element={
             <MainLayout>
@@ -52,10 +90,10 @@ const AppRoutes = () => {
           }
         />
         <Route
-          path="/admin/seller"
+          path="/admin/stockist"
           element={
             <MainLayout>
-             <AdminSeller/>
+             <AdminStockist/>
             </MainLayout>
           }
         />
@@ -85,13 +123,13 @@ const AppRoutes = () => {
         />
       </Route>
 
-      {/* Seller Routes */}
-      <Route element={<ProtectedRoute allowedRoles={['seller']} />}>
+      {/* stockist Routes */}
+      <Route element={<ProtectedRoute allowedRoles={['stockist']} />}>
         <Route
-          path="/seller/dashboard"
+          path="/stockist/dashboard"
           element={
             <MainLayout>
-              <SellerDashboard />
+            <StockistDashboard/>
             </MainLayout>
           }
         />

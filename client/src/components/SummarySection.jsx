@@ -31,21 +31,20 @@ export default function SummarySection() {
 
   return (
     <motion.div
-      className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+      className="flex flex-col xl:flex-row gap-4 w-full max-w-[1440px] mx-auto px-4"
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}
     >
       {/* Summary + Filter */}
-      <div className="bg-white rounded-xl shadow p-4 flex flex-col gap-4">
+      <div className="bg-white rounded-xl shadow p-4 flex flex-col gap-4 w-full xl:max-w-[48%]">
         <div>
           <h2 className="text-xl font-semibold mb-2">Filter Type</h2>
           <select
-            defaultValue={selectedType}
+            value={selectedType}
             className="select select-info w-full"
             onChange={(e) => setSelectedType(e.target.value)}
           >
-            <option disabled>Pick a Framework</option>
             {activityTypes.map((type) => (
               <option key={type}>{type}</option>
             ))}
@@ -65,27 +64,30 @@ export default function SummarySection() {
       </div>
 
       {/* Recent Activity */}
-      <div className="bg-white rounded-xl shadow p-4">
+      <div className="bg-white rounded-xl shadow p-4 w-full xl:max-w-[52%] max-h-[340px] overflow-y-auto">
         <ul className="list bg-base-100 rounded-box shadow-md">
           <li className="p-4 pb-2 text-xs opacity-60 tracking-wide">
             Recent Activities
           </li>
 
           {recentActivities.map((item, i) => (
-            <li className="list-row flex items-center justify-between p-2" key={i}>
-              <div className="flex items-center gap-3">
-                <img
-                  className="size-10 rounded-box"
-                  src={item.img}
-                  alt={item.name}
-                />
-                <div>
-                  <div className="font-semibold">{item.name}</div>
-                  <div className="text-xs uppercase font-semibold opacity-60">
-                    {item.desc}
-                  </div>
-                </div>
-              </div>
+            <li
+              className="list-row flex items-center justify-between p-2 border-b gap-2"
+              key={i}
+            >
+              <div className="flex items-center gap-3 flex-1">
+  <img
+    className="min-w-[2.5rem] size-10 rounded-box object-cover"
+    src={item.img}
+    alt={item.name}
+  />
+  <div className="flex flex-col whitespace-nowrap">
+    <div className="font-semibold">{item.name}</div>
+    <div className="text-xs uppercase font-semibold opacity-60">
+      {item.desc}
+    </div>
+  </div>
+</div>
               <div className="flex gap-1">
                 <button className="btn btn-square btn-ghost">
                   <svg
