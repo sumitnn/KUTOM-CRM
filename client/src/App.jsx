@@ -3,12 +3,13 @@ import { BrowserRouter } from "react-router-dom";
 import AppRoutes from "./AppRoutes";
 
 import { ToastContainer } from 'react-toastify';
-
+import useAutoRefreshToken from "./hooks/useAutoRefreshToken"
 
 function App() {
+  useAutoRefreshToken();
   return (
-    
       
+    
       <BrowserRouter>
       <ToastContainer 
         position="bottom-right"   
@@ -20,6 +21,7 @@ function App() {
       
         pauseOnHover
       />
+      
         <AppRoutes />
         </BrowserRouter>
    

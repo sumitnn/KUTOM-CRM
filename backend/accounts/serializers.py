@@ -70,8 +70,15 @@ class WalletSerializer(serializers.ModelSerializer):
 class TopUpRequestSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField(read_only=True)
     approved_by = serializers.StringRelatedField(read_only=True)
+    role = serializers.SerializerMethodField()
 
     class Meta:
         model = TopUpRequest
         fields = '__all__'
-        read_only_fields = ['status', 'approved_by', 'reviewed_at', 'created_at', 'rejected_reason']
+        read_only_fields = [
+            'status', 'approved_by', 'reviewed_at',
+            'created_at', 'rejected_reason', 'role'
+        ]
+
+    def get_role(self, obj):
+        return getattr(obj.user, 'role', None)

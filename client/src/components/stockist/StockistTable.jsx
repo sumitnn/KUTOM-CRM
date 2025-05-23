@@ -16,10 +16,10 @@ export default function StockistTable({ stockist, onEdit, onDelete }) {
 
   return (
     <>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto my-6">
         <table className="table">
           <thead>
-            <tr>
+            <tr className='font-extrabold text-[#1F7A8C] text-md'>
               <th>Stockist Id</th>
               <th>Profile</th>
               <th>UserName</th>
