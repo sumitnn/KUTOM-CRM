@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import {
-  useFetchStockistQuery,
+  useFetchStockistsQuery,
   useCreateStockistMutation,
   useUpdateStockistMutation,
   useDeleteStockistMutation,
@@ -10,7 +10,7 @@ import StockistTable from '../../components/stockist/StockistTable';
 import CreateStockistModal from '../../components/stockist/CreateStockistModal';
 
 const AdminStockist = () => {
-  const { data: stockist = [], isLoading, refetch } = useFetchStockistQuery();
+  const { data: stockist = [], isLoading, refetch } = useFetchStockistsQuery();
   const [createStockist, { isLoading: creating }] = useCreateStockistMutation();
   const [updateStockist] = useUpdateStockistMutation();
   const [deleteStockist] = useDeleteStockistMutation();
