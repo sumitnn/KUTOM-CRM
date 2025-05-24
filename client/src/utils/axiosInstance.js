@@ -1,7 +1,8 @@
+// src/utils/axiosInstance.js
 import axios from "axios";
 
 const instance = axios.create({
-    baseURL: import.meta.env.VITE_BACKEND_API_URL,
+    baseURL: import.meta.env.VITE_BACKEND_API_URL, // e.g. http://localhost:8000/api
 });
 
 instance.interceptors.request.use((config) => {
@@ -12,6 +13,21 @@ instance.interceptors.request.use((config) => {
     return config;
 });
 
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+    failedQueue.forEach(prom => {
+        if (error) {
+            prom.reject(error);
+        } else {
+            prom.resolve(token);
+        }
+    });
+
+    failedQueue = [];
+};
+
 instance.interceptors.response.use(
     (response) => response,
     async (error) => {
@@ -19,35 +35,50 @@ instance.interceptors.response.use(
 
         if (
             error.response?.status === 401 &&
-            error.response.data?.code === "token_not_valid" &&
-            error.response.data?.messages?.[0]?.message === "Token is expired" &&
-            !originalRequest._retry
+            !originalRequest._retry &&
+            !originalRequest.url.includes("/token/refresh/")
         ) {
-            originalRequest._retry = true;
-
-            const refreshToken = localStorage.getItem("refresh_token");
-            if (!refreshToken) {
-                localStorage.clear();
-                window.location.href = "/login";
-                return Promise.reject(error);
+            if (isRefreshing) {
+                return new Promise(function (resolve, reject) {
+                    failedQueue.push({ resolve, reject });
+                }).then((token) => {
+                    originalRequest.headers["Authorization"] = "Bearer " + token;
+                    return instance(originalRequest);
+                }).catch((err) => {
+                    return Promise.reject(err);
+                });
             }
 
+            originalRequest._retry = true;
+            isRefreshing = true;
+
+            const refreshToken = localStorage.getItem("refresh_token");
+
             try {
-                const res = await instance.post("/token/refresh/", { refresh: refreshToken });
-                const newAccessToken = res.data.access;
+                const response = await axios.post(
+                    `${import.meta.env.VITE_BACKEND_API_URL}/token/refresh/`,
+                    { refresh: refreshToken }
+                );
+
+                const newAccessToken = response.data.access;
                 localStorage.setItem("access_token", newAccessToken);
-                originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+
+                instance.defaults.headers.common["Authorization"] = `Bearer ${newAccessToken}`;
+                processQueue(null, newAccessToken);
+
                 return instance(originalRequest);
-            } catch (refreshError) {
+            } catch (err) {
+                processQueue(err, null);
                 localStorage.clear();
                 window.location.href = "/login";
-                return Promise.reject(refreshError);
+                return Promise.reject(err);
+            } finally {
+                isRefreshing = false;
             }
         }
 
         return Promise.reject(error);
     }
 );
-  
 
 export default instance;

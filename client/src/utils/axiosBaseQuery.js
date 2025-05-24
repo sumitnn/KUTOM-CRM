@@ -1,16 +1,17 @@
-// src/utils/axiosBaseQuery.js
 import axiosInstance from './axiosInstance';
 
 const axiosBaseQuery =
-    ({ baseUrl = '' } = {}) =>
-        async ({ url, method, data, params }) => {
+    () =>
+        async ({ url = '', method, data, params }) => {
             try {
+                // Just call axiosInstance with url and other options
                 const result = await axiosInstance({
-                    url: baseUrl + url,
+                    url,
                     method,
                     data,
                     params,
                 });
+
                 return { data: result.data };
             } catch (axiosError) {
                 const err = axiosError;

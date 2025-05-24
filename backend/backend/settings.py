@@ -11,26 +11,17 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
-from decouple import config,Csv
+from decouple import config, Csv
 from datetime import timedelta
 import os
-from rest_framework.renderers import JSONRenderer, BrowsableAPIRenderer
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-
 SECRET_KEY = config('DJANGO_SECRET_KEY')
+DEBUG = config('DEBUG', cast=bool)
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG')
-CORS_ALLOWED_URL = config('CORS_ALLOWED_URL', cast=Csv())
 ALLOWED_HOSTS = []
+CORS_ALLOWED_URL = config('CORS_ALLOWED_URL', cast=Csv())
 
 
 # Application definition
@@ -114,18 +105,11 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
+    'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-        
-    ),
+    ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 6,
-    'DEFAULT_RENDERER_CLASSES': (
-        JSONRenderer,
-    ) if not DEBUG else (
-        JSONRenderer,
-        BrowsableAPIRenderer,
-    )
+    'PAGE_SIZE': 6
 }
 
 # Internationalization
@@ -153,11 +137,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'accounts.User'
 
 CORS_ALLOWED_ORIGINS = CORS_ALLOWED_URL
-
 CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_URL
-# SECURITY SETTINGS
 
-if DEBUG == 'False' or DEBUG is False:
+# ✅ Secure settings toggle
+if not DEBUG:
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
@@ -166,16 +149,12 @@ else:
     SESSION_COOKIE_SECURE = False
     CSRF_COOKIE_SECURE = False
 
-
-
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=45),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     'BLACKLIST_AFTER_ROTATION': True,
     'ROTATE_REFRESH_TOKENS': True,
     "UPDATE_LAST_LOGIN": False,
     "ALGORITHM": "HS256",
     "SIGNING_KEY": config('JWT_SECRET_KEY'),
-
-
 }

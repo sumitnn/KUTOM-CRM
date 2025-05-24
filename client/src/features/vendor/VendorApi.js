@@ -1,46 +1,40 @@
 // features/vendor/vendorApi.js
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi } from '@reduxjs/toolkit/query/react';
+import axiosBaseQuery from '../../utils/axiosBaseQuery';
 
 export const vendorApi = createApi({
     reducerPath: 'vendorApi',
-    baseQuery: fetchBaseQuery({
-        baseUrl: import.meta.env.VITE_BACKEND_API_URL,
-        prepareHeaders: (headers, { getState }) => {
-            const token = localStorage.getItem('access_token');
-            if (token) {
-                headers.set('authorization', `Bearer ${token}`);
-            }
-            return headers;
-        },
-    }),
+    baseQuery: axiosBaseQuery({ baseUrl: import.meta.env.VITE_BACKEND_API_URL }),
     endpoints: (builder) => ({
         fetchVendors: builder.query({
-            query: () => 'users-list/?role=vendor',
+            query: () => ({
+                url: '/users-list/?role=vendor',
+                method: 'GET',
+            }),
         }),
         createVendor: builder.mutation({
             query: (vendorData) => ({
-                url: 'register/',
+                url: '/register/',
                 method: 'POST',
-                body: { ...vendorData, role: 'vendor' },
+                data: { ...vendorData, role: 'vendor' },
             }),
         }),
         updateVendor: builder.mutation({
             query: ({ id, data }) => ({
-                url: `update-user/${id}/`,
+                url: `/update-user/${id}/`,
                 method: 'PUT',
-                body: data,
+                data,
             }),
         }),
         deleteVendor: builder.mutation({
             query: (id) => ({
-                url: `delete-user/${id}/`,
+                url: `/delete-user/${id}/`,
                 method: 'DELETE',
-                body: { user_id: id },
+                data: { user_id: id },
             }),
         }),
     }),
 });
-
 export const {
     useFetchVendorsQuery,
     useCreateVendorMutation,

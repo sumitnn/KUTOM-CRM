@@ -1,30 +1,28 @@
 // features/wallet/walletApi.js
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { createApi } from '@reduxjs/toolkit/query/react';
+import axiosBaseQuery from '..//utils/axiosBaseQuery'; 
 
 export const walletApi = createApi({
-    reducerPath: "walletApi",
-    baseQuery: fetchBaseQuery({
-        baseUrl: import.meta.env.VITE_BACKEND_API_URL,
-        prepareHeaders: (headers) => {
-            const token = localStorage.getItem("access_token");
-            if (token) {
-                headers.set("authorization", `Bearer ${token}`);
-            }
-            return headers;
-        },
-    }),
+    reducerPath: 'walletApi',
+    baseQuery: axiosBaseQuery({ baseUrl: import.meta.env.VITE_BACKEND_API_URL }),
     endpoints: (builder) => ({
         getWallet: builder.query({
-            query: () => `/wallet/`,
+            query: () => ({
+                url: '/wallet/',
+                method: 'GET',
+            }),
         }),
         getTransactions: builder.query({
-            query: ({ page = 1 } = {}) => `/wallet/transactions/?page=${page}`,
+            query: ({ page = 1 } = {}) => ({
+                url: `/wallet/transactions/?page=${page}`,
+                method: 'GET',
+            }),
         }),
         updateWalletAmount: builder.mutation({
             query: ({ userEmail, data }) => ({
                 url: `/wallet/update/${userEmail}/`,
-                method: "PUT",
-                body: data,
+                method: 'PUT',
+                data, 
             }),
         }),
     }),

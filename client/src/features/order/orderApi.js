@@ -4,7 +4,7 @@ import axiosBaseQuery from '../../utils/axiosBaseQuery';
 
 export const orderApi = createApi({
     reducerPath: 'orderApi',
-    baseQuery: axiosBaseQuery(),
+    baseQuery: axiosBaseQuery({ baseUrl: import.meta.env.VITE_BACKEND_API_URL }),
     endpoints: (builder) => ({
         getAdminOrders: builder.query({
             query: ({ filter = 'all', page = 1 }) => ({
