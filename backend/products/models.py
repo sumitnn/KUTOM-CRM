@@ -287,3 +287,135 @@ class ProductImage(models.Model):
 
     def __str__(self):
         return f"Image for {self.product.name}"
+
+
+
+class ProductVariant(models.Model):
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name='variants'
+    )
+    sku = models.CharField(
+        max_length=50,
+        unique=True,
+        help_text="Unique stock keeping unit for this variant"
+    )
+    name = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Variant name (e.g., 'Red, Large')"
+    )
+    
+    # Inventory
+    quantity = models.PositiveIntegerField(default=0)
+    threshold = models.PositiveIntegerField(
+        default=5,
+        help_text="Low stock warning level"
+    )
+    
+    # Pricing
+    price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Leave blank to use product's base price"
+    )
+
+    cost_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        default=0,
+        validators=[MinValueValidator(0)],
+        help_text="Cost price for this variant"
+    )
+    selling_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        default=0,
+        validators=[MinValueValidator(0)],
+        help_text="Selling price for this variant"
+    )
+
+    mrp = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        default=0,
+        validators=[MinValueValidator(0)],
+        help_text="Maximum Retail Price for this variant"
+    )
+
+    # Images
+    image = models.ImageField(
+        upload_to='variants/images/',
+        blank=True,
+        null=True,
+        help_text="Optional image for this variant"
+    )
+    
+    
+    # Attributes (stored as JSON for efficiency)
+    attributes = models.JSONField(
+        default=dict,
+        help_text="Key-value pairs of variant attributes (e.g., {'color': 'red', 'size': 'xl'})"
+    )
+    
+    active = models.BooleanField(
+        default=True,
+        help_text="Is this variant available for sale?"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-is_default', 'sku']
+        indexes = [
+            models.Index(fields=['product', 'active']),
+            models.Index(fields=['sku']),
+        ]
+
+    def __str__(self):
+        return f"{self.product.name} - {self.name or self.sku}"
+
+    def save(self, *args, **kwargs):
+        # Auto-generate variant name from attributes if not provided
+        if not self.name and self.attributes:
+            self.name = ', '.join(
+                f"{k}:{v}" for k, v in self.attributes.items()
+            )
+        
+        # Ensure only one default variant per product
+        if self.is_default:
+            ProductVariant.objects.filter(
+                product=self.product
+            ).exclude(pk=self.pk).update(is_default=False)
+        
+        super().save(*args, **kwargs)
+
+    @property
+    def display_price(self):
+        """Get the effective price (variant price or fallback to product price)"""
+        return self.price if self.price is not None else self.product.selling_price
+
+    @property
+    def in_stock(self):
+        """Check if variant is available for purchase"""
+        return self.quantity > 0 and self.active
+
+    @property
+    def low_stock(self):
+        """Check if stock is below threshold"""
+        return self.quantity <= self.threshold
+
+    def get_attribute_display(self, attribute_name):
+        """Get formatted attribute value"""
+        return self.attributes.get(attribute_name, '').title()
