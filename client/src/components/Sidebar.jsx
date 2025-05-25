@@ -24,21 +24,7 @@ const Sidebar = ({ expanded, setExpanded }) => {
     location.pathname.startsWith("/dashboard/settings")
   );
 
-  const handleLogout = async () => {
-    const refresh_token = localStorage.getItem("refresh_token");
-
-    try {
-      if (refresh_token) {
-        await triggerLogout(refresh_token).unwrap();
-      }
-    } catch (error) {
-      console.error("Logout failed:", error);
-      // Even if API logout fails, continue local logout
-    } finally {
-      dispatch(logoutAction()); // Clear Redux + localStorage
-      navigate("/login"); // Redirect to login
-    }
-  };
+ 
 
   const mainItems = [
     { icon: <FaTachometerAlt />, label: "Dashboard", path: "/admin/dashboard" },
@@ -124,7 +110,7 @@ const Sidebar = ({ expanded, setExpanded }) => {
       {/* Logout Button */}
       <div className="px-2 pb-40">
         <button
-          onClick={handleLogout}
+          onClick={() => navigate("/logout")}
           className="flex items-center gap-4 p-2 rounded-md hover:bg-red-100 text-red-600 transition w-full text-left"
         >
           <CiLogout className="text-lg" />
