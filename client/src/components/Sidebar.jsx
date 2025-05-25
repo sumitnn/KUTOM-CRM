@@ -11,29 +11,40 @@ import { RxDashboard } from "react-icons/rx";
 import { FaUsersGear } from "react-icons/fa6";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { useDispatch } from "react-redux";
-import { useLogoutMutation } from "../features/auth/authApi";
-import { logout as logoutAction } from "../features/auth/authSlice";
 
-const Sidebar = ({ expanded, setExpanded }) => {
+const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const [triggerLogout] = useLogoutMutation();
   const [settingsOpen, setSettingsOpen] = useState(
-    location.pathname.startsWith("/dashboard/settings")
+    location.pathname.startsWith("/settings")
   );
 
- 
+  // Role-specific navigation items
+  const navItemsByRole = {
+    admin: [
+      { icon: <FaTachometerAlt />, label: "Dashboard", path: "/admin/dashboard" },
+      { icon: <FaUsersGear />, label: "Stockist", path: "/admin/stockist" },
+      { icon: <FaCalendarAlt />, label: "Vendor", path: "/admin/vendor" },
+      { icon: <FaLayerGroup />, label: "Orders", path: "/admin/orders" },
+      { icon: <RxDashboard />, label: "Products", path: "/admin/products" },
+      { icon: <CiWallet />, label: "Wallet", path: "/admin/wallet" },
+    ],
+    stockist: [
+      { icon: <FaTachometerAlt />, label: "Dashboard", path: "/stockist/dashboard" },
+      { icon: <FaLayerGroup />, label: "Orders", path: "/stockist/orders" },
+      { icon: <RxDashboard />, label: "Products", path: "/stockist/products" },
+      { icon: <CiWallet />, label: "Wallet", path: "/stockist/wallet" },
+    ],
+    reseller: [
+      { icon: <FaTachometerAlt />, label: "Dashboard", path: "/stockist/dashboard" },
+      { icon: <FaLayerGroup />, label: "Orders", path: "/stockist/orders" },
+      { icon: <RxDashboard />, label: "Products", path: "/stockist/products" },
+      { icon: <CiWallet />, label: "Wallet", path: "/stockist/wallet" },
+    ],
+  
+  };
 
-  const mainItems = [
-    { icon: <FaTachometerAlt />, label: "Dashboard", path: "/admin/dashboard" },
-    { icon: <FaUsersGear />, label: "Stockist", path: "/admin/stockist" },
-    { icon: <FaCalendarAlt />, label: "Vendor", path: "/admin/vendor" },
-    { icon: <FaLayerGroup />, label: "Orders", path: "/admin/orders" },
-    { icon: <RxDashboard />, label: "Products", path: "/admin/products" },
-    { icon: <CiWallet />, label: "Wallet", path: "/admin/wallet" },
-  ];
+  const itemsToRender = navItemsByRole[role] || [];
 
   return (
     <div
@@ -42,7 +53,7 @@ const Sidebar = ({ expanded, setExpanded }) => {
       }`}
     >
       <div className="flex justify-between items-center p-4">
-        {expanded && <span className="text-xl font-bold">Admin Panel</span>}
+        {expanded && <span className="text-xl font-bold capitalize">{role} Panel</span>}
         <button
           className="text-indigo-600 hover:text-red-600 text-xl"
           onClick={() => setExpanded(!expanded)}
@@ -51,9 +62,8 @@ const Sidebar = ({ expanded, setExpanded }) => {
         </button>
       </div>
 
-      {/* Main Navigation */}
       <nav className="flex-1 px-2 py-4 space-y-2 overflow-y-auto">
-        {mainItems.map((item, idx) => (
+        {itemsToRender.map((item, idx) => (
           <NavLink
             key={idx}
             to={item.path}
@@ -68,49 +78,50 @@ const Sidebar = ({ expanded, setExpanded }) => {
           </NavLink>
         ))}
 
-        {/* Settings Menu */}
-        <div className="text-gray-700">
-          <div
-            className="flex items-center gap-4 p-2 rounded-md cursor-pointer hover:bg-indigo-100"
-            onClick={() => setSettingsOpen(!settingsOpen)}
-          >
-            <FaCog className="text-lg" />
-            {expanded && <span className="font-medium flex-1">Settings</span>}
-            {expanded && <span className="text-sm">{settingsOpen ? "▲" : "▼"}</span>}
-          </div>
-
-          {settingsOpen && expanded && (
-            <div className="ml-6 mt-1 space-y-1">
-              <NavLink
-                to="/settings/profile"
-                className={({ isActive }) =>
-                  `block p-2 rounded-md text-sm hover:bg-indigo-100 ${
-                    isActive ? "bg-indigo-200 font-semibold" : ""
-                  }`
-                }
-              >
-                Profile
-              </NavLink>
-              <NavLink
-                to="/settings/change-password"
-                className={({ isActive }) =>
-                  `block p-2 rounded-md text-sm hover:bg-indigo-100 ${
-                    isActive ? "bg-indigo-200 font-semibold" : ""
-                  }`
-                }
-              >
-                Change Password
-              </NavLink>
-             
+        {/* Settings (optional per role) */}
+        {["admin", "stockist"].includes(role) && (
+          <div className="text-gray-700">
+            <div
+              className="flex items-center gap-4 p-2 rounded-md cursor-pointer hover:bg-indigo-100"
+              onClick={() => setSettingsOpen(!settingsOpen)}
+            >
+              <FaCog className="text-lg" />
+              {expanded && <span className="font-medium flex-1">Settings</span>}
+              {expanded && <span className="text-sm">{settingsOpen ? "▲" : "▼"}</span>}
             </div>
-          )}
-        </div>
+
+            {settingsOpen && expanded && (
+              <div className="ml-6 mt-1 space-y-1">
+                <NavLink
+                  to="/settings/profile"
+                  className={({ isActive }) =>
+                    `block p-2 rounded-md text-sm hover:bg-indigo-100 ${
+                      isActive ? "bg-indigo-200 font-semibold" : ""
+                    }`
+                  }
+                >
+                  Profile
+                </NavLink>
+                <NavLink
+                  to="/settings/change-password"
+                  className={({ isActive }) =>
+                    `block p-2 rounded-md text-sm hover:bg-indigo-100 ${
+                      isActive ? "bg-indigo-200 font-semibold" : ""
+                    }`
+                  }
+                >
+                  Change Password
+                </NavLink>
+              </div>
+            )}
+          </div>
+        )}
       </nav>
 
-      {/* Logout Button */}
+      {/* Logout */}
       <div className="px-2 pb-40">
         <button
-          onClick={() => navigate("/logout")}
+          onClick={() => navigate(`/${role}/logout`)}
           className="flex items-center gap-4 p-2 rounded-md hover:bg-red-100 text-red-600 transition w-full text-left"
         >
           <CiLogout className="text-lg" />
