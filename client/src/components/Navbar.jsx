@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import logo from "../assets/icons/ios.png";
+import logo from "../assets/icons/fev.png";
 import { MdOutlineNotificationAdd } from "react-icons/md";
 import {Link} from "react-router-dom"
 
@@ -25,8 +25,8 @@ const Navbar = () => {
 
           {/* Logo + Name */}
           <div className="flex items-center space-x-4">
-            <img src={logo} alt="Logo" className="h-8 w-8 rounded-full" />
-            <span className="text-xl font-bold text-gray-800">Kotom</span>
+            <img src={logo} alt="Logo" className="h-10 w-12 rounded-full" />
+            <span className="text-xl font-extrabold text-gray-800">StockTN</span>
           </div>
 
           {/* Right side */}

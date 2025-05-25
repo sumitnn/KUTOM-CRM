@@ -14,6 +14,8 @@ const RedirectIfAuthenticatedRoute = ({ children }) => {
       return <Navigate to="/vendor/dashboard" />;
     case "stockist":
       return <Navigate to="/stockist/dashboard" />;
+    case "reseller":
+      return <Navigate to="/reseller/dashboard" />;
     default:
       return <Navigate to="/" />;
   }

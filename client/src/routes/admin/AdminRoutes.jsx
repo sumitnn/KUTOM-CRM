@@ -11,7 +11,7 @@ import AdminVendor from "../../pages/admin/AdminVendor";
 import AdminStockist from "../../pages/admin/AdminStockist";
 import Profile from "../../pages/common/Profile";
 import ChangePassword from "../../components/auths/ChangePassword";
-
+import Logout from "../../pages/Logout";
 
 const adminRoutes = [
   <Route key="admin" element={<ProtectedRoute allowedRoles={["admin"]} />}>
@@ -23,7 +23,7 @@ const adminRoutes = [
     <Route path="/admin/stockist" element={<AdminMainLayout><AdminStockist /></AdminMainLayout>} />
     <Route path="/settings/profile" element={<AdminMainLayout><Profile /></AdminMainLayout>} />
     <Route path="/settings/change-password" element={<AdminMainLayout><ChangePassword /></AdminMainLayout>} />
-   
+    <Route key="logout" path="/logout" element={<Logout />} />
   </Route>
 ];
 

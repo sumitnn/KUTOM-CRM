@@ -6,7 +6,7 @@ import {
   useUpdateStockistMutation,
   useDeleteStockistMutation,
 } from '../../features/stockist/stockistApi';
-import StockistTable from '../../components/stockist/StockistTable';
+import StockistCardList  from '../../components/stockist/StockistCardList';
 import CreateStockistModal from '../../components/stockist/CreateStockistModal';
 
 const AdminStockist = () => {
@@ -74,7 +74,7 @@ const AdminStockist = () => {
       {isLoading ? (
         <div>Loading...</div>
       ) : (
-        <StockistTable stockist={stockist} onEdit={handleEditStockist} onDelete={handleDeleteStockist} />
+        <StockistCardList stockist={stockist} onEdit={handleEditStockist} onDelete={handleDeleteStockist} />
       )}
 
       {modalOpen && (

@@ -1,8 +1,6 @@
-import React from 'react';
-
-export default function VendorTableRow({ user, onEdit, onDelete }) {
+export default function VendorTableRow({ user, onEdit, onDelete, onView }) {
   const handleDeleteClick = () => {
-    if (window.confirm(`Are you sure you want to delete ${user.username || user.email}? Click OK to confirm.`)) {
+    if (window.confirm(`Are you sure you want to delete ${user.username || user.email}?`)) {
       onDelete(user.id);
     }
   };
@@ -26,9 +24,10 @@ export default function VendorTableRow({ user, onEdit, onDelete }) {
       <td>{user.email}</td>
       <td>{user?.city || "Null"}</td>
       <td>{user?.state || "Null"}</td>
-      <th className="flex gap-3">
-        <button className="btn btn-soft btn-secondary" onClick={() => onEdit(user)}>Edit</button>
-        <button className="btn btn-soft btn-accent" onClick={handleDeleteClick}>Delete</button>
+      <th className="flex flex-wrap gap-2">
+        <button className="btn btn-sm btn-outline" onClick={onView}>View</button>
+        <button className="btn btn-sm btn-secondary" onClick={() => onEdit(user)}>Edit</button>
+        <button className="btn btn-sm btn-error" onClick={handleDeleteClick}>Delete</button>
       </th>
     </tr>
   );

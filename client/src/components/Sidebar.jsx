@@ -5,58 +5,121 @@ import {
   FaCog,
   FaChevronLeft,
   FaChevronRight,
+  FaChevronDown,
+  FaChevronUp,
 } from "react-icons/fa";
 import { CiWallet, CiLogout } from "react-icons/ci";
 import { RxDashboard } from "react-icons/rx";
 import { FaUsersGear } from "react-icons/fa6";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { useDispatch } from "react-redux";
-import { useLogoutMutation } from "../features/auth/authApi";
-import { logout as logoutAction } from "../features/auth/authSlice";
 
-const Sidebar = ({ expanded, setExpanded }) => {
+const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const [triggerLogout] = useLogoutMutation();
+
+  const [openMenus, setOpenMenus] = useState({}); // Track open/close state for each item
   const [settingsOpen, setSettingsOpen] = useState(
-    location.pathname.startsWith("/dashboard/settings")
+    location.pathname.startsWith("/settings")
   );
 
-  const handleLogout = async () => {
-    const refresh_token = localStorage.getItem("refresh_token");
-
-    try {
-      if (refresh_token) {
-        await triggerLogout(refresh_token).unwrap();
-      }
-    } catch (error) {
-      console.error("Logout failed:", error);
-      // Even if API logout fails, continue local logout
-    } finally {
-      dispatch(logoutAction()); // Clear Redux + localStorage
-      navigate("/login"); // Redirect to login
-    }
+  const toggleMenu = (label) => {
+    setOpenMenus((prev) => ({ ...prev, [label]: !prev[label] }));
   };
 
-  const mainItems = [
-    { icon: <FaTachometerAlt />, label: "Dashboard", path: "/admin/dashboard" },
-    { icon: <FaUsersGear />, label: "Stockist", path: "/admin/stockist" },
-    { icon: <FaCalendarAlt />, label: "Vendor", path: "/admin/vendor" },
-    { icon: <FaLayerGroup />, label: "Orders", path: "/admin/orders" },
-    { icon: <RxDashboard />, label: "Products", path: "/admin/products" },
-    { icon: <CiWallet />, label: "Wallet", path: "/admin/wallet" },
-  ];
+  const navItemsByRole = {
+    admin: [
+      { icon: <FaTachometerAlt />, label: "Dashboard", path: "/admin/dashboard" },
+      { icon: <FaUsersGear />, label: "Stockist", path: "/admin/stockist" },
+      { icon: <FaCalendarAlt />, label: "Vendor", path: "/admin/vendor" },
+      {
+        icon: <FaLayerGroup />,
+        label: "Orders",
+        children: [
+          { label: "All Orders", path: "/admin/orders" },
+          { label: "Pending Orders", path: "/admin/orders/pending" },
+          { label: "Approved Orders", path: "/admin/orders/approved" },
+        ],
+      },
+      {
+        icon: <RxDashboard />,
+        label: "Products",
+        children: [
+          { label: "All Products", path: "/admin/products" },
+          { label: "Categories", path: "/admin/products/categories" },
+          { label: "Subcategories", path: "/admin/products/subcategories" },
+        ],
+      },
+      { icon: <CiWallet />, label: "Wallet", path: "/admin/wallet" },
+    ],
+    stockist: [
+      { icon: <FaTachometerAlt />, label: "Dashboard", path: "/stockist/dashboard" },
+      { icon: <FaLayerGroup />, label: "Orders", path: "/stockist/orders" },
+      { icon: <RxDashboard />, label: "Products", path: "/stockist/products" },
+      { icon: <CiWallet />, label: "Wallet", path: "/stockist/wallet" },
+    ],
+    reseller: [
+      { icon: <FaTachometerAlt />, label: "Dashboard", path: "/reseller/dashboard" },
+      {
+        icon: <RxDashboard />,
+        label: "Brand Management",
+        children: [
+          { label: "Add New Brand", path: "/reseller/create-brand" },
+          { label: "View All Brand", path: "/reseller/brand" },
+  
+        ],
+      },{
+        icon: <RxDashboard />,
+        label: "Categories",
+        children: [
+          { label: "Create New Category", path: "/reseller/create-category" },
+          { label: "View All Category", path: "/reseller/categories" },
+       
+  
+        ],
+      },{
+        icon: <RxDashboard />,
+        label: "Sub-Categories",
+        children: [
+      
+          { label: "Create New Sub-Category", path: "/reseller/create-subcategory" },
+          { label: "View All Sub-Category", path: "/reseller/subcategories" },
+  
+        ],
+      },
+      {
+        icon: <RxDashboard />,
+        label: "Products Management",
+        children: [
+          { label: "All Market Products", path: "/reseller/products" },
+          { label: "Create New Product", path: "/reseller/create-product" },
+          { label: "My Product", path: "/reseller/my-products" },
+  
+        ],
+      },{
+        icon: <RxDashboard />,
+        label: "Order Management",
+        children: [
+          { label: "My Orders", path: "/reseller/orders" },
+
+       
+        ],
+      },
+      { icon: <CiWallet />, label: "My Wallet", path: "/reseller/wallet" },
+      { icon: <FaTachometerAlt />, label: "My Cart", path: "/reseller/my-cart" }
+    ],
+  };
+
+  const itemsToRender = navItemsByRole[role] || [];
 
   return (
     <div
       className={`fixed top-16 left-0 h-[calc(100vh-4rem)] bg-white shadow-md transition-all duration-300 z-40 flex flex-col ${
-        expanded ? "w-64" : "w-16"
+        expanded ? "w-70" : "w-16"
       }`}
     >
       <div className="flex justify-between items-center p-4">
-        {expanded && <span className="text-xl font-bold">Admin Panel</span>}
+        {expanded && <span className="text-xl font-bold capitalize">{role} Panel</span>}
         <button
           className="text-indigo-600 hover:text-red-600 text-xl"
           onClick={() => setExpanded(!expanded)}
@@ -65,70 +128,109 @@ const Sidebar = ({ expanded, setExpanded }) => {
         </button>
       </div>
 
-      {/* Main Navigation */}
-      <nav className="flex-1 px-2 py-4 space-y-2 overflow-y-auto">
-        {mainItems.map((item, idx) => (
-          <NavLink
-            key={idx}
-            to={item.path}
-            className={({ isActive }) =>
-              `flex items-center gap-4 p-2 rounded-md hover:bg-indigo-100 text-gray-700 transition ${
-                isActive ? "bg-indigo-200 font-semibold" : ""
-              }`
-            }
-          >
-            <span className="text-lg">{item.icon}</span>
-            {expanded && <span className="font-medium">{item.label}</span>}
-          </NavLink>
-        ))}
+      <nav className="flex-1 px-2 py-4 space-y-3 overflow-y-auto">
+        {itemsToRender.map((item, idx) => {
+          const isActiveParent = item.path
+            ? location.pathname.startsWith(item.path)
+            : item.children?.some((child) => location.pathname.startsWith(child.path));
+          const hasChildren = Array.isArray(item.children);
+          const isOpen = openMenus[item.label];
 
-        {/* Settings Menu */}
-        <div className="text-gray-700">
-          <div
-            className="flex items-center gap-4 p-2 rounded-md cursor-pointer hover:bg-indigo-100"
-            onClick={() => setSettingsOpen(!settingsOpen)}
-          >
-            <FaCog className="text-lg" />
-            {expanded && <span className="font-medium flex-1">Settings</span>}
-            {expanded && <span className="text-sm">{settingsOpen ? "▲" : "▼"}</span>}
-          </div>
+          return (
+            <div key={idx}>
+              <div
+                className={`flex items-center justify-between gap-2 p-2 rounded-md hover:bg-indigo-100 text-gray-700 transition cursor-pointer ${
+                  isActiveParent ? "bg-indigo-200 font-semibold" : ""
+                }`}
+                onClick={() => {
+                  if (hasChildren) {
+                    toggleMenu(item.label);
+                  } else if (item.path) {
+                    navigate(item.path);
+                  }
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">{item.icon}</span>
+                  {expanded && <span className="font-bold">{item.label}</span>}
+                </div>
+                {hasChildren && expanded && (
+                  <span>{isOpen ? <FaChevronUp /> : <FaChevronDown />}</span>
+                )}
+              </div>
 
-          {settingsOpen && expanded && (
-            <div className="ml-6 mt-1 space-y-1">
-              <NavLink
-                to="/settings/profile"
-                className={({ isActive }) =>
-                  `block p-2 rounded-md text-sm hover:bg-indigo-100 ${
-                    isActive ? "bg-indigo-200 font-semibold" : ""
-                  }`
-                }
-              >
-                Profile
-              </NavLink>
-              <NavLink
-                to="/settings/change-password"
-                className={({ isActive }) =>
-                  `block p-2 rounded-md text-sm hover:bg-indigo-100 ${
-                    isActive ? "bg-indigo-200 font-semibold" : ""
-                  }`
-                }
-              >
-                Change Password
-              </NavLink>
-             
+              {hasChildren && expanded && isOpen && (
+                <div className="ml-6 mt-2 space-y-1">
+                  {item.children.map((subItem, subIdx) => (
+                    <NavLink
+                      key={subIdx}
+                      to={subItem.path}
+                      className={({ isActive }) =>
+                        `block p-2 rounded-md text-sm hover:bg-indigo-100 ${
+                          isActive ? "bg-indigo-200 font-semibold" : ""
+                        }`
+                      }
+                    >
+                      <span className="font-bold "> {subItem.label}</span>
+                     
+                    </NavLink>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          );
+        })}
+
+        {/* Settings Section */}
+        {["admin", "stockist","reseller","vendor"].includes(role) && (
+          <div className="text-gray-700">
+            <div
+              className="flex items-center justify-between gap-2 p-2 rounded-md cursor-pointer hover:bg-indigo-100"
+              onClick={() => setSettingsOpen(!settingsOpen)}
+            >
+              <div className="flex items-center gap-3">
+                <FaCog className="text-lg" />
+                {expanded && <span className="font-medium flex-1">Settings</span>}
+              </div>
+              {expanded && <span className="text-sm">{settingsOpen ? "▲" : "▼"}</span>}
+            </div>
+
+            {settingsOpen && expanded && (
+              <div className="ml-6 mt-1 space-y-1">
+                <NavLink
+                  to="/settings/profile"
+                  className={({ isActive }) =>
+                    `block p-2 rounded-md font-bold text-sm hover:bg-indigo-100 ${
+                      isActive ? "bg-indigo-200 font-extrabold" : ""
+                    }`
+                  }
+                >
+                  Profile
+                </NavLink>
+                <NavLink
+                  to="/settings/change-password"
+                  className={({ isActive }) =>
+                    `block p-2 rounded-md text-sm font-bold hover:bg-indigo-100 ${
+                      isActive ? "bg-indigo-200 font-extrabold" : ""
+                    }`
+                  }
+                >
+                  Change Password
+                </NavLink>
+              </div>
+            )}
+          </div>
+        )}
       </nav>
 
       {/* Logout Button */}
       <div className="px-2 pb-40">
         <button
-          onClick={handleLogout}
+          onClick={() => navigate(`/${role}/logout`)}
           className="flex items-center gap-4 p-2 rounded-md hover:bg-red-100 text-red-600 transition w-full text-left"
         >
           <CiLogout className="text-lg" />
-          {expanded && <span className="font-medium">Logout</span>}
+          {expanded && <span className="font-bold">Logout</span>}
         </button>
       </div>
     </div>

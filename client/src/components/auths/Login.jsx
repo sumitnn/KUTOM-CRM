@@ -37,6 +37,9 @@ const Login = () => {
           case 'stockist':
             navigate('/stockist/dashboard');
             break;
+          case 'reseller':
+              navigate('/reseller/dashboard');
+              break;
           default:
             navigate('/');
         }
