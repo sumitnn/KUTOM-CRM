@@ -15,7 +15,7 @@ from products.models import Brand, Category, Product, ProductVariant
 fake = Faker()
 
 def create_users(num=10):
-    roles = ['admin', 'reseller', 'stockist', "vendor"]
+    roles = ['admin', 'reseller', 'stockist']
     users = []
     for _ in range(num):
         email = fake.unique.email()
