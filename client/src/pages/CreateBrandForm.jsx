@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-const CreateBrandForm = ({ onSubmit, onCancel, loading = false }) => {
+const CreateBrandForm = ({ onSubmit, onCancel, loading = false, resetTrigger }) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [logo, setLogo] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
+  const [visible, setVisible] = useState(true);
 
   const handleLogoChange = (e) => {
     const file = e.target.files[0];
@@ -19,12 +20,24 @@ const CreateBrandForm = ({ onSubmit, onCancel, loading = false }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!name.trim()) return alert("Brand name is required");
+
     const formData = new FormData();
     formData.append("name", name);
     formData.append("description", description);
+    formData.append("visible", visible);
     if (logo) formData.append("logo", logo);
+
     onSubmit(formData);
   };
+
+  // Reset fields when resetTrigger changes
+  useEffect(() => {
+    setName("");
+    setDescription("");
+    setLogo(null);
+    setLogoPreview(null);
+    setVisible(true);
+  }, [resetTrigger]);
 
   return (
     <form
@@ -80,6 +93,20 @@ const CreateBrandForm = ({ onSubmit, onCancel, loading = false }) => {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         ></textarea>
+      </div>
+
+      {/* Visible Checkbox */}
+      <div className="flex items-center justify-between border rounded-lg px-4 py-3 bg-gray-50 hover:shadow-sm transition">
+        <label htmlFor="visible" className="text-sm font-medium text-gray-700">
+          Show this brand as visible
+        </label>
+        <input
+          id="visible"
+          type="checkbox"
+          className="toggle toggle-primary"
+          checked={visible}
+          onChange={(e) => setVisible(e.target.checked)}
+        />
       </div>
 
       {/* Buttons */}

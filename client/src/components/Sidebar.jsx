@@ -1,6 +1,5 @@
 import {
   FaTachometerAlt,
-  FaLayerGroup,
   FaCalendarAlt,
   FaCog,
   FaChevronLeft,
@@ -8,11 +7,21 @@ import {
   FaChevronDown,
   FaChevronUp,
 } from "react-icons/fa";
+
 import { CiWallet, CiLogout } from "react-icons/ci";
 import { RxDashboard } from "react-icons/rx";
 import { FaUsersGear } from "react-icons/fa6";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { MdSpaceDashboard } from "react-icons/md";
+import { MdProductionQuantityLimits } from "react-icons/md";
+import { MdInventory } from "react-icons/md";
+import { SiBrandfolder } from "react-icons/si";
+import { TbCategoryPlus } from "react-icons/tb";
+import { TbCategoryMinus } from "react-icons/tb";
+import { FaCodePullRequest } from "react-icons/fa6";
+
+
 
 const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
   const location = useLocation();
@@ -33,7 +42,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
       { icon: <FaUsersGear />, label: "Stockist", path: "/admin/stockist" },
       { icon: <FaCalendarAlt />, label: "Vendor", path: "/admin/vendor" },
       {
-        icon: <FaLayerGroup />,
+        icon: <FaCodePullRequest />,
         label: "Orders",
         children: [
           { label: "All Orders", path: "/admin/orders" },
@@ -53,15 +62,35 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
       { icon: <CiWallet />, label: "Wallet", path: "/admin/wallet" },
     ],
     stockist: [
-      { icon: <FaTachometerAlt />, label: "Dashboard", path: "/stockist/dashboard" },
-      { icon: <FaLayerGroup />, label: "Orders", path: "/stockist/orders" },
-      { icon: <RxDashboard />, label: "Products", path: "/stockist/products" },
+      { icon: <MdSpaceDashboard />, label: "Dashboard", path: "/stockist/dashboard" },
+      { icon: <RxDashboard />, label: "Marketing Products", path: "/stockist/products" },
+      {
+        icon: <MdInventory />,
+        label: "Stocks Management",
+        children: [
+          { label: "My Stocks", path: "/reseller/create-brand" },
+          { label: "Order New Stocks", path: "/reseller/brand" },
+  
+        ],
+      },{
+        icon: <FaCodePullRequest />,
+        label: "Order Management",
+        children: [
+          { label: "Order Requests", path: "/reseller/create-brand" },
+          { label: "My Orders", path: "/reseller/create-brand" },
+          { label: "Orders History", path: "/reseller/brand" },
+  
+        ],
+      },
+     
+     
+      { icon: <MdProductionQuantityLimits />, label: "My Cart", path: "/reseller/my-cart" },
       { icon: <CiWallet />, label: "Wallet", path: "/stockist/wallet" },
     ],
     reseller: [
-      { icon: <FaTachometerAlt />, label: "Dashboard", path: "/reseller/dashboard" },
+      { icon: <MdSpaceDashboard />, label: "Dashboard", path: "/reseller/dashboard" },
       {
-        icon: <RxDashboard />,
+        icon: <SiBrandfolder />,
         label: "Brand Management",
         children: [
           { label: "Add New Brand", path: "/reseller/create-brand" },
@@ -69,7 +98,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
   
         ],
       },{
-        icon: <RxDashboard />,
+        icon: <TbCategoryPlus />,
         label: "Categories",
         children: [
           { label: "Create New Category", path: "/reseller/create-category" },
@@ -78,7 +107,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
   
         ],
       },{
-        icon: <RxDashboard />,
+        icon: <TbCategoryMinus />,
         label: "Sub-Categories",
         children: [
       
@@ -88,7 +117,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         ],
       },
       {
-        icon: <RxDashboard />,
+        icon: <MdInventory />,
         label: "Products Management",
         children: [
           { label: "All Market Products", path: "/reseller/products" },
@@ -97,7 +126,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
   
         ],
       },{
-        icon: <RxDashboard />,
+        icon: <FaCodePullRequest />,
         label: "Order Management",
         children: [
           { label: "My Orders", path: "/reseller/orders" },
@@ -106,7 +135,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         ],
       },
       { icon: <CiWallet />, label: "My Wallet", path: "/reseller/wallet" },
-      { icon: <FaTachometerAlt />, label: "My Cart", path: "/reseller/my-cart" }
+      { icon: <MdProductionQuantityLimits />, label: "My Cart", path: "/reseller/my-cart" }
     ],
   };
 
@@ -119,7 +148,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
       }`}
     >
       <div className="flex justify-between items-center p-4">
-        {expanded && <span className="text-xl font-bold capitalize">{role} Panel</span>}
+        {expanded && <span className="text-xl font-bold capitalize">{role} Portal</span>}
         <button
           className="text-indigo-600 hover:text-red-600 text-xl"
           onClick={() => setExpanded(!expanded)}
