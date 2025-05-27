@@ -12,7 +12,14 @@ export const orderApi = createApi({
                 method: 'GET',
             }),
         }),
+        createOrder: builder.mutation({
+            query: (orderData) => ({
+                url: `/orders/`,
+                method: 'POST',
+                data: orderData,
+            }),
+          }),
     }),
 });
 
-export const { useGetAdminOrdersQuery } = orderApi;
+export const { useGetAdminOrdersQuery,useCreateOrderMutation } = orderApi;

@@ -1,12 +1,15 @@
 import { useState } from "react";
-
-const initialSubcategories = [
-  { id: 1, name: "Smartphones", category: "Electronics" },
-  { id: 2, name: "Fiction", category: "Books" },
-];
+import {
+  useGetSubcategoriesQuery,
+  useUpdateSubcategoryMutation,
+  useDeleteSubcategoryMutation,
+} from "../features/category/categoryApi";
 
 const ViewSubcategoriesPage = () => {
-  const [subcategories, setSubcategories] = useState(initialSubcategories);
+  const { data: subcategories = [], isLoading } = useGetSubcategoriesQuery();
+  const [updateSubcategory] = useUpdateSubcategoryMutation();
+  const [deleteSubcategory] = useDeleteSubcategoryMutation();
+
   const [search, setSearch] = useState("");
   const [editSub, setEditSub] = useState(null);
   const [editName, setEditName] = useState("");
@@ -15,9 +18,14 @@ const ViewSubcategoriesPage = () => {
     sub.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (confirm("Are you sure you want to delete this subcategory?")) {
-      setSubcategories(subcategories.filter((sub) => sub.id !== id));
+      try {
+        await deleteSubcategory(id).unwrap();
+      } catch (err) {
+        console.error(err);
+        alert("Delete failed");
+      }
     }
   };
 
@@ -27,13 +35,14 @@ const ViewSubcategoriesPage = () => {
     document.getElementById("sub_edit_modal").showModal();
   };
 
-  const handleEdit = () => {
-    setSubcategories((prev) =>
-      prev.map((sub) =>
-        sub.id === editSub.id ? { ...sub, name: editName } : sub
-      )
-    );
-    document.getElementById("sub_edit_modal").close();
+  const handleEdit = async () => {
+    try {
+      await updateSubcategory({ id: editSub.id, name: editName }).unwrap();
+      document.getElementById("sub_edit_modal").close();
+    } catch (err) {
+      console.error(err);
+      alert("Update failed");
+    }
   };
 
   return (
@@ -48,7 +57,9 @@ const ViewSubcategoriesPage = () => {
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
-      {filtered.length === 0 ? (
+      {isLoading ? (
+        <div className="text-center">Loading...</div>
+      ) : filtered.length === 0 ? (
         <div className="text-gray-500 text-center mt-10">No subcategories found.</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">

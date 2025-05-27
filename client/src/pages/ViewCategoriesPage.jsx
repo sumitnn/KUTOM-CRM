@@ -1,13 +1,14 @@
 import { useState } from "react";
-
-const initialCategories = [
-  { id: 1, name: "Electronics" },
-  { id: 2, name: "Books" },
-  { id: 3, name: "Clothing" },
-];
+import {
+  useGetCategoriesQuery,
+  useDeleteCategoryMutation,
+  useUpdateCategoryMutation,
+} from "../features/category/categoryApi";
 
 const ViewCategoriesPage = () => {
-  const [categories, setCategories] = useState(initialCategories);
+  const { data: categories = [] } = useGetCategoriesQuery();
+  const [deleteCategory] = useDeleteCategoryMutation();
+  const [updateCategory] = useUpdateCategoryMutation();
   const [search, setSearch] = useState("");
   const [editCategory, setEditCategory] = useState(null);
   const [editName, setEditName] = useState("");
@@ -16,24 +17,14 @@ const ViewCategoriesPage = () => {
     cat.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (confirm("Are you sure you want to delete this category?")) {
-      setCategories(categories.filter((cat) => cat.id !== id));
+      await deleteCategory(id);
     }
   };
 
-  const openEditModal = (category) => {
-    setEditCategory(category);
-    setEditName(category.name);
-    document.getElementById("edit_modal").showModal();
-  };
-
-  const handleEdit = () => {
-    setCategories((prev) =>
-      prev.map((cat) =>
-        cat.id === editCategory.id ? { ...cat, name: editName } : cat
-      )
-    );
+  const handleEdit = async () => {
+    await updateCategory({ id: editCategory.id, name: editName });
     document.getElementById("edit_modal").close();
   };
 
@@ -55,17 +46,16 @@ const ViewCategoriesPage = () => {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {filtered.map((cat) => (
-            <div
-              key={cat.id}
-              className="p-4 bg-white shadow rounded-md flex justify-between items-center"
-            >
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800">{cat.name}</h3>
-              </div>
+            <div key={cat.id} className="p-4 bg-white shadow rounded-md flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-800">{cat.name}</h3>
               <div className="space-x-2">
                 <button
                   className="btn btn-xs btn-outline btn-info"
-                  onClick={() => openEditModal(cat)}
+                  onClick={() => {
+                    setEditCategory(cat);
+                    setEditName(cat.name);
+                    document.getElementById("edit_modal").showModal();
+                  }}
                 >
                   Edit
                 </button>
@@ -81,7 +71,6 @@ const ViewCategoriesPage = () => {
         </div>
       )}
 
-      {/* Edit Modal */}
       <dialog id="edit_modal" className="modal">
         <div className="modal-box">
           <h3 className="font-bold text-lg mb-4">Edit Category</h3>

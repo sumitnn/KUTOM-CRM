@@ -1,12 +1,20 @@
 import { useState } from "react";
+import { useAddCategoryMutation } from "../features/category/categoryApi";
 
 const CreateCategoryPage = () => {
   const [name, setName] = useState("");
+  const [addCategory] = useAddCategoryMutation();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Creating category:", name);
-    // API call to create category here
+    try {
+      await addCategory({ name }).unwrap();
+      setName("");
+      alert("Category created successfully");
+    } catch (error) {
+      console.error("Failed to create category:", error);
+      alert("Error creating category");
+    }
   };
 
   return (

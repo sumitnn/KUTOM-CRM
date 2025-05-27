@@ -1,17 +1,26 @@
 import { useState } from "react";
+import {
+  useGetCategoriesQuery,
+  useAddSubcategoryMutation,
+} from "../features/category/categoryApi";
 
 const CreateSubcategoryPage = () => {
   const [name, setName] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const categories = [
-    { id: 1, name: "Electronics" },
-    { id: 2, name: "Books" },
-  ];
+  const { data: categories = [], isLoading } = useGetCategoriesQuery();
+  const [addSubcategory] = useAddSubcategoryMutation();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Creating subcategory:", { name, categoryId });
-    // API call here
+    try {
+      await addSubcategory({ name, categoryId }).unwrap();
+      setName("");
+      setCategoryId("");
+      alert("Subcategory created");
+    } catch (error) {
+      console.error("Error creating subcategory:", error);
+      alert("Failed to create subcategory");
+    }
   };
 
   return (

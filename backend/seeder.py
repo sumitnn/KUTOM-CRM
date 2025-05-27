@@ -10,7 +10,7 @@ django.setup()
 
 from accounts.models import User, WalletTransaction, TopUpRequest
 from orders.models import Order, OrderItem
-from products.models import Brand, Category, Product
+from products.models import Brand, Category, Product, ProductVariant
 
 fake = Faker()
 
@@ -44,27 +44,47 @@ def create_brands(num=5):
 
 def create_categories(num=5):
     return [Category.objects.create(
-        name=fake.unique.word().capitalize(),
-        description=fake.sentence()
+        name=fake.unique.word().capitalize()
     ) for _ in range(num)]
 
-def create_products(brands, categories, num=20):
+def create_products_and_variants(brands, categories, num_products=20, variants_per_product=2):
     products = []
-    for _ in range(num):
+    for _ in range(num_products):
         product = Product.objects.create(
             name=fake.unique.word().capitalize(),
+            sku=fake.unique.bothify(text='PROD-#####'),
             brand=random.choice(brands),
             category=random.choice(categories),
             description=fake.text(),
-            price=Decimal(random.randint(100, 1000)),
             cost_price=Decimal(random.randint(50, 100)),
-            stock=random.randint(10, 100),
-            status=random.choice(['active', 'inactive'])
+            selling_price=Decimal(random.randint(100, 300)),
+            mrp=Decimal(random.randint(200, 400)),
+            active=random.choice([True, False])
         )
+
+        # Create default + additional variants
+        for i in range(variants_per_product):
+            attributes = {
+                "color": random.choice(["Red", "Blue", "Green", "Black"]),
+                "size": random.choice(["S", "M", "L", "XL"])
+            }
+            ProductVariant.objects.create(
+                product=product,
+                sku=fake.unique.bothify(text='VAR-#####'),
+                quantity=random.randint(0, 100),
+                cost_price=product.cost_price,
+                selling_price=product.selling_price,
+                mrp=product.mrp,
+                price=product.selling_price,
+                active=True,
+                attributes=attributes,
+                is_default=(i == 0)
+            )
         products.append(product)
     return products
 
-def create_orders(resellers, stockists, products, num=15):
+def create_orders(resellers, stockists, num=10):
+    products = Product.objects.filter(active=True)
     for _ in range(num):
         reseller = random.choice(resellers)
         stockist = random.choice(stockists) if stockists else None
@@ -78,8 +98,9 @@ def create_orders(resellers, stockists, products, num=15):
         total = 0
         for _ in range(random.randint(1, 5)):
             product = random.choice(products)
+            variant = random.choice(product.variants.filter(active=True))
             quantity = random.randint(1, 5)
-            price = product.price
+            price = variant.display_price
             total += quantity * price
             OrderItem.objects.create(order=order, product=product, quantity=quantity, price=price)
         order.total_price = total
@@ -125,23 +146,20 @@ if choice == "2":
     print("🌱 Generating new data...")
     users = create_users(30)
     print("✅ Users created")
-    brands = create_brands(15)
+    brands = create_brands(10)
     print("✅ Brands created")
     categories = create_categories(5)
     print("✅ Categories created")
-    products = create_products(brands, categories, 20)
-    print("✅ Products created")
+    create_products_and_variants(brands, categories, 20, variants_per_product=3)
+    print("✅ Products and variants created")
 
 elif choice == "1":
     print("🔍 Using existing users and products...")
     users = list(User.objects.all())
-    brands = list(Brand.objects.all())
-    categories = list(Category.objects.all())
-    products = list(Product.objects.all())
-
-    if not users or not products:
-        print("❌ Not enough existing data. Please run option 2 first.")
+    if not users:
+        print("❌ No users found. Run option 2 first.")
         exit(1)
+
 else:
     print("❌ Invalid input. Exiting.")
     exit(1)
@@ -150,7 +168,7 @@ else:
 resellers = [u for u in users if u.role == 'reseller']
 stockists = [u for u in users if u.role == 'stockist']
 
-create_orders(resellers, stockists, products, 10)
+create_orders(resellers, stockists, 10)
 print("✅ Orders created")
 
 create_wallets_and_transactions(users)

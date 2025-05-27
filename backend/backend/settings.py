@@ -21,7 +21,7 @@ SECRET_KEY = config('DJANGO_SECRET_KEY')
 DEBUG = config('DEBUG', cast=bool)
 
 ALLOWED_HOSTS = []
-CORS_ALLOWED_URL = config('CORS_ALLOWED_URL', cast=Csv())
+
 
 
 # Application definition
@@ -45,14 +45,16 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware'
+    
 ]
 
 ROOT_URLCONF = 'backend.urls'
@@ -136,15 +138,23 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'accounts.User'
 
-CORS_ALLOWED_ORIGINS = CORS_ALLOWED_URL
-CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_URL
+
 
 # ✅ Secure settings toggle
 if not DEBUG:
+    print("working in Production mode")
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    CORS_ALLOWED_URLL = config('CORS_ALLOWED_URL', cast=Csv())
+    CORS_ALLOWED_ORIGINS = CORS_ALLOWED_URLL
+    CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_URLL
+    
+    CORS_ALLOW_CREDENTIALS = True
 else:
+    print("working in Development mode")
+   
+    CORS_ALLOW_ALL_ORIGINS = True
     SECURE_SSL_REDIRECT = False
     SESSION_COOKIE_SECURE = False
     CSRF_COOKIE_SECURE = False
@@ -158,3 +168,5 @@ SIMPLE_JWT = {
     "ALGORITHM": "HS256",
     "SIGNING_KEY": config('JWT_SECRET_KEY'),
 }
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

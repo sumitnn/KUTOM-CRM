@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import logo from "../assets/icons/fev.png";
 import { MdOutlineNotificationAdd } from "react-icons/md";
-import {Link} from "react-router-dom"
+
 
 
 const Navbar = () => {
@@ -50,22 +50,7 @@ const Navbar = () => {
 
               </button>
 
-              {dropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-2 z-50 border">
-                  <a
-                    href="/settings/profile"
-                    className="block px-4 py-2 text-gray-800 hover:bg-gray-100 font-medium"
-                  >
-                    Settings
-                  </a>
-                  <a
-                    href="/logout"
-                    className="block px-4 py-2 text-gray-800 hover:bg-gray-100 font-medium"
-                  >
-                    Logout
-                  </a>
-                </div>
-              )}
+            
             </div>
           </div>
         </div>

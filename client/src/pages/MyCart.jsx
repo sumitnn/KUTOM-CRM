@@ -1,55 +1,35 @@
-import React, { useState } from "react";
-
-const initialCartItems = [
-  {
-    id: "P-1001",
-    name: "Wireless Headphones",
-    price: 99.99,
-    quantity: 1,
-    image:
-      "https://images.unsplash.com/photo-1517059224940-d4af9eec41e1?auto=format&fit=crop&w=80&q=80",
-  },
-  {
-    id: "P-1002",
-    name: "Smartwatch",
-    price: 149.99,
-    quantity: 2,
-    image:
-      "https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=80&q=80",
-  },
-  {
-    id: "P-1003",
-    name: "Portable Speaker",
-    price: 59.99,
-    quantity: 1,
-    image:
-      "https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&w=80&q=80",
-  },
-];
+import React from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { removeItem, updateQuantity, clearCart } from "../features/cart/cartSlice";
+import { useCreateOrderMutation } from "../features/order/orderApi"; // Assumes orderApi has this
 
 const MyCart = () => {
-  const [cartItems, setCartItems] = useState(initialCartItems);
-
-  const updateQuantity = (id, newQty) => {
-    if (newQty < 1) return; // minimum 1
-    setCartItems((items) =>
-      items.map((item) =>
-        item.id === id ? { ...item, quantity: newQty } : item
-      )
-    );
-  };
-
-  const removeItem = (id) => {
-    setCartItems((items) => items.filter((item) => item.id !== id));
-  };
+  const dispatch = useDispatch();
+  const cartItems = useSelector((state) => state.cart.items);
+  const [placeOrder, { isLoading }] = useCreateOrderMutation();
 
   const totalPrice = cartItems.reduce(
     (acc, item) => acc + item.price * item.quantity,
     0
   );
 
+  const handleCheckout = async () => {
+    try {
+      const orderData = {
+        items: cartItems.map(({ id, quantity }) => ({ product_id: id, quantity })),
+        total: totalPrice,
+      };
+
+      await placeOrder(orderData).unwrap();
+      dispatch(clearCart());
+      alert("Order placed successfully!");
+    } catch (err) {
+      alert("Order failed: " + err?.data?.message || "Something went wrong.");
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-5xl mx-auto bg-white shadow rounded-lg p-6">
         <h1 className="text-3xl font-bold mb-8">My Cart</h1>
 
@@ -76,8 +56,9 @@ const MyCart = () => {
                   </div>
                   <div className="flex items-center space-x-2">
                     <button
-                      onClick={() => updateQuantity(id, quantity - 1)}
+                      onClick={() => dispatch(updateQuantity({ id, quantity: quantity - 1 }))}
                       className="btn btn-sm btn-outline"
+                      disabled={quantity <= 1}
                     >
                       -
                     </button>
@@ -86,12 +67,12 @@ const MyCart = () => {
                       min="1"
                       value={quantity}
                       onChange={(e) =>
-                        updateQuantity(id, Number(e.target.value))
+                        dispatch(updateQuantity({ id, quantity: Number(e.target.value) }))
                       }
                       className="w-12 text-center border rounded"
                     />
                     <button
-                      onClick={() => updateQuantity(id, quantity + 1)}
+                      onClick={() => dispatch(updateQuantity({ id, quantity: quantity + 1 }))}
                       className="btn btn-sm btn-outline"
                     >
                       +
@@ -101,7 +82,7 @@ const MyCart = () => {
                     ${(price * quantity).toFixed(2)}
                   </div>
                   <button
-                    onClick={() => removeItem(id)}
+                    onClick={() => dispatch(removeItem(id))}
                     className="btn btn-sm btn-error ml-4"
                     title="Remove item"
                   >
@@ -116,11 +97,11 @@ const MyCart = () => {
                 Total: ${totalPrice.toFixed(2)}
               </p>
               <button
-                disabled={cartItems.length === 0}
+                disabled={cartItems.length === 0 || isLoading}
                 className="btn btn-primary px-6 py-2 text-lg"
-                onClick={() => alert("Proceeding to checkout...")}
+                onClick={handleCheckout}
               >
-                Checkout
+                {isLoading ? "Processing..." : "Checkout"}
               </button>
             </div>
           </>
