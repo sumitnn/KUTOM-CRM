@@ -10,11 +10,12 @@ const useAutoRefreshToken = () => {
 
     const scheduleRefresh = (token) => {
         try {
-            const decoded = jwtDecode(token); // ✅ Correct usage
+            const decoded = jwtDecode(token); 
             const expiry = decoded.exp * 1000;
             const now = Date.now();
             const timeUntilExpiry = expiry - now;
             const refreshTime = timeUntilExpiry - 30 * 1000;
+            console.log("token data",decoded);
 
             if (refreshTime > 0) {
                 refreshTimeout.current = setTimeout(() => {

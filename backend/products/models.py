@@ -2,11 +2,12 @@ from django.db import models
 from django.utils.text import slugify
 from django.conf import settings
 from django.core.validators import MinValueValidator
-
+from accounts.models import User
 
 # Create your models here.
 class Brand(models.Model):
     name = models.CharField(max_length=100, unique=True)
+    owner=models.ForeignKey(User,on_delete=models.SET_NULL,null=True, blank=True,related_name='brand')
     slug = models.SlugField(max_length=100, unique=True, blank=True)
     description = models.TextField(blank=True)
     logo = models.ImageField(upload_to='brands/logos/', blank=True, null=True)
@@ -23,6 +24,7 @@ class Brand(models.Model):
        
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
+    owner=models.ForeignKey(User,on_delete=models.SET_NULL,null=True, blank=True,related_name='category')
     parent = models.ForeignKey(
         'self',
         on_delete=models.SET_NULL,
@@ -90,6 +92,7 @@ class BaseProductInfo(models.Model):
         validators=[MinValueValidator(0)]
     )
 
+
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -100,6 +103,7 @@ class BaseProductInfo(models.Model):
 
 class Product(BaseProductInfo):
     description = models.TextField(blank=True)
+    owner=models.ForeignKey(User,on_delete=models.SET_NULL,null=True, blank=True,related_name='product')
 
     class Meta:
         indexes = [

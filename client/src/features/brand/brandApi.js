@@ -26,18 +26,15 @@ export const brandApi = createApi({
                 url: '/brands/',
                 method: 'POST',
                 data: formData, // axiosBaseQuery expects `data` for POST body
-                headers: {
-                    // For multipart/form-data, axiosBaseQuery can handle it if formData is FormData instance
-                    // 'Content-Type': 'multipart/form-data' usually set automatically by axios with FormData
-                },
+              
             }),
             invalidatesTags: ['Brand'],
         }),
         updateBrand: builder.mutation({
-            query: ({ id, formData }) => ({
+            query: ({ id, data }) => ({
                 url: `/brands/${id}/`,
                 method: 'PUT',
-                data: formData,
+                data,
             }),
             invalidatesTags: (result, error, { id }) => [{ type: 'Brand', id }],
         }),

@@ -8,14 +8,17 @@ export const categoryApi = createApi({
     endpoints: (builder) => ({
         // Categories
         getCategories: builder.query({
-            query: () => '/categories/',
+            query: () => ({
+                url: '/categories/',
+                method: 'GET',
+            }),
             providesTags: ['Category'],
-        }),
+          }),
         addCategory: builder.mutation({
             query: (newCategory) => ({
                 url: '/categories/',
                 method: 'POST',
-                body: newCategory,
+                data: newCategory,
             }),
             invalidatesTags: ['Category'],
         }),
@@ -23,10 +26,10 @@ export const categoryApi = createApi({
             query: ({ id, ...data }) => ({
                 url: `/categories/${id}/`,
                 method: 'PUT',
-                body: data,
+                data: data,
             }),
             invalidatesTags: ['Category'],
-        }),
+          }),
         deleteCategory: builder.mutation({
             query: (id) => ({
                 url: `/categories/${id}/`,
@@ -37,14 +40,17 @@ export const categoryApi = createApi({
 
         // Subcategories
         getSubcategories: builder.query({
-            query: () => '/subcategories/',
+            query: () => ({
+                url: '/subcategories/',
+                method: 'GET',
+            }),
             providesTags: ['Subcategory'],
         }),
         addSubcategory: builder.mutation({
             query: (newSubcategory) => ({
                 url: '/subcategories/',
                 method: 'POST',
-                body: newSubcategory,
+                data: newSubcategory,
             }),
             invalidatesTags: ['Subcategory'],
         }),
@@ -52,7 +58,7 @@ export const categoryApi = createApi({
             query: ({ id, ...data }) => ({
                 url: `/subcategories/${id}/`,
                 method: 'PUT',
-                body: data,
+                data: data,
             }),
             invalidatesTags: ['Subcategory'],
         }),
