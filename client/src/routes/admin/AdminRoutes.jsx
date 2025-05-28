@@ -12,10 +12,42 @@ import AdminStockist from "../../pages/admin/AdminStockist";
 import Profile from "../../pages/common/Profile";
 import ChangePassword from "../../components/auths/ChangePassword";
 import Logout from "../../pages/Logout";
+import ViewBrandsPage from "../../pages/ViewBrandsPage";
+import CreateBrandPage from "../../pages/CreateBrandPage";
+import CreateCategoryPage from "../../pages/CreateCategoryPage";
+import ViewCategoriesPage from "../../pages/ViewCategoriesPage";
+import CreateSubcategoryPage from "../../pages/CreateSubcategoryPage";
+import ViewSubcategoriesPage from "../../pages/ViewSubcategoriesPage";
 
 const adminRoutes = [
   <Route key="admin" element={<ProtectedRoute allowedRoles={["admin"]} />}>
     <Route path="/admin/dashboard" element={<AdminMainLayout><AdminDashboard /></AdminMainLayout>} />
+
+     {/* brand  */}
+     <Route path="/admin/create-brand" element={<AdminMainLayout><CreateBrandPage/></AdminMainLayout>}/>
+    <Route
+      path="/admin/brand"
+      element={<AdminMainLayout><ViewBrandsPage/></AdminMainLayout>}
+    />
+    {/* category  */}
+    <Route
+      path="/admin/create-category"
+      element={<AdminMainLayout><CreateCategoryPage/></AdminMainLayout>}
+    />
+    <Route
+      path="/admin/categories"
+      element={<AdminMainLayout><ViewCategoriesPage/></AdminMainLayout>}
+    />
+    {/* sub category  */}
+    <Route
+      path="/admin/create-subcategory"
+      element={<AdminMainLayout><CreateSubcategoryPage/></AdminMainLayout>}
+    />
+    <Route path="/admin/subcategories" element={<AdminMainLayout><ViewSubcategoriesPage /></AdminMainLayout>} />
+
+
+
+
     <Route path="/admin/wallet" element={<AdminMainLayout><WalletManagementPage /></AdminMainLayout>} />
     <Route path="/admin/products" element={<AdminMainLayout><AdminProducts /></AdminMainLayout>} />
     <Route path="/admin/orders" element={<AdminMainLayout><OrderManagementPage /></AdminMainLayout>} />
@@ -23,7 +55,7 @@ const adminRoutes = [
     <Route path="/admin/stockist" element={<AdminMainLayout><AdminStockist /></AdminMainLayout>} />
     <Route path="/settings/profile" element={<AdminMainLayout><Profile /></AdminMainLayout>} />
     <Route path="/settings/change-password" element={<AdminMainLayout><ChangePassword /></AdminMainLayout>} />
-    <Route key="logout" path="/logout" element={<Logout />} />
+    <Route key="logout" path="/admin/logout" element={<Logout />} />
   </Route>
 ];
 

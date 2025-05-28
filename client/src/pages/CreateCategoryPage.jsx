@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAddCategoryMutation } from "../features/category/categoryApi";
-
+import { toast } from "react-toastify";
 const CreateCategoryPage = () => {
   const [name, setName] = useState("");
   const [addCategory] = useAddCategoryMutation();
@@ -10,10 +10,10 @@ const CreateCategoryPage = () => {
     try {
       await addCategory({ name }).unwrap();
       setName("");
-      alert("Category created successfully");
+      toast.success("New Category Created Successfully");
     } catch (error) {
-      console.error("Failed to create category:", error);
-      alert("Error creating category");
+      console.log(error)
+      toast.error(error.data.message);
     }
   };
 

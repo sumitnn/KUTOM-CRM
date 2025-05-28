@@ -3,6 +3,8 @@ import {
   useGetCategoriesQuery,
   useAddSubcategoryMutation,
 } from "../features/category/categoryApi";
+import { toast } from "react-toastify";
+
 
 const CreateSubcategoryPage = () => {
   const [name, setName] = useState("");
@@ -13,13 +15,13 @@ const CreateSubcategoryPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await addSubcategory({ name, categoryId }).unwrap();
+      await addSubcategory({ name, parent:categoryId }).unwrap();
       setName("");
       setCategoryId("");
-      alert("Subcategory created");
+      toast.success("Sub-Category Created Successfully");
     } catch (error) {
       console.error("Error creating subcategory:", error);
-      alert("Failed to create subcategory");
+      toast.error(error.data.details);
     }
   };
 

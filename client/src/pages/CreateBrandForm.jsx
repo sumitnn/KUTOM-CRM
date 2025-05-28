@@ -24,7 +24,7 @@ const CreateBrandForm = ({ onSubmit, onCancel, loading = false, resetTrigger }) 
     const formData = new FormData();
     formData.append("name", name);
     formData.append("description", description);
-    formData.append("visible", visible);
+    formData.append("is_featured", visible);
     if (logo) formData.append("logo", logo);
 
     onSubmit(formData);

@@ -6,7 +6,8 @@ import {
 } from "../features/category/categoryApi";
 
 const ViewSubcategoriesPage = () => {
-  const { data: subcategories = [], isLoading } = useGetSubcategoriesQuery();
+  const { data, isLoading } = useGetSubcategoriesQuery();
+  const subcategories = Array.isArray(data) ? data : data?.results ?? [];
   const [updateSubcategory] = useUpdateSubcategoryMutation();
   const [deleteSubcategory] = useDeleteSubcategoryMutation();
 

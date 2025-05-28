@@ -36,11 +36,57 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
     setOpenMenus((prev) => ({ ...prev, [label]: !prev[label] }));
   };
 
+
+
   const navItemsByRole = {
     admin: [
       { icon: <FaTachometerAlt />, label: "Dashboard", path: "/admin/dashboard" },
-      { icon: <FaUsersGear />, label: "Stockist", path: "/admin/stockist" },
-      { icon: <FaCalendarAlt />, label: "Vendor", path: "/admin/vendor" },
+      {
+        icon: <FaUsersGear />,
+        label: "User Mangement",
+        children: [
+          { label: "Vendor", path: "/admin/vendor" },
+          { label: "Stockist", path: "/admin/stockist" },
+          { label: "Reseller", path: "/admin/my-products" },
+          
+        ],
+      },
+      {
+        icon: <RxDashboard />,
+        label: "Products",
+        children: [
+          { label: "All Products", path: "/admin/products" },
+          { label: "Create New Product", path: "/admin/create-product" },
+          { label: "My Products", path: "/admin/my-products" },
+          
+        ],
+      },
+      {
+        icon: <SiBrandfolder />,
+        label: "Brands Management",
+        children: [
+          { label: "All Brands", path: "/admin/brand" },
+          { label: "Add New Brand", path: "/admin/create-brand" }
+          
+        ],
+      },{
+        icon: <TbCategoryPlus />,
+        label: "Categories",
+        children: [
+          { label: "View All Category", path: "/admin/categories" },
+          { label: "Create New Category", path: "/admin/create-category" },
+          
+        ],
+      },{
+        icon: <TbCategoryMinus />,
+        label: "Sub-Categories",
+        children: [
+      
+          { label: "Create New Sub-Category", path: "/admin/create-subcategory" },
+          { label: "View All Sub-Category", path: "/admin/subcategories" },
+    
+        ],
+      },
       {
         icon: <FaCodePullRequest />,
         label: "Orders",
@@ -66,10 +112,10 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
       { icon: <RxDashboard />, label: "Marketing Products", path: "/stockist/products" },
       {
         icon: <MdInventory />,
-        label: "Stocks Management",
+        label: "My Stock Inventory",
         children: [
-          { label: "My Stocks", path: "/reseller/create-brand" },
-          { label: "Order New Stocks", path: "/reseller/brand" },
+          { label: "Available Stocks", path: "/reseller/create-brand" },
+          { label: "Stocks Report", path: "/reseller/brand" },
   
         ],
       },{
@@ -78,65 +124,109 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         children: [
           { label: "Order Requests", path: "/reseller/create-brand" },
           { label: "My Orders", path: "/reseller/create-brand" },
-          { label: "Orders History", path: "/reseller/brand" },
+          { label: "Orders Request History", path: "/reseller/brand" },
   
         ],
+      },    
+      {
+        icon: <MdProductionQuantityLimits />,
+        label: "My Cart",
+        children: [
+          { label: "Wishlist", path: "/reseller/orders" },
+          { label: "Cart", path: "/reseller/my-cart" },
+
+       
+        ],
       },
-     
-     
-      { icon: <MdProductionQuantityLimits />, label: "My Cart", path: "/reseller/my-cart" },
-      { icon: <CiWallet />, label: "Wallet", path: "/stockist/wallet" },
+      { icon: <CiWallet />, label: "Wallet & Transactions", path: "/stockist/wallet" },
     ],
     reseller: [
       { icon: <MdSpaceDashboard />, label: "Dashboard", path: "/reseller/dashboard" },
+      { icon: <RxDashboard />, label: "Product Market", path: "/reseller/products" },
+     {
+        icon: <FaCodePullRequest />,
+        label: "Order Management",
+        children: [
+          { label: "My Orders", path: "/reseller/orders" },
+          { label: "Orders History", path: "/reseller/orders" },
+
+       
+        ],
+      },
+      {
+        icon: <MdInventory />,
+        label: "Stocks Management",
+        children: [
+          { label: "My Stocks", path: "/reseller/brand" },
+          { label: "New Stocks Request", path: "/reseller/create-brand" },
+          { label: "Stock Request History", path: "/reseller/create-brand" },
+          
+        ],
+      },
+      { icon: <CiWallet />, label: "My Wallet", path: "/reseller/wallet" },
+      {
+        icon: <MdProductionQuantityLimits />,
+        label: "My Cart",
+        children: [
+          { label: "Wishlist", path: "/reseller/orders" },
+          { label: "Cart", path: "/reseller/my-cart" },
+
+       
+        ],
+      },
+
+    ],
+    vendor: [
+      { icon: <MdSpaceDashboard />, label: "Dashboard", path: "/vendor/dashboard" },
+      {
+        icon: <RxDashboard />,
+        label: "Products",
+        children: [
+          { label: "All Products", path: "/vendor/products" },
+          { label: "Create New Product", path: "/vendor/create-product" },
+          { label: "My Products", path: "/vendor/my-products" },
+          
+        ],
+      },
       {
         icon: <SiBrandfolder />,
-        label: "Brand Management",
+        label: "Brands Management",
         children: [
-          { label: "Add New Brand", path: "/reseller/create-brand" },
-          { label: "View All Brand", path: "/reseller/brand" },
-  
+          { label: "All Brands", path: "/vendor/brand" },
+          { label: "Add New Brand", path: "/vendor/create-brand" }
+          
+    
         ],
       },{
         icon: <TbCategoryPlus />,
         label: "Categories",
         children: [
-          { label: "Create New Category", path: "/reseller/create-category" },
-          { label: "View All Category", path: "/reseller/categories" },
-       
-  
+          { label: "View All Category", path: "/vendor/categories" },
+          { label: "Create New Category", path: "/vendor/create-category" },
+          
         ],
       },{
         icon: <TbCategoryMinus />,
         label: "Sub-Categories",
         children: [
       
-          { label: "Create New Sub-Category", path: "/reseller/create-subcategory" },
-          { label: "View All Sub-Category", path: "/reseller/subcategories" },
-  
+          { label: "Create New Sub-Category", path: "/vendor/create-subcategory" },
+          { label: "View All Sub-Category", path: "/vendor/subcategories" },
+    
         ],
       },
       {
-        icon: <MdInventory />,
-        label: "Products Management",
-        children: [
-          { label: "All Market Products", path: "/reseller/products" },
-          { label: "Create New Product", path: "/reseller/create-product" },
-          { label: "My Product", path: "/reseller/my-products" },
-  
-        ],
-      },{
         icon: <FaCodePullRequest />,
-        label: "Order Management",
+        label: "Request Mangement",
         children: [
-          { label: "My Orders", path: "/reseller/orders" },
-
-       
+      
+          { label: "Admin Product Request", path: "/vendor/create-subcategory" },
+          { label: "Product Request History", path: "/vendor/subcategories" },
+    
         ],
       },
       { icon: <CiWallet />, label: "My Wallet", path: "/reseller/wallet" },
-      { icon: <MdProductionQuantityLimits />, label: "My Cart", path: "/reseller/my-cart" }
-    ],
+    ]
   };
 
   const itemsToRender = navItemsByRole[role] || [];
@@ -234,7 +324,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
                     }`
                   }
                 >
-                  Profile
+                  My Profile
                 </NavLink>
                 <NavLink
                   to="/settings/change-password"
