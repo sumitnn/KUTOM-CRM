@@ -1,85 +1,109 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import {
+  useGetProductByIdQuery,
+  useUpdateProductMutation,
+} from "../features/product/productApi";
 
 const EditProductPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { data: product, isLoading, isError } = useGetProductByIdQuery(id);
+  const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation();
+
   const [formData, setFormData] = useState({
     name: "",
+    sku: "",
+    description: "",
     price: "",
-    stock: "",
-    category: "",
-    image: "",
   });
 
   useEffect(() => {
-    // Fetch product by ID here
-    setFormData({
-      name: "Sample Product",
-      price: 100,
-      stock: 5,
-      category: "Example",
-      image: "",
-    });
-  }, [id]);
+    if (product) {
+      setFormData({
+        name: product.name || "",
+        sku: product.sku || "",
+        description: product.description || "",
+        price: product.price || "",
+      });
+    }
+  }, [product]);
 
-  const handleChange = (e) =>
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // Update logic (PUT/PATCH)
-    console.log("Updated:", formData);
-    navigate("/admin/products");
+  const handleChange = (e) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await updateProduct({ id, data: formData }).unwrap();
+      navigate("/admin/products");
+    } catch (error) {
+      console.error("Update failed", error);
+      alert("Failed to update product.");
+    }
+  };
+
+  if (isLoading) return <p className="text-center mt-10">Loading product...</p>;
+  if (isError) return <p className="text-center mt-10 text-red-500">Failed to load product.</p>;
+
   return (
-    <div className="px-4 py-8 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Edit Product</h1>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          name="name"
-          placeholder="Product Name"
-          className="input input-bordered w-full"
-          value={formData.name}
-          onChange={handleChange}
-          required
-        />
-        <input
-          name="price"
-          placeholder="Price"
-          type="number"
-          className="input input-bordered w-full"
-          value={formData.price}
-          onChange={handleChange}
-          required
-        />
-        <input
-          name="stock"
-          placeholder="Stock"
-          type="number"
-          className="input input-bordered w-full"
-          value={formData.stock}
-          onChange={handleChange}
-          required
-        />
-        <input
-          name="category"
-          placeholder="Category"
-          className="input input-bordered w-full"
-          value={formData.category}
-          onChange={handleChange}
-        />
-        <input
-          name="image"
-          placeholder="Image URL"
-          className="input input-bordered w-full"
-          value={formData.image}
-          onChange={handleChange}
-        />
-        <button type="submit" className="btn btn-success w-full">
-          Update Product
-        </button>
+    <div className="max-w-3xl mx-auto px-4 py-8">
+      <h2 className="text-2xl font-bold mb-6 text-gray-800">Edit Product</h2>
+      <form onSubmit={handleSubmit} className="space-y-6 bg-white p-6 rounded-xl shadow">
+        <div>
+          <label className="block text-sm font-medium mb-1">Product Name</label>
+          <input
+            type="text"
+            name="name"
+            className="input input-bordered w-full"
+            value={formData.name}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">SKU</label>
+          <input
+            type="text"
+            name="sku"
+            className="input input-bordered w-full"
+            value={formData.sku}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Description</label>
+          <textarea
+            name="description"
+            rows={4}
+            className="textarea textarea-bordered w-full"
+            value={formData.description}
+            onChange={handleChange}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Price (₹)</label>
+          <input
+            type="number"
+            step="0.01"
+            name="price"
+            className="input input-bordered w-full"
+            value={formData.price}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        <div className="flex justify-end">
+          <button type="submit" className="btn btn-primary" disabled={isUpdating}>
+            {isUpdating ? "Updating..." : "Update Product"}
+          </button>
+        </div>
       </form>
     </div>
   );
