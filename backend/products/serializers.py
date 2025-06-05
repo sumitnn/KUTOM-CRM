@@ -52,26 +52,48 @@ class CategorySerializer(serializers.ModelSerializer):
             return True
         return obj.owner == user
 
+class SubcategorySerializer(serializers.ModelSerializer):
+    parent = CategorySerializer(read_only=True)
+    access = serializers.SerializerMethodField()
 
+    class Meta:
+        model = Category
+        fields = [
+            'id', 'name', 'parent', 'is_featured', 'display_order',
+            'created_at', 'updated_at', 'access'
+        ]
+
+    def get_access(self, obj):
+        request = self.context.get('request')
+        user = request.user if request else None
+        if not user or not user.is_authenticated:
+            return False
+        if user.role == "admin":
+            return True
+        return obj.owner == user
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImage
-        fields = ['id', 'image', 'alt_text', 'display_order', 'is_featured', 'created_at', 'updated_at']
+        fields = ['id', 'image', 'alt_text', 'display_order', 'is_featured']
+
+class TagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tag
+        fields = ['id', 'name']
 
 class ProductVariantSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductVariant
-        fields = ['id', 'sku', 'name', 'image', 'price', 'cost_price', 'selling_price', 'mrp',
-                  'quantity', 'threshold', 'attributes', 'is_default', 'active',
-                  'created_at', 'updated_at']
+        fields = ['id', 'sku', 'name', 'price', 'quantity', 'attributes', 'is_default', 'in_stock', 'low_stock']
 
 class ProductSerializer(serializers.ModelSerializer):
     variants = ProductVariantSerializer(many=True, read_only=True)
     images = ProductImageSerializer(many=True, read_only=True)
+    tags = TagSerializer(many=True, read_only=True)
 
     class Meta:
         model = Product
-        fields = ['id', 'sku', 'name', 'image', 'price', 'cost_price', 'selling_price', 'mrp',
-                  'description', 'active', 'created_at', 'updated_at', 'variants', 'images']
+        fields = ['id', 'sku', 'name', 'description', 'price', 'owner', 'variants', 'images', 'tags']
+        read_only_fields = ['owner']

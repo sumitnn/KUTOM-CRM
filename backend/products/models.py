@@ -50,49 +50,22 @@ class Category(models.Model):
 
 
 
+# Tag Model
+class Tag(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+
+    def __str__(self):
+        return self.name
+
+
+# Base model for shared product fields
 class BaseProductInfo(models.Model):
-    sku = models.CharField(
-        max_length=50,
-        unique=True,
-        help_text="Unique stock keeping unit"
-    )
-    name = models.CharField(
-        max_length=100,
-        blank=True,
-        help_text="Name of product or variant"
-    )
-    image = models.ImageField(
-        upload_to='products/images/',
-        blank=True,
-        null=True
-    )
-
-    price = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        null=True,
-        blank=True
-    )
-    cost_price = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=0,
-        validators=[MinValueValidator(0)]
-    )
-    selling_price = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=0,
-        validators=[MinValueValidator(0)]
-    )
-    mrp = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=0,
-        validators=[MinValueValidator(0)]
-    )
-
-
+    sku = models.CharField(max_length=50, unique=True)
+    name = models.CharField(max_length=100, blank=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    selling_price = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    mrp = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -101,53 +74,32 @@ class BaseProductInfo(models.Model):
         abstract = True
 
 
+# Main Product Model (SPU)
 class Product(BaseProductInfo):
     description = models.TextField(blank=True)
-    owner=models.ForeignKey(User,on_delete=models.SET_NULL,null=True, blank=True,related_name='product')
-
-    class Meta:
-        indexes = [
-            models.Index(fields=['sku']),
-            models.Index(fields=['active']),
-        ]
+    brand = models.CharField(max_length=100, blank=True)
+    owner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
+    tags = models.ManyToManyField(Tag, blank=True)
 
     def __str__(self):
         return self.name or self.sku
 
 
+# Variant Model (SKU level)
 class ProductVariant(BaseProductInfo):
-    product = models.ForeignKey(
-        Product,
-        on_delete=models.CASCADE,
-        related_name='variants'
-    )
-
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='variants')
     quantity = models.PositiveIntegerField(default=0)
     threshold = models.PositiveIntegerField(default=5)
-    attributes = models.JSONField(
-        default=dict,
-        help_text="e.g., {'color': 'Red', 'size': 'XL'}"
-    )
+    attributes = models.JSONField(default=dict)  # e.g., {"color": "Blue", "RAM": "16GB", "Storage": "256GB"}
     is_default = models.BooleanField(default=False)
 
-    class Meta:
-        ordering = ['-is_default', 'sku']
-        indexes = [
-            models.Index(fields=['product', 'active']),
-            models.Index(fields=['sku']),
-        ]
-
-    def __str__(self):
-        return f"{self.product.name} - {self.name or self.sku}"
-
     def save(self, *args, **kwargs):
+        # Auto-generate name from attributes if not provided
         if not self.name and self.attributes:
             self.name = ', '.join(f"{k}:{v}" for k, v in self.attributes.items())
 
         if self.is_default:
-            ProductVariant.objects.filter(
-                product=self.product
-            ).exclude(pk=self.pk).update(is_default=False)
+            ProductVariant.objects.filter(product=self.product).exclude(pk=self.pk).update(is_default=False)
 
         super().save(*args, **kwargs)
 
@@ -163,12 +115,14 @@ class ProductVariant(BaseProductInfo):
     def low_stock(self):
         return self.quantity <= self.threshold
 
-    def get_attribute_display(self, attr):
-        return str(self.attributes.get(attr, '')).title()
+    def __str__(self):
+        return f"{self.product.name} - {self.name or self.sku}"
 
 
+# Product Image Model
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
+    variant = models.ForeignKey(ProductVariant, on_delete=models.SET_NULL, null=True, blank=True, related_name='images')
     image = models.ImageField(upload_to='products/images/')
     alt_text = models.CharField(max_length=150, blank=True)
     display_order = models.PositiveIntegerField(default=0)
@@ -181,4 +135,4 @@ class ProductImage(models.Model):
         ordering = ['display_order', 'id']
 
     def __str__(self):
-        return f"{self.product.name} - Image {self.id}"
+        return f"{self.product.name} Image #{self.id}"

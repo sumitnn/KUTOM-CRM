@@ -168,11 +168,11 @@ class SubcategoryAPIView(APIView):
     def get(self, request, pk=None):
         if pk:
             subcategory = get_object_or_404(Category, pk=pk, parent__isnull=False)
-            serializer = CategorySerializer(subcategory, context={'request': request})
+            serializer = SubcategorySerializer(subcategory, context={'request': request})
             return Response(serializer.data)
         else:
             subcategories = Category.objects.filter(parent__isnull=False).order_by('display_order', 'name')
-            serializer = CategorySerializer(subcategories, many=True, context={'request': request})
+            serializer = SubcategorySerializer(subcategories, many=True, context={'request': request})
             return Response(serializer.data)
 
     def post(self, request):
@@ -189,7 +189,7 @@ class SubcategoryAPIView(APIView):
         if not request.data.get('parent'):
             return Response({"detail": "Subcategory must have a parent category."}, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = CategorySerializer(data=request.data, context={'request': request})
+        serializer = SubcategorySerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save(owner=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -204,7 +204,7 @@ class SubcategoryAPIView(APIView):
         if not (request.user.role == "admin" or subcategory.owner == request.user):
             return Response({"detail": "Not authorized to update this subcategory."}, status=status.HTTP_403_FORBIDDEN)
 
-        serializer = CategorySerializer(subcategory, data=request.data, partial=True, context={'request': request})
+        serializer = SubcategorySerializer(subcategory, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -222,17 +222,55 @@ class SubcategoryAPIView(APIView):
         subcategory.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.all().order_by('-created_at')
-    serializer_class = ProductSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrResellerRole]
 
-class ProductVariantViewSet(viewsets.ModelViewSet):
-    queryset = ProductVariant.objects.all().order_by('-is_default')
-    serializer_class = ProductVariantSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrResellerRole]
+class ProductListCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
 
-class ProductImageViewSet(viewsets.ModelViewSet):
-    queryset = ProductImage.objects.all().order_by('display_order')
-    serializer_class = ProductImageSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrResellerRole]
+    def get(self, request):
+        products = Product.objects.all()
+        serializer = ProductSerializer(products, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = ProductSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(owner=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ProductDetailAPIView(APIView):
+    permission_classes = [IsAdminOrVendorRole]
+
+    def get_object(self, pk):
+        return get_object_or_404(Product, pk=pk)
+
+    def get(self, request, pk):
+        product = self.get_object(pk)
+        self.check_object_permissions(request, product)
+        serializer = ProductSerializer(product)
+        return Response(serializer.data)
+
+    def put(self, request, pk):
+        product = self.get_object(pk)
+        self.check_object_permissions(request, product)
+        serializer = ProductSerializer(product, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save(owner=product.owner)
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        product = self.get_object(pk)
+        self.check_object_permissions(request, product)
+        product.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+
+class MyProductListAPIView(APIView):
+    permission_classes = [IsAdminOrVendorRole]
+
+    def get(self, request):
+        products = Product.objects.filter(owner=request.user)
+        serializer = ProductSerializer(products, many=True)
+        return Response(serializer.data)

@@ -2,22 +2,18 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import *
 
-router = DefaultRouter()
-
-
-router.register(r'products', ProductViewSet)
-router.register(r'variants', ProductVariantViewSet)
-router.register(r'product-images', ProductImageViewSet)
-
-
+# router = DefaultRouter()
 
 
 urlpatterns = [
-    path('', include(router.urls)),
+    # path('', include(router.urls)),
     path('brands/', BrandListCreateAPIView.as_view(), name='brand-list-create'),
     path('brands/<int:pk>/', BrandDetailAPIView.as_view(), name='brand-detail'),
     path('categories/', CategoryAPIView.as_view()),
     path('categories/<int:pk>/', CategoryAPIView.as_view()),
     path('subcategories/', SubcategoryAPIView.as_view()),
     path('subcategories/<int:pk>/', SubcategoryAPIView.as_view()),
+    path('products/', ProductListCreateAPIView.as_view(), name='product-list-create'),
+    path('products/<int:pk>/', ProductDetailAPIView.as_view(), name='product-detail'),
+    path("products/my-products/", MyProductListAPIView.as_view(), name="my-products"),
 ]

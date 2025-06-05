@@ -1,177 +1,83 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { FiEdit, FiTrash2, FiEye } from "react-icons/fi";
+import { useState } from "react";
+import { useGetMyProductsQuery } from "../features/product/productApi"; 
+import { Link } from "react-router-dom";
 
 const MyProductsPage = () => {
-  const navigate = useNavigate();
-  const [products, setProducts] = useState([]);
-  const [search, setSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [selectedSubCategory, setSelectedSubCategory] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const { data: products = [], isLoading, isError } = useGetMyProductsQuery();
 
-  const dummyProducts = [
-    {
-      id: 1,
-      name: "Product A",
-      price: 120,
-      stock: 10,
-      category: "Electronics",
-      subCategory: "Mobiles",
-      image: "/placeholder.png",
-    },
-    {
-      id: 2,
-      name: "Product B",
-      price: 90,
-      stock: 5,
-      category: "Apparel",
-      subCategory: "Shirts",
-      image: "/placeholder.png",
-    },
-  ];
-
-  const categories = ["Electronics", "Apparel"];
-  const subCategories = {
-    Electronics: ["Mobiles", "Laptops"],
-    Apparel: ["Shirts", "Pants"],
-  };
-
-  useEffect(() => {
-    setProducts(dummyProducts);
-  }, []);
-
-  const filteredProducts = products.filter((p) => {
-    return (
-      p.name.toLowerCase().includes(search.toLowerCase()) &&
-      (selectedCategory ? p.category === selectedCategory : true) &&
-      (selectedSubCategory ? p.subCategory === selectedSubCategory : true)
-    );
-  });
-
-  const deleteProduct = (id) => {
-    if (confirm("Are you sure you want to delete this product?")) {
-      setProducts(products.filter((p) => p.id !== id));
-    }
-  };
+  const filteredProducts = products.filter(
+    (product) =>
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.sku.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
-    <div className="px-4 py-8 max-w-7xl mx-auto">
-      {/* Header & Filter Section */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">My Products</h1>
-        <div className="flex flex-wrap gap-3 w-full lg:w-auto">
-          <input
-            type="text"
-            placeholder="Search by name..."
-            className="input input-bordered w-full sm:w-48"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <select
-            className="select select-bordered w-full sm:w-40"
-            value={selectedCategory}
-            onChange={(e) => {
-              setSelectedCategory(e.target.value);
-              setSelectedSubCategory("");
-            }}
-          >
-            <option value="">All Categories</option>
-            {categories.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
-          <select
-            className="select select-bordered w-full sm:w-40"
-            value={selectedSubCategory}
-            onChange={(e) => setSelectedSubCategory(e.target.value)}
-            disabled={!selectedCategory}
-          >
-            <option value="">All Subcategories</option>
-            {selectedCategory &&
-              subCategories[selectedCategory].map((sub) => (
-                <option key={sub}>{sub}</option>
-              ))}
-          </select>
-          <button
-            className="btn btn-primary whitespace-nowrap"
-            onClick={() => navigate("/admin/products/create")}
-          >
-            + Add Product
-          </button>
-        </div>
+    <div className="max-w-6xl mx-auto px-4 py-8">
+      <h2 className="text-3xl font-bold text-gray-800 mb-6">My Products</h2>
+
+      <div className="mb-6 flex justify-between items-center flex-col sm:flex-row gap-4">
+        <input
+          type="text"
+          placeholder="Search by name or SKU..."
+          className="input input-bordered w-full sm:w-1/2"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <Link to="/admin/products/create" className="btn btn-primary">
+          + Add New Product
+        </Link>
       </div>
 
-      {/* Product Table */}
-      <div className="overflow-x-auto bg-white rounded-xl shadow-md">
-        <table className="table w-full text-sm">
-          <thead>
-            <tr className="bg-gray-100 text-gray-700">
-              <th className="py-3">Image</th>
-              <th>Name</th>
-              <th>Category</th>
-              <th>Subcategory</th>
-              <th>Stock</th>
-              <th>Price</th>
-              <th className="text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredProducts.length > 0 ? (
-              filteredProducts.map((prod) => (
-                <tr key={prod.id} className="hover:bg-gray-50">
-                  <td className="py-3">
-                    <img
-                      src={prod.image}
-                      alt={prod.name}
-                      className="w-12 h-12 object-cover rounded border"
-                      onError={(e) => {
-                        if (e.target.src !== "/placeholder.png") {
-                          e.target.src = "/placeholder.png";
-                        }
-                      }}
-                    />
-                  </td>
-                  <td className="font-medium">{prod.name}</td>
-                  <td>{prod.category}</td>
-                  <td>{prod.subCategory}</td>
-                  <td>{prod.stock}</td>
-                  <td>₹{prod.price}</td>
-                  <td>
-                    <div className="flex justify-center gap-2">
-                      <button
-                        className="btn btn-xs btn-info"
-                        onClick={() => navigate(`/admin/products/${prod.id}`)}
-                      >
-                        <FiEye />
-                      </button>
-                      <button
-                        className="btn btn-xs btn-warning"
-                        onClick={() =>
-                          navigate(`/admin/products/edit/${prod.id}`)
-                        }
-                      >
-                        <FiEdit />
-                      </button>
-                      <button
-                        className="btn btn-xs btn-error"
-                        onClick={() => deleteProduct(prod.id)}
-                      >
-                        <FiTrash2 />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="7" className="text-center py-6 text-gray-500">
-                  No products found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      {isLoading ? (
+        <p className="text-center text-lg text-gray-600">Loading products...</p>
+      ) : isError ? (
+        <p className="text-center text-red-500">Failed to load products.</p>
+      ) : filteredProducts.length === 0 ? (
+        <p className="text-center text-gray-500 mt-45">No products found.</p>
+      ) : (
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
+          {filteredProducts.map((product) => (
+            <div
+              key={product.id}
+              className="border rounded-xl shadow hover:shadow-md transition duration-200 overflow-hidden"
+            >
+              <img
+                src={product.image}
+                alt={product.name}
+                className="w-full h-48 object-cover"
+              />
+              <div className="p-4 space-y-2">
+                <h3 className="text-lg font-semibold">{product.name}</h3>
+                <p className="text-sm text-gray-600">SKU: {product.sku}</p>
+                <p className="text-sm text-gray-600">
+                  Price: ₹{product.price} | Stock: {product.stock}
+                </p>
+                <p className="text-sm text-gray-600 capitalize">
+                  {product.category} / {product.subcategory}
+                </p>
+                <div className="flex justify-between mt-2">
+                  <span
+                    className={`badge ${
+                      product.status === "active"
+                        ? "badge-success"
+                        : "badge-warning"
+                    }`}
+                  >
+                    {product.status}
+                  </span>
+                  <Link
+                    to={`/admin/products/${product.id}`}
+                    className="text-primary hover:underline text-sm"
+                  >
+                    View
+                  </Link>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

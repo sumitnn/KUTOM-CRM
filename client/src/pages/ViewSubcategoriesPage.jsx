@@ -71,7 +71,9 @@ const ViewSubcategoriesPage = () => {
             >
               <div>
                 <h3 className="text-lg font-semibold text-gray-800">{sub.name}</h3>
-                <p className="text-sm text-gray-500">Category: {sub.category}</p>
+                <p className="text-sm text-gray-500">
+                  <span className="font-bold ">Main Category :</span> {sub.parent?.name ?? "No parent"}
+                </p>
               </div>
               <div className="space-x-2">
                 <button
