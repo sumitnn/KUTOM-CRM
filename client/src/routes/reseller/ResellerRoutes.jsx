@@ -17,8 +17,8 @@ const ResellerRoutes = [
     />
     
     {/* products  */}
-    <Route path="/reseller/products" element={<ResellerMainLayout><ProductListPage/></ResellerMainLayout>}/>
-    <Route path="/reseller/product/:id" element={<ResellerMainLayout><ProductDetailsPage/></ResellerMainLayout>}/>
+    <Route path="/reseller/products" element={<ResellerMainLayout><ProductListPage role="reseller"/></ResellerMainLayout>}/>
+    <Route path="/reseller/products/:id" element={<ResellerMainLayout><ProductDetailsPage role="reseller"/></ResellerMainLayout>}/>
 
     
     {/* order  */}

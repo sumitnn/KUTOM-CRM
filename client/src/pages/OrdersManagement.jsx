@@ -1,50 +1,6 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { formatDistanceToNow, parseISO } from "date-fns";
-
-const ordersMock = [
-  {
-    id: "ORD-1001",
-    customer: "John Doe",
-    date: "2025-05-20",
-    amount: 120.5,
-    status: "pending",
-  },
-  {
-    id: "ORD-1002",
-    customer: "Alice Smith",
-    date: "2025-05-18",
-    amount: 250.0,
-    status: "rejected",
-  },
-  {
-    id: "ORD-1003",
-    customer: "Michael Brown",
-    date: "2025-05-19",
-    amount: 89.99,
-    status: "completed",
-  },
-  {
-    id: "ORD-1004",
-    customer: "Samantha Green",
-    date: "2025-05-22",
-    amount: 340.75,
-    status: "pending",
-  },
-  {
-    id: "ORD-1005",
-    customer: "David Johnson",
-    date: "2025-05-21",
-    amount: 150.0,
-    status: "rejected",
-  },
-  {
-    id: "ORD-1006",
-    customer: "Emma Wilson",
-    date: "2025-05-23",
-    amount: 199.99,
-    status: "completed",
-  },
-];
+import { useGetMyOrdersQuery } from "../features/order/orderApi"; // adjust path accordingly
 
 const statusColors = {
   completed: "bg-green-100 text-green-800",
@@ -52,38 +8,46 @@ const statusColors = {
   rejected: "bg-red-100 text-red-800",
 };
 
-const today = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+const today = new Date().toISOString().slice(0, 10);
 
 const OrdersManagement = () => {
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
   const [visibleCount, setVisibleCount] = useState(5);
+  const [page, setPage] = useState(1);
 
-  // Filtered Orders for active tab + search
-  const filteredOrders = useMemo(() => {
-    return ordersMock
-      .filter((order) => (activeTab === "all" ? true : order.status === activeTab))
+  const { data, error, isLoading, isFetching } = useGetMyOrdersQuery({
+    status: activeTab,
+    page,
+  });
+
+  // Filter client-side by customer name or order id since backend might not support search
+  const filteredOrders = React.useMemo(() => {
+    if (!data?.results) return [];
+
+    return data.results
       .filter(
         (order) =>
           order.customer.toLowerCase().includes(search.toLowerCase()) ||
           order.id.toLowerCase().includes(search.toLowerCase())
       )
       .slice(0, visibleCount);
-  }, [activeTab, search, visibleCount]);
+  }, [data, search, visibleCount]);
 
-  // Today’s orders for summary section
-  const todaysOrders = useMemo(() => {
-    return ordersMock.filter((order) => order.date === today);
-  }, []);
+  // Today's orders from fetched data
+  const todaysOrders = React.useMemo(() => {
+    if (!data?.results) return [];
+    return data.results.filter((order) => order.date === today);
+  }, [data]);
+
+  const hasMore =
+    data && data.next; // DRF paginated response includes `next` url when more pages exist
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-
-        {/* Header */}
         <h1 className="text-4xl font-extrabold mb-8 text-gray-900">My Orders</h1>
 
-        {/* Today’s Orders Section */}
         <section className="mb-10">
           <h2 className="text-2xl font-semibold mb-4 text-gray-800">Today's Orders</h2>
           {todaysOrders.length === 0 ? (
@@ -119,7 +83,6 @@ const OrdersManagement = () => {
           )}
         </section>
 
-        {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-6 border-b border-gray-200">
           {["all", "pending", "completed", "rejected"].map((tab) => (
             <button
@@ -131,7 +94,8 @@ const OrdersManagement = () => {
               }`}
               onClick={() => {
                 setActiveTab(tab);
-                setVisibleCount(5); // reset visible count on tab change
+                setVisibleCount(5);
+                setPage(1);
               }}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)} Orders
@@ -139,7 +103,6 @@ const OrdersManagement = () => {
           ))}
         </div>
 
-        {/* Search Bar */}
         <div className="mb-6">
           <input
             type="text"
@@ -150,8 +113,11 @@ const OrdersManagement = () => {
           />
         </div>
 
-        {/* Orders List */}
-        {filteredOrders.length === 0 ? (
+        {isLoading ? (
+          <p className="text-center text-gray-500 py-20 text-lg">Loading orders...</p>
+        ) : error ? (
+          <p className="text-center text-red-500 py-20 text-lg">Failed to load orders.</p>
+        ) : filteredOrders.length === 0 ? (
           <p className="text-center text-gray-500 py-20 text-lg">No orders found.</p>
         ) : (
           <div className="space-y-4">
@@ -168,8 +134,7 @@ const OrdersManagement = () => {
 
                 <div className="mb-3 md:mb-0 text-gray-700 md:w-1/4">
                   <p>
-                    <span className="font-semibold">Order Date:</span>{" "}
-                    {order.date} (
+                    <span className="font-semibold">Order Date:</span> {order.date} (
                     {formatDistanceToNow(parseISO(order.date), { addSuffix: true })})
                   </p>
                   <p>
@@ -201,19 +166,14 @@ const OrdersManagement = () => {
         )}
 
         {/* Load More Button */}
-        {filteredOrders.length < ordersMock
-          .filter((order) => (activeTab === "all" ? true : order.status === activeTab))
-          .filter(
-            (order) =>
-              order.customer.toLowerCase().includes(search.toLowerCase()) ||
-              order.id.toLowerCase().includes(search.toLowerCase())
-          ).length && (
+        {hasMore && (
           <div className="text-center mt-8">
             <button
-              onClick={() => setVisibleCount((prev) => prev + 5)}
+              onClick={() => setPage((prev) => prev + 1)}
+              disabled={isFetching}
               className="px-8 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition"
             >
-              Load More
+              {isFetching ? "Loading..." : "Load More"}
             </button>
           </div>
         )}

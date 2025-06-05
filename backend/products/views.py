@@ -277,3 +277,27 @@ class MyProductListAPIView(APIView):
         products = Product.objects.filter(owner=request.user)
         serializer = ProductSerializer(products, many=True)
         return Response(serializer.data)
+    
+class ProductStatsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        products = Product.objects.filter(owner=user)
+
+        labels = []
+        data = []
+
+        for product in products:
+            labels.append(product.name or product.sku)
+            total_quantity = (
+                ProductVariant.objects
+                .filter(product=product)
+                .aggregate(total=Sum('quantity'))['total'] or 0
+            )
+            data.append(total_quantity)
+
+        return Response({
+            'labels': labels,
+            'data': data,
+        })

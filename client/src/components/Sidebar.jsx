@@ -168,7 +168,6 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         icon: <MdProductionQuantityLimits />,
         label: "My Cart",
         children: [
-          { label: "Wishlist", path: "/reseller/orders" },
           { label: "Cart", path: "/reseller/my-cart" },
 
        
