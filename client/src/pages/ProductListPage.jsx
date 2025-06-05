@@ -5,6 +5,10 @@ import {
   useGetAllProductsQuery,
   useDeleteProductMutation,
 } from "../features/product/productApi";
+import { useDispatch, useSelector } from "react-redux";
+import { addItem } from "../features/cart/cartSlice";
+import { toast} from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 function useDebounce(value, delay) {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -28,8 +32,10 @@ const getProductImage = (prod) => {
 };
 
 const ProductListPage = ({ role }) => {
-  console.log(role)
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const cartItems = useSelector((state) => state.cart.items);
+
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -68,8 +74,30 @@ const ProductListPage = ({ role }) => {
     }
   };
 
+  const handleAddToCart = (prod) => {
+    const isAlreadyInCart = cartItems.some((item) => item.id === prod.id);
+
+    if (isAlreadyInCart) {
+      toast.info("Item already in cart.");
+    } else {
+      dispatch(
+        addItem({
+          id: prod.id,
+          name: prod.name,
+          price: Number(prod.price),
+          quantity: 1,
+          image: getProductImage(prod),
+        })
+      );
+      toast.success("Item added to cart successfully!");
+    }
+  };
+
   return (
     <div className="px-4 py-8 max-w-7xl mx-auto">
+     
+      
+      {/* Filters */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
         <h1 className="text-2xl font-bold text-gray-800">All Products</h1>
         <div className="flex flex-wrap gap-4 w-full lg:w-auto">
@@ -114,6 +142,7 @@ const ProductListPage = ({ role }) => {
         </div>
       </div>
 
+      {/* Product Grid */}
       {isLoading ? (
         <div className="text-center text-gray-500">Loading products...</div>
       ) : isError ? (
@@ -146,17 +175,35 @@ const ProductListPage = ({ role }) => {
                   />
                 </figure>
                 <div className="card-body p-4 space-y-2">
-                  <h2 className="card-title text-lg font-semibold">{prod.name}</h2>
+                  <h2 className="card-title text-lg font-semibold">
+                    {prod.name}
+                  </h2>
                   <p className="text-sm text-gray-500">
-                    {prod.category || "Uncategorized"} &raquo; {prod.subCategory || "-"}
+                    {prod.category || "Uncategorized"} &raquo;{" "}
+                    {prod.subCategory || "-"}
                   </p>
                   <div className="flex justify-between items-center text-sm">
                     <span className="font-medium text-green-600">
-                      ₹{prod.price}
+                      ₹{Number(prod.price).toFixed(2)}
                     </span>
-                    <span className="text-gray-600">Stock: {prod.stock || 0}</span>
+                    <span className="text-gray-600">
+                      Stock: {prod.stock || 0}
+                    </span>
                   </div>
+
                   <div className="flex justify-end gap-2 pt-2">
+                    {role === "reseller" && (
+                      <button
+                        className="btn btn-sm btn-success"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddToCart(prod);
+                        }}
+                      >
+                        Add to Cart
+                      </button>
+                    )}
+
                     <button
                       className="btn btn-sm btn-info"
                       onClick={(e) => {
@@ -166,6 +213,7 @@ const ProductListPage = ({ role }) => {
                     >
                       <FiEye />
                     </button>
+
                     <button
                       className="btn btn-sm btn-warning"
                       onClick={(e) => {
@@ -175,6 +223,7 @@ const ProductListPage = ({ role }) => {
                     >
                       <FiEdit />
                     </button>
+
                     <button
                       className="btn btn-sm btn-error"
                       onClick={(e) => {

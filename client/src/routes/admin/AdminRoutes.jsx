@@ -5,7 +5,7 @@ import AdminMainLayout from "../../layout/admin/AdminMainLayout";
 
 import AdminDashboard from "../../pages/admin/AdminDashboard";
 import WalletManagementPage from "../../pages/admin/WalletManagementPage";
-import AdminProducts from "../../pages/admin/AdminProducts";
+
 import OrderManagementPage from "../../pages/admin/OrderManagementPage";
 import AdminVendor from "../../pages/admin/AdminVendor";
 import AdminStockist from "../../pages/admin/AdminStockist";
@@ -18,6 +18,11 @@ import CreateCategoryPage from "../../pages/CreateCategoryPage";
 import ViewCategoriesPage from "../../pages/ViewCategoriesPage";
 import CreateSubcategoryPage from "../../pages/CreateSubcategoryPage";
 import ViewSubcategoriesPage from "../../pages/ViewSubcategoriesPage";
+import ProductListPage from "../../pages/ProductListPage";
+import ProductDetailsPage from "../../pages/ProductDetailPage";
+import CreateProductPage from "../../pages/CreateProductPage";
+import MyProductsPage from "../../pages/MyProductsPage";
+import EditProductPage from "../../pages/EditProductPage";
 
 const adminRoutes = [
   <Route key="admin" element={<ProtectedRoute allowedRoles={["admin"]} />}>
@@ -45,11 +50,15 @@ const adminRoutes = [
     />
     <Route path="/admin/subcategories" element={<AdminMainLayout><ViewSubcategoriesPage /></AdminMainLayout>} />
 
-
+      {/* products  */}
+      <Route path="/admin/products" element={<AdminMainLayout><ProductListPage role="admin"/></AdminMainLayout>}/>
+    <Route path="/admin/products/:id" element={<AdminMainLayout><ProductDetailsPage /></AdminMainLayout>}/>
+    <Route path="/admin/create-product" element={<AdminMainLayout><CreateProductPage/></AdminMainLayout>}/>
+    <Route path="/admin/my-products" element={<AdminMainLayout><MyProductsPage role="admin"/></AdminMainLayout>} />
+    <Route path="/admin/products/edit/:id" element={<AdminMainLayout><EditProductPage role="admin"/></AdminMainLayout>} />
 
 
     <Route path="/admin/wallet" element={<AdminMainLayout><WalletManagementPage /></AdminMainLayout>} />
-    <Route path="/admin/products" element={<AdminMainLayout><AdminProducts /></AdminMainLayout>} />
     <Route path="/admin/orders" element={<AdminMainLayout><OrderManagementPage /></AdminMainLayout>} />
     <Route path="/admin/vendor" element={<AdminMainLayout><AdminVendor /></AdminMainLayout>} />
     <Route path="/admin/stockist" element={<AdminMainLayout><AdminStockist /></AdminMainLayout>} />

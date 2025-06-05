@@ -54,6 +54,12 @@ export const productApi = createApi({
             }),
             invalidatesTags: ['Product'],
         }),
+        getProductStats: builder.query({
+            query: () => ({
+                url: '/products/stats/',
+                method: 'GET',
+            }),
+          }),
     }),
 });
 
@@ -64,4 +70,5 @@ export const {
     useCreateProductMutation,
     useUpdateProductMutation,
     useDeleteProductMutation,
+    useGetProductStatsQuery
 } = productApi;

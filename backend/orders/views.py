@@ -9,8 +9,9 @@ from django.db.models import Q
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.pagination import PageNumberPagination
-
-
+from rest_framework.generics import ListAPIView
+from django.db.models import Count
+from django.db.models.functions import TruncMonth
 
 # Reseller can create
 class CreateOrderAPIView(generics.CreateAPIView):
@@ -44,8 +45,41 @@ class ForwardOrderAPIView(APIView):
         return Response({"message": "Order forwarded to admin."})
 
 
+class MyOrdersPagination(PageNumberPagination):
+    page_size = 5  # or any number you prefer
 
+class MyOrdersView(ListAPIView):
+    serializer_class = OrderSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = MyOrdersPagination
 
+    def get_queryset(self):
+        user = self.request.user
+        status_param = self.request.GET.get('status', 'all')
+
+        queryset = Order.objects.filter(reseller=user).order_by('-created_at')
+        if status_param != 'all':
+            queryset = queryset.filter(status=status_param)
+        return queryset
+
+class BulkOrderCreateView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        orders_data = request.data
+
+        if not isinstance(orders_data, list):
+            return Response(
+                {"error": "Expected a list of order objects."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        serializer = OrderSerializer(data=orders_data, many=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # Admin-specific filters
 class AdminOrderListView(APIView):
@@ -84,3 +118,35 @@ class AdminApproveRejectOrderAPIView(APIView):
             return Response({"error": "Invalid action"}, status=400)
         order.save()
         return Response({"message": f"Order {order.status}."})
+    
+
+class OrderSummaryView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        orders = Order.objects.filter(reseller=user)
+
+        status_counts = orders.values('status').annotate(count=Count('id'))
+        status_dict = {'All': orders.count(), 'Pending': 0, 'Approved': 0, 'Rejected': 0}
+        for entry in status_counts:
+            status_dict[entry['status']] = entry['count']
+
+        monthly_data = (
+            orders
+            .annotate(month=TruncMonth('created_at'))
+            .values('month')
+            .annotate(count=Count('id'))
+            .order_by('month')
+        )
+
+        labels = [entry['month'].strftime('%b %Y') for entry in monthly_data]
+        data = [entry['count'] for entry in monthly_data]
+
+        return Response({
+            'statusCounts': status_dict,
+            'monthlyOrders': {
+                'labels': labels,
+                'data': data,
+            }
+        })

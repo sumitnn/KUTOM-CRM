@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bar, Pie } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -11,9 +11,12 @@ import {
 } from 'chart.js';
 import { motion } from 'framer-motion';
 
+import { useGetOrderSummaryQuery } from '../../features/order/orderApi'; 
+import { useGetProductStatsQuery } from '../../features/product/productApi'; 
+import { useGetWalletQuery  } from '../../features/walletApi'; 
+
 ChartJS.register(BarElement, ArcElement, CategoryScale, LinearScale, Tooltip, Legend);
 
-// Updated SummarySection to include Wallet Details and full width
 const SummarySection = ({ total, pending, rejected, wallet }) => (
   <div className="bg-white rounded-xl shadow p-6 w-full">
     <h3 className="text-lg font-semibold mb-6">Summary & Wallet Details</h3>
@@ -36,63 +39,60 @@ const SummarySection = ({ total, pending, rejected, wallet }) => (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
       <div className="card bg-green-600 text-white p-4 rounded-lg">
         <p className="text-sm">Wallet Balance</p>
-        <p className="text-2xl font-bold">${wallet.balance}</p>
+        <p className="text-2xl font-bold">${wallet?.balance ?? 0}</p>
       </div>
       <div className="card bg-blue-600 text-white p-4 rounded-lg">
         <p className="text-sm">Pending Amount</p>
-        <p className="text-2xl font-bold">${wallet.pending}</p>
+        <p className="text-2xl font-bold">${wallet?.pending ?? 0}</p>
       </div>
       <div className="card bg-yellow-500 text-white p-4 rounded-lg">
         <p className="text-sm">Withdrawn</p>
-        <p className="text-2xl font-bold">${wallet.withdrawn}</p>
+        <p className="text-2xl font-bold">${wallet?.withdrawn ?? 0}</p>
       </div>
       <div className="card bg-purple-600 text-white p-4 rounded-lg">
         <p className="text-sm">Last Transaction</p>
-        <p className="text-2xl font-bold">${wallet.lastTransaction}</p>
+        <p className="text-2xl font-bold">${wallet?.lastTransaction ?? 0}</p>
       </div>
     </div>
   </div>
 );
 
 const VendorDashboard = () => {
-  // Filters state
   const [selectedType, setSelectedType] = useState('Order');
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedMonth, setSelectedMonth] = useState('All');
 
-  // Simulated data (ideally fetched from API)
-  const [chartDataMap, setChartDataMap] = useState({
+  // Fetch data
+  const { data: orderSummary, isLoading: ordersLoading, error: ordersError } = useGetOrderSummaryQuery();
+  const { data: productStats, isLoading: productLoading, error: productError } = useGetProductStatsQuery();
+  const { data: walletData, isLoading: walletLoading, error: walletError } = useGetWalletQuery();
+
+  // Prepare data for charts
+  const totalOrders = orderSummary?.statusCounts?.All || 0;
+  const pendingOrders = orderSummary?.statusCounts?.Pending || 0;
+  const rejectedOrders = orderSummary?.statusCounts?.Rejected || 0;
+
+  // Chart data based on selected type
+  const chartDataMap = {
     Order: {
-      labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-      data: [120, 90, 150, 80, 200, 170],
-      statusCounts: { All: 720, Pending: 150, Approved: 500, Rejected: 70 },
+      labels: orderSummary?.monthlyOrders?.labels || [],
+      data: orderSummary?.monthlyOrders?.data || [],
+      statusCounts: orderSummary?.statusCounts || { All: 0, Pending: 0, Approved: 0, Rejected: 0 },
     },
     Product: {
-      labels: ['Product A', 'Product B', 'Product C'],
-      data: [300, 500, 200],
+      labels: productStats?.labels || [],
+      data: productStats?.data || [],
     },
+    // If you have real invoice data, replace here, else dummy fallback
     Invoice: {
       labels: ['Paid', 'Pending', 'Overdue'],
       data: [600, 250, 150],
     },
-  });
-
-  // Dummy wallet data
-  const walletData = {
-    balance: 1250,
-    pending: 300,
-    withdrawn: 950,
-    lastTransaction: 150,
   };
 
-  // Filter chart data (demo logic)
+  // Filter chart data for bar chart
   const filteredLabels = chartDataMap[selectedType]?.labels || [];
   const filteredData = chartDataMap[selectedType]?.data || [];
-
-  // Summary stats for Orders
-  const totalOrders = chartDataMap.Order.statusCounts.All;
-  const pendingOrders = chartDataMap.Order.statusCounts.Pending;
-  const rejectedOrders = chartDataMap.Order.statusCounts.Rejected;
 
   const barData = {
     labels: filteredLabels,
@@ -116,9 +116,13 @@ const VendorDashboard = () => {
     ],
   };
 
+  // Loading or error states can be handled as needed
+  if (ordersLoading || productLoading || walletLoading) return <div>Loading dashboard data...</div>;
+  if (ordersError || productError || walletError) return <div>Error loading data. Please try again.</div>;
+
   return (
     <div className="p-6 bg-base-200 min-h-screen">
-      <h1 className="text-3xl font-extrabold mb-8">Vendor Dashboard</h1>
+      <h1 className="text-3xl font-extrabold mb-8">Reseller Dashboard</h1>
 
       {/* Filters */}
       <div className="card bg-white p-6 rounded-xl shadow mb-8 flex flex-col md:flex-row md:items-center md:space-x-6 space-y-4 md:space-y-0">
@@ -131,7 +135,7 @@ const VendorDashboard = () => {
           >
             <option>Order</option>
             <option>Product</option>
-            <option>Invoice</option>
+            <option>Wallet</option>
           </select>
         </div>
 
@@ -168,7 +172,7 @@ const VendorDashboard = () => {
         )}
       </div>
 
-      {/* Summary Section full width */}
+      {/* Summary Section */}
       <motion.div
         className="mb-8"
         initial={{ opacity: 0, y: 30 }}
@@ -179,13 +183,12 @@ const VendorDashboard = () => {
           total={totalOrders}
           pending={pendingOrders}
           rejected={rejectedOrders}
-          wallet={walletData}
+          wallet={walletData || {}}
         />
       </motion.div>
 
-      {/* Charts in 2 columns on xl+ screens */}
+      {/* Charts */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* Bar Chart */}
         <motion.div
           className="bg-white rounded-xl shadow p-6"
           initial={{ opacity: 0, y: 30 }}
@@ -196,7 +199,6 @@ const VendorDashboard = () => {
           <Bar data={barData} />
         </motion.div>
 
-        {/* Pie Chart */}
         <motion.div
           className="bg-white rounded-xl shadow p-6"
           initial={{ opacity: 0, y: 30 }}
