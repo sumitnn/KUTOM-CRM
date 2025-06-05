@@ -13,6 +13,7 @@ import ProductListPage from "../../pages/ProductListPage";
 import CreateProductPage from "../../pages/CreateProductPage";
 import MyProductsPage from "../../pages/MyProductsPage";
 import ProductDetailsPage from "../../pages/ProductDetailPage";
+import EditProductPage from "../../pages/EditProductPage";
 
 
 const VendorRoutes = [
@@ -47,10 +48,11 @@ const VendorRoutes = [
     <Route path="/vendor/subcategories" element={<VendorMainLayout><ViewSubcategoriesPage /></VendorMainLayout>} />
 
     {/* products  */}
-    <Route path="/vendor/products" element={<VendorMainLayout><ProductListPage/></VendorMainLayout>}/>
-    <Route path="/vendor/product/:id" element={<VendorMainLayout><ProductDetailsPage/></VendorMainLayout>}/>
+    <Route path="/vendor/products" element={<VendorMainLayout><ProductListPage role="vendor"/></VendorMainLayout>}/>
+    <Route path="/vendor/products/:id" element={<VendorMainLayout><ProductDetailsPage /></VendorMainLayout>}/>
     <Route path="/vendor/create-product" element={<VendorMainLayout><CreateProductPage/></VendorMainLayout>}/>
-    <Route path="/vendor/my-products" element={<VendorMainLayout><MyProductsPage /></VendorMainLayout>} />
+    <Route path="/vendor/my-products" element={<VendorMainLayout><MyProductsPage role="vendor"/></VendorMainLayout>} />
+    <Route path="/vendor/products/edit/:id" element={<VendorMainLayout><EditProductPage role="vendor"/></VendorMainLayout>} />
 
     
     <Route key="logout" path="/vendor/logout" element={<Logout/>} />

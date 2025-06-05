@@ -1,40 +1,66 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useGetProductByIdQuery } from "../features/product/productApi"; 
+import { useParams } from "react-router-dom";
+
+// Base URL of your backend, adjust accordingly or read from env
+const BASE_URL = import.meta.env.VITE_IMAGE_API_URL || "http://localhost:8000";
 
 const ProductDetailsPage = () => {
-  const images = [
-    "https://images.unsplash.com/photo-1505751171710-1f6d0ace5a85?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-    "https://images.unsplash.com/photo-1484704849700-f032a568e944?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-    "https://images.unsplash.com/photo-1496957961599-e35b69ef5d7c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-    "https://images.unsplash.com/photo-1528148343865-51218c4a13e6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-  ];
+  const { id } = useParams(); 
+  const { data: product, error, isLoading } = useGetProductByIdQuery(id);
 
-  const [mainImage, setMainImage] = useState(images[0]);
+  const [mainImage, setMainImage] = useState("");
   const [quantity, setQuantity] = useState(1);
-  const colors = ["black", "gray-300", "blue-500"];
+  const colors = ["black", "#d1d5db", "blue"];
   const [selectedColor, setSelectedColor] = useState(colors[0]);
+
+  // Helper to build full image URL
+  const getFullImageUrl = (imagePath) => {
+    if (!imagePath) return "";
+    // If already absolute URL, return as is
+    if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
+      return imagePath;
+    }
+    // Otherwise prepend base URL
+    return BASE_URL + imagePath;
+  };
+
+  useEffect(() => {
+    if (product && product.images?.length && !mainImage) {
+      const featured = product.images.find((img) => img.is_featured);
+      setMainImage(getFullImageUrl(featured ? featured.image : product.images[0].image));
+    }
+  }, [product, mainImage]);
+
+  if (isLoading) return <p>Loading product...</p>;
+  if (error) return <p>Error loading product!</p>;
+  if (!product) return <p>No product found.</p>;
 
   return (
     <div className="bg-gray-100 min-h-screen">
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-wrap -mx-4">
-
           {/* Images Section */}
           <div className="w-full md:w-1/2 px-4 mb-8">
             <img
               src={mainImage}
-              alt="Product"
+              alt={product.name}
               className="w-full h-auto rounded-lg shadow-md mb-4"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = "/placeholder.png"; // fallback image
+              }}
             />
             <div className="flex gap-4 py-4 justify-center overflow-x-auto">
-              {images.map((src, i) => (
+              {product.images.map(({ id, image, alt_text }) => (
                 <img
-                  key={i}
-                  src={src}
-                  alt={`Thumbnail ${i + 1}`}
+                  key={id}
+                  src={getFullImageUrl(image)}
+                  alt={alt_text || `Thumbnail ${id}`}
                   className={`w-16 sm:w-20 h-16 sm:h-20 object-cover rounded-md cursor-pointer transition-opacity duration-300 ${
-                    mainImage === src ? "opacity-100" : "opacity-60 hover:opacity-100"
+                    mainImage === getFullImageUrl(image) ? "opacity-100" : "opacity-60 hover:opacity-100"
                   }`}
-                  onClick={() => setMainImage(src)}
+                  onClick={() => setMainImage(getFullImageUrl(image))}
                 />
               ))}
             </div>
@@ -42,34 +68,13 @@ const ProductDetailsPage = () => {
 
           {/* Details Section */}
           <div className="w-full md:w-1/2 px-4">
-            <h2 className="text-3xl font-bold mb-2">Premium Wireless Headphones</h2>
-            <p className="text-gray-600 mb-4">SKU: WH1000XM4</p>
+            <h2 className="text-3xl font-bold mb-2">{product.name}</h2>
+            <p className="text-gray-600 mb-4">SKU: {product.sku}</p>
             <div className="mb-4">
-              <span className="text-2xl font-bold mr-2">$349.99</span>
-              <span className="text-gray-500 line-through">$399.99</span>
+              <span className="text-2xl font-bold mr-2">${product.price}</span>
             </div>
 
-            {/* Rating */}
-            <div className="flex items-center mb-4">
-              {[...Array(5)].map((_, idx) => (
-                <svg
-                  key={idx}
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  className={`w-5 h-5 ${
-                    idx < 4 ? "text-yellow-400" : "text-gray-300"
-                  }`}
-                >
-                  <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
-                </svg>
-              ))}
-              <span className="ml-2 text-gray-600">(123 reviews)</span>
-            </div>
-
-            <p className="text-gray-700 mb-6">
-              Experience industry-leading noise cancellation with the WH1000XM4 headphones. Comfortable fit, superior sound quality, and up to 30 hours of battery life.
-            </p>
+            <p className="text-gray-700 mb-6">{product.description}</p>
 
             {/* Color Selection */}
             <div className="mb-6">
@@ -82,7 +87,7 @@ const ProductDetailsPage = () => {
                     className={`w-8 h-8 rounded-full border-2 transition-transform transform hover:scale-110 focus:outline-none ${
                       selectedColor === color ? "border-black" : "border-transparent"
                     }`}
-                    style={{ backgroundColor: color === "gray-300" ? "#d1d5db" : color }}
+                    style={{ backgroundColor: color }}
                     aria-label={`Select color ${color}`}
                   />
                 ))}

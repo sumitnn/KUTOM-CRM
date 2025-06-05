@@ -4,7 +4,7 @@ import { FiEdit, FiTrash2, FiEye } from "react-icons/fi";
 import {
   useGetAllProductsQuery,
   useDeleteProductMutation,
-} from "../features/product/productApi"; // update path if needed
+} from "../features/product/productApi";
 
 function useDebounce(value, delay) {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -15,7 +15,20 @@ function useDebounce(value, delay) {
   return debouncedValue;
 }
 
-const ProductListPage = () => {
+// Helper to get featured or fallback image
+const getProductImage = (prod) => {
+  const base = import.meta.env.VITE_IMAGE_API_URL || "";
+  console.log(prod.images );
+  console.log(typeof(prod.images) );
+  if (prod.images && prod.images.length > 0) {
+    const featured = prod.images.find((img) => img.is_featured);
+    return base + featured?.image;
+  }
+  return "/placeholder.png";
+};
+
+const ProductListPage = ({ role }) => {
+  console.log(role)
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
@@ -28,6 +41,7 @@ const ProductListPage = () => {
     isError,
     refetch,
   } = useGetAllProductsQuery();
+
   const [deleteProductApi] = useDeleteProductMutation();
 
   const categories = ["Electronics", "Apparel"];
@@ -47,6 +61,7 @@ const ProductListPage = () => {
     if (window.confirm("Are you sure you want to delete this product?")) {
       try {
         await deleteProductApi(id).unwrap();
+        refetch();
       } catch (error) {
         console.error("Failed to delete product:", error);
       }
@@ -92,7 +107,7 @@ const ProductListPage = () => {
           </select>
           <button
             className="btn btn-primary"
-            onClick={() => navigate("/admin/products/create")}
+            onClick={() => navigate(`/${role}/products/create`)}
           >
             + Add Product
           </button>
@@ -115,36 +130,38 @@ const ProductListPage = () => {
               <div
                 key={prod.id}
                 className="card bg-white shadow-md hover:shadow-xl transition-transform transform hover:-translate-y-1 cursor-pointer rounded-lg overflow-hidden"
-                onClick={() => navigate(`/admin/products/${prod.id}`)}
+                onClick={() => navigate(`/${role}/products/${prod.id}`)}
               >
                 <figure className="h-48 bg-gray-100">
                   <img
-                    src={prod.image || "/placeholder.png"}
+                    src={getProductImage(prod)}
                     alt={prod.name}
                     className="h-full w-full object-cover"
                     onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = "/placeholder.png";
+                      if (!e.target.src.includes("/placeholder.png")) {
+                        e.target.onerror = null;
+                        e.target.src = "/placeholder.png";
+                      }
                     }}
                   />
                 </figure>
                 <div className="card-body p-4 space-y-2">
                   <h2 className="card-title text-lg font-semibold">{prod.name}</h2>
                   <p className="text-sm text-gray-500">
-                    {prod.category} &raquo; {prod.subCategory}
+                    {prod.category || "Uncategorized"} &raquo; {prod.subCategory || "-"}
                   </p>
                   <div className="flex justify-between items-center text-sm">
                     <span className="font-medium text-green-600">
                       ₹{prod.price}
                     </span>
-                    <span className="text-gray-600">Stock: {prod.stock}</span>
+                    <span className="text-gray-600">Stock: {prod.stock || 0}</span>
                   </div>
                   <div className="flex justify-end gap-2 pt-2">
                     <button
                       className="btn btn-sm btn-info"
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/admin/products/${prod.id}`);
+                        navigate(`/${role}/products/${prod.id}`);
                       }}
                     >
                       <FiEye />
@@ -153,7 +170,7 @@ const ProductListPage = () => {
                       className="btn btn-sm btn-warning"
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/admin/products/edit/${prod.id}`);
+                        navigate(`/${role}/products/edit/${prod.id}`);
                       }}
                     >
                       <FiEdit />

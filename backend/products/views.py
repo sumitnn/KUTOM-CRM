@@ -224,7 +224,10 @@ class SubcategoryAPIView(APIView):
 
 
 class ProductListCreateAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAdminOrVendorRole()]
+        return [IsAuthenticated()]
 
     def get(self, request):
         products = Product.objects.all()

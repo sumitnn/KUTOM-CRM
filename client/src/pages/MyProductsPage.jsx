@@ -1,10 +1,28 @@
 import { useState } from "react";
-import { useGetMyProductsQuery } from "../features/product/productApi"; 
+import { useGetMyProductsQuery } from "../features/product/productApi";
 import { Link } from "react-router-dom";
 
-const MyProductsPage = () => {
+const BASE_URL = import.meta.env.VITE_IMAGE_API_URL || "http://localhost:8000";
+
+const MyProductsPage = ({role}) => {
   const [searchTerm, setSearchTerm] = useState("");
   const { data: products = [], isLoading, isError } = useGetMyProductsQuery();
+
+  // Helper to get full image URL or fallback if none
+  const getProductImageUrl = (product) => {
+    if (product.images && product.images.length > 0) {
+      // Try to find featured image
+      const featured = product.images.find((img) => img.is_featured);
+      const imagePath = featured ? featured.image : product.images[0].image;
+
+      if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
+        return imagePath;
+      }
+      return BASE_URL + imagePath;
+    }
+    // fallback image URL
+    return "/placeholder.png";
+  };
 
   const filteredProducts = products.filter(
     (product) =>
@@ -24,7 +42,7 @@ const MyProductsPage = () => {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
-        <Link to="/admin/products/create" className="btn btn-primary">
+        <Link to="/${role}/products/create" className="btn btn-primary">
           + Add New Product
         </Link>
       </div>
@@ -43,18 +61,23 @@ const MyProductsPage = () => {
               className="border rounded-xl shadow hover:shadow-md transition duration-200 overflow-hidden"
             >
               <img
-                src={product.image}
+                src={getProductImageUrl(product)}
                 alt={product.name}
                 className="w-full h-48 object-cover"
+                loading="lazy"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = "/placeholder.png"; // fallback image on error
+                }}
               />
               <div className="p-4 space-y-2">
                 <h3 className="text-lg font-semibold">{product.name}</h3>
                 <p className="text-sm text-gray-600">SKU: {product.sku}</p>
                 <p className="text-sm text-gray-600">
-                  Price: ₹{product.price} | Stock: {product.stock}
+                  Price: ₹{product.price} | Stock: {product.stock || "N/A"}
                 </p>
                 <p className="text-sm text-gray-600 capitalize">
-                  {product.category} / {product.subcategory}
+                  {product.category || "Uncategorized"} / {product.subcategory || "N/A"}
                 </p>
                 <div className="flex justify-between mt-2">
                   <span
@@ -64,10 +87,10 @@ const MyProductsPage = () => {
                         : "badge-warning"
                     }`}
                   >
-                    {product.status}
+                    {product.status || "unknown"}
                   </span>
                   <Link
-                    to={`/admin/products/${product.id}`}
+                    to={`/${role}/products/${product.id}`}
                     className="text-primary hover:underline text-sm"
                   >
                     View
