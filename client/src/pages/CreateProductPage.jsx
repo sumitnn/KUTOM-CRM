@@ -1,6 +1,12 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import { useCreateProductMutation } from "../features/product/productApi"; 
 
 const CreateProductPage = () => {
+  const navigate = useNavigate();
+  const [createProduct, { isLoading }] = useCreateProductMutation();
+
   const [product, setProduct] = useState({
     name: "",
     description: "",
@@ -38,10 +44,23 @@ const CreateProductPage = () => {
     setProduct({ ...product, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Product to create:", product);
-    // Add API call logic
+    try {
+      const formData = new FormData();
+      Object.entries(product).forEach(([key, value]) => {
+        if (value !== null && value !== "") {
+          formData.append(key, value);
+        }
+      });
+
+      await createProduct(formData).unwrap();
+      toast.success("Product created successfully!");
+      navigate("/admin/products");
+    } catch (err) {
+      toast.error("Failed to create product. Please try again.");
+      console.error("Product creation error:", err);
+    }
   };
 
   return (
@@ -113,13 +132,9 @@ const CreateProductPage = () => {
             name="category"
             className="select select-bordered w-full"
             value={product.category}
-            onChange={(e) => {
-              setProduct({
-                ...product,
-                category: e.target.value,
-                subcategory: "",
-              });
-            }}
+            onChange={(e) =>
+              setProduct({ ...product, category: e.target.value, subcategory: "" })
+            }
             required
           >
             <option value="">Select Category</option>
@@ -199,8 +214,12 @@ const CreateProductPage = () => {
           )}
         </div>
 
-        <button type="submit" className="btn btn-primary w-full sm:w-1/2 mx-auto mt-4">
-          Create Product
+        <button
+          type="submit"
+          className="btn btn-primary w-full sm:w-1/2 mx-auto mt-4"
+          disabled={isLoading}
+        >
+          {isLoading ? "Creating..." : "Create Product"}
         </button>
       </form>
     </div>
