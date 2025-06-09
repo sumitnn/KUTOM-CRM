@@ -89,7 +89,9 @@ const AdminDashboard = () => {
     },
   ];
 
-  if (orderLoading || productLoading || walletLoading) return <div>Loading admin dashboard...</div>;
+  if (orderLoading || productLoading || walletLoading) return <div className="flex items-center justify-center h-[60vh]">
+  <span className="loading loading-spinner text-error loading-lg"></span>
+</div>;
 
   return (
     <>

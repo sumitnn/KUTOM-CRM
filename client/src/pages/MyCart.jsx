@@ -5,12 +5,12 @@ import {
   updateQuantity,
   clearCart,
 } from "../features/cart/cartSlice";
-import { useCreateOrderMutation } from "../features/order/orderApi";
+import { useCreateBulkOrdersMutation } from "../features/order/orderApi";
 
 const MyCart = () => {
   const dispatch = useDispatch();
   const cartItems = useSelector((state) => state.cart.items);
-  const [placeOrder, { isLoading }] = useCreateOrderMutation();
+  const [placeBulkOrder, { isLoading }] = useCreateBulkOrdersMutation();
 
   const totalPrice = cartItems.reduce(
     (acc, item) => acc + (item.price || 0) * (item.quantity || 1),
@@ -27,7 +27,7 @@ const MyCart = () => {
         total: totalPrice,
       };
 
-      await placeOrder(orderData).unwrap();
+      await placeBulkOrder(orderData).unwrap();
       dispatch(clearCart());
       alert("Order placed successfully!");
     } catch (err) {

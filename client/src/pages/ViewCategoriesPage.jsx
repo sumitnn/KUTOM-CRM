@@ -57,7 +57,9 @@ const ViewCategoriesPage = () => {
     }
   };
 
-  if (isLoading) return <div className="mt-30">Loading categories...</div>;
+  if (isLoading) return <div className="flex items-center justify-center h-[60vh]">
+  <span className="loading loading-spinner text-error loading-lg"></span>
+</div>;
   if (isError) return <div>Error loading categories</div>;
 
   return (

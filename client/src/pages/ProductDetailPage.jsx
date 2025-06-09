@@ -32,7 +32,9 @@ const ProductDetailsPage = () => {
     }
   }, [product, mainImage]);
 
-  if (isLoading) return <p>Loading product...</p>;
+  if (isLoading) return <div className="flex items-center justify-center h-[60vh]">
+  <span className="loading loading-spinner text-error loading-lg"></span>
+</div>;
   if (error) return <p>Error loading product!</p>;
   if (!product) return <p>No product found.</p>;
 

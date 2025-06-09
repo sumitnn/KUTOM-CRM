@@ -92,12 +92,12 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'stocktn_mysql',
-        'USER': 'admin',
-        'PASSWORD': 'Adminstocktn11',
-        'HOST': "stocktn.cp4qa0wes2m4.eu-north-1.rds.amazonaws.com",
-        'PORT': '3306',
+        'ENGINE': config('AWS_DATABASE_ENGINE', default='django.db.backends.mysql'),
+        'NAME': config('AWS_DATABASE_NAME'),
+        'USER': config('AWS_DATABASE_USER'),
+        'PASSWORD': config('AWS_DATABASE_PASSWORD'),
+        'HOST': config('AWS_DATABASE_HOST'),
+        'PORT': config('AWS_DATABASE_PORT'),
         
     }
 }
@@ -188,12 +188,12 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 
 # AWS Configuration
-AWS_ACCESS_KEY_ID = 'AKIAVBJPPUPQR7GCFXWE'
-AWS_SECRET_ACCESS_KEY = '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'
+AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID') 
+AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
 
 
 # Basic Storage Configuration for Aamazon S3
-AWS_STORAGE_BUCKET_NAME = 'stocktn-bkt-1'
+AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME')
 AWS_S3_CUSTOM_DOMAIN = '%s.s3.amazonaws.com' % AWS_STORAGE_BUCKET_NAME
 AWS_S3_FILE_OVERWRITE = False
 

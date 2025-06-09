@@ -117,7 +117,9 @@ const ResellerDashboard = () => {
   };
 
   // Loading or error states can be handled as needed
-  if (ordersLoading || productLoading || walletLoading) return <div>Loading dashboard data...</div>;
+  if (ordersLoading || productLoading || walletLoading) return <div className="flex items-center justify-center h-[60vh]">
+  <span className="loading loading-spinner text-error loading-lg"></span>
+</div>;
   if (ordersError || productError || walletError) return <div>Error loading data. Please try again.</div>;
 
   return (
