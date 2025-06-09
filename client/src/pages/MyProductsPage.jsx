@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useGetMyProductsQuery } from "../features/product/productApi";
 import { Link } from "react-router-dom";
 
-const BASE_URL = import.meta.env.VITE_IMAGE_API_URL || "http://localhost:8000";
+
 
 const MyProductsPage = ({role}) => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -18,7 +18,7 @@ const MyProductsPage = ({role}) => {
       if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
         return imagePath;
       }
-      return BASE_URL + imagePath;
+      return imagePath;
     }
     // fallback image URL
     return "/placeholder.png";
@@ -48,7 +48,10 @@ const MyProductsPage = ({role}) => {
       </div>
 
       {isLoading ? (
-        <p className="text-center text-lg text-gray-600">Loading products...</p>
+        <div className="flex items-center justify-center h-[60vh]">
+        <span className="loading loading-spinner text-error loading-lg"></span>
+      </div>
+      
       ) : isError ? (
         <p className="text-center text-red-500">Failed to load products.</p>
       ) : filteredProducts.length === 0 ? (

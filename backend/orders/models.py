@@ -33,3 +33,23 @@ class OrderItem(models.Model):
     @property
     def total(self):
         return self.quantity * self.price
+    
+
+class OrderHistory(models.Model):
+    ACTION_CHOICES = [
+        ('created', 'Created'),
+        ('accepted', 'Accepted'),
+        ('rejected', 'Rejected'),
+        ('cancelled', 'Cancelled'),
+        ('refunded', 'Refunded'),
+        ('reassigned', 'Reassigned'),
+    ]
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='history')
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES)
+    notes = models.TextField(blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.order} - {self.action} by {self.actor}"

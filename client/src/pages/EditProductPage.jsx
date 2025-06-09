@@ -44,7 +44,9 @@ const EditProductPage = () => {
     }
   };
 
-  if (isLoading) return <p className="text-center mt-10">Loading product...</p>;
+  if (isLoading) return <div className="flex items-center justify-center h-[60vh]">
+  <span className="loading loading-spinner text-error loading-lg"></span>
+</div>;
   if (isError) return <p className="text-center mt-10 text-red-500">Failed to load product.</p>;
 
   return (

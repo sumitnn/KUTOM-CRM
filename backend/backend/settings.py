@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'core',
     'products',
     'orders',
+    'storages',
 ]
 
 MIDDLEWARE = [
@@ -80,10 +81,24 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# Local DB Settings
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
+
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': config('AWS_DATABASE_ENGINE', default='django.db.backends.mysql'),
+        'NAME': config('AWS_DATABASE_NAME'),
+        'USER': config('AWS_DATABASE_USER'),
+        'PASSWORD': config('AWS_DATABASE_PASSWORD'),
+        'HOST': config('AWS_DATABASE_HOST'),
+        'PORT': config('AWS_DATABASE_PORT'),
+        
     }
 }
 
@@ -170,3 +185,31 @@ SIMPLE_JWT = {
 }
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+
+# AWS Configuration
+AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID') 
+AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
+
+
+# Basic Storage Configuration for Aamazon S3
+AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME')
+AWS_S3_CUSTOM_DOMAIN = '%s.s3.amazonaws.com' % AWS_STORAGE_BUCKET_NAME
+AWS_S3_FILE_OVERWRITE = False
+
+
+
+# Django 5.2.1 settings for AWS S3 static and media files
+
+STORAGES = {
+    # Media file (image) management
+    "default": {
+        'BACKEND': 'storages.backends.s3boto3.S3StaticStorage',
+    },
+
+    # CSS and JS file management
+    "staticfiles": {
+        'BACKEND': 'storages.backends.s3boto3.S3StaticStorage',
+    },
+}
+

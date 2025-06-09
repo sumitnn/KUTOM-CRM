@@ -107,7 +107,9 @@ const ViewBrandsPage = () => {
   };
   const baseUrl = import.meta.env.VITE_IMAGE_API_URL;
   if (isLoading)
-    return <div className="min-h-screen flex justify-center items-center">Loading...</div>;
+    return <div className="flex items-center justify-center h-[60vh]">
+  <span className="loading loading-spinner text-error loading-lg"></span>
+</div>;
   if (isError)
     return <div className="text-red-500 text-center">Error loading brands.</div>;
 

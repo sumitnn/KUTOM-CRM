@@ -59,7 +59,9 @@ const ViewSubcategoriesPage = () => {
         />
       </div>
       {isLoading ? (
-        <div className="text-center">Loading...</div>
+        <div className="flex items-center justify-center h-[60vh]">
+        <span className="loading loading-spinner text-error loading-lg"></span>
+      </div>
       ) : filtered.length === 0 ? (
         <div className="text-gray-500 text-center mt-10">No subcategories found.</div>
       ) : (

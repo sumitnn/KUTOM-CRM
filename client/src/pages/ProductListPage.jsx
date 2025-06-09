@@ -21,12 +21,11 @@ function useDebounce(value, delay) {
 
 // Helper to get featured or fallback image
 const getProductImage = (prod) => {
-  const base = import.meta.env.VITE_IMAGE_API_URL || "";
   console.log(prod.images );
   console.log(typeof(prod.images) );
   if (prod.images && prod.images.length > 0) {
     const featured = prod.images.find((img) => img.is_featured);
-    return base + featured?.image;
+    return featured?.image;
   }
   return "/placeholder.png";
 };
@@ -133,18 +132,23 @@ const ProductListPage = ({ role }) => {
                 <option key={sub}>{sub}</option>
               ))}
           </select>
-          <button
-            className="btn btn-primary"
-            onClick={() => navigate(`/${role}/products/create`)}
-          >
-            + Add Product
-          </button>
+          {}
+          {(role === 'admin' || role === 'vendor') && (
+  <button
+    className="btn btn-primary"
+    onClick={() => navigate(`/${role}/create-product`)}
+  >
+    + Add Product
+  </button>
+)}
         </div>
       </div>
 
       {/* Product Grid */}
       {isLoading ? (
-        <div className="text-center text-gray-500">Loading products...</div>
+        <div className="flex items-center justify-center h-[60vh]">
+        <span className="loading loading-spinner text-error loading-lg"></span>
+      </div>
       ) : isError ? (
         <div className="text-center text-red-500">
           Failed to load products.{" "}

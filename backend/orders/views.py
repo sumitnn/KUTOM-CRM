@@ -1,7 +1,7 @@
 from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import Order
+from .models import *
 from .serializers import OrderSerializer
 from django.utils.timezone import now
 from accounts.permissions import IsAdminRole, IsStockistRole, IsVendorRole
@@ -12,6 +12,9 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.generics import ListAPIView
 from django.db.models import Count
 from django.db.models.functions import TruncMonth
+from django.db import transaction
+from decimal import Decimal
+
 
 # Reseller can create
 class CreateOrderAPIView(generics.CreateAPIView):
@@ -62,24 +65,131 @@ class MyOrdersView(ListAPIView):
             queryset = queryset.filter(status=status_param)
         return queryset
 
+
+
+
+# # When creating the order
+# OrderHistory.objects.create(order=order, actor=request.user, action='created', notes='Order placed.')
+
+# # When stockist accepts
+# OrderHistory.objects.create(order=order, actor=request.user, action='accepted', notes='Stockist accepted the order.')
+
+# # When cancelled
+# OrderHistory.objects.create(order=order, actor=request.user, action='cancelled', notes='Cancelled by stockist. Amount refunded to reseller.')
+
+
 class BulkOrderCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        orders_data = request.data
+        data = request.data
+        items_data = data.get("items")
 
-        if not isinstance(orders_data, list):
-            return Response(
-                {"error": "Expected a list of order objects."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        
-        serializer = OrderSerializer(data=orders_data, many=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        if not isinstance(items_data, list) or not items_data:
+            return Response({"error": "Invalid or empty 'items' list."}, status=400)
+
+        try:
+            with transaction.atomic():
+                total_price = Decimal(0)
+
+                for item in items_data:
+                    product_id = item.get("product_id")
+                    quantity = item.get("quantity", 1)
+
+                    if not product_id:
+                        raise ValueError("Missing product_id.")
+                    
+                    product = Product.objects.get(id=product_id, active=True)
+                    total_price += product.selling_price * quantity
+
+                # Wallet check
+                reseller = request.user
+                if reseller.wallet_balance < total_price:
+                    return Response({"error": "Insufficient wallet balance."}, status=402)
+
+                # Deduct amount from reseller wallet
+                reseller.wallet_balance -= total_price
+                reseller.save()
+
+                # Create Order
+                order = Order.objects.create(
+                    reseller=reseller,
+                    total_price=total_price,
+                    status='pending',  # waiting for stockist approval
+                    description="Bulk order placed"
+                )
+                OrderHistory.objects.create(order=order, actor=request.user, action='created', notes='Bulk order placed.')
+
+                # Create OrderItems
+                for item in items_data:
+                    product = Product.objects.get(id=item["product_id"], active=True)
+                    OrderItem.objects.create(
+                        order=order,
+                        product=product,
+                        quantity=item["quantity"],
+                        price=product.selling_price
+                    )
+                # Assign stockist dynamically
+                # stockist = User.objects.filter(role='stockist', is_available=True).order_by('?').first()
+                # if stockist:
+                #     order.stockist = stockist
+                #     order.save()
+                #     OrderHistory.objects.create(order=order, actor=stockist, action='assigned', notes='Assigned by system.')
+
+                return Response(
+                    {"message": "Order created", "order_id": order.id, "total_deducted": total_price},
+                    status=status.HTTP_201_CREATED
+                )
+
+        except Product.DoesNotExist:
+            return Response({"error": "Product not found or inactive."}, status=404)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
+
+
+class StockistAcceptOrderView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, order_id):
+        try:
+            order = Order.objects.get(id=order_id, status='pending')
+
+            stockist = request.user
+            order.status = 'accepted'
+            order.stockist = stockist
+            order.save()
+
+            # Add funds to stockist's wallet
+            stockist.wallet_balance += order.total_price
+            stockist.save()
+
+            return Response({"message": "Order accepted and balance credited."})
+
+        except Order.DoesNotExist:
+            return Response({"error": "Order not found or not in pending state."}, status=404)
+
+
+class StockistCancelOrderView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, order_id):
+        try:
+            order = Order.objects.get(id=order_id, stockist=request.user, status='accepted')
+
+            # Refund to reseller
+            reseller = order.reseller
+            reseller.wallet_balance += order.total_price
+            reseller.save()
+
+            order.status = 'cancelled'
+            order.save()
+
+            return Response({"message": "Order cancelled, amount refunded to reseller."})
+
+        except Order.DoesNotExist:
+            return Response({"error": "Order not found or not accepted by this stockist."}, status=404)
+
 
 # Admin-specific filters
 class AdminOrderListView(APIView):
