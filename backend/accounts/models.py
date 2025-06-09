@@ -122,3 +122,38 @@ class TopUpRequest(models.Model):
 
     def __str__(self):
         return f"TopUp: {self.user.username} - ₹{self.amount} - {self.status}"
+
+
+class State(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=50, unique=True)
+    code = models.CharField(max_length=3, blank=True, help_text="State code (e.g., MH for Maharashtra)")
+    is_union_territory = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'State'
+        verbose_name_plural = 'States'
+
+    def __str__(self):
+        return self.name
+
+
+class District(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    state = models.ForeignKey(State, on_delete=models.CASCADE, related_name='districts')
+    name = models.CharField(max_length=50)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['state__name', 'name']
+        unique_together = ['state', 'name']
+        verbose_name = 'District'
+        verbose_name_plural = 'Districts'
+
+    def __str__(self):
+        return f"{self.name}, {self.state.name}"
