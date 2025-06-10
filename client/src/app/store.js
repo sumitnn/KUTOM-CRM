@@ -13,6 +13,8 @@ import { brandApi } from "../features/brand/brandApi";
 import { categoryApi } from "../features/category/categoryApi";
 import { productApi } from "../features/product/productApi";
 import cartReducer from "../features/cart/cartSlice";
+import { locationApi } from "../features/location/locationApi";
+import { resellerApi } from "../features/reseller/resellerApi";
 
 
 
@@ -28,7 +30,9 @@ export const store = configureStore({
         [topupApi.reducerPath]: topupApi.reducer,
         [brandApi.reducerPath]: brandApi.reducer,
         [categoryApi.reducerPath]: categoryApi.reducer,
-        [productApi.reducerPath]:productApi.reducer,
+        [productApi.reducerPath]: productApi.reducer,
+        [locationApi.reducerPath]: locationApi.reducer,
+        [resellerApi.reducerPath]:resellerApi.reducer,
         
     },
     middleware: (getDefaultMiddleware) =>
@@ -38,5 +42,7 @@ export const store = configureStore({
             brandApi.middleware,
             categoryApi.middleware,
             productApi.middleware,
+            locationApi.middleware,
+            resellerApi.middleware,
         ),
 });

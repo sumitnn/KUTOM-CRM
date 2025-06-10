@@ -7,7 +7,7 @@ import { Link } from "react-router-dom";
 
 const BASE_URL = import.meta.env.VITE_IMAGE_API_URL || "http://localhost:8000";
 
-const ProductDetailsPage = () => {
+const ProductDetailsPage = ({ role }) => {
   const { id } = useParams();
   const { data: product, error, isLoading } = useGetProductByIdQuery(id);
 
@@ -34,7 +34,7 @@ const ProductDetailsPage = () => {
         const defaultVariant = product.variants.find(v => v.is_default) || product.variants[0];
         setSelectedVariant(defaultVariant);
       }
-      
+
       // Set main image
       if (product.images?.length) {
         const featured = product.images.find(img => img.is_featured);
@@ -54,6 +54,9 @@ const ProductDetailsPage = () => {
   const displaySku = selectedVariant?.sku || product?.sku;
   const inStock = selectedVariant ? selectedVariant.in_stock : true;
   const otherVariants = product?.variants?.filter(v => v.id !== selectedVariant?.id) || [];
+
+  // Check if the role is admin, stockist, or vendor
+  const isAdminOrStockistOrVendor = ["admin", "stockist", "vendor"].includes(role);
 
   if (isLoading) return (
     <div className="flex items-center justify-center min-h-screen">
@@ -181,250 +184,63 @@ const ProductDetailsPage = () => {
                         fill="currentColor"
                         viewBox="0 0 20 20"
                       >
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.07a1 1 0 00-.364 1.118l1.05 3.462c.29.963-.755 1.76-1.55 1.18l-2.8-2.07a1 1 0 00-1.175 0l-2.8 2.07c-.797.58-1.837-.217-1.55-1.18l1.05-3.462a1 1 0 00-.364-1.118l-2.8-2.07c-.784-.57-.381-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z" />
                       </svg>
                     ))}
                   </div>
-                  <span className="text-sm text-gray-600">(24 reviews)</span>
+                  <span className="text-sm text-gray-600">4.0 (150 reviews)</span>
                 </div>
+                <p className="text-xl text-gray-700 font-semibold">${displayPrice}</p>
+                <p className="text-gray-500 mt-2">{product.description}</p>
               </div>
 
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              {/* Quantity and Color Options */}
+              <div className="space-y-4">
                 <div>
-                  <span className="text-2xl font-bold text-gray-900">${displayPrice}</span>
-                  {selectedVariant?.price !== product.price && (
-                    <span className="ml-2 text-lg text-gray-500 line-through">${product.price}</span>
-                  )}
-                </div>
-                <span className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded-full">
-                  {displaySku}
-                </span>
-              </div>
-
-              {/* Selected Variant Details */}
-              {selectedVariant && (
-                <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="font-semibold text-gray-900 mb-1">Selected Option</h3>
-                      <h4 className="font-medium text-gray-800">{selectedVariant.name}</h4>
-                      {selectedVariant.attributes && Object.entries(selectedVariant.attributes).map(([key, value]) => (
-                        <p key={key} className="text-sm text-gray-600">
-                          {key}: <span className="font-medium">{value}</span>
-                        </p>
-                      ))}
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium text-gray-900">${selectedVariant.price}</p>
-                      <p className={`text-sm font-medium ${
-                        inStock ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {inStock ? 'In Stock' : 'Out of Stock'}
-                      </p>
-                    </div>
+                  <span className="text-sm font-medium text-gray-700">Quantity</span>
+                  <div className="flex items-center gap-2 mt-2">
+                    <button
+                      onClick={() => setQuantity(Math.max(quantity - 1, 1))}
+                      className="p-2 border rounded-md bg-gray-100 hover:bg-gray-200"
+                    >
+                      <FiMinus className="w-5 h-5" />
+                    </button>
+                    <span>{quantity}</span>
+                    <button
+                      onClick={() => setQuantity(quantity + 1)}
+                      className="p-2 border rounded-md bg-gray-100 hover:bg-gray-200"
+                    >
+                      <FiPlus className="w-5 h-5" />
+                    </button>
                   </div>
                 </div>
-              )}
 
-              <div className="flex items-center gap-3">
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  inStock ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                }`}>
-                  {inStock ? 'In Stock' : 'Out of Stock'}
-                </span>
-                {selectedVariant?.low_stock && inStock && (
-                  <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">
-                    Low Stock
-                  </span>
-                )}
-                {selectedVariant?.quantity && (
-                  <span className="text-sm text-gray-600">
-                    {selectedVariant.quantity} available
-                  </span>
-                )}
-              </div>
-
-              {/* Description */}
-              <div className="prose max-w-none">
-                {product.description && (
-                  <div className="space-y-2">
-                    <h3 className="text-lg font-semibold text-gray-900">Description</h3>
-                    <p className="text-gray-700 whitespace-pre-line">{product.description}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Color Selection */}
-              {colors.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="text-lg font-semibold text-gray-900">Color</h3>
-                  <div className="flex gap-3">
-                    {colors.map(color => (
+                <div>
+                  <span className="text-sm font-medium text-gray-700">Color</span>
+                  <div className="flex gap-2 mt-2">
+                    {colors.map((color, index) => (
                       <button
-                        key={color}
+                        key={index}
                         onClick={() => setSelectedColor(color)}
-                        className={`w-10 h-10 rounded-full border-2 transition-all relative ${
-                          selectedColor === color ? 'border-primary' : 'border-transparent hover:border-gray-300'
-                        }`}
+                        className={`w-8 h-8 rounded-full border-2 border-gray-200 ${color === selectedColor ? 'border-primary' : ''}`}
                         style={{ backgroundColor: color }}
-                        aria-label={`Select color ${color}`}
-                      >
-                        {selectedColor === color && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <IoMdCheckmark className="text-white text-lg" />
-                          </div>
-                        )}
-                      </button>
+                      />
                     ))}
                   </div>
-                </div>
-              )}
-
-              {/* Other Variants Section */}
-              {otherVariants.length > 0 && (
-                <div className="space-y-2">
-                  <div 
-                    className="flex justify-between items-center cursor-pointer p-2 hover:bg-gray-50 rounded"
-                    onClick={() => setShowAllVariants(!showAllVariants)}
-                  >
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      Other Options ({otherVariants.length})
-                    </h3>
-                    {showAllVariants ? (
-                      <FiChevronUp className="text-gray-500" />
-                    ) : (
-                      <FiChevronDown className="text-gray-500" />
-                    )}
-                  </div>
-                  
-                  {showAllVariants && (
-                    <div className="space-y-2 mt-2">
-                      {otherVariants.map(variant => (
-                        <div 
-                          key={variant.id}
-                          onClick={() => {
-                            setSelectedVariant(variant);
-                            setShowAllVariants(false);
-                          }}
-                          className={`p-3 border rounded-lg cursor-pointer transition-all ${
-                            selectedVariant?.id === variant.id 
-                              ? 'border-primary bg-blue-50' 
-                              : 'border-gray-200 hover:border-gray-400'
-                          }`}
-                        >
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <h4 className="font-medium text-gray-800">{variant.name}</h4>
-                              {variant.attributes && Object.entries(variant.attributes).map(([key, value]) => (
-                                <p key={key} className="text-sm text-gray-600">
-                                  {key}: <span className="font-medium">{value}</span>
-                                </p>
-                              ))}
-                            </div>
-                            <div className="text-right">
-                              <p className="font-medium text-gray-900">${variant.price}</p>
-                              <p className={`text-sm font-medium ${
-                                variant.in_stock ? 'text-green-600' : 'text-red-600'
-                              }`}>
-                                {variant.in_stock ? 'In Stock' : 'Out of Stock'}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Quantity Selector */}
-              <div className="space-y-2">
-                <h3 className="text-lg font-semibold text-gray-900">Quantity</h3>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-10 h-10 flex items-center justify-center border border-gray-300 rounded-full hover:bg-gray-100 disabled:opacity-50"
-                    disabled={quantity <= 1}
-                  >
-                    <FiMinus className="text-gray-600" />
-                  </button>
-                  <input
-                    type="number"
-                    min="1"
-                    max={selectedVariant?.quantity || undefined}
-                    value={quantity}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value) || 1;
-                      const max = selectedVariant?.quantity;
-                      setQuantity(max ? Math.min(max, Math.max(1, value)) : Math.max(1, value));
-                    }}
-                    className="w-16 h-10 border border-gray-300 rounded text-center font-medium"
-                  />
-                  <button
-                    onClick={() => {
-                      const max = selectedVariant?.quantity;
-                      if (!max || quantity < max) {
-                        setQuantity(quantity + 1);
-                      }
-                    }}
-                    className="w-10 h-10 flex items-center justify-center border border-gray-300 rounded-full hover:bg-gray-100 disabled:opacity-50"
-                    disabled={selectedVariant?.quantity && quantity >= selectedVariant.quantity}
-                  >
-                    <FiPlus className="text-gray-600" />
-                  </button>
-                  {selectedVariant?.quantity && (
-                    <span className="text-sm text-gray-600 ml-2">
-                      Max: {selectedVariant.quantity}
-                    </span>
-                  )}
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                <button 
-                  className={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors ${
-                    inStock 
-                      ? 'bg-primary hover:bg-primary-dark text-white' 
-                      : 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                  }`}
-                  disabled={!inStock}
-                >
-                  {inStock ? 'Add to Cart' : 'Out of Stock'}
-                </button>
-                <button 
-                  className={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors ${
-                    inStock 
-                      ? 'bg-gray-900 hover:bg-gray-800 text-white' 
-                      : 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                  }`}
-                  disabled={!inStock}
-                >
-                  Buy Now
-                </button>
-              </div>
-
-              {/* Additional Info */}
-              <div className="pt-4 border-t border-gray-200 space-y-2">
-                {product.brand && (
-                  <p className="text-sm text-gray-600">
-                    <span className="font-medium">Brand:</span> {product.brand}
-                  </p>
-                )}
-                <p className="text-sm text-gray-600">
-                  <span className="font-medium">Category:</span> {product.category || 'N/A'}
-                </p>
-                {product.tags?.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    <span className="font-medium text-sm">Tags:</span>
-                    {product.tags.map(tag => (
-                      <span key={tag} className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {!isAdminOrStockistOrVendor && (
+                <div className="mt-6">
+                  <button className="w-full bg-primary text-white py-2 rounded-md hover:bg-primary-dark transition">
+                    Add to Cart
+                  </button>
+                  <button className="w-full bg-secondary text-white py-2 rounded-md mt-3 hover:bg-secondary-dark transition">
+                    Buy Now
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
