@@ -3,7 +3,7 @@ from django.utils.text import slugify
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from accounts.models import User
-
+import uuid
 # Create your models here.
 class Brand(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -60,7 +60,7 @@ class Tag(models.Model):
 
 # Base model for shared product fields
 class BaseProductInfo(models.Model):
-    sku = models.CharField(max_length=50, unique=True)
+    sku = models.CharField(max_length=50, unique=True,blank=True)
     name = models.CharField(max_length=100, blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     cost_price = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
@@ -72,6 +72,13 @@ class BaseProductInfo(models.Model):
 
     class Meta:
         abstract = True
+    
+    def save(self, *args, **kwargs):
+        if not self.sku:
+            base = slugify(self.name)[:10] if self.name else "STK"
+            unique_id = uuid.uuid4().hex[:6].upper()
+            self.sku = f"{base}-{unique_id}"
+        super().save(*args, **kwargs)
 
 
 # Main Product Model (SPU)

@@ -11,9 +11,9 @@ import {
 } from 'chart.js';
 import { motion } from 'framer-motion';
 
-import { useGetOrderSummaryQuery } from '../../features/order/orderApi'; 
-import { useGetProductStatsQuery } from '../../features/product/productApi'; 
-import { useGetWalletQuery  } from '../../features/walletApi'; 
+import { useGetOrderSummaryQuery } from '../../features/order/orderApi';
+import { useGetProductStatsQuery } from '../../features/product/productApi';
+import { useGetWalletQuery } from '../../features/walletApi';
 
 ChartJS.register(BarElement, ArcElement, CategoryScale, LinearScale, Tooltip, Legend);
 
@@ -62,35 +62,56 @@ const VendorDashboard = () => {
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedMonth, setSelectedMonth] = useState('All');
 
-  // Fetch data
-  const { data: orderSummary, isLoading: ordersLoading, error: ordersError } = useGetOrderSummaryQuery();
-  const { data: productStats, isLoading: productLoading, error: productError } = useGetProductStatsQuery();
-  const { data: walletData, isLoading: walletLoading, error: walletError } = useGetWalletQuery();
+  const { data: orderSummary, isLoading: ordersLoading } = useGetOrderSummaryQuery();
+  const { data: productStats, isLoading: productLoading } = useGetProductStatsQuery();
+  const { data: walletData, isLoading: walletLoading } = useGetWalletQuery();
 
-  // Prepare data for charts
   const totalOrders = orderSummary?.statusCounts?.All || 0;
   const pendingOrders = orderSummary?.statusCounts?.Pending || 0;
   const rejectedOrders = orderSummary?.statusCounts?.Rejected || 0;
 
-  // Chart data based on selected type
+  // === Dynamic filtering logic for Orders ===
+  const getFilteredOrderData = () => {
+    const labels = orderSummary?.monthlyOrders?.labels || [];
+    const allData = orderSummary?.monthlyOrders?.datasets || [];
+
+    const dataset = selectedStatus === 'All'
+      ? allData.find(d => d.label === 'All')
+      : allData.find(d => d.label === selectedStatus);
+
+    if (!dataset) return { labels: [], data: [] };
+
+    if (selectedMonth !== 'All') {
+      const index = labels.indexOf(selectedMonth);
+      return {
+        labels: [labels[index]],
+        data: [dataset.data[index]],
+      };
+    }
+
+    return { labels, data: dataset.data };
+  };
+
+  const orderChartData = getFilteredOrderData();
+
+  // === Get bar chart data for selected type ===
   const chartDataMap = {
-    Order: {
-      labels: orderSummary?.monthlyOrders?.labels || [],
-      data: orderSummary?.monthlyOrders?.data || [],
-      statusCounts: orderSummary?.statusCounts || { All: 0, Pending: 0, Approved: 0, Rejected: 0 },
-    },
+    Order: orderChartData,
     Product: {
       labels: productStats?.labels || [],
       data: productStats?.data || [],
     },
-    // If you have real invoice data, replace here, else dummy fallback
-    Invoice: {
-      labels: ['Paid', 'Pending', 'Overdue'],
-      data: [600, 250, 150],
+    Wallet: {
+      labels: ['Balance', 'Pending', 'Withdrawn', 'Last Transaction'],
+      data: [
+        walletData?.balance || 0,
+        walletData?.pending || 0,
+        walletData?.withdrawn || 0,
+        walletData?.lastTransaction || 0,
+      ],
     },
   };
 
-  // Filter chart data for bar chart
   const filteredLabels = chartDataMap[selectedType]?.labels || [];
   const filteredData = chartDataMap[selectedType]?.data || [];
 
@@ -98,7 +119,7 @@ const VendorDashboard = () => {
     labels: filteredLabels,
     datasets: [
       {
-        label: selectedType,
+        label: `${selectedType} Data`,
         data: filteredData,
         backgroundColor: '#3b82f6',
         borderRadius: 6,
@@ -107,20 +128,22 @@ const VendorDashboard = () => {
   };
 
   const pieData = {
-    labels: chartDataMap.Invoice.labels,
+    labels: filteredLabels,
     datasets: [
       {
-        data: chartDataMap.Invoice.data,
-        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b'],
+        label: `${selectedType} Distribution`,
+        data: filteredData,
+        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#f43f5e', '#6366f1'],
       },
     ],
   };
 
-  // Loading or error states can be handled as needed
-  if (ordersLoading || productLoading || walletLoading) return <div className="flex items-center justify-center h-[60vh]">
-  <span className="loading loading-spinner text-error loading-lg"></span>
-</div>;
-  if (ordersError || productError || walletError) return <div>Error loading data. Please try again.</div>;
+  if (ordersLoading || productLoading || walletLoading)
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <span className="loading loading-spinner text-error loading-lg"></span>
+      </div>
+    );
 
   return (
     <div className="p-6 bg-base-200 min-h-screen">
@@ -133,7 +156,11 @@ const VendorDashboard = () => {
           <select
             className="select select-bordered w-48"
             value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value)}
+            onChange={(e) => {
+              setSelectedType(e.target.value);
+              setSelectedStatus('All');
+              setSelectedMonth('All');
+            }}
           >
             <option>Order</option>
             <option>Product</option>
@@ -165,7 +192,7 @@ const VendorDashboard = () => {
                 onChange={(e) => setSelectedMonth(e.target.value)}
               >
                 <option>All</option>
-                {chartDataMap.Order.labels.map((month) => (
+                {orderSummary?.monthlyOrders?.labels.map((month) => (
                   <option key={month}>{month}</option>
                 ))}
               </select>
@@ -198,7 +225,7 @@ const VendorDashboard = () => {
           transition={{ duration: 0.6 }}
         >
           <h2 className="text-2xl font-semibold mb-4">{selectedType} Bar Chart</h2>
-          <Bar data={barData} />
+          {filteredData.length ? <Bar data={barData} /> : <p>No data available.</p>}
         </motion.div>
 
         <motion.div
@@ -207,8 +234,8 @@ const VendorDashboard = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7 }}
         >
-          <h2 className="text-2xl font-semibold mb-4">Invoice Status Pie Chart</h2>
-          <Pie data={pieData} />
+          <h2 className="text-2xl font-semibold mb-4">{selectedType} Pie Chart</h2>
+          {filteredData.length ? <Pie data={pieData} /> : <p>No data available.</p>}
         </motion.div>
       </div>
     </div>
