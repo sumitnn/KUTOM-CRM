@@ -235,7 +235,8 @@ class ProductListCreateAPIView(APIView):
         return Response(serializer.data)
 
     def post(self, request):
-        serializer = ProductSerializer(data=request.data)
+        print("Request Data:", request.data)  # Debugging line
+        serializer = ProductSerializer(data=request.data,context={'request': request})
         if serializer.is_valid():
             serializer.save(owner=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -301,3 +302,43 @@ class ProductStatsView(APIView):
             'labels': labels,
             'data': data,
         })
+    
+
+# def order_summary(request):
+#     # Status counts
+#     status_counts = Order.objects.values('status').annotate(count=Count('id'))
+#     status_map = {'All': Order.objects.count()}
+#     for item in status_counts:
+#         status_map[item['status']] = item['count']
+
+#     # Monthly orders
+#     months = Order.objects.annotate(month=TruncMonth('created_at')) \
+#         .values('month', 'status') \
+#         .annotate(count=Count('id'))
+
+#     # Build monthly datasets
+#     label_set = set()
+#     data_map = {'All': {}, 'Pending': {}, 'Approved': {}, 'Rejected': {}}
+#     for entry in months:
+#         month_label = entry['month'].strftime('%B')
+#         label_set.add(month_label)
+#         status = entry['status']
+#         data_map['All'].setdefault(month_label, 0)
+#         data_map[status].setdefault(month_label, 0)
+#         data_map['All'][month_label] += entry['count']
+#         data_map[status][month_label] += entry['count']
+
+#     sorted_labels = sorted(label_set, key=lambda m: datetime.strptime(m, '%B').month)
+
+#     datasets = [
+#         {'label': status, 'data': [data_map[status].get(label, 0) for label in sorted_labels]}
+#         for status in ['All', 'Pending', 'Approved', 'Rejected']
+#     ]
+
+#     return Response({
+#         'statusCounts': status_map,
+#         'monthlyOrders': {
+#             'labels': sorted_labels,
+#             'datasets': datasets,
+#         }
+#     })   

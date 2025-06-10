@@ -39,6 +39,13 @@ export const categoryApi = createApi({
         }),
 
         // Subcategories
+        getSubcategoriesByCategory: builder.query({
+            query: (categoryId) => ({
+                url: `/subcategories/${categoryId}/`,
+                method: 'GET',
+            }),
+            providesTags: ['Subcategory'],
+        }),
         getSubcategories: builder.query({
             query: () => ({
                 url: '/subcategories/',
@@ -81,4 +88,6 @@ export const {
     useAddSubcategoryMutation,
     useUpdateSubcategoryMutation,
     useDeleteSubcategoryMutation,
+    useGetSubcategoriesByCategoryQuery,
+
 } = categoryApi;
