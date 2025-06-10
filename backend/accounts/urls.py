@@ -28,4 +28,8 @@ urlpatterns = [
     path('topup-request/update/<int:pk>/', TopUpRequestUpdateView.as_view(), name='topup-update'),
     path('topup-request/', TopUpRequestListCreateView.as_view(), name='topup-reqeust'),
 
+    # State and District related APIs
+    path('states/', StateListView.as_view(), name='state-list'),
+    path('states/<uuid:state_id>/districts/', DistrictListView.as_view(), name='district-list'),
+
 ]

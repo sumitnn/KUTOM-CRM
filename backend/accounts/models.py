@@ -125,7 +125,6 @@ class TopUpRequest(models.Model):
 
 
 class State(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=50, unique=True)
     code = models.CharField(max_length=3, blank=True, help_text="State code (e.g., MH for Maharashtra)")
     is_union_territory = models.BooleanField(default=False)
@@ -142,7 +141,6 @@ class State(models.Model):
 
 
 class District(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     state = models.ForeignKey(State, on_delete=models.CASCADE, related_name='districts')
     name = models.CharField(max_length=50)
     is_active = models.BooleanField(default=True)

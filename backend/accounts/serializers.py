@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import User, Profile,Wallet,WalletTransaction,TopUpRequest
+from .models import User, Profile, Wallet, WalletTransaction, TopUpRequest, State, District
+from .models import State, District
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -82,3 +83,29 @@ class TopUpRequestSerializer(serializers.ModelSerializer):
 
     def get_role(self, obj):
         return getattr(obj.user, 'role', None)
+
+
+class StateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = State
+        fields = ['id', 'name', 'code', 'is_union_territory', 'created_at', 'updated_at']
+
+    def validate_name(self, value):
+        if not value.isalpha():
+            raise serializers.ValidationError("State name should only contain alphabetic characters.")
+        return value
+
+    def validate_code(self, value):
+        if len(value) > 3:
+            raise serializers.ValidationError("State code should not exceed 3 characters.")
+        return value
+
+class DistrictSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = District
+        fields = ['id', 'state', 'name', 'is_active', 'created_at', 'updated_at']
+
+    def validate_name(self, value):
+        if not value.isalpha():
+            raise serializers.ValidationError("District name should only contain alphabetic characters.")
+        return value

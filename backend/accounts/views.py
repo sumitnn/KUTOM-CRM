@@ -325,3 +325,30 @@ class TopUpRequestUpdateView(generics.UpdateAPIView):
         topup.save()
 
         return Response({"message":"Update Status Successfully"},status=status.HTTP_200_OK)
+
+class StateListView(generics.ListAPIView):
+    queryset = State.objects.all()
+    serializer_class = StateSerializer
+    permission_classes = [IsAdminRole]  
+
+    def list(self, request, *args, **kwargs):
+        try:
+            return super().list(request, *args, **kwargs)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class DistrictListView(generics.ListAPIView):
+    serializer_class = DistrictSerializer
+    permission_classes = [IsAdminRole]  
+
+    def get_queryset(self):
+        state_id = self.kwargs.get('state_id')
+        return District.objects.filter(state_id=state_id)
+
+    def list(self, request, *args, **kwargs):
+        try:
+            return super().list(request, *args, **kwargs)
+        except District.DoesNotExist:
+            return Response({"error": "Districts not found for the given state."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
