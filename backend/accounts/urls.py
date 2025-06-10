@@ -30,6 +30,6 @@ urlpatterns = [
 
     # State and District related APIs
     path('states/', StateListView.as_view(), name='state-list'),
-    path('states/<uuid:state_id>/districts/', DistrictListView.as_view(), name='district-list'),
+    path('states/<int:state_id>/districts/', DistrictListView.as_view(), name='district-list'),
 
 ]

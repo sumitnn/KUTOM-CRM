@@ -110,6 +110,8 @@ class ListUsersView(APIView):
             users = User.objects.filter(role="vendor")
         elif request.GET.get("role")=="stockist":
             users = User.objects.filter(role="stockist")
+        elif request.GET.get("role")=="reseller":
+            users = User.objects.filter(role="reseller")
         else:
             users = User.objects.all()
         serializer = UserSerializer(users, many=True)
@@ -329,7 +331,8 @@ class TopUpRequestUpdateView(generics.UpdateAPIView):
 class StateListView(generics.ListAPIView):
     queryset = State.objects.all()
     serializer_class = StateSerializer
-    permission_classes = [IsAdminRole]  
+    permission_classes = [IsAuthenticated] 
+    pagination_class = None 
 
     def list(self, request, *args, **kwargs):
         try:
@@ -339,7 +342,8 @@ class StateListView(generics.ListAPIView):
 
 class DistrictListView(generics.ListAPIView):
     serializer_class = DistrictSerializer
-    permission_classes = [IsAdminRole]  
+    permission_classes = [IsAuthenticated]  
+    pagination_class = None
 
     def get_queryset(self):
         state_id = self.kwargs.get('state_id')

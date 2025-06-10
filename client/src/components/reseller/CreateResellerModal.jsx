@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useGetDistrictsQuery, useGetStatesQuery } from '../../features/location/locationApi';
 
-const CreateStockistModal = ({ onClose, onAddVendor, loading, error }) => {
+const CreateResellerModal = ({ onClose, onAddVendor, loading, error }) => {
   const [form, setForm] = useState({
     username: '',
     email: '',
@@ -43,14 +43,14 @@ const CreateStockistModal = ({ onClose, onAddVendor, loading, error }) => {
       return;
     }
 
-    const { confirmPassword, ...stockistData } = form; // Remove confirmPassword from the data
-    onAddVendor(stockistData); // Submit form data to the parent handler
+    const { confirmPassword, ...resellerData } = form; 
+    onAddVendor(resellerData); 
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-xl space-y-4">
-        <h2 className="text-xl font-bold text-center">Create New Stockist</h2>
+        <h2 className="text-xl font-bold text-center">Create New Reseller</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Username input */}
@@ -168,4 +168,4 @@ const CreateStockistModal = ({ onClose, onAddVendor, loading, error }) => {
   );
 };
 
-export default CreateStockistModal;
+export default CreateResellerModal;

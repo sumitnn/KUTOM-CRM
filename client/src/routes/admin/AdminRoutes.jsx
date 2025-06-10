@@ -23,6 +23,7 @@ import ProductDetailsPage from "../../pages/ProductDetailPage";
 import CreateProductPage from "../../pages/CreateProductPage";
 import MyProductsPage from "../../pages/MyProductsPage";
 import EditProductPage from "../../pages/EditProductPage";
+import AdminReseller from "../../pages/admin/AdminReseller";
 
 const adminRoutes = [
   <Route key="admin" element={<ProtectedRoute allowedRoles={["admin"]} />}>
@@ -52,7 +53,7 @@ const adminRoutes = [
 
       {/* products  */}
       <Route path="/admin/products" element={<AdminMainLayout><ProductListPage role="admin"/></AdminMainLayout>}/>
-    <Route path="/admin/products/:id" element={<AdminMainLayout><ProductDetailsPage /></AdminMainLayout>}/>
+    <Route path="/admin/products/:id" element={<AdminMainLayout><ProductDetailsPage role="admin"/></AdminMainLayout>}/>
     <Route path="/admin/create-product" element={<AdminMainLayout><CreateProductPage/></AdminMainLayout>}/>
     <Route path="/admin/my-products" element={<AdminMainLayout><MyProductsPage role="admin"/></AdminMainLayout>} />
     <Route path="/admin/products/edit/:id" element={<AdminMainLayout><EditProductPage role="admin"/></AdminMainLayout>} />
@@ -62,6 +63,7 @@ const adminRoutes = [
     <Route path="/admin/orders" element={<AdminMainLayout><OrderManagementPage /></AdminMainLayout>} />
     <Route path="/admin/vendor" element={<AdminMainLayout><AdminVendor /></AdminMainLayout>} />
     <Route path="/admin/stockist" element={<AdminMainLayout><AdminStockist /></AdminMainLayout>} />
+    <Route path="/admin/reseller" element={<AdminMainLayout><AdminReseller /></AdminMainLayout>} />
     <Route path="/settings/profile" element={<AdminMainLayout><Profile /></AdminMainLayout>} />
     <Route path="/settings/change-password" element={<AdminMainLayout><ChangePassword /></AdminMainLayout>} />
     <Route key="logout" path="/admin/logout" element={<Logout />} />

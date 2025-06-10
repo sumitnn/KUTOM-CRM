@@ -43,66 +43,42 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
       { icon: <FaTachometerAlt />, label: "Dashboard", path: "/admin/dashboard" },
       {
         icon: <FaUsersGear />,
-        label: "User Mangement",
+        label: "Network Mangement",
         children: [
           { label: "Vendor", path: "/admin/vendor" },
           { label: "Stockist", path: "/admin/stockist" },
-          { label: "Reseller", path: "/admin/my-products" },
+          { label: "Reseller", path: "/admin/reseller" },
+
           
         ],
       },
       {
         icon: <RxDashboard />,
-        label: "Products",
+        label: "Products Management",
         children: [
           { label: "All Products", path: "/admin/products" },
-          { label: "Create New Product", path: "/admin/create-product" },
-          { label: "My Products", path: "/admin/my-products" },
+          { label: "Product Request", path: "/admin/my-products" },
           
         ],
       },
-      {
-        icon: <SiBrandfolder />,
-        label: "Brands Management",
-        children: [
-          { label: "All Brands", path: "/admin/brand" },
-          { label: "Add New Brand", path: "/admin/create-brand" }
-          
-        ],
-      },{
-        icon: <TbCategoryPlus />,
-        label: "Categories",
-        children: [
-          { label: "View All Category", path: "/admin/categories" },
-          { label: "Create New Category", path: "/admin/create-category" },
-          
-        ],
-      },{
-        icon: <TbCategoryMinus />,
-        label: "Sub-Categories",
-        children: [
-      
-          { label: "Create New Sub-Category", path: "/admin/create-subcategory" },
-          { label: "View All Sub-Category", path: "/admin/subcategories" },
-    
-        ],
-      },
+      { icon: <SiBrandfolder />, label: "Brands", path: "/admin/brand" },
+      { icon: <TbCategoryPlus />, label: "Category", path: "/admin/categories" },
+      { icon: <TbCategoryMinus />, label: "Sub-Category", path: "/admin/subcategories" },
       {
         icon: <FaCodePullRequest />,
-        label: "Orders",
+        label: "Order Management",
         children: [
           { label: "All Orders", path: "/admin/orders" },
           { label: "Pending Orders", path: "/admin/orders/pending" },
           { label: "Approved Orders", path: "/admin/orders/approved" },
         ],
-      },
-      {
-        icon: <RxDashboard />,
-        label: "Products",
+      },{
+        icon: <FaCodePullRequest />,
+        label: "TopUp Management",
         children: [
-          { label: "All Products", path: "/admin/products" },
-          { label: "Categories", path: "/admin/products/categories" },
-          { label: "Subcategories", path: "/admin/products/subcategories" },
+          { label: "New Request", path: "/admin/orders" },
+          { label: "Topup Request History", path: "/admin/orders/pending" },
+
         ],
       },
       { icon: <CiWallet />, label: "Wallet", path: "/admin/wallet" },

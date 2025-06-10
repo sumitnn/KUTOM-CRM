@@ -13,6 +13,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     username = models.CharField(max_length=50,blank=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    is_default_user = models.BooleanField(default=False)
 
     # Role field
     ROLE_CHOICES = (
@@ -155,3 +156,21 @@ class District(models.Model):
 
     def __str__(self):
         return f"{self.name}, {self.state.name}"
+    
+
+class Address(models.Model):
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="addresses")
+    street_address = models.CharField(max_length=255)
+    city = models.CharField(max_length=100,blank=True, null=True)
+    state = models.ForeignKey(State, on_delete=models.SET_NULL, null=True, blank=True)
+    district = models.ForeignKey(District, on_delete=models.SET_NULL, null=True, blank=True)
+    postal_code = models.CharField(max_length=10, blank=True, null=True)
+    country = models.CharField(max_length=100, default='India')
+    is_primary = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.street_address}, {self.city}, {self.state}, {self.country}"
+
+    class Meta:
+        verbose_name = "Address"
+        verbose_name_plural = "Addresses"

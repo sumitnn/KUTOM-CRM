@@ -242,6 +242,25 @@ class ProductListCreateAPIView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class ProductListNotApprovedAPIView(APIView):
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAdminOrVendorRole]
+        return [IsAdminOrVendorRole]
+
+    def get(self, request):
+        products = Product.objects.filter(approved_by_Admin=False)
+        serializer = ProductSerializer(products, many=True)
+        return Response(serializer.data)
+    def post(self, request):
+
+        print("Request Data:", request.data)  
+        serializer = ProductSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save(owner=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class ProductDetailAPIView(APIView):
     permission_classes = [IsAdminOrVendorRole]

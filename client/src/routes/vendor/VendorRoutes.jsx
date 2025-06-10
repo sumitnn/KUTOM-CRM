@@ -49,7 +49,7 @@ const VendorRoutes = [
 
     {/* products  */}
     <Route path="/vendor/products" element={<VendorMainLayout><ProductListPage role="vendor"/></VendorMainLayout>}/>
-    <Route path="/vendor/products/:id" element={<VendorMainLayout><ProductDetailsPage /></VendorMainLayout>}/>
+    <Route path="/vendor/products/:id" element={<VendorMainLayout><ProductDetailsPage role="vendor"/></VendorMainLayout>}/>
     <Route path="/vendor/create-product" element={<VendorMainLayout><CreateProductPage/></VendorMainLayout>}/>
     <Route path="/vendor/my-products" element={<VendorMainLayout><MyProductsPage role="vendor"/></VendorMainLayout>} />
     <Route path="/vendor/products/edit/:id" element={<VendorMainLayout><EditProductPage role="vendor"/></VendorMainLayout>} />
