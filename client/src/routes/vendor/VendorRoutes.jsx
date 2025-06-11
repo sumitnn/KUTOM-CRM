@@ -14,6 +14,8 @@ import CreateProductPage from "../../pages/CreateProductPage";
 import MyProductsPage from "../../pages/MyProductsPage";
 import ProductDetailsPage from "../../pages/ProductDetailPage";
 import EditProductPage from "../../pages/EditProductPage";
+import Profile from "../../pages/common/Profile";
+import ChangePassword from "../../components/auths/ChangePassword";
 
 
 const VendorRoutes = [
@@ -52,8 +54,10 @@ const VendorRoutes = [
     <Route path="/vendor/products/:id" element={<VendorMainLayout><ProductDetailsPage role="vendor"/></VendorMainLayout>}/>
     <Route path="/vendor/create-product" element={<VendorMainLayout><CreateProductPage/></VendorMainLayout>}/>
     <Route path="/vendor/my-products" element={<VendorMainLayout><MyProductsPage role="vendor"/></VendorMainLayout>} />
-    <Route path="/vendor/products/edit/:id" element={<VendorMainLayout><EditProductPage role="vendor"/></VendorMainLayout>} />
-
+    <Route path="/vendor/products/edit/:id" element={<VendorMainLayout><EditProductPage role="vendor" /></VendorMainLayout>} />
+    
+    <Route path="vendor/settings/profile" element={<VendorMainLayout><Profile/></VendorMainLayout>} />
+    <Route path="vendor/settings/change-password" element={<VendorMainLayout><ChangePassword/></VendorMainLayout>} />
     
     <Route key="logout" path="/vendor/logout" element={<Logout/>} />
   </Route>

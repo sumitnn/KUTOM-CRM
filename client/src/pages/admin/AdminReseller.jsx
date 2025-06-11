@@ -83,6 +83,7 @@ const AdminReseller = () => {
           onClose={() => {
             setModalOpen(false);
             setError(null);
+           
           }}
           onAddVendor={handleAddReseller}
           loading={creating}

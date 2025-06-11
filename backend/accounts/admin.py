@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import User, Profile, Wallet, WalletTransaction, TopUpRequest, State, District
+from .models import User, Profile, Wallet, WalletTransaction, TopUpRequest, State, District,Address,StockistAssignment
 
 
 @admin.register(Wallet)
@@ -41,15 +41,15 @@ class TopUpRequestAdmin(admin.ModelAdmin):
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
-    list_display = ('id', 'username', 'email', 'role', 'is_active')
+    list_display = ('id', 'username', 'email', 'role', 'is_active','is_default_user')
     list_editable = ('is_active', 'role')
     search_fields = ['email', 'username']
 
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'full_name', 'phone', 'city', 'state', 'country')
-    search_fields = ['full_name', 'user__email', 'phone', 'city']
+    list_display = ('id', 'user', 'full_name', 'phone')
+    search_fields = ['full_name', 'user__email']
 
 
 @admin.register(State)
@@ -63,3 +63,40 @@ class DistrictAdmin(admin.ModelAdmin):
     list_display = ('id', 'name', 'state', 'is_active')
     search_fields = ['name', 'state__name']
     list_filter = ('state', 'is_active')
+
+@admin.register(Address)
+class AddressAdmin(admin.ModelAdmin):
+    list_display = (
+        'get_user_email',  
+        'street_address',
+        'city',
+        'district',
+        'state',
+        'postal_code',
+        'country',
+        'is_primary',
+    )
+
+    search_fields = ('user__email',) 
+
+    # Optimizations
+    list_select_related = ('user', 'state')  
+    autocomplete_fields = ('user', 'state')  
+
+    def get_user_email(self, obj):
+        return obj.user.email if obj.user else None
+    get_user_email.admin_order_field = 'user__email'  # Allow ordering by email
+    get_user_email.short_description = 'Email'  # Custom label for the column
+
+@admin.register(StockistAssignment)
+class StockistAssignmentAdmin(admin.ModelAdmin):
+    list_display = ('reseller', 'stockist', 'assigned_at')
+    search_fields = ('reseller__username', 'stockist__username')  
+
+    readonly_fields = ('assigned_at',)  
+
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj:  
+            return self.readonly_fields + ('reseller', 'stockist')
+        return self.readonly_fields

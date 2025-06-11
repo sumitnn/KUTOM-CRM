@@ -35,24 +35,26 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 class Profile(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    user = models.OneToOneField('User', on_delete=models.CASCADE, related_name='profile')
     full_name = models.CharField(max_length=100)
     date_of_birth = models.DateField(null=True, blank=True)
 
     phone = models.CharField(max_length=15, blank=True)
-    address = models.TextField(blank=True)
+    profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True)
+    
+    # New fields
+    gender = models.CharField(max_length=10, choices=[('male', 'Male'), ('female', 'Female'), ('other', 'Other')], blank=True)
 
-    pincode = models.CharField(max_length=10, blank=True)
-    city = models.CharField(max_length=50, blank=True)
-    state = models.CharField(max_length=50, blank=True)
-    country = models.CharField(max_length=50, default='India')
-    # profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True)
+    facebook = models.URLField(max_length=255, blank=True)
+    twitter = models.URLField(max_length=255, blank=True)
+    instagram = models.URLField(max_length=255, blank=True)
+    youtube = models.URLField(max_length=255, blank=True)
 
-
+    bio = models.TextField(blank=True)
+    whatsapp_number = models.CharField(max_length=15, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
 
     def __str__(self):
         return self.full_name
@@ -159,7 +161,7 @@ class District(models.Model):
     
 
 class Address(models.Model):
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="addresses")
+    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True, related_name="address")
     street_address = models.CharField(max_length=255)
     city = models.CharField(max_length=100,blank=True, null=True)
     state = models.ForeignKey(State, on_delete=models.SET_NULL, null=True, blank=True)
@@ -174,3 +176,18 @@ class Address(models.Model):
     class Meta:
         verbose_name = "Address"
         verbose_name_plural = "Addresses"
+
+
+
+class StockistAssignment(models.Model):
+    reseller = models.ForeignKey(User, on_delete=models.CASCADE, related_name="assigned_stockists")
+    stockist = models.ForeignKey(User, on_delete=models.CASCADE, related_name="stockist_for_resellers")
+    assigned_at = models.DateTimeField(auto_now_add=True)
+    state = models.ForeignKey(State, on_delete=models.SET_NULL, null=True, blank=True)
+
+    def __str__(self):
+        return f"Reseller {self.reseller.username} assigned to Stockist {self.stockist.username}"
+
+    class Meta:
+        verbose_name = "Stockist Assignment"
+        verbose_name_plural = "Stockist Assignments"

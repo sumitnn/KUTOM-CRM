@@ -17,6 +17,10 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from datetime import datetime
+from rest_framework.decorators import api_view
+
+
+
 
 class RegisterView(APIView):
     # permission_classes = [AllowAny]
@@ -356,3 +360,55 @@ class DistrictListView(generics.ListAPIView):
             return Response({"error": "Districts not found for the given state."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+class StockistsByStateAPIView(APIView):
+    """
+    Fetch stockists by state.
+    """
+    def get(self, request, state_id):
+        stockists = User.objects.filter(role='stockist', addresses__state_id=state_id).distinct()
+        if not stockists.exists():
+            return Response({"error": "No stockists found for this state."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = StockistSerializer(stockists, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+
+class ProfileView(APIView):
+    permission_classes = [IsAuthenticated]  
+
+    def get(self, request, *args, **kwargs):
+        try:
+            profile = Profile.objects.get(user=request.user)
+        except Profile.DoesNotExist:
+            return Response({"detail": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Serialize and return the profile data
+        serializer = ProfileSerializer(profile)
+        return Response(serializer.data)
+
+    def put(self, request, *args, **kwargs):
+        try:
+            profile = Profile.objects.get(user=request.user)
+        except Profile.DoesNotExist:
+            return Response({"detail": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Serialize and update the profile data
+        serializer = ProfileSerializer(profile, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def patch(self, request, *args, **kwargs):
+        try:
+            profile = Profile.objects.get(user=request.user)
+        except Profile.DoesNotExist:
+            return Response({"detail": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Serialize and update the profile data (partial update)
+        serializer = ProfileSerializer(profile, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

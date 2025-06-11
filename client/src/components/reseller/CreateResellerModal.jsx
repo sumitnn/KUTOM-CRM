@@ -1,29 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { useGetDistrictsQuery, useGetStatesQuery } from '../../features/location/locationApi';
+import { useGetStatesQuery } from '../../features/location/locationApi';
+import { useFetchStockistsByStateQuery } from "../../features/stockist/StockistApi";
 
-const CreateResellerModal = ({ onClose, onAddVendor, loading, error }) => {
+const CreateResellerModal = ({ onClose, onAddVendor, loading, error}) => {
   const [form, setForm] = useState({
     username: '',
     email: '',
     password: '',
     confirmPassword: '',
     state: '',
-    district: '',
+    stockist: '',
     is_default_user: false,
   });
 
-  // Fetching states and districts using RTK Query hooks
+  // Fetching states using RTK Query hook
   const { data: states = [], isLoading: loadingStates } = useGetStatesQuery();
-  const { data: districts = [], isLoading: loadingDistricts, refetch: refetchDistricts } = useGetDistrictsQuery(form.state, {
-    skip: !form.state, // Avoid fetching districts if state is not selected
+  
+  // Fetching stockists based on the selected state
+  const { data: stockists = [], isLoading: loadingStockists } = useFetchStockistsByStateQuery(form.state, {
+    skip: !form.state, // Avoid fetching stockists if state is not selected
   });
-
-  // Trigger district refetch when state changes
-  useEffect(() => {
-    if (form.state) {
-      refetchDistricts();
-    }
-  }, [form.state, refetchDistricts]);
 
   // Handle input change for all form fields
   const handleChange = (e) => {
@@ -117,38 +113,43 @@ const CreateResellerModal = ({ onClose, onAddVendor, loading, error }) => {
             )}
           </select>
 
-          {/* District dropdown */}
+          {/* Stockist dropdown */}
           <select
-            name="district"
+            name="stockist"
             className="select select-bordered w-full"
-            value={form.district}
+            value={form.stockist}
             onChange={handleChange}
             disabled={!form.state}
             required
           >
-            <option value="">Select District</option>
-            {loadingDistricts ? (
-              <option disabled>Loading districts...</option>
+            <option value="">Select Stockist</option>
+            {loadingStockists ? (
+              <option disabled>Loading stockists...</option>
             ) : (
-              districts.map((district) => (
-                <option key={district.id} value={district.id}>
-                  {district.name}
+              stockists.map((stockist) => (
+                <option key={stockist.id} value={stockist.id}>
+                  {stockist.username} ({stockist.email})
                 </option>
               ))
             )}
           </select>
 
           {/* Default User checkbox */}
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              className="checkbox checkbox-primary"
-              name="is_default_user"
-              checked={form.is_default_user}
-              onChange={handleChange}
-            />
-            <span className="text-sm text-gray-700">Default User</span>
-          </label>
+          
+          {/* <label className="flex items-center gap-2 cursor-pointer">
+  {role !== 'reseller' && (
+    <>
+      <input
+        type="checkbox"
+        className="checkbox checkbox-primary"
+        name="is_default_user"
+        checked={form.is_default_user}
+        onChange={handleChange}
+      />
+      <span className="text-sm text-gray-700">Default User</span>
+    </>
+  )}
+</label> */}
 
           {/* Display error message if exists */}
           {error && <p className="text-red-600 text-sm">{error}</p>}

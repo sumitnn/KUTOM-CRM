@@ -9,6 +9,9 @@ import OrdersManagement from "../../pages/OrdersManagement";
 import UserWalletPage from "../../pages/UserWalletPage";
 import MyCart from "../../pages/MyCart";
 import ProductDetailsPage from "../../pages/ProductDetailPage";
+import Profile from "../../pages/common/Profile";
+import ChangePassword from "../../components/auths/ChangePassword";
+import OrderDetailPage from "../../pages/OrderDetailPage";
 const ResellerRoutes = [
   <Route element={<ProtectedRoute allowedRoles={["reseller"]} />} key="reseller">
     <Route
@@ -22,13 +25,15 @@ const ResellerRoutes = [
 
     
     {/* order  */}
-    <Route path="/reseller/orders" element={<ResellerMainLayout><OrdersManagement /></ResellerMainLayout>} />
+    <Route path="/reseller/orders" element={<ResellerMainLayout><OrdersManagement role="reseller"/></ResellerMainLayout>} />
+    <Route path="/reseller/orders/:id" element={<ResellerMainLayout><OrderDetailPage /></ResellerMainLayout>} />
     
     {/* wallet  */}
     <Route path="/reseller/wallet" element={<ResellerMainLayout><UserWalletPage/></ResellerMainLayout>} />
     <Route path="/reseller/my-cart" element={<ResellerMainLayout><MyCart/></ResellerMainLayout>} />
     
-
+    <Route path="reseller/settings/profile" element={<ResellerMainLayout><Profile/></ResellerMainLayout>} />
+    <Route path="reseller/settings/change-password" element={<ResellerMainLayout><ChangePassword/></ResellerMainLayout>} />
 
     <Route key="logout" path="/reseller/logout" element={<Logout/>} />
   </Route>

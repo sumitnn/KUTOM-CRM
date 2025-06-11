@@ -14,6 +14,8 @@ from django.db.models import Count
 from django.db.models.functions import TruncMonth
 from django.db import transaction
 from decimal import Decimal
+from .services import OrderService
+from rest_framework.exceptions import ValidationError
 
 
 # Reseller can create
@@ -89,64 +91,15 @@ class BulkOrderCreateView(APIView):
             return Response({"error": "Invalid or empty 'items' list."}, status=400)
 
         try:
-            with transaction.atomic():
-                total_price = Decimal(0)
-
-                for item in items_data:
-                    product_id = item.get("product_id")
-                    quantity = item.get("quantity", 1)
-
-                    if not product_id:
-                        raise ValueError("Missing product_id.")
-                    
-                    product = Product.objects.get(id=product_id, active=True)
-                    total_price += product.selling_price * quantity
-
-                # Wallet check
-                reseller = request.user
-                if reseller.wallet_balance < total_price:
-                    return Response({"error": "Insufficient wallet balance."}, status=402)
-
-                # Deduct amount from reseller wallet
-                reseller.wallet_balance -= total_price
-                reseller.save()
-
-                # Create Order
-                order = Order.objects.create(
-                    reseller=reseller,
-                    total_price=total_price,
-                    status='pending',  # waiting for stockist approval
-                    description="Bulk order placed"
-                )
-                OrderHistory.objects.create(order=order, actor=request.user, action='created', notes='Bulk order placed.')
-
-                # Create OrderItems
-                for item in items_data:
-                    product = Product.objects.get(id=item["product_id"], active=True)
-                    OrderItem.objects.create(
-                        order=order,
-                        product=product,
-                        quantity=item["quantity"],
-                        price=product.selling_price
-                    )
-                # Assign stockist dynamically
-                # stockist = User.objects.filter(role='stockist', is_available=True).order_by('?').first()
-                # if stockist:
-                #     order.stockist = stockist
-                #     order.save()
-                #     OrderHistory.objects.create(order=order, actor=stockist, action='assigned', notes='Assigned by system.')
-
-                return Response(
-                    {"message": "Order created", "order_id": order.id, "total_deducted": total_price},
-                    status=status.HTTP_201_CREATED
-                )
-
-        except Product.DoesNotExist:
-            return Response({"error": "Product not found or inactive."}, status=404)
-
+            order, total_price = OrderService.create_bulk_order(request.user, items_data)
+            return Response(
+                {"message": "Order created", "order_id": order.id, "total_deducted": total_price},
+                status=status.HTTP_201_CREATED
+            )
+        except ValidationError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            return Response({"error": str(e)}, status=400)
-
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)        
 
 class StockistAcceptOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
