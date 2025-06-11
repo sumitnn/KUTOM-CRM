@@ -12,6 +12,13 @@ export const stockistApi = createApi({
                 method: 'GET',
             }),
         }),
+        // Fetch stockists by state
+        fetchStockistsByState: builder.query({
+            query: (stateId) => ({
+                url: `/stockists/${stateId}/`,  
+                method: 'GET',
+            }),
+        }),
         createStockist: builder.mutation({
             query: (stockistData) => ({
                 url: '/register/',
@@ -38,7 +45,9 @@ export const stockistApi = createApi({
 
 export const {
     useFetchStockistsQuery,
+    useFetchStockistsByStateQuery,
     useCreateStockistMutation,
     useUpdateStockistMutation,
     useDeleteStockistMutation,
+
 } = stockistApi;

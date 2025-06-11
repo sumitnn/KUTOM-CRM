@@ -64,8 +64,8 @@ const adminRoutes = [
     <Route path="/admin/vendor" element={<AdminMainLayout><AdminVendor /></AdminMainLayout>} />
     <Route path="/admin/stockist" element={<AdminMainLayout><AdminStockist /></AdminMainLayout>} />
     <Route path="/admin/reseller" element={<AdminMainLayout><AdminReseller /></AdminMainLayout>} />
-    <Route path="/settings/profile" element={<AdminMainLayout><Profile /></AdminMainLayout>} />
-    <Route path="/settings/change-password" element={<AdminMainLayout><ChangePassword /></AdminMainLayout>} />
+    <Route path="/admin/settings/profile" element={<AdminMainLayout><Profile /></AdminMainLayout>} />
+    <Route path="/admin/settings/change-password" element={<AdminMainLayout><ChangePassword /></AdminMainLayout>} />
     <Route key="logout" path="/admin/logout" element={<Logout />} />
   </Route>
 ];

@@ -4,11 +4,6 @@ from .models import *
 
 
 
-class ProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Profile
-        fields = '__all__'
-        read_only_fields = ['user', 'created_at', 'updated_at']
 
 
 
@@ -49,33 +44,34 @@ class StateSerializer(serializers.ModelSerializer):
         model = State
         fields = ['id', 'name']
 
-    def validate_name(self, value):
-        if not value.isalpha():
-            raise serializers.ValidationError("State name should only contain alphabetic characters.")
-        return value
-
-    def validate_code(self, value):
-        if len(value) > 3:
-            raise serializers.ValidationError("State code should not exceed 3 characters.")
-        return value
 
 class DistrictSerializer(serializers.ModelSerializer):
     class Meta:
         model = District
-        fields = ['id', 'state', 'name', 'is_active', 'created_at', 'updated_at']
+        fields = ['id', 'name']
 
     def validate_name(self, value):
         if not value.isalpha():
             raise serializers.ValidationError("District name should only contain alphabetic characters.")
         return value
     
+class StockistSerializer(serializers.ModelSerializer):
+    class Meta:
+        model=User
+        fields = ['id', 'email', 'username', 'role']
+
 class UserSerializer(serializers.ModelSerializer):
     state = serializers.PrimaryKeyRelatedField(queryset=State.objects.all(), required=False, allow_null=True, write_only=True)
     district = serializers.PrimaryKeyRelatedField(queryset=District.objects.all(), required=False, allow_null=True, write_only=True)
-
+    stockist=serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(role='stockist'), 
+        required=False, 
+        allow_null=True, 
+        write_only=True
+    )
     class Meta:
         model = User
-        fields = ['id', 'email', 'password', 'role', 'username', 'state', 'district', 'is_default_user']
+        fields = ['id', 'email', 'password', 'role', 'username', 'state', 'district','stockist', 'is_default_user']
         extra_kwargs = {
             'password': {'write_only': True}
         }
@@ -99,9 +95,10 @@ class UserSerializer(serializers.ModelSerializer):
         """Create a user with a hashed password and associated address."""
 
         
-        state_data = validated_data.pop('state', None)  # Getting state id or instance
-        district_data = validated_data.pop('district', None)  # Getting district id or instance
+        state_data = validated_data.pop('state', None)  
+        district_data = validated_data.pop('district', None)  
         is_default_user = validated_data.pop('is_default_user', False)
+        stockist = validated_data.pop('stockist', None)
 
         # Create the user
         password = validated_data.pop('password')
@@ -126,6 +123,12 @@ class UserSerializer(serializers.ModelSerializer):
                 district = District.objects.get(id=district_data)  
             except District.DoesNotExist:
                 district = None
+        
+        if stockist and isinstance(stockist, User):
+            try:
+                stockist = stockist
+            except User.DoesNotExist:
+                stockist = None
 
         # Create an associated address
         address = Address.objects.create(
@@ -133,6 +136,8 @@ class UserSerializer(serializers.ModelSerializer):
             state=state,
             district=district
         )
+        # create stockist assignment 
+        StockistAssignment.objects.create(reseller=user,stockist=stockist,state=state) 
 
         return user
 
@@ -144,6 +149,54 @@ class UserSerializer(serializers.ModelSerializer):
 
         if 'password' in validated_data:
             instance.set_password(validated_data['password'])
+
+        instance.save()
+        return instance
+    
+
+class AddressSerializer(serializers.ModelSerializer):
+    state = StateSerializer()
+    district = DistrictSerializer()
+    
+    class Meta:
+        model = Address
+        fields = ['id', 'street_address', 'city', 'state', 'district', 'postal_code', 'country', 'is_primary']
+
+class BasicUserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['username', 'email']
+
+class ProfileSerializer(serializers.ModelSerializer):
+    user = BasicUserProfileSerializer(read_only=True)
+    address = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Profile
+        fields = [
+            'id', 'user', 'full_name', 'date_of_birth', 'phone', 'profile_picture', 'gender', 'bio',
+            'facebook', 'twitter', 'instagram', 'youtube', 'whatsapp_number', 'address'
+        ]
+
+    def get_address(self, obj):
+        address = Address.objects.filter(user=obj.user).first()
+        if address:
+            return AddressSerializer(address).data
+        return None
+
+    def update(self, instance, validated_data):
+        address_data = validated_data.pop('address', None)
+
+        # Update Profile fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        # Handle the address data if provided
+        if address_data is not None:
+            Address.objects.update_or_create(
+                user=instance.user,
+                defaults=address_data
+            )
 
         instance.save()
         return instance

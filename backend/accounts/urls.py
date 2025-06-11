@@ -13,6 +13,10 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('update-user/<uuid:pk>/', UpdateUserAPIView.as_view(), name='update-user'),
     path('delete-user/<uuid:pk>/', DeleteUserAPIView.as_view(), name='delete-user'),
+    path('profile/', ProfileView.as_view(), name='profile'),
+
+    # fetch stockist by state
+    path('stockists/<int:state_id>/', StockistsByStateAPIView.as_view(), name='get_stockists_by_state'),
 
     # password related
      path('forgot-password/', ForgotPasswordView.as_view(), name='forgot-password'),

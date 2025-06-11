@@ -1,182 +1,315 @@
 import React, { useState, useEffect } from "react";
 import { formatDistanceToNow, parseISO } from "date-fns";
-import { useGetMyOrdersQuery } from "../features/order/orderApi"; // adjust path accordingly
+import { useGetMyOrdersQuery } from "../features/order/orderApi";
+import { FiSearch, FiChevronRight, FiRefreshCw, FiFilter } from "react-icons/fi";
+import { BsBoxSeam, BsClockHistory, BsCheckCircle, BsXCircle } from "react-icons/bs";
+import { Link } from "react-router-dom";
 
-const statusColors = {
-  completed: "bg-green-100 text-green-800",
-  pending: "bg-yellow-100 text-yellow-800",
-  rejected: "bg-red-100 text-red-800",
+const statusConfig = {
+  completed: {
+    color: "bg-green-100 text-green-800",
+    icon: <BsCheckCircle className="mr-1" />,
+    label: "Completed"
+  },
+  pending: {
+    color: "bg-yellow-100 text-yellow-800",
+    icon: <BsClockHistory className="mr-1" />,
+    label: "Pending"
+  },
+  rejected: {
+    color: "bg-red-100 text-red-800",
+    icon: <BsXCircle className="mr-1" />,
+    label: "Rejected"
+  },
+  default: {
+    color: "bg-gray-100 text-gray-800",
+    icon: <BsBoxSeam className="mr-1" />,
+    label: "Unknown"
+  }
 };
 
 const today = new Date().toISOString().slice(0, 10);
 
-const OrdersManagement = () => {
+const OrdersManagement = ({role}) => {
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
-  const [visibleCount, setVisibleCount] = useState(5);
+  const [visibleCount, setVisibleCount] = useState(10);
   const [page, setPage] = useState(1);
+  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
   const { data, error, isLoading, isFetching } = useGetMyOrdersQuery({
-    status: activeTab,
+    status: activeTab === "all" ? undefined : activeTab,
     page,
   });
 
-  // Filter client-side by customer name or order id since backend might not support search
   const filteredOrders = React.useMemo(() => {
     if (!data?.results) return [];
-
     return data.results
       .filter(
         (order) =>
-          order.customer.toLowerCase().includes(search.toLowerCase()) ||
-          order.id.toLowerCase().includes(search.toLowerCase())
+          order.reseller.username.toLowerCase().includes(search.toLowerCase()) ||
+          order.id.toString().toLowerCase().includes(search.toLowerCase())
       )
       .slice(0, visibleCount);
   }, [data, search, visibleCount]);
 
-  // Today's orders from fetched data
   const todaysOrders = React.useMemo(() => {
     if (!data?.results) return [];
-    return data.results.filter((order) => order.date === today);
+    return data.results.filter((order) => order.created_at.slice(0, 10) === today);
   }, [data]);
 
-  const hasMore =
-    data && data.next; // DRF paginated response includes `next` url when more pages exist
+  const hasMore = data && data.next;
+
+  const handleLoadMore = () => {
+    setVisibleCount((prev) => prev + 10);
+  };
+
+  const getStatusConfig = (status) => {
+    return statusConfig[status] || statusConfig.default;
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-extrabold mb-8 text-gray-900">My Orders</h1>
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Order Management</h1>
+            <p className="text-gray-600 mt-2">View and manage all your orders in one place</p>
+          </div>
+          <div className="mt-4 md:mt-0 flex items-center space-x-2">
+            <button 
+              className="px-4 py-2 bg-white border border-gray-300 rounded-md flex items-center text-gray-700 hover:bg-gray-50"
+              onClick={() => window.location.reload()}
+            >
+              <FiRefreshCw className="mr-2" />
+              Refresh
+            </button>
+          </div>
+        </div>
 
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4 text-gray-800">Today's Orders</h2>
+        {/* Today's Orders Section */}
+        <section className="mb-10 bg-white rounded-xl shadow-sm p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-gray-800 flex items-center">
+              <BsBoxSeam className="mr-2 text-indigo-600" />
+              Today's Orders
+            </h2>
+            <span className="bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+              {todaysOrders.length} orders
+            </span>
+          </div>
+          
           {todaysOrders.length === 0 ? (
-            <p className="text-gray-500 italic">No orders placed today.</p>
+            <div className="text-center py-8 bg-gray-50 rounded-lg">
+              <p className="text-gray-500">No orders placed today.</p>
+            </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {todaysOrders.map((order) => (
-                <div
-                  key={order.id}
-                  className="p-4 bg-white rounded-lg shadow-md border hover:shadow-lg transition cursor-pointer"
-                  onClick={() => alert(`Viewing details for ${order.id}`)}
-                >
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-semibold text-lg text-indigo-700">{order.customer}</h3>
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                        statusColors[order.status] || "bg-gray-100 text-gray-700"
-                      }`}
-                    >
-                      {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                    </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {todaysOrders.map((order) => {
+                const status = getStatusConfig(order.status);
+                return (
+                  <div
+                    key={order.id}
+                    className="border rounded-lg p-4 hover:shadow-md transition cursor-pointer group"
+                    onClick={() => alert(`Viewing details for ${order.id}`)}
+                  >
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h3 className="font-medium text-gray-900 group-hover:text-indigo-600 transition">
+                          #{order.id}
+                        </h3>
+                        <p className="text-sm text-gray-500">{order.reseller.username}</p>
+                      </div>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status.color}`}>
+                        {status.icon}
+                        {status.label}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <p className="text-sm text-gray-600">
+                        {formatDistanceToNow(parseISO(order.created_at), { addSuffix: true })}
+                      </p>
+                      <p className="font-semibold text-gray-900">
+                        ${parseFloat(order.total_price).toFixed(2)}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-gray-600 text-sm mb-1">Order ID: {order.id}</p>
-                  <p className="text-gray-600 text-sm mb-1">
-                    Amount: <span className="font-semibold">${order.amount.toFixed(2)}</span>
-                  </p>
-                  <p className="text-gray-500 text-xs italic">
-                    Placed {formatDistanceToNow(parseISO(order.date), { addSuffix: true })}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
 
-        <div className="flex flex-wrap gap-2 mb-6 border-b border-gray-200">
-          {["all", "pending", "completed", "rejected"].map((tab) => (
-            <button
-              key={tab}
-              className={`py-3 px-5 font-semibold rounded-t-lg border-b-4 transition ${
-                activeTab === tab
-                  ? "border-indigo-600 text-indigo-600 bg-indigo-50"
-                  : "border-transparent text-gray-600 hover:text-indigo-600 hover:border-indigo-400"
-              }`}
-              onClick={() => {
-                setActiveTab(tab);
-                setVisibleCount(5);
-                setPage(1);
-              }}
-            >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)} Orders
-            </button>
-          ))}
-        </div>
-
-        <div className="mb-6">
-          <input
-            type="text"
-            placeholder="Search by Order ID or Customer Name"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full md:w-1/3 p-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-        </div>
-
-        {isLoading ? (
-          <p className="text-center text-gray-500 py-20 text-lg">Loading orders...</p>
-        ) : error ? (
-          <p className="text-center text-red-500 py-20 text-lg">Failed to load orders.</p>
-        ) : filteredOrders.length === 0 ? (
-          <p className="text-center text-gray-500 py-20 text-lg">No orders found.</p>
-        ) : (
-          <div className="space-y-4">
-            {filteredOrders.map((order) => (
-              <div
-                key={order.id}
-                className="flex flex-col md:flex-row md:items-center md:justify-between bg-white border rounded-lg p-5 shadow-sm hover:shadow-lg transition cursor-pointer"
-                onClick={() => alert(`Viewing details for ${order.id}`)}
+        {/* Main Orders Section */}
+        <section className="bg-white rounded-xl shadow-sm p-6">
+          {/* Filters and Search */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+            <div className="w-full md:w-auto">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <FiSearch className="text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search orders..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-md w-full md:w-64 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
+            </div>
+            
+            <div className="w-full md:w-auto">
+              <button 
+                className="md:hidden px-4 py-2 bg-white border border-gray-300 rounded-md flex items-center text-gray-700 hover:bg-gray-50"
+                onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)}
               >
-                <div className="mb-3 md:mb-0 md:w-2/5">
-                  <p className="text-xl font-semibold text-indigo-700">{order.customer}</p>
-                  <p className="text-sm text-gray-500">{order.id}</p>
-                </div>
-
-                <div className="mb-3 md:mb-0 text-gray-700 md:w-1/4">
-                  <p>
-                    <span className="font-semibold">Order Date:</span> {order.date} (
-                    {formatDistanceToNow(parseISO(order.date), { addSuffix: true })})
-                  </p>
-                  <p>
-                    <span className="font-semibold">Amount:</span> ${order.amount.toFixed(2)}
-                  </p>
-                </div>
-
-                <div className="mb-3 md:mb-0 md:w-1/6">
-                  <span
-                    className={`inline-block px-4 py-1 rounded-full text-sm font-semibold ${
-                      statusColors[order.status] || "bg-gray-100 text-gray-700"
-                    }`}
-                  >
-                    {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                  </span>
-                </div>
-
-                <div className="md:w-1/6 text-right">
-                  <button
-                    type="button"
-                    className="text-indigo-600 hover:text-indigo-800 font-semibold"
-                  >
-                    View Details &rarr;
-                  </button>
+                <FiFilter className="mr-2" />
+                Filter
+              </button>
+              
+              <div className={`${isMobileFilterOpen ? 'block' : 'hidden'} md:block`}>
+                <div className="flex flex-wrap gap-2">
+                  {["all", "pending", "completed", "rejected"].map((tab) => {
+                    const isActive = activeTab === tab;
+                    return (
+                      <button
+                        key={tab}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition ${
+                          isActive
+                            ? "bg-indigo-600 text-white"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                        onClick={() => {
+                          setActiveTab(tab);
+                          setVisibleCount(10);
+                          setPage(1);
+                          setIsMobileFilterOpen(false);
+                        }}
+                      >
+                        {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-            ))}
+            </div>
           </div>
-        )}
 
-        {/* Load More Button */}
-        {hasMore && (
-          <div className="text-center mt-8">
-            <button
-              onClick={() => setPage((prev) => prev + 1)}
-              disabled={isFetching}
-              className="px-8 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition"
-            >
-              {isFetching ? "Loading..." : "Load More"}
-            </button>
-          </div>
-        )}
+          {/* Orders Table */}
+          {isLoading ? (
+            <div className="flex justify-center items-center py-20">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+            </div>
+          ) : error ? (
+            <div className="text-center py-20">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
+                <BsXCircle className="text-red-600 text-2xl" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Failed to load orders</h3>
+              <p className="text-gray-600 mb-4">Please try again later</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+              >
+                Retry
+              </button>
+            </div>
+          ) : filteredOrders.length === 0 ? (
+            <div className="text-center py-20">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
+                <BsBoxSeam className="text-gray-600 text-2xl" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No orders found</h3>
+              <p className="text-gray-600">Try adjusting your search or filter criteria</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Order ID
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Customer
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredOrders.map((order) => {
+                    const status = getStatusConfig(order.status);
+                    return (
+                      <tr 
+                        key={order.id} 
+                        className="hover:bg-gray-50 cursor-pointer"
+                        onClick={() => alert(`Viewing details for ${order.id}`)}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          #{order.id}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {order.reseller.username}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatDistanceToNow(parseISO(order.created_at), { addSuffix: true })}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                          ${parseFloat(order.total_price).toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status.color}`}>
+                            {status.icon}
+                            {status.label}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <Link to={`/${role}/orders/${order.id}`} className="text-indigo-600 hover:text-indigo-900 flex items-center justify-end w-full">
+                            View <FiChevronRight className="ml-1" />
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Pagination/Load More */}
+          {hasMore && (
+            <div className="mt-6 flex justify-center">
+              <button
+                onClick={handleLoadMore}
+                disabled={isFetching}
+                className="px-6 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isFetching ? (
+                  <span className="flex items-center">
+                    <FiRefreshCw className="animate-spin mr-2" />
+                    Loading...
+                  </span>
+                ) : (
+                  "Load More Orders"
+                )}
+              </button>
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );

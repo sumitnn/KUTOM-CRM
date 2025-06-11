@@ -123,20 +123,9 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         icon: <FaCodePullRequest />,
         label: "Order Management",
         children: [
-          { label: "My Orders", path: "/reseller/orders" },
-          { label: "Orders History", path: "/reseller/orders" },
+          { label: "Order History", path: "/reseller/orders" },
 
        
-        ],
-      },
-      {
-        icon: <MdInventory />,
-        label: "Stocks Management",
-        children: [
-          { label: "My Stocks", path: "/reseller/brand" },
-          { label: "New Stocks Request", path: "/reseller/create-brand" },
-          { label: "Stock Request History", path: "/reseller/create-brand" },
-          
         ],
       },
       { icon: <CiWallet />, label: "My Wallet", path: "/reseller/wallet" },
@@ -292,7 +281,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
             {settingsOpen && expanded && (
               <div className="ml-6 mt-1 space-y-1">
                 <NavLink
-                  to="/settings/profile"
+                  to={`/${role}/settings/profile`} 
                   className={({ isActive }) =>
                     `block p-2 rounded-md font-bold text-sm hover:bg-indigo-100 ${
                       isActive ? "bg-indigo-200 font-extrabold" : ""
@@ -302,7 +291,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
                   My Profile
                 </NavLink>
                 <NavLink
-                  to="/settings/change-password"
+                  to={`/${role}/settings/change-password`} 
                   className={({ isActive }) =>
                     `block p-2 rounded-md text-sm font-bold hover:bg-indigo-100 ${
                       isActive ? "bg-indigo-200 font-extrabold" : ""

@@ -15,6 +15,7 @@ import { productApi } from "../features/product/productApi";
 import cartReducer from "../features/cart/cartSlice";
 import { locationApi } from "../features/location/locationApi";
 import { resellerApi } from "../features/reseller/resellerApi";
+import { profileApi } from "../features/profile/profileApi";
 
 
 
@@ -32,7 +33,8 @@ export const store = configureStore({
         [categoryApi.reducerPath]: categoryApi.reducer,
         [productApi.reducerPath]: productApi.reducer,
         [locationApi.reducerPath]: locationApi.reducer,
-        [resellerApi.reducerPath]:resellerApi.reducer,
+        [resellerApi.reducerPath]: resellerApi.reducer,
+        [profileApi.reducerPath]:profileApi.reducer,
         
     },
     middleware: (getDefaultMiddleware) =>
@@ -44,5 +46,6 @@ export const store = configureStore({
             productApi.middleware,
             locationApi.middleware,
             resellerApi.middleware,
+            profileApi.middleware,
         ),
 });
