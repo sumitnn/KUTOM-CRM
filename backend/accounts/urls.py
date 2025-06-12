@@ -9,6 +9,7 @@ urlpatterns = [
     path('user/', GetUserView.as_view(), name='get-user'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('users-list/', ListUsersView.as_view(), name='users-list'),
+    path('assigned-resellers/', AssignedResellersView.as_view(), name='assigned-resellers'),
     path('profile/', UserProfileView.as_view(), name='user-profile'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('update-user/<uuid:pk>/', UpdateUserAPIView.as_view(), name='update-user'),
@@ -31,6 +32,8 @@ urlpatterns = [
     # topup request 
     path('topup-request/update/<int:pk>/', TopUpRequestUpdateView.as_view(), name='topup-update'),
     path('topup-request/', TopUpRequestListCreateView.as_view(), name='topup-reqeust'),
+
+    path('new-topup-request/', MyTopUpListCreateView.as_view(), name='my-topup-list-create'),
 
     # State and District related APIs
     path('states/', StateListView.as_view(), name='state-list'),

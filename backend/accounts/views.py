@@ -9,7 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from .models import User,Profile
-from .permissions import IsAdminRole, IsVendorRole, IsStockistRole
+from .permissions import IsAdminRole, IsVendorRole, IsStockistRole,IsAdminOrStockistRole
 from rest_framework import generics
 from django.shortcuts import get_object_or_404
 from decimal import Decimal, InvalidOperation
@@ -310,6 +310,16 @@ class TopUpRequestListCreateView(generics.ListCreateAPIView):
         serializer.save(user=self.request.user)
 
 
+class MyTopUpListCreateView(generics.ListCreateAPIView):
+    serializer_class = NewTopUpRequestSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return TopUpRequest.objects.filter(user=self.request.user).order_by('-created_at')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
 class TopUpRequestUpdateView(generics.UpdateAPIView):
     queryset = TopUpRequest.objects.all()
     serializer_class = TopUpRequestSerializer
@@ -412,3 +422,22 @@ class ProfileView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+
+
+class AssignedResellersView(APIView):
+    permission_classes = [IsStockistRole]
+
+    def get(self, request):
+        # Get reseller IDs assigned to this stockist
+        assigned_reseller_ids = StockistAssignment.objects.filter(
+            stockist=request.user
+        ).values_list('reseller_id', flat=True)
+
+        # Fetch corresponding address records
+        addresses = Address.objects.filter(user__id__in=assigned_reseller_ids)
+        serializer = AddressWithUserAndProfileSerializer(addresses, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+

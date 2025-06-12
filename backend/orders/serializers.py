@@ -1,7 +1,9 @@
 from rest_framework import serializers
 from .models import Order, OrderItem
 from accounts.models import User
-from products.models import Product
+from products.models import Product,ProductImage
+from decimal import Decimal
+from accounts.models import Address
 
 class UserBasicSerializer(serializers.ModelSerializer):
     class Meta:
@@ -23,6 +25,75 @@ class OrderItemSerializer(serializers.ModelSerializer):
     def get_subtotal(self, obj):
         return obj.quantity * obj.price  # Optional if not stored
 
+class ProductImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductImage
+        fields = ['id', 'image', 'alt_text', 'is_featured']
+
+class OrderItemDetailSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(source='product.name')
+    images = ProductImageSerializer(source='product.images', many=True, read_only=True)
+    total = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OrderItem
+        fields = ['id', 'name', 'price', 'quantity', 'images', 'total']
+
+    def get_total(self, obj):
+        return obj.price * obj.quantity
+
+
+
+class AddressSerializer(serializers.ModelSerializer):
+    state = serializers.CharField(source='state.name', default='')
+    district = serializers.CharField(source='district.name', default='')
+
+    class Meta:
+        model = Address
+        fields = [
+            'street_address',
+            'city',
+            'state',
+            'district',
+            'postal_code',
+            'country'
+        ]
+
+class OrderDetailSerializer(serializers.ModelSerializer):
+    items = OrderItemDetailSerializer(many=True, read_only=True)
+    date = serializers.SerializerMethodField()
+    shippingAddress = serializers.SerializerMethodField()
+    subtotal = serializers.SerializerMethodField()
+    tax = serializers.SerializerMethodField()
+    shipping = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Order
+        fields = [
+            'id', 'date', 'status', 'description',
+            'items', 'subtotal', 'shipping', 'tax', 'total_price',
+            'shippingAddress'
+        ]
+
+    def get_date(self, obj):
+        return obj.created_at.date() if obj.created_at else None
+
+    def get_shippingAddress(self, obj):
+        address = getattr(obj.reseller, "address", None)
+        if address:
+            return AddressSerializer(address).data
+        return None
+
+    def get_subtotal(self, obj):
+        return sum(item.price * item.quantity for item in obj.items.all())
+
+    def get_tax(self, obj):
+        return self.get_subtotal(obj) * Decimal("0.10")  # Proper Decimal multiplication
+
+    def get_shipping(self, obj):
+        return Decimal("0.00")
+
+
 class OrderSerializer(serializers.ModelSerializer):
     reseller = UserBasicSerializer()
     stockist = UserBasicSerializer()
@@ -41,3 +112,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'created_at'
         ]
 
+class OrderStatusUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = ['status','note']

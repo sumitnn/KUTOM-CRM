@@ -12,6 +12,8 @@ import ProductDetailsPage from "../../pages/ProductDetailPage";
 import Profile from "../../pages/common/Profile";
 import ChangePassword from "../../components/auths/ChangePassword";
 import OrderDetailPage from "../../pages/OrderDetailPage";
+import CreateTopupRequest from "../../pages/CreateTopupRequest";
+import TopupRequestsList from "../../pages/TopupRequestList";
 const ResellerRoutes = [
   <Route element={<ProtectedRoute allowedRoles={["reseller"]} />} key="reseller">
     <Route
@@ -26,8 +28,12 @@ const ResellerRoutes = [
     
     {/* order  */}
     <Route path="/reseller/orders" element={<ResellerMainLayout><OrdersManagement role="reseller"/></ResellerMainLayout>} />
-    <Route path="/reseller/orders/:id" element={<ResellerMainLayout><OrderDetailPage /></ResellerMainLayout>} />
+    <Route path="/reseller/orders/:id" element={<ResellerMainLayout><OrderDetailPage role="reseller" /></ResellerMainLayout>} />
     
+    {/* topup  */}
+    <Route path="/reseller/topup-request" element={<ResellerMainLayout><CreateTopupRequest/></ResellerMainLayout>} />
+    <Route path="/reseller/my-topup" element={<ResellerMainLayout><TopupRequestsList role="reseller"/></ResellerMainLayout>} />
+
     {/* wallet  */}
     <Route path="/reseller/wallet" element={<ResellerMainLayout><UserWalletPage/></ResellerMainLayout>} />
     <Route path="/reseller/my-cart" element={<ResellerMainLayout><MyCart/></ResellerMainLayout>} />

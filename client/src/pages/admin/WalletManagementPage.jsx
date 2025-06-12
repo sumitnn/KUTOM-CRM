@@ -18,12 +18,8 @@ const WalletManagementPage = () => {
       <section className="my-4">
         <WalletSummaryCard onAddAmount={() => setShowAddModal(true)} />
       </section>
-      {/* Top-Up Requests */}
-      <section className="my-20">
-              <h2 className="text-2xl font-bold text-gray-700 mb-2">💸 Top-Up Requests (via UPI)</h2>
-              <p className="text-sm font-bold text-gray-500 mb-4">Review and manage wallet top-up requests securely.</p>
-              <TopUpRequestsTable />
-            </section>
+
+
       {/* Transaction History */}
       <section className="my-25">
         <h2 className="text-2xl font-bold text-gray-700 mb-2">💳 Your Transaction History</h2>

@@ -19,10 +19,28 @@ export const topupApi = createApi({
                 data, 
             }),
         }),
+
+        GetMyTopupRequest: builder.query({
+            query: () => ({
+                url: '/new-topup-request/',
+                method: 'GET',
+            }),
+         
+        }),
+        CreateTopupRequest: builder.mutation({
+            query: (formData) => ({
+                url: "/new-topup-request/",
+                method: "POST",
+                data: formData,
+            }),
+          
+          })
     }),
 });
 
 export const {
     useGetTopupRequestQuery,
     useUpdateTopupRequestMutation,
+    useCreateTopupRequestMutation,
+    useGetMyTopupRequestQuery
 } = topupApi;

@@ -114,7 +114,7 @@ class TopUpRequest(models.Model):
 
     amount = models.DecimalField(max_digits=12, decimal_places=2)
 
-    # screenshot = models.ImageField(upload_to='topups/screenshots/', blank=True, null=True)
+    screenshot = models.ImageField(upload_to='topups/screenshots/', blank=True, null=True)
 
     note = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')

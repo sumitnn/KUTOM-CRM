@@ -16,6 +16,9 @@ import ProductDetailsPage from "../../pages/ProductDetailPage";
 import EditProductPage from "../../pages/EditProductPage";
 import Profile from "../../pages/common/Profile";
 import ChangePassword from "../../components/auths/ChangePassword";
+import UserWalletPage from "../../pages/UserWalletPage";
+import CreateTopupRequest from "../../pages/CreateTopupRequest";
+import TopupRequestsList from "../../pages/TopupRequestList";
 
 
 const VendorRoutes = [
@@ -56,8 +59,13 @@ const VendorRoutes = [
     <Route path="/vendor/my-products" element={<VendorMainLayout><MyProductsPage role="vendor"/></VendorMainLayout>} />
     <Route path="/vendor/products/edit/:id" element={<VendorMainLayout><EditProductPage role="vendor" /></VendorMainLayout>} />
     
+    {/* topup  */}
+    <Route path="/vendor/topup-request" element={<VendorMainLayout><CreateTopupRequest/></VendorMainLayout>} />
+    <Route path="/vendor/my-topup" element={<VendorMainLayout><TopupRequestsList role="vendor"/></VendorMainLayout>} />
+
     <Route path="vendor/settings/profile" element={<VendorMainLayout><Profile/></VendorMainLayout>} />
-    <Route path="vendor/settings/change-password" element={<VendorMainLayout><ChangePassword/></VendorMainLayout>} />
+    <Route path="vendor/settings/change-password" element={<VendorMainLayout><ChangePassword /></VendorMainLayout>} />
+    <Route path="/vendor/wallet" element={<VendorMainLayout><UserWalletPage/></VendorMainLayout>} />
     
     <Route key="logout" path="/vendor/logout" element={<Logout/>} />
   </Route>

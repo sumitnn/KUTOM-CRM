@@ -2,7 +2,7 @@ from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import *
-from .serializers import OrderSerializer
+from .serializers import OrderSerializer,OrderDetailSerializer,OrderStatusUpdateSerializer
 from django.utils.timezone import now
 from accounts.permissions import IsAdminRole, IsStockistRole, IsVendorRole
 from django.db.models import Q
@@ -61,8 +61,10 @@ class MyOrdersView(ListAPIView):
     def get_queryset(self):
         user = self.request.user
         status_param = self.request.GET.get('status', 'all')
-
-        queryset = Order.objects.filter(reseller=user).order_by('-created_at')
+        if self.request.user.role =="stockist":
+            queryset = Order.objects.filter(stockist=user).order_by('-created_at')
+        else:
+            queryset = Order.objects.filter(reseller=user).order_by('-created_at')
         if status_param != 'all':
             queryset = queryset.filter(status=status_param)
         return queryset
@@ -213,3 +215,36 @@ class OrderSummaryView(APIView):
                 'data': data,
             }
         })
+    
+
+class OrderDetailAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, order_id):
+        try:
+            order = Order.objects.prefetch_related('items__product').get(id=order_id)
+        except Order.DoesNotExist:
+            return Response({"detail": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = OrderDetailSerializer(order)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+
+class StockistUpdateOrderStatusView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request, pk):
+        try:
+            order = Order.objects.get(pk=pk)
+        except Order.DoesNotExist:
+            return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if order.stockist != request.user:
+            return Response({"detail": "You are not authorized to update this order."}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = OrderStatusUpdateSerializer(order, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
