@@ -57,7 +57,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         label: "Products Management",
         children: [
           { label: "All Products", path: "/admin/products" },
-          { label: "Product Request", path: "/admin/my-products" },
+          { label: "Product Request", path: "/admin/product-requests" },
           
         ],
       },
@@ -66,18 +66,9 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
       { icon: <TbCategoryMinus />, label: "Sub-Category", path: "/admin/subcategories" },
       {
         icon: <FaCodePullRequest />,
-        label: "Order Management",
-        children: [
-          { label: "All Orders", path: "/admin/orders" },
-          { label: "Pending Orders", path: "/admin/orders/pending" },
-          { label: "Approved Orders", path: "/admin/orders/approved" },
-        ],
-      },{
-        icon: <FaCodePullRequest />,
         label: "TopUp Management",
         children: [
-          { label: "New Request", path: "/admin/orders" },
-          { label: "Topup Request History", path: "/admin/orders/pending" },
+          { label: "Topup Request & History", path: "/admin/topup" },
 
         ],
       },
@@ -85,33 +76,39 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
     ],
     stockist: [
       { icon: <MdSpaceDashboard />, label: "Dashboard", path: "/stockist/dashboard" },
-      { icon: <RxDashboard />, label: "Marketing Products", path: "/stockist/products" },
+      {
+        icon: <FaUsersGear />,
+        label: "My Network",
+        children: [
+          { label: "My Reseller", path: "/stockist/reseller" },
+
+          
+        ],
+      },
+
       {
         icon: <MdInventory />,
-        label: "My Stock Inventory",
+        label: "Stock Management",
         children: [
-          { label: "Available Stocks", path: "/reseller/create-brand" },
-          { label: "Stocks Report", path: "/reseller/brand" },
+          { label: "My Stocks", path: "" },
+          { label: "Stocks Report", path: "" },
   
         ],
       },{
         icon: <FaCodePullRequest />,
         label: "Order Management",
         children: [
-          { label: "Order Requests", path: "/reseller/create-brand" },
-          { label: "My Orders", path: "/reseller/create-brand" },
-          { label: "Orders Request History", path: "/reseller/brand" },
+          { label: "Order Requests", path: "/stockist/orders" },
+
   
         ],
-      },    
-      {
-        icon: <MdProductionQuantityLimits />,
-        label: "My Cart",
+      },{
+        icon: <FaCodePullRequest />,
+        label: "Request Management",
         children: [
-          { label: "Wishlist", path: "/reseller/orders" },
-          { label: "Cart", path: "/reseller/my-cart" },
-
-       
+          { label: "Create Topup Requests", path: "/stockist/topup-request" },
+          { label: "Topup Request History", path: "/stockist/my-topup" },
+  
         ],
       },
       { icon: <CiWallet />, label: "Wallet & Transactions", path: "/stockist/wallet" },
@@ -126,6 +123,15 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
           { label: "Order History", path: "/reseller/orders" },
 
        
+        ],
+      },{
+        icon: <FaCodePullRequest />,
+        label: "Request Mangement",
+        children: [
+          { label: "Create Topup Request", path: "/reseller/topup-request" },
+          { label: "Topup Request History", path: "/reseller/my-topup" },
+          
+    
         ],
       },
       { icon: <CiWallet />, label: "My Wallet", path: "/reseller/wallet" },
@@ -184,12 +190,14 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         label: "Request Mangement",
         children: [
       
-          { label: "Admin Product Request", path: "/vendor/create-subcategory" },
           { label: "Product Request History", path: "/vendor/subcategories" },
+          { label: "Create Topup Request", path: "/vendor/topup-request" },
+          { label: "Topup Request History", path: "/vendor/my-topup" },
+          
     
         ],
       },
-      { icon: <CiWallet />, label: "My Wallet", path: "/reseller/wallet" },
+      { icon: <CiWallet />, label: "My Wallet", path: "/vendor/wallet" },
     ]
   };
 

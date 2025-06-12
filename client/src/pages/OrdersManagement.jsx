@@ -112,7 +112,7 @@ const OrdersManagement = ({role}) => {
                   <div
                     key={order.id}
                     className="border rounded-lg p-4 hover:shadow-md transition cursor-pointer group"
-                    onClick={() => alert(`Viewing details for ${order.id}`)}
+                    
                   >
                     <div className="flex justify-between items-start mb-3">
                       <div>
@@ -257,7 +257,7 @@ const OrdersManagement = ({role}) => {
                       <tr 
                         key={order.id} 
                         className="hover:bg-gray-50 cursor-pointer"
-                        onClick={() => alert(`Viewing details for ${order.id}`)}
+                        
                       >
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           #{order.id}

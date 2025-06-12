@@ -41,7 +41,20 @@ export const orderApi = createApi({
                 url: '/orders/summary/',
                 method: 'GET',
             }),
-          }),
+        }),
+        getOrderById: builder.query({
+            query: (orderId) => ({
+                url: `/orders/${orderId}/`,
+                method: 'GET',
+            }),
+        }),
+        updateOrderStatusByStockist: builder.mutation({
+            query: ({ orderId, status,note }) => ({
+                url: `/orders/${orderId}/stockist-update-status/`,
+                method: 'PATCH',
+                data: { status,note },
+            }),
+        }),
     }),
 });
 
@@ -50,5 +63,7 @@ export const {
     useGetMyOrdersQuery,
     useCreateOrderMutation,
     useCreateBulkOrdersMutation,
-    useGetOrderSummaryQuery
+    useGetOrderSummaryQuery,
+    useGetOrderByIdQuery,
+    useUpdateOrderStatusByStockistMutation,
 } = orderApi;

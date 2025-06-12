@@ -12,6 +12,12 @@ export const resellerApi = createApi({
                 method: 'GET',
             }),
         }),
+        fetchMyReseller: builder.query({
+            query: () => ({
+                url: '/assigned-resellers/',
+                method: 'GET',
+            }),
+        }),
         createReseller: builder.mutation({
             query: (resellerData) => ({
                 url: '/register/',
@@ -41,4 +47,5 @@ export const {
     useCreateResellerMutation,
     useUpdateResellerMutation,
     useDeleteResellerMutation,
+    useFetchMyResellerQuery,
 } = resellerApi;

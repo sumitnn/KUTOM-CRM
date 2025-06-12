@@ -147,7 +147,7 @@ const VendorDashboard = () => {
 
   return (
     <div className="p-6 bg-base-200 min-h-screen">
-      <h1 className="text-3xl font-extrabold mb-8">Reseller Dashboard</h1>
+      <h1 className="text-3xl font-extrabold mb-8">Vendor Dashboard</h1>
 
       {/* Filters */}
       <div className="card bg-white p-6 rounded-xl shadow mb-8 flex flex-col md:flex-row md:items-center md:space-x-6 space-y-4 md:space-y-0">

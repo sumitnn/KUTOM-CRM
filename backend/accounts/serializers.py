@@ -38,6 +38,40 @@ class TopUpRequestSerializer(serializers.ModelSerializer):
     def get_role(self, obj):
         return getattr(obj.user, 'role', None)
 
+class NewTopUpRequestSerializer(serializers.ModelSerializer):
+    screenshot = serializers.ImageField(required=True)
+    
+    class Meta:
+        model = TopUpRequest
+        fields = [
+            'id',
+            'amount',
+            'screenshot',
+            'note',
+            'status',
+            'rejected_reason',
+            'created_at',
+            'reviewed_at',
+            'approved_by',
+        ]
+        read_only_fields = [
+            'id', 
+            'status', 
+            'created_at', 
+            'reviewed_at', 
+            'approved_by',
+            'rejected_reason',
+        ]
+    
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Amount must be greater than zero")
+        return value
+
+    def create(self, validated_data):
+        # Automatically set the user from request context
+        validated_data['user'] = self.context['request'].user
+        return super().create(validated_data)
 
 class StateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -200,3 +234,40 @@ class ProfileSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
+    
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(source='profile.full_name', read_only=True)
+    phone = serializers.CharField(source='profile.phone', read_only=True)
+    gender = serializers.CharField(source='profile.gender', read_only=True)
+    profile_picture = serializers.ImageField(source='profile.profile_picture', read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'id',
+            'username',
+            'email',
+            'full_name',
+            'phone',
+            'gender',
+            'profile_picture'
+        ]
+
+
+class AddressWithUserAndProfileSerializer(serializers.ModelSerializer):
+    user = UserProfileSerializer(read_only=True)
+
+    class Meta:
+        model = Address
+        fields = [
+            'id',
+            'street_address',
+            'city',
+            'state',
+            'district',
+            'postal_code',
+            'country',
+            'is_primary',
+            'user'
+        ]
