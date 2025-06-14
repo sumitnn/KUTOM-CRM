@@ -6,7 +6,7 @@ import {
   useUpdateStockistMutation,
   useDeleteStockistMutation,
 } from '../../features/stockist/stockistApi';
-import StockistCardList  from '../../components/stockist/StockistCardList';
+import StockistCardList from '../../components/stockist/StockistCardList';
 import CreateStockistModal from '../../components/stockist/CreateStockistModal';
 
 const AdminStockist = () => {
@@ -27,14 +27,14 @@ const AdminStockist = () => {
       refetch();
     } catch (err) {
       console.error('Create vendor error:', err);
-  
+
       // Extract error message from the nested message.email array
       const errorMessage =
-        err?.data?.message?.email?.[0] ||    
-        err?.data?.message ||                 
-        err?.error ||                       
+        err?.data?.message?.email?.[0] ||
+        err?.data?.message ||
+        err?.error ||
         'Failed to create stockist';
-  
+
       setError(errorMessage);
       toast.error(errorMessage);
     }
