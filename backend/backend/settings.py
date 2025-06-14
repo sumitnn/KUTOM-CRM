@@ -20,7 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('DJANGO_SECRET_KEY')
 DEBUG = config('DEBUG', cast=bool)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["api.stocktn.com"]
 
 
 
@@ -42,14 +42,14 @@ INSTALLED_APPS = [
     'products',
     'orders',
     'storages',
+    'whitenoise.runserver_nostatic', #This is used to serve static files in production.
 ]
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -146,6 +146,7 @@ USE_TZ = True
 
 
 STATIC_URL = '/static/'
+STATIC_ROOT=os.path.join(BASE_DIR, 'static/')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -158,21 +159,16 @@ AUTH_USER_MODEL = 'accounts.User'
 # ✅ Secure settings toggle
 if not DEBUG:
     print("working in Production mode")
-    SECURE_SSL_REDIRECT = True
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
+
     CORS_ALLOWED_URLL = config('CORS_ALLOWED_URL', cast=Csv())
     CORS_ALLOWED_ORIGINS = CORS_ALLOWED_URLL
-    CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_URLL
+
     
     CORS_ALLOW_CREDENTIALS = True
 else:
     print("working in Development mode")
-   
     CORS_ALLOW_ALL_ORIGINS = True
-    SECURE_SSL_REDIRECT = False
-    SESSION_COOKIE_SECURE = False
-    CSRF_COOKIE_SECURE = False
+
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=35),
