@@ -20,7 +20,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('DJANGO_SECRET_KEY')
 DEBUG = config('DEBUG', cast=bool)
 
-ALLOWED_HOSTS = ["api.stocktn.com"]
+if DEBUG:
+    ALLOWED_HOSTS = ['*']  
+else:
+    ALLOWED_HOSTS = ['api.stocktn.com', 'www.api.stocktn.com']
 
 
 
@@ -162,7 +165,6 @@ if not DEBUG:
 
     CORS_ALLOWED_URLL = config('CORS_ALLOWED_URL', cast=Csv())
     CORS_ALLOWED_ORIGINS = CORS_ALLOWED_URLL
-
     
     CORS_ALLOW_CREDENTIALS = True
 else:

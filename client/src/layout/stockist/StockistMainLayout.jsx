@@ -7,7 +7,7 @@ const StockistMainLayout = ({ children }) => {
 
   return (
     <>
-      <Navbar />
+      <Navbar role="stockist"/>
       <div className="flex pt-20 px-2">
         <Sidebar expanded={expanded} setExpanded={setExpanded} role="stockist" />
         <main

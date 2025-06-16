@@ -154,7 +154,9 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         children: [
           { label: "All Products", path: "/vendor/products" },
           { label: "Create New Product", path: "/vendor/create-product" },
-          { label: "My Products", path: "/vendor/my-products" },
+          { label: "Requests", path: "/vendor/requested-products" },
+          { label: "Stock", path: "/vendor/my-stocks" },
+          { label: "Sales", path: "/vendor/my-sales" },
           
         ],
       },
@@ -171,28 +173,19 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         icon: <TbCategoryPlus />,
         label: "Categories",
         children: [
-          { label: "View All Category", path: "/vendor/categories" },
-          { label: "Create New Category", path: "/vendor/create-category" },
+          { label: "All Category & Subcategory", path: "/vendor/categories" },
           
-        ],
-      },{
-        icon: <TbCategoryMinus />,
-        label: "Sub-Categories",
-        children: [
-      
-          { label: "Create New Sub-Category", path: "/vendor/create-subcategory" },
-          { label: "View All Sub-Category", path: "/vendor/subcategories" },
-    
         ],
       },
       {
         icon: <FaCodePullRequest />,
-        label: "Request Mangement",
+        label: "Accounts Mangement",
         children: [
       
-          { label: "Product Request History", path: "/vendor/subcategories" },
           { label: "Create Topup Request", path: "/vendor/topup-request" },
           { label: "Topup Request History", path: "/vendor/my-topup" },
+          { label: "My Wallet & Transaction", path: "/vendor/wallet" },
+          { label: "Withdrawl Request", path: "/vendor/my-topup" },
           
     
         ],

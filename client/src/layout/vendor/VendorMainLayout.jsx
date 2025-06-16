@@ -7,7 +7,7 @@ const VendorMainLayout = ({ children }) => {
 
   return (
     <>
-      <Navbar />
+      <Navbar role="vendor"/>
       <div className="flex pt-20 px-2">
         <Sidebar expanded={expanded} setExpanded={setExpanded} role="vendor" />
         <main

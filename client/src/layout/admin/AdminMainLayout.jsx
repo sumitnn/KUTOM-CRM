@@ -9,7 +9,7 @@ const AdminMainLayout = ({ children }) => {
 
   return (
     <>
-      <Navbar />
+      <Navbar  role={user?.role}/>
       <div className="flex pt-20 px-2">
         <Sidebar expanded={expanded} setExpanded={setExpanded} role={user?.role} /> 
         <main
