@@ -7,7 +7,7 @@ const ResellerMainLayout = ({ children }) => {
 
   return (
     <>
-      <Navbar />
+      <Navbar role="reseller"/>
       <div className="flex pt-20 px-2">
         <Sidebar expanded={expanded} setExpanded={setExpanded} role="reseller" />
         <main

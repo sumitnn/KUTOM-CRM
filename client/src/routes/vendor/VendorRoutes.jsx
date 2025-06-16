@@ -9,9 +9,9 @@ import CreateCategoryPage from "../../pages/CreateCategoryPage";
 import ViewCategoriesPage from "../../pages/ViewCategoriesPage";
 import CreateSubcategoryPage from "../../pages/CreateSubcategoryPage";
 import ViewSubcategoriesPage from "../../pages/ViewSubcategoriesPage";
-import ProductListPage from "../../pages/ProductListPage";
+
 import CreateProductPage from "../../pages/CreateProductPage";
-import MyProductsPage from "../../pages/MyProductsPage";
+
 import ProductDetailsPage from "../../pages/ProductDetailPage";
 import EditProductPage from "../../pages/EditProductPage";
 import Profile from "../../pages/common/Profile";
@@ -19,6 +19,11 @@ import ChangePassword from "../../components/auths/ChangePassword";
 import UserWalletPage from "../../pages/UserWalletPage";
 import CreateTopupRequest from "../../pages/CreateTopupRequest";
 import TopupRequestsList from "../../pages/TopupRequestList";
+import TabledProductListPage from "../../pages/TabledProductListPage";
+import SalesPage from "../../pages/SalesPage";
+import MyStockPage from "../../pages/MyStockPage";
+import RequestedProductsPage from "../../pages/RequestedProductsPage";
+import CategoryManagementPage from "../../pages/CategoryManagementPage";
 
 
 const VendorRoutes = [
@@ -38,25 +43,22 @@ const VendorRoutes = [
     />
     {/* category  */}
     <Route
-      path="/vendor/create-category"
-      element={<VendorMainLayout><CreateCategoryPage/></VendorMainLayout>}
-    />
-    <Route
       path="/vendor/categories"
-      element={<VendorMainLayout><ViewCategoriesPage/></VendorMainLayout>}
+      element={<VendorMainLayout><CategoryManagementPage/></VendorMainLayout>}
     />
-    {/* sub category  */}
-    <Route
-      path="/vendor/create-subcategory"
-      element={<VendorMainLayout><CreateSubcategoryPage/></VendorMainLayout>}
-    />
-    <Route path="/vendor/subcategories" element={<VendorMainLayout><ViewSubcategoriesPage /></VendorMainLayout>} />
+
+    
 
     {/* products  */}
-    <Route path="/vendor/products" element={<VendorMainLayout><ProductListPage role="vendor"/></VendorMainLayout>}/>
+    <Route path="/vendor/products" element={<VendorMainLayout><TabledProductListPage role="vendor" /></VendorMainLayout>} />
+    
+    <Route path="/vendor/requested-products" element={<VendorMainLayout><RequestedProductsPage role="vendor"/></VendorMainLayout>}/>
+    <Route path="/vendor/my-sales" element={<VendorMainLayout><SalesPage role="vendor"/></VendorMainLayout>}/>
+    <Route path="/vendor/my-stocks" element={<VendorMainLayout><MyStockPage role="vendor" /></VendorMainLayout>} />
+    
     <Route path="/vendor/products/:id" element={<VendorMainLayout><ProductDetailsPage role="vendor"/></VendorMainLayout>}/>
     <Route path="/vendor/create-product" element={<VendorMainLayout><CreateProductPage/></VendorMainLayout>}/>
-    <Route path="/vendor/my-products" element={<VendorMainLayout><MyProductsPage role="vendor"/></VendorMainLayout>} />
+  
     <Route path="/vendor/products/edit/:id" element={<VendorMainLayout><EditProductPage role="vendor" /></VendorMainLayout>} />
     
     {/* topup  */}

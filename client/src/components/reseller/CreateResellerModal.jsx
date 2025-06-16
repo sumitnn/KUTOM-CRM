@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useGetStatesQuery } from '../../features/location/locationApi';
 import { useFetchStockistsByStateQuery } from "../../features/stockist/stockistApi";
 
-const CreateResellerModal = ({ onClose, onAddVendor, loading, error}) => {
+const CreateResellerModal = ({ onClose, onAddVendor, loading, error }) => {
   const [form, setForm] = useState({
     username: '',
     email: '',
@@ -15,7 +15,7 @@ const CreateResellerModal = ({ onClose, onAddVendor, loading, error}) => {
 
   // Fetching states using RTK Query hook
   const { data: states = [], isLoading: loadingStates } = useGetStatesQuery();
-  
+
   // Fetching stockists based on the selected state
   const { data: stockists = [], isLoading: loadingStockists } = useFetchStockistsByStateQuery(form.state, {
     skip: !form.state, // Avoid fetching stockists if state is not selected
@@ -39,8 +39,8 @@ const CreateResellerModal = ({ onClose, onAddVendor, loading, error}) => {
       return;
     }
 
-    const { confirmPassword, ...resellerData } = form; 
-    onAddVendor(resellerData); 
+    const { confirmPassword, ...resellerData } = form;
+    onAddVendor(resellerData);
   };
 
   return (
@@ -135,7 +135,7 @@ const CreateResellerModal = ({ onClose, onAddVendor, loading, error}) => {
           </select>
 
           {/* Default User checkbox */}
-          
+
           {/* <label className="flex items-center gap-2 cursor-pointer">
   {role !== 'reseller' && (
     <>

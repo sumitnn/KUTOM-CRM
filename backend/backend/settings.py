@@ -20,7 +20,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('DJANGO_SECRET_KEY')
 DEBUG = config('DEBUG', cast=bool)
 
-ALLOWED_HOSTS = ["api.stocktn.com"]
+if DEBUG:
+    ALLOWED_HOSTS = ['*']  
+else:
+    ALLOWED_HOSTS = ['api.stocktn.com', 'www.api.stocktn.com']
 
 
 
@@ -82,25 +85,25 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 # Local DB Settings
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
-
 DATABASES = {
     'default': {
-        'ENGINE': config('AWS_DATABASE_ENGINE', default='django.db.backends.mysql'),
-        'NAME': config('AWS_DATABASE_NAME'),
-        'USER': config('AWS_DATABASE_USER'),
-        'PASSWORD': config('AWS_DATABASE_PASSWORD'),
-        'HOST': config('AWS_DATABASE_HOST'),
-        'PORT': config('AWS_DATABASE_PORT'),
-        
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': config('AWS_DATABASE_ENGINE', default='django.db.backends.mysql'),
+#         'NAME': config('AWS_DATABASE_NAME'),
+#         'USER': config('AWS_DATABASE_USER'),
+#         'PASSWORD': config('AWS_DATABASE_PASSWORD'),
+#         'HOST': config('AWS_DATABASE_HOST'),
+#         'PORT': config('AWS_DATABASE_PORT'),
+        
+#     }
+# }
 
 
 # Password validation
@@ -162,7 +165,6 @@ if not DEBUG:
 
     CORS_ALLOWED_URLL = config('CORS_ALLOWED_URL', cast=Csv())
     CORS_ALLOWED_ORIGINS = CORS_ALLOWED_URLL
-
     
     CORS_ALLOW_CREDENTIALS = True
 else:
