@@ -1,17 +1,18 @@
-
 from rest_framework import serializers
-from .models import *
+from .models import (
+    Brand, Category, SubCategory, Tag,
+    Product, ProductSize, ProductImage,
+    ProductPriceTier, Notification
+)
 
 class BrandSerializer(serializers.ModelSerializer):
-    owner = serializers.EmailField(source='owner.email', read_only=True)
-    access = serializers.SerializerMethodField()
-
     class Meta:
         model = Brand
-        fields = ["id", "name", "logo", "is_featured", "description", "access", "slug", "owner"]
+        fields = ["id", "name", "logo", "is_active", "created_at", "updated_at"]
+        read_only_fields = ["created_at", "updated_at"]
 
     def update(self, instance, validated_data):
-        for attr in ['name', 'description', 'is_featured']:
+        for attr in ['name', 'is_active']:
             if attr in validated_data:
                 setattr(instance, attr, validated_data[attr])
 
@@ -22,153 +23,123 @@ class BrandSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
 
-    def get_access(self, obj):
-        request = self.context.get('request')
-        user = getattr(request, 'user', None)
-
-        if not user or not user.is_authenticated:
-            return False
-
-        if getattr(user, 'role', None) == "admin":
-            return True
-
-        return obj.owner == user
 
 class CategorySerializer(serializers.ModelSerializer):
-    subcategories = serializers.StringRelatedField(many=True, read_only=True)
-    access=serializers.SerializerMethodField()
+    subcategories = serializers.SerializerMethodField()
 
     class Meta:
         model = Category
-        fields = ['id', 'name', 'parent', 'is_featured', 'display_order', 'subcategories', 'created_at', 'updated_at', "access"]
+        fields = ['id', 'name', 'is_featured', 'is_active', 'subcategories', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
 
-    def get_access(self, obj):
-        request = self.context.get('request')
-        user = request.user if request else None
-        if not user or not user.is_authenticated:
-            return False
-        # Admin can edit all categories
-        if user.role == "admin":  
-            return True
-        return obj.owner == user
+    def get_subcategories(self, obj):
+        subcategories = obj.subcategories.filter(is_active=True)
+        return SubCategorySerializer(subcategories, many=True, context=self.context).data
 
-class SubcategorySerializer(serializers.ModelSerializer):
-    parent = CategorySerializer(read_only=True)
-    access = serializers.SerializerMethodField()
+
+class SubCategorySerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source='category.name', read_only=True)
 
     class Meta:
-        model = Category
-        fields = [
-            'id', 'name', 'parent', 'is_featured', 'display_order',
-            'created_at', 'updated_at', 'access'
-        ]
+        model = SubCategory
+        fields = ['id', 'name', 'category', 'category_name', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
 
-    def get_access(self, obj):
-        request = self.context.get('request')
-        user = request.user if request else None
-        if not user or not user.is_authenticated:
-            return False
-        if user.role == "admin":
-            return True
-        return obj.owner == user
+
+class TagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tag
+        fields = ['id', 'name', 'slug']
+        read_only_fields = ['slug']
+
+    def create(self, validated_data):
+        tag, created = Tag.objects.get_or_create(**validated_data)
+        return tag
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImage
-        fields = ['id', 'image', 'alt_text', 'display_order', 'is_featured']
+        fields = ['id', 'image', 'alt_text', 'is_featured', 'created_at']
+        read_only_fields = ['created_at']
 
-class TagSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Tag
-        fields = ['id', 'name']
 
-class ProductVariantSerializer(serializers.ModelSerializer):
+class ProductPriceTierSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ProductVariant
+        model = ProductPriceTier
+        fields = ['id', 'min_quantity', 'price']
+        read_only_fields = ['id']
+
+
+class ProductSizeSerializer(serializers.ModelSerializer):
+    price_tiers = ProductPriceTierSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ProductSize
         fields = [
-            'id', 'sku', 'name', 'price', 'quantity', 
-            'attributes', 'is_default', 'in_stock', 'low_stock'
+            'id', 'name', 'size', 'unit', 'price', 'cost_price', 
+            'quantity', 'is_default', 'is_active', 'price_tiers',
+            'created_at', 'updated_at'
         ]
-        read_only_fields = ['sku']
+        read_only_fields = ['created_at', 'updated_at']
 
 
 class ProductSerializer(serializers.ModelSerializer):
-    variants = ProductVariantSerializer(many=True, required=False)
     images = ProductImageSerializer(many=True, read_only=True)
+    sizes = ProductSizeSerializer(many=True, read_only=True)
     tags = TagSerializer(many=True, read_only=True)
+    brand_name = serializers.CharField(source='brand.name', read_only=True)
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    subcategory_name = serializers.CharField(source='subcategory.name', read_only=True)
 
     class Meta:
         model = Product
-        fields = ['id', 'sku', 'name', 'description', 'price', 'owner', 'variants', 'images', 'tags', 'brand']
-        read_only_fields = ['owner', 'sku']
+        fields = [
+            'id', 'sku', 'name', 'slug', 'description', 'short_description',
+            'brand', 'brand_name', 'category', 'category_name', 'subcategory',
+            'subcategory_name', 'tags', 'status', 'is_featured', 'rating',
+            'images', 'sizes', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['sku', 'slug', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'brand': {'required': False},
+            'category': {'required': False},
+            'subcategory': {'required': False},
+        }
 
     def create(self, validated_data):
-        request = self.context.get('request')
-        user = request.user if request else None
+        tags_data = validated_data.pop('tags', [])
+        product = Product.objects.create(**validated_data)
         
-        # Create main product
-        product = Product.objects.create(
-            owner=user,
-            name=validated_data.get('name'),
-            description=validated_data.get('description', ''),
-            price=validated_data.get('price', 0),
-            brand=validated_data.get('brand', '')
-        )
-
-        # Handle main product image
-        main_image = request.FILES.get('image')
-        if main_image:
-            ProductImage.objects.create(
-                product=product,
-                image=main_image,
-                is_featured=True
-            )
-
-        # Handle variants
-        variants_data = []
-        index = 0
-        while True:
-            variant_data = {
-                'name': request.data.get(f'variants[{index}][name]'),
-                'price': request.data.get(f'variants[{index}][price]'),
-                'quantity': request.data.get(f'variants[{index}][quantity]'),
-                'attributes': {
-                    'other': request.data.get(f'variants[{index}][other]', '')
-                }
-            }
-            
-            if not variant_data['name']:
-                break
-                
-            variant_image = request.FILES.get(f'variants[{index}][image]')
-            
-            # Create variant
-            variant = ProductVariant.objects.create(
-                product=product,
-                name=variant_data['name'],
-                price=variant_data['price'] or product.price,
-                quantity=variant_data['quantity'] or 0,
-                attributes=variant_data['attributes'],
-                is_default=(index == 0)  # First variant is default
-            )
-            
-            # Create variant image if exists
-            if variant_image:
-                ProductImage.objects.create(
-                    product=product,
-                    variant=variant,
-                    image=variant_image
-                )
-            
-            index += 1
-
         # Handle tags
-        tags = request.data.get('tags', '')
-        if tags:
-            tag_list = [tag.strip() for tag in tags.split(',') if tag.strip()]
-            for tag_name in tag_list:
-                tag, _ = Tag.objects.get_or_create(name=tag_name)
-                product.tags.add(tag)
-
+        for tag_data in tags_data:
+            tag, created = Tag.objects.get_or_create(name=tag_data['name'])
+            product.tags.add(tag)
+            
         return product
+
+    def update(self, instance, validated_data):
+        tags_data = validated_data.pop('tags', None)
+        
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+            
+        instance.save()
+        
+        if tags_data is not None:
+            instance.tags.clear()
+            for tag_data in tags_data:
+                tag, created = Tag.objects.get_or_create(name=tag_data['name'])
+                instance.tags.add(tag)
+                
+        return instance
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = [
+            'id', 'user', 'title', 'message', 'notification_type',
+            'is_read', 'related_url', 'created_at'
+        ]
+        read_only_fields = ['created_at']
