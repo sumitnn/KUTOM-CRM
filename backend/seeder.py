@@ -1,180 +1,121 @@
 import os
 import django
-import random
-from faker import Faker
-from decimal import Decimal
 from django.utils import timezone
+from django.contrib.auth.hashers import make_password
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings")
 django.setup()
 
-from accounts.models import User, WalletTransaction, TopUpRequest
-from orders.models import Order, OrderItem
-from products.models import Brand, Category, Product, ProductVariant
+from accounts.models import User
+from products.models import Brand, Category, SubCategory
 
-fake = Faker()
-
-def create_users(num=10):
-    roles = ['admin', 'reseller', 'stockist']
-    users = []
-    for _ in range(num):
-        email = fake.unique.email()
-        role = random.choice(roles)
-        user = User.objects.create_user(
-            email=email,
-            password="password@123",
-            username=fake.user_name(),
-            role=role
+def create_initial_data():
+    # Create 4 users with different roles
+    users = [
+        User.objects.create(
+            email="admin@example.com",
+            username="admin",
+            role="admin",
+            is_staff=True,
+            is_active=True,
+            password=make_password("password123")
+        ),
+        User.objects.create(
+            email="vendor@example.com",
+            username="vendor",
+            role="vendor",
+            is_active=True,
+            password=make_password("password123")
+        ),
+        User.objects.create(
+            email="reseller@example.com",
+            username="reseller",
+            role="reseller",
+            is_active=True,
+            password=make_password("password123")
+        ),
+        User.objects.create(
+            email="stockist@example.com",
+            username="stockist",
+            role="stockist",
+            is_active=True,
+            password=make_password("password123")
         )
-        profile = user.profile
-        profile.full_name = fake.name()
-        profile.save()
-        users.append(user)
-    return users
-
-def create_brands(num=5):
-    if Brand.objects.exists():
-        return list(Brand.objects.all())
-    return [
-        Brand.objects.create(
-            name=fake.unique.company(),
-            description=fake.text(max_nb_chars=200)
-        ) for _ in range(num)
     ]
+    print("✅ Created 4 users (admin, vendor, reseller, stockist)")
 
-def create_categories(num=5):
-    return [Category.objects.create(
-        name=fake.unique.word().capitalize()
-    ) for _ in range(num)]
-
-def create_products_and_variants(brands, categories, num_products=20, variants_per_product=2):
-    products = []
-    for _ in range(num_products):
-        product = Product.objects.create(
-            name=fake.unique.word().capitalize(),
-            sku=fake.unique.bothify(text='PROD-#####'),
-            brand=random.choice(brands),
-            category=random.choice(categories),
-            description=fake.text(),
-            cost_price=Decimal(random.randint(50, 100)),
-            selling_price=Decimal(random.randint(100, 300)),
-            mrp=Decimal(random.randint(200, 400)),
-            active=random.choice([True, False])
+    # Create 4 brands
+    brands = [
+        Brand.objects.create(
+            name="Nike",
+            is_active=True
+        ),
+        Brand.objects.create(
+            name="Adidas",
+            is_active=True
+        ),
+        Brand.objects.create(
+            name="Puma",
+            is_active=True
+        ),
+        Brand.objects.create(
+            name="Reebok",
+            is_active=True
         )
+    ]
+    print("✅ Created 4 brands")
 
-        # Create default + additional variants
-        for i in range(variants_per_product):
-            attributes = {
-                "color": random.choice(["Red", "Blue", "Green", "Black"]),
-                "size": random.choice(["S", "M", "L", "XL"])
-            }
-            ProductVariant.objects.create(
-                product=product,
-                sku=fake.unique.bothify(text='VAR-#####'),
-                quantity=random.randint(0, 100),
-                cost_price=product.cost_price,
-                selling_price=product.selling_price,
-                mrp=product.mrp,
-                price=product.selling_price,
-                active=True,
-                attributes=attributes,
-                is_default=(i == 0)
-            )
-        products.append(product)
-    return products
-
-def create_orders(resellers, stockists, num=10):
-    products = Product.objects.filter(active=True)
-    for _ in range(num):
-        reseller = random.choice(resellers)
-        stockist = random.choice(stockists) if stockists else None
-        order = Order.objects.create(
-            reseller=reseller,
-            stockist=stockist,
-            status=random.choice(['pending', 'forwarded', 'approved', 'rejected']),
-            description=fake.text(),
-            total_price=0
+    # Create 4 categories
+    categories = [
+        Category.objects.create(
+            name="Footwear",
+            is_featured=True,
+            is_active=True
+        ),
+        Category.objects.create(
+            name="Apparel",
+            is_featured=False,
+            is_active=True
+        ),
+        Category.objects.create(
+            name="Accessories",
+            is_featured=True,
+            is_active=True
+        ),
+        Category.objects.create(
+            name="Equipment",
+            is_featured=False,
+            is_active=True
         )
-        total = 0
-        for _ in range(random.randint(1, 5)):
-            product = random.choice(products)
-            variant = random.choice(product.variants.filter(active=True))
-            quantity = random.randint(1, 5)
-            price = variant.display_price
-            total += quantity * price
-            OrderItem.objects.create(order=order, product=product, quantity=quantity, price=price)
-        order.total_price = total
-        order.save()
+    ]
+    print("✅ Created 4 categories")
 
-def create_wallets_and_transactions(users):
-    for user in users:
-        wallet = user.wallet
-        for _ in range(random.randint(1, 5)):
-            amount = Decimal(random.randint(10, 1000))
-            WalletTransaction.objects.create(
-                wallet=wallet,
-                transaction_type=random.choice(['CREDIT', 'DEBIT']),
-                amount=amount,
-                description=fake.sentence(),
-                transaction_status=random.choice(['SUCCESS', 'FAILED', 'PENDING', 'RECEIVED', 'REFUND'])
-            )
+    # Create 1 subcategory for each category
+    subcategories = [
+        SubCategory.objects.create(
+            category=categories[0],
+            name="Running Shoes",
+            is_active=True
+        ),
+        SubCategory.objects.create(
+            category=categories[1],
+            name="T-Shirts",
+            is_active=True
+        ),
+        SubCategory.objects.create(
+            category=categories[2],
+            name="Socks",
+            is_active=True
+        ),
+        SubCategory.objects.create(
+            category=categories[3],
+            name="Balls",
+            is_active=True
+        )
+    ]
+    print("✅ Created 4 subcategories (1 for each category)")
 
-def create_topup_requests(users):
-    for user in users:
-        for _ in range(random.randint(0, 2)):
-            reviewed_at = (
-                timezone.make_aware(fake.date_time_this_year())
-                if random.random() > 0.5
-                else None
-            )
-            TopUpRequest.objects.create(
-                user=user,
-                amount=Decimal(random.randint(100, 2000)),
-                status=random.choice(['PENDING', 'APPROVED', 'REJECTED', 'INVALID_SCREENSHOT', 'INVALID_AMOUNT']),
-                note=fake.sentence(),
-                rejected_reason=random.choice([fake.sentence(), None, ""]),
-                reviewed_at=reviewed_at,
-                approved_by=random.choice(users) if random.random() > 0.5 else None
-            )
+    print("🎉 Initial data seeding complete!")
 
-# === SCRIPT EXECUTION START ===
-print("\n[1] Use existing users to create orders/wallet/topups")
-print("[2] Generate NEW users, brands, categories, products, and then all data")
-choice = input("Enter 1 or 2: ").strip()
-
-if choice == "2":
-    print("🌱 Generating new data...")
-    users = create_users(30)
-    print("✅ Users created")
-    brands = create_brands(10)
-    print("✅ Brands created")
-    categories = create_categories(5)
-    print("✅ Categories created")
-    create_products_and_variants(brands, categories, 20, variants_per_product=3)
-    print("✅ Products and variants created")
-
-elif choice == "1":
-    print("🔍 Using existing users and products...")
-    users = list(User.objects.all())
-    if not users:
-        print("❌ No users found. Run option 2 first.")
-        exit(1)
-
-else:
-    print("❌ Invalid input. Exiting.")
-    exit(1)
-
-# Continue with order & wallet seeding
-resellers = [u for u in users if u.role == 'reseller']
-stockists = [u for u in users if u.role == 'stockist']
-
-create_orders(resellers, stockists, 10)
-print("✅ Orders created")
-
-create_wallets_and_transactions(users)
-print("✅ Wallet transactions created")
-
-create_topup_requests(users)
-print("✅ Top-up requests created")
-
-print("🎉 Data seeding complete.")
+if __name__ == "__main__":
+    create_initial_data()
