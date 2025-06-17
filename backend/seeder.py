@@ -3,7 +3,7 @@ import django
 from django.utils import timezone
 from django.contrib.auth.hashers import make_password
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "your_project.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings")
 django.setup()
 
 from accounts.models import User
