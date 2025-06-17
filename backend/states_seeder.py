@@ -2,65 +2,47 @@ import os
 import django
 
 # === Django setup ===
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings")  # make sure this path is correct
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings")
 django.setup()
 
 from accounts.models import State
 
 def run_state_seeder():
-    states = [
-        {'name': 'Andhra Pradesh'},
-        {'name': 'Arunachal Pradesh'},
-        {'name': 'Assam'},
-        {'name': 'Bihar'},
-        {'name': 'Chandigarh (UT)'},
-        {'name': 'Chhattisgarh'},
-        {'name': 'Dadra and Nagar Haveli (UT)'},
-        {'name': 'Daman and Diu (UT)'},
-        {'name': 'Delhi (NCT)'},
-        {'name': 'Goa'},
-        {'name': 'Gujarat'},
-        {'name': 'Haryana'},
-        {'name': 'Himachal Pradesh'},
-        {'name': 'Jammu and Kashmir'},
-        {'name': 'Jharkhand'},
-        {'name': 'Karnataka'},
-        {'name': 'Kerala'},
-        {'name': 'Lakshadweep (UT)'},
-        {'name': 'Madhya Pradesh'},
-        {'name': 'Maharashtra'},
-        {'name': 'Manipur'},
-        {'name': 'Meghalaya'},
-        {'name': 'Mizoram'},
-        {'name': 'Nagaland'},
-        {'name': 'Odisha'},
-        {'name': 'Puducherry (UT)'},
-        {'name': 'Punjab'},
-        {'name': 'Rajasthan'},
-        {'name': 'Sikkim'},
-        {'name': 'Tamil Nadu'},
-        {'name': 'Telangana'},
-        {'name': 'Tripura'},
-        {'name': 'Uttarakhand'},
-        {'name': 'Uttar Pradesh'},
-        {'name': 'West Bengal'},
+    raw_states = [
+        'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chandigarh (UT)',
+        'Chhattisgarh', 'Dadra and Nagar Haveli (UT)', 'Daman and Diu (UT)', 'Delhi (NCT)', 'Goa',
+        'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jammu and Kashmir', 'Jharkhand', 'Karnataka',
+        'Kerala', 'Lakshadweep (UT)', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya',
+        'Mizoram', 'Nagaland', 'Odisha', 'Puducherry (UT)', 'Punjab', 'Rajasthan', 'Sikkim',
+        'Tamil Nadu', 'Telangana', 'Tripura', 'Uttarakhand', 'Uttar Pradesh', 'West Bengal'
     ]
 
-    for state in states:
-        is_ut = "(UT)" in state['name'] or "Delhi" in state['name'] or "NCT" in state['name']
-        clean_name = state['name'].replace(" (UT)", "").replace(" (NCT)", "")
+    # Preprocess input and generate name/code/UT status
+    processed_states = []
+    for full_name in raw_states:
+        is_ut = "(UT)" in full_name or "Delhi" in full_name or "NCT" in full_name
+        clean_name = full_name.replace(" (UT)", "").replace(" (NCT)", "")
         code = ''.join([word[0] for word in clean_name.split() if word[0].isalpha()]).upper()[:3]
+        processed_states.append({
+            'name': clean_name,
+            'code': code,
+            'is_union_territory': is_ut
+        })
 
-        State.objects.get_or_create(
-            name=clean_name,
-            defaults={
-                'code': code,
-                'is_union_territory': is_ut
-            }
-        )
+    # Get existing state names to avoid duplicates
+    existing_names = set(State.objects.values_list('name', flat=True))
 
-    print("✅ States seeded successfully.")
+    # Filter out states already in DB
+    new_states = [
+        State(**data) for data in processed_states if data['name'] not in existing_names
+    ]
 
+    # Bulk insert only new ones
+    if new_states:
+        State.objects.bulk_create(new_states)
+        print(f"✅ {len(new_states)} new states seeded.")
+    else:
+        print("ℹ️ No new states to seed. Already up to date.")
 
 if __name__ == "__main__":
     run_state_seeder()

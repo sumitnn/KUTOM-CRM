@@ -21,7 +21,6 @@ class User(AbstractBaseUser, PermissionsMixin):
         ('vendor', 'Vendor'),
         ('reseller', 'Reseller'),
         ('stockist', 'Stockist'),
-        ('superuser', 'SuperUser'),
     )
     role = models.CharField(max_length=10, choices=ROLE_CHOICES)
 
