@@ -23,5 +23,6 @@ urlpatterns = [
 
 
     # stocks 
-    path('stocks/', StockListAPIView.as_view(), name='stock-list'),
+    path('stocks/', StockListCreateAPIView.as_view(), name='stock-list-create'),
+    path('stocks/<int:pk>/', StockRetrieveUpdateAPIView.as_view(), name='stock-detail'),
 ]

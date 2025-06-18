@@ -223,17 +223,6 @@ class ProductSerializer(serializers.ModelSerializer):
                 product=product,
                 image=img
             )
-
-        # Create stock entries for each size
-        for size in product.sizes.all():
-            Stock.objects.create(
-                product=product,
-                size=size,
-                quantity=size.quantity,
-                rate=size.price,
-                status='in_stock',
-                owner=self.context['request'].user
-            )
         
         return product
     
@@ -345,7 +334,7 @@ class StockSerializer(serializers.ModelSerializer):
         model = Stock
         fields = [
             'id', 'product', 'product_name', 'size', 'size_display', 'quantity', 
-            'rate', 'total_price', 'status', 'expected_date', 'notes',
+            'rate', 'total_price', 'status', 'notes',
             'brand_name', 'category_name', 'subcategory_name', 'created_at', 'updated_at'
         ]
         read_only_fields = ['total_price', 'created_at', 'updated_at']
