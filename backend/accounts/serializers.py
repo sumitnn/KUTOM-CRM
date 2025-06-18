@@ -272,3 +272,12 @@ class UserPaymentDetailsSerializer(serializers.ModelSerializer):
             'bank_name',
             'passbook_pic',
         ]
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = [
+            'id', 'user', 'title', 'message', 'notification_type',
+            'is_read', 'related_url', 'created_at'
+        ]
+        read_only_fields = ['created_at']

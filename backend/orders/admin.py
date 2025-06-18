@@ -18,7 +18,7 @@ class OrderAdmin(admin.ModelAdmin):
 
 
 class OrderItemAdmin(admin.ModelAdmin):
-    list_display = ('id', 'order_id_display', 'product', 'quantity', 'price')
+    list_display = ('id', 'order_id_display', 'quantity', 'price')
     search_fields = ['order__id', 'product__name']
     list_filter = ['order__status']
 

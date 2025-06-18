@@ -1,31 +1,25 @@
 import { useState } from "react";
-import { FiPackage, FiTruck } from "react-icons/fi";
+import { FiPackage, FiTruck, FiCheckCircle } from "react-icons/fi";
+import { useGetStocksQuery } from "../features/stocks/stocksApi";
 
 const MyStockPage = ({ role }) => {
-  const [activeTab, setActiveTab] = useState("readyToDispatch");
-  
-  // Sample data - replace with your API data
-  const stockData = {
-    readyToDispatch: [
-      {
-        id: 1,
-        date: "2023-05-10",
-        name: "Wireless Earbuds",
-        brand: "JBL",
-        category: "Electronics",
-        subcategory: "Audio",
-        quantity: 50,
-        rate: 1999,
-        price: 99950,
-        expectedDate: "2023-05-15",
-        status: "packed"
-      },
-      // Add more sample data
-    ],
-    inTransit: [
-      // Sample data for in-transit items
-    ]
+  const [activeTab, setActiveTab] = useState("in_stock"); 
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+
+  const { data: stocks, isLoading, isError } = useGetStocksQuery({
+    status: activeTab,
+    page,
+    pageSize
+  });
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setPage(1); // Reset to first page when changing tabs
   };
+
+  if (isLoading) return <div>Loading...</div>;
+  if (isError) return <div>Error loading stocks</div>;
 
   return (
     <div className="px-4 py-8 max-w-8xl mx-auto">
@@ -40,18 +34,25 @@ const MyStockPage = ({ role }) => {
       {/* Tabs */}
       <div className="tabs tabs-boxed bg-gray-100 p-1 rounded-lg mb-6">
         <button
-          className={`tab ${activeTab === "readyToDispatch" ? "tab-active bg-white shadow-sm" : ""}`}
-          onClick={() => setActiveTab("readyToDispatch")}
+          className={`tab ${activeTab === "in_stock" ? "tab-active bg-white shadow-sm" : ""}`}
+          onClick={() => handleTabChange("in_stock")}
         >
           <FiPackage className="mr-2" />
-          Ready to Dispatch
+          In Stock
         </button>
         <button
-          className={`tab ${activeTab === "inTransit" ? "tab-active bg-white shadow-sm" : ""}`}
-          onClick={() => setActiveTab("inTransit")}
+          className={`tab ${activeTab === "in_transit" ? "tab-active bg-white shadow-sm" : ""}`}
+          onClick={() => handleTabChange("in_transit")}
         >
           <FiTruck className="mr-2" />
           In Transit
+        </button>
+        <button
+          className={`tab ${activeTab === "delivered" ? "tab-active bg-white shadow-sm" : ""}`}
+          onClick={() => handleTabChange("delivered")}
+        >
+          <FiCheckCircle className="mr-2" />
+          Delivered
         </button>
       </div>
 
@@ -67,6 +68,7 @@ const MyStockPage = ({ role }) => {
                 <th>Brand</th>
                 <th>Category</th>
                 <th>Subcategory</th>
+                <th>Size</th>
                 <th>Qty</th>
                 <th>Rate</th>
                 <th>Price</th>
@@ -76,55 +78,64 @@ const MyStockPage = ({ role }) => {
             </thead>
             
             <tbody>
-              {stockData[activeTab]?.length > 0 ? (
-                stockData[activeTab].map((item, index) => (
+              {stocks?.results?.length > 0 ? (
+                stocks.results.map((item, index) => (
                   <tr key={item.id} className="hover:bg-gray-50">
-                    <td>{index + 1}</td>
+                    <td>{(page - 1) * pageSize + index + 1}</td>
                     <td>
-                      {new Date(item.date).toLocaleDateString('en-US', {
+                      {new Date(item.created_at).toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric'
                       })}
                     </td>
-                    <td className="font-medium">{item.name}</td>
-                    <td>{item.brand}</td>
-                    <td>{item.category}</td>
-                    <td>{item.subcategory}</td>
+                    <td className="font-medium">{item.product_name}</td>
+                    <td>{item.brand_name}</td>
+                    <td>{item.category_name}</td>
+                    <td>{item.subcategory_name}</td>
+                    <td>{item.size_display}</td>
                     <td>{item.quantity}</td>
                     <td>₹{item.rate.toLocaleString()}</td>
-                    <td>₹{item.price.toLocaleString()}</td>
+                    <td>₹{item.total_price.toLocaleString()}</td>
                     <td>
-                      {new Date(item.expectedDate).toLocaleDateString('en-US', {
+                      {item.expected_date ? new Date(item.expected_date).toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric'
-                      })}
+                      }) : '-'}
                     </td>
                     <td>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        item.status === 'packed' ? 'bg-blue-100 text-blue-800' :
-                        item.status === 'shipped' ? 'bg-purple-100 text-purple-800' :
-                        'bg-gray-100 text-gray-800'
+                        item.status === 'in_stock' ? 'bg-blue-100 text-blue-800' :
+                        item.status === 'in_transit' ? 'bg-purple-100 text-purple-800' :
+                        'bg-green-100 text-green-800'
                       }`}>
-                        {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                        {item.status.split('_').map(word => 
+                          word.charAt(0).toUpperCase() + word.slice(1)
+                        ).join(' ')}
                       </span>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="11" className="text-center py-8">
+                  <td colSpan="12" className="text-center py-8">
                     <div className="flex flex-col items-center justify-center gap-2">
-                      {activeTab === "readyToDispatch" ? (
+                      {activeTab === "in_stock" ? (
                         <>
                           <FiPackage className="w-12 h-12 text-gray-400" />
-                          <h3 className="text-lg font-medium text-gray-700">No stock ready for dispatch</h3>
-                          <p className="text-gray-500">Your ready-to-dispatch items will appear here</p>
+                          <h3 className="text-lg font-medium text-gray-700">No items in stock</h3>
+                          <p className="text-gray-500">Your in-stock items will appear here</p>
                         </>
-                      ) : (
+                      ) : activeTab === "in_transit" ? (
                         <>
                           <FiTruck className="w-12 h-12 text-gray-400" />
                           <h3 className="text-lg font-medium text-gray-700">No items in transit</h3>
                           <p className="text-gray-500">Your in-transit items will appear here</p>
+                        </>
+                      ) : (
+                        <>
+                          <FiCheckCircle className="w-12 h-12 text-gray-400" />
+                          <h3 className="text-lg font-medium text-gray-700">No delivered items</h3>
+                          <p className="text-gray-500">Your delivered items will appear here</p>
                         </>
                       )}
                     </div>
@@ -136,15 +147,29 @@ const MyStockPage = ({ role }) => {
         </div>
         
         {/* Pagination */}
-        {stockData[activeTab]?.length > 0 && (
+        {stocks?.results?.length > 0 && (
           <div className="flex justify-between items-center p-4 border-t border-gray-100">
             <div className="text-sm text-gray-500">
-              Showing <span className="font-medium">1</span> to <span className="font-medium">{stockData[activeTab].length}</span> entries
+              Showing <span className="font-medium">{(page - 1) * pageSize + 1}</span> to{' '}
+              <span className="font-medium">{(page - 1) * pageSize + stocks.results.length}</span> of{' '}
+              <span className="font-medium">{stocks.count}</span> entries
             </div>
             <div className="join">
-              <button className="join-item btn btn-sm btn-disabled">«</button>
-              <button className="join-item btn btn-sm btn-active">1</button>
-              <button className="join-item btn btn-sm btn-disabled">»</button>
+              <button 
+                className="join-item btn btn-sm" 
+                disabled={page === 1}
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+              >
+                «
+              </button>
+              <button className="join-item btn btn-sm btn-active">{page}</button>
+              <button 
+                className="join-item btn btn-sm" 
+                disabled={!stocks.next}
+                onClick={() => setPage(p => p + 1)}
+              >
+                »
+              </button>
             </div>
           </div>
         )}

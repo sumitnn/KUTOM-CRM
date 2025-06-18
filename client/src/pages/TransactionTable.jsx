@@ -41,7 +41,7 @@ const TransactionTable = ({ transactions, isLoading, error }) => {
             <th>Type</th>
             <th>Amount</th>
             <th>Status</th>
-            <th>Description</th>
+            <th>Note</th>
           </tr>
         </thead>
         <tbody>
@@ -60,7 +60,7 @@ const TransactionTable = ({ transactions, isLoading, error }) => {
                   {formatCurrency(tx.amount)}
                 </td>
                 <td>
-                  <StatusBadge status={tx.status} />
+                  <StatusBadge status={tx.transaction_status} />
                 </td>
                 <td className="truncate max-w-xs">{tx.description || "-"}</td>
               </tr>
@@ -80,9 +80,11 @@ const TransactionTable = ({ transactions, isLoading, error }) => {
 
 const StatusBadge = ({ status }) => {
   const badgeClasses = {
-    Completed: "badge-success",
-    Pending: "badge-warning",
-    Rejected: "badge-error",
+    SUCCESS: "badge-success",
+    PENDING: "badge-warning",
+    FAILED: "badge-error",
+    RECEIVED: "badge-success",
+    REFUND: "badge-success",
   };
 
   return (

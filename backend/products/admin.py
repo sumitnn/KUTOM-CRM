@@ -1,9 +1,5 @@
 from django.contrib import admin
-from .models import (
-    Brand, Category, SubCategory, Tag,
-    Product, ProductSize, ProductImage,
-    ProductPriceTier, Notification
-)
+from .models import *
 
 # --- Inline Admin Classes ---
 class ProductImageInline(admin.TabularInline):
@@ -66,8 +62,16 @@ class TagAdmin(admin.ModelAdmin):
     search_fields = ['name']
     prepopulated_fields = {'slug': ('name',)}
 
-@admin.register(Notification)
-class NotificationAdmin(admin.ModelAdmin):
-    list_display = ['user', 'title', 'is_read']
-    list_filter = ['notification_type', 'is_read']
-    search_fields = ['user__username', 'title']
+
+
+
+@admin.register(Stock)
+class StockAdmin(admin.ModelAdmin):
+    list_display = (
+        'id', 'product', 'size', 'quantity', 'rate', 'total_price',
+        'status', 'expected_date', 'owner', 'created_at', 'updated_at'
+    )
+    list_filter = ('status', 'product', 'expected_date', 'created_at')
+    search_fields = ('product__name', 'product__brand__name', 'notes')
+    ordering = ('-created_at',)
+    readonly_fields = ('total_price', 'created_at', 'updated_at')

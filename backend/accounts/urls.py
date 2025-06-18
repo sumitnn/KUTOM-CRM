@@ -27,6 +27,7 @@ urlpatterns = [
 
     # wallet apis 
     path('wallet/', WalletView.as_view(), name='wallet'),         
+    path('wallet-summary/', WalletSummaryView.as_view(), name='wallet-summary'),         
     path('wallet/update/<str:user__email>/', WalletUpdateView.as_view(), name='wallet-update'), 
     path('wallet/transactions/', WalletTransactionListView.as_view(), name='wallet-transactions'),
 
@@ -49,6 +50,15 @@ urlpatterns = [
     # broadcast apis  
     path('announcements/', BroadcastMessageListCreateAPIView.as_view(), name='announcement-list-create'),
     path('announcements/<int:pk>/', BroadcastMessageDetailAPIView.as_view(), name='announcement-detail'),
+
+
+    # notification
+    path('notifications/today/', TodayNotificationListAPIView.as_view(), name='today-notifications'),
+
+    # DashboardAPI
+    path('dashboard-summary/', DashboardAPIView.as_view(), name='dashboard-summary'),
+
+
 
 
 ]

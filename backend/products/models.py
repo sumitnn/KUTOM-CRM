@@ -151,25 +151,34 @@ class ProductPriceTier(models.Model):
     def __str__(self):
         return f"{self.size.product.name} - {self.min_quantity}+ units: {self.price}"
 
-class Notification(models.Model):
-    NOTIFICATION_TYPES = [
-        ('system', 'System Notification'),
-        ('order', 'Order Update'),
-        ('product', 'Product Update'),
-        ('promotion', 'Promotion'),
-        ('other', 'Other'),
-    ]
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
-    title = models.CharField(max_length=100)
-    message = models.TextField()
-    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES, default='system')
-    is_read = models.BooleanField(default=False)
-    related_url = models.URLField(blank=True)
+    
+
+class Stock(models.Model):
+    STATUS_CHOICES = [
+        ('in_stock', 'In Stock'),
+        ('in_transit', 'In Transit'),
+        ('delivered', 'Delivered'),
+    ]
+    
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='stocks')
+    size = models.ForeignKey(ProductSize, on_delete=models.SET_NULL, null=True, blank=True)
+    quantity = models.PositiveIntegerField(default=0)
+    rate = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
+    total_price = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='in_stock')
+    expected_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    owner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='stocks')
 
     class Meta:
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.title} - {self.user.username}"
+        return f"{self.product.name} - {self.quantity} units"
+
+    def save(self, *args, **kwargs):
+        self.total_price = self.quantity * self.rate
+        super().save(*args, **kwargs)

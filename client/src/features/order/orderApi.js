@@ -55,6 +55,38 @@ export const orderApi = createApi({
                 data: { status,note },
             }),
         }),
+        getOrderHistory: builder.query({
+            query: ({ status = 'all', startDate, endDate, page = 1 }) => {
+                const params = new URLSearchParams();
+                if (status !== 'all') params.append('action', status);
+                if (startDate) params.append('timestamp__gte', startDate);
+                if (endDate) params.append('timestamp__lte', endDate);
+                params.append('page', page);
+
+                return {
+                    url: `/order-history/?${params.toString()}`,
+                    method: 'GET',
+                };
+            },
+        }),
+
+        // Export order history to CSV
+        exportOrderHistory: builder.query({
+            query: ({ status = 'all', startDate, endDate }) => {
+                const params = new URLSearchParams();
+                if (status !== 'all') params.append('action', status);
+                if (startDate) params.append('timestamp__gte', startDate);
+                if (endDate) params.append('timestamp__lte', endDate);
+
+                return {
+                    url: `/order-history/export/?${params.toString()}`,
+                    method: 'GET',
+                    responseHandler: (response) => response.blob(),
+                };
+            },
+        }),
+
+        
     }),
 });
 
@@ -66,4 +98,6 @@ export const {
     useGetOrderSummaryQuery,
     useGetOrderByIdQuery,
     useUpdateOrderStatusByStockistMutation,
+    useGetOrderHistoryQuery,
+    useLazyExportOrderHistoryQuery,
 } = orderApi;

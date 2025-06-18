@@ -18,8 +18,16 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from datetime import datetime
 from rest_framework.decorators import api_view
-from django.db.models import Q
+from django.db.models import Sum, Q,Count
+from datetime import timedelta,timezone
+from orders.models import Order, OrderItem
+from rest_framework.pagination import PageNumberPagination
+from products.models import Product
 
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 
 class RegisterView(APIView):
@@ -217,17 +225,83 @@ class WalletUpdateView(generics.UpdateAPIView):
 
         return Response(WalletSerializer(wallet).data)
 
-# All users see their own transactions; Admins can see all
+
 class WalletTransactionListView(generics.ListAPIView):
     serializer_class = WalletTransactionSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination  
 
     def get_queryset(self):
-        # if self.request.user.is_staff:
-        #     return WalletTransaction.objects.select_related('wallet__user').all()
-        return WalletTransaction.objects.filter(wallet__user=self.request.user)
+        queryset = WalletTransaction.objects.filter(wallet__user=self.request.user)
+        
+        # Get filter parameters from request
+        transaction_type = self.request.query_params.get('type')
+        status = self.request.query_params.get('status')
+        start_date = self.request.query_params.get('fromDate')
+        end_date = self.request.query_params.get('toDate')
+        
+        # Apply filters
+        if transaction_type:
+            queryset = queryset.filter(transaction_type=transaction_type)
+        if status:
+            queryset = queryset.filter(transaction_status=status)
+        if start_date:
+            try:
+                start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+                queryset = queryset.filter(created_at__date__gte=start_date)
+            except ValueError:
+                pass
+        if end_date:
+            try:
+                end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+                queryset = queryset.filter(created_at__date__lte=end_date)
+            except ValueError:
+                pass
+                
+        return queryset.order_by('-created_at')
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            'count': queryset.count(),
+            'results': serializer.data,
+            'total_pages': self.paginator.page.paginator.num_pages if page else 1,
+        })
     
 
+class WalletSummaryView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # Get current balance
+        wallet = Wallet.objects.get(user=user)
+        
+        # Calculate totals
+        deposits =  1000
+
+        withdrawals = WithdrawalRequest.objects.filter(
+            user=user,
+            status='completed'
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+
+
+        data = {
+            'current_balance': wallet.balance,
+            'total_sales': deposits,
+            'total_withdrawals': withdrawals
+        }
+
+        return Response(data)
 
 class ForgotPasswordView(APIView):
     def post(self, request):
@@ -575,3 +649,92 @@ class UserPaymentDetailsView(generics.RetrieveUpdateAPIView):
     #             "data": serializer.data
     #         })
     #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DashboardAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self,request):
+        user = request.user
+
+
+        days = int(request.query_params.get('days', 0))
+        date_from = datetime.now() - timedelta(days=days)
+
+        # Wallet
+        wallet = Wallet.objects.filter(user=user).first()
+        wallet_data = {
+            'balance': wallet.balance if wallet else 0,
+            'total_sales': self.get_total_sales(user),
+            'total_withdrawals': self.get_total_withdrawals(user),
+            'last_transaction': self.get_last_transaction_amount(wallet)
+        }
+
+        # Product stats
+        product_qs = Product.objects.filter(owner=user)
+        product_stats = {
+            'total': product_qs.count(),
+            'active': product_qs.filter(status='published').count(),
+            'draft': product_qs.filter(status='draft').count(),
+        }
+
+
+        # order_ids = OrderItem.objects.filter(product_size__product__owner=user).values_list('order_id', flat=True).distinct()
+        # order_qs = Order.objects.filter(id__in=order_ids, created_at__gte=date_from)
+        # order_stats = {
+        #     'total': order_qs.count(),
+        #     'pending': order_qs.filter(status='pending').count(),
+        #     'approved': order_qs.filter(status='approved').count(),
+        #     'rejected': order_qs.filter(status='rejected').count(),
+        #     'monthly': self.get_monthly_stats(order_qs)
+        # }
+
+        return Response({
+            'wallet': wallet_data,
+            'products': product_stats,
+            'orders': 0,
+            'topups': self.get_topups(user, date_from),
+            'withdrawal_requests': self.get_withdrawals(user, date_from)
+        })
+
+    def get_total_sales(self, user):
+        return  0
+
+    def get_total_withdrawals(self, user):
+        return WithdrawalRequest.objects.filter(user=user, status='approved').aggregate(
+            total=Sum('amount')
+        )['total'] or 0
+
+    def get_last_transaction_amount(self, wallet):
+        if wallet and wallet.transactions.exists():
+            return wallet.transactions.last().amount
+        return 0
+
+    def get_monthly_stats(self, queryset):
+        return queryset.extra({'month': "strftime('%%Y-%%m', created_at)"}).values('month').annotate(
+            count=Count('id')
+        )
+
+    def get_topups(self, user, date_from):
+        return TopupRequest.objects.filter(user=user, created_at__gte=date_from).values(
+            'id', 'amount', 'status', 'payment_method', 'created_at'
+        )
+
+    def get_withdrawals(self, user, date_from):
+        return WithdrawalRequest.objects.filter(user=user, created_at__gte=date_from).values(
+            'id', 'amount', 'status', 'payment_method', 'created_at'
+        )
+    
+
+class TodayNotificationListAPIView(APIView):
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        today = datetime.today().date()
+        notifications = Notification.objects.filter(
+            user=request.user,
+            created_at__date=today
+        )
+        serializer = NotificationSerializer(notifications, many=True)
+        return Response(serializer.data)
