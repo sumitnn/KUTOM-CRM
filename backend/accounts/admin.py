@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import User, Profile, Wallet, WalletTransaction, TopUpRequest, State, District,Address,StockistAssignment
+from .models import *
 
 
 @admin.register(Wallet)
@@ -21,22 +21,6 @@ class WalletTransactionAdmin(admin.ModelAdmin):
         return obj.wallet.user.email
     wallet_user_email.short_description = 'User Email'
 
-
-@admin.register(TopUpRequest)
-class TopUpRequestAdmin(admin.ModelAdmin):
-    list_display = (
-        'id',
-        'user',
-        'amount',
-        'status',
-        'approved_by',
-        'created_at',
-        'reviewed_at',
-    )
-    list_filter = ('status', 'created_at', 'reviewed_at')
-    search_fields = ('user__username', 'approved_by__username', 'rejected_reason')
-    readonly_fields = ('created_at', 'reviewed_at')
-    ordering = ('-created_at',)
 
 
 @admin.register(User)
@@ -100,3 +84,32 @@ class StockistAssignmentAdmin(admin.ModelAdmin):
         if obj:  
             return self.readonly_fields + ('reseller', 'stockist')
         return self.readonly_fields
+    
+
+@admin.register(BroadcastMessage)
+class BroadcastMessageAdmin(admin.ModelAdmin):
+    list_display = ('title', 'priority', 'visible_to', 'is_active', 'start_time', 'end_time')
+    search_fields = ('title', )
+    list_filter = ('priority', 'visible_to', 'is_active')
+
+
+@admin.register(TopupRequest)
+class TopupRequestAdmin(admin.ModelAdmin):
+    list_display = (
+        'id', 'user', 'amount', 'payment_method', 'status', 'created_at', 'updated_at'
+    )
+    list_filter = ('status', 'payment_method',)
+    search_fields = ('user__email','amount')
+    readonly_fields = ('created_at', 'updated_at', 'screenshot')
+    ordering = ('-created_at',)
+
+
+@admin.register(WithdrawalRequest)
+class WithdrawalRequestAdmin(admin.ModelAdmin):
+    list_display = (
+        'id', 'user', 'amount', 'payment_method','payment_details', 'status', 'created_at',
+    )
+    list_filter = ('status', 'payment_method')
+    search_fields = ('user__email', 'amount')
+    readonly_fields = ('created_at', 'updated_at')
+    ordering = ('-created_at',)

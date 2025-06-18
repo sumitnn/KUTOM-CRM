@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import logo from "../assets/icons/fev.png";
 import { MdOutlineNotificationAdd } from "react-icons/md";
-import { Link } from "react-router-dom"; // Make sure you have react-router-dom installed
+import { Link } from "react-router-dom";
+import { useGetAnnouncementsQuery } from "../features/announcement/announcementApi";
 
-const Navbar = ({role}) => {
+const Navbar = ({ role }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const { data: announcements, isLoading } = useGetAnnouncementsQuery();
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -17,62 +19,79 @@ const Navbar = ({role}) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const marqueeMessages = announcements?.map((msg) => msg.title).join(" 🔔 ") || "";
+
   return (
-    <div className="bg-white shadow-md fixed top-0 left-0 right-0 z-50">
-      <div className="max-w-full mx-auto px-6">
+    <nav className="bg-white shadow-sm fixed top-0 left-0 right-0 z-50 border-b border-gray-100">
+      <div className="max-w-full mx-auto px-4 sm:px-6">
         <div className="flex justify-between h-16 items-center">
-          {/* Logo + Name */}
-          <div className="flex items-center space-x-4">
-            <img src={logo} alt="Logo" className="h-10 w-12 rounded-full" />
-            <span className="text-xl font-extrabold text-gray-800">StockTN</span>
-          </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-3xl font-extrabold text-gray-800">
-              Welcome To Stocktn
+          {/* Logo + Name - Always visible */}
+          <div className="flex items-center space-x-3 flex-shrink-0">
+            <img 
+              src={logo} 
+              alt="Logo" 
+              className="h-9 w-9 rounded-full object-cover border border-gray-200" 
+            />
+            <span className="text-xl font-bold text-gray-800 hidden sm:block">
+              StockTN
             </span>
           </div>
+          
+          {/* Centered Marquee with fixed width */}
+          <div className="flex justify-center mx-4 flex-1">
+            {!isLoading && marqueeMessages && (
+              <div className="w-full max-w-xl  rounded-full px-4 py-1 border border-amber-100">
+                <marquee 
+                  className="text-amber-800 text-lg font-bold" 
+                  scrollamount="3"
+                  behavior="scroll"
+                  direction="left"
+                >
+                  {marqueeMessages}
+                </marquee>
+              </div>
+            )}
+          </div>
 
-          {/* Right side */}
-          <div className="flex items-center space-x-5">
-            <button className="relative text-gray-600 hover:text-gray-800">
+          {/* Right side icons */}
+          <div className="flex items-center space-x-3 ml-2">
+            <button className="relative p-1.5 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors">
               <MdOutlineNotificationAdd className="text-xl" />
-              <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+              <span className="absolute top-1 right-1 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
             </button>
 
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="focus:outline-none"
+                className="focus:outline-none rounded-full ring-2 ring-transparent hover:ring-amber-200 transition-all"
               >
                 <img
                   src="https://img.daisyui.com/images/profile/demo/anakeen@192.webp"
                   alt="User"
-                  className="h-10 w-10 rounded-full border-7 border-transparent hover:border-amber-400 transition"
+                  className="h-8 w-8 sm:h-9 sm:w-9 rounded-full object-cover border-2 border-white shadow-sm"
                 />
               </button>
 
               {dropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50 border border-gray-100">
                   <Link
                     to={`/${role}/settings/profile`}
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    
+                    className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-700 transition-colors"
                   >
                     Profile
                   </Link>
                   <Link
                     to={`/${role}/settings/change-password`}
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 "
-                   
+                    className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-700 transition-colors"
                   >
                     Change Password
                   </Link>
+                  <div className="border-t border-gray-100 my-1"></div>
                   <Link
                     to={`/${role}/logout`}
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-red-400 hover:text-white"
-                   
+                    className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors"
                   >
-                   Logout
+                    Logout
                   </Link>
                 </div>
               )}
@@ -80,7 +99,7 @@ const Navbar = ({role}) => {
           </div>
         </div>
       </div>
-    </div>
+    </nav>
   );
 };
 

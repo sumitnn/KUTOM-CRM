@@ -18,7 +18,7 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from datetime import datetime
 from rest_framework.decorators import api_view
-
+from django.db.models import Q
 
 
 
@@ -294,54 +294,6 @@ class ChangePasswordView(APIView):
         return Response({"detail": "Password changed successfully."})
     
 
-
-class TopUpRequestListCreateView(generics.ListCreateAPIView):
-    pagination_class = None
-    queryset = TopUpRequest.objects.all()
-    serializer_class = TopUpRequestSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        if self.request.user.role=="admin":
-            return TopUpRequest.objects.filter(status="PENDING")
-        return TopUpRequest.objects.filter(user=self.request.user)
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
-
-class MyTopUpListCreateView(generics.ListCreateAPIView):
-    serializer_class = NewTopUpRequestSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return TopUpRequest.objects.filter(user=self.request.user).order_by('-created_at')
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
-class TopUpRequestUpdateView(generics.UpdateAPIView):
-    queryset = TopUpRequest.objects.all()
-    serializer_class = TopUpRequestSerializer
-    permission_classes = [IsAdminRole]
-
-    def update(self, request, *args, **kwargs):
-        topup = self.get_object()
-        status_action = request.data.get("status")
-        reason = request.data.get("rejected_reason", "")
-
-        if status_action not in ["APPROVED", "REJECTED", "INVALID_SCREENSHOT", "INVALID_AMOUNT"]:
-            return Response({"message": "Invalid status action.","status":False}, status=status.HTTP_400_BAD_REQUEST)
-
-        topup.status = status_action
-        topup.reviewed_at = datetime.now()
-        topup.approved_by = request.user
-        if status_action in ["REJECTED", "INVALID_SCREENSHOT", "INVALID_AMOUNT"]:
-            topup.rejected_reason = reason
-        topup.save()
-
-        return Response({"message":"Update Status Successfully"},status=status.HTTP_200_OK)
-
 class StateListView(generics.ListAPIView):
     queryset = State.objects.all()
     serializer_class = StateSerializer
@@ -441,3 +393,185 @@ class AssignedResellersView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
 
+class BroadcastMessageListCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        role = getattr(request.user, 'role', None)
+        if role == 'stockist':
+            messages = BroadcastMessage.objects.filter(
+                is_active=True
+            ).filter(Q(visible_to="stockist") | Q(visible_to="all"))
+        
+        elif role == 'reseller':
+            messages = BroadcastMessage.objects.filter(
+                is_active=True
+            ).filter(Q(visible_to="reseller") | Q(visible_to="all"))
+        
+        elif role == 'vendor':
+            messages = BroadcastMessage.objects.filter(
+                is_active=True
+            ).filter(Q(visible_to="vendor") | Q(visible_to="all"))
+
+        else:  
+            messages = BroadcastMessage.objects.all()
+
+        messages = messages.order_by('-created_at')
+        serializer = BroadcastMessageSerializer(messages, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        if not request.user.role == 'admin':
+            return Response({"message": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = BroadcastMessageSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(admin=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class BroadcastMessageDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        if not request.user.role == 'admin':
+            return Response({"message": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            message = BroadcastMessage.objects.get(pk=pk)
+        except BroadcastMessage.DoesNotExist:
+            return Response({"message": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        message.delete()
+        return Response({"message": "Announcement deleted."}, status=status.HTTP_204_NO_CONTENT)
+
+    def put(self, request, pk):
+        if not request.user.role == 'admin':
+            return Response({"message": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            message = BroadcastMessage.objects.get(pk=pk)
+        except BroadcastMessage.DoesNotExist:
+            return Response({"message": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = BroadcastMessageSerializer(message, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class TopUpRequestListCreateView(generics.ListCreateAPIView):
+    """
+    Admin: Lists pending top-ups.
+    Non-admin: Lists own top-ups.
+    """
+    serializer_class = TopupRequestSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == "admin":
+            return TopupRequest.objects.filter(status="pending").order_by('-created_at')
+        return TopupRequest.objects.filter(user=user).order_by('-created_at')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class TopUpRequestUpdateView(generics.UpdateAPIView):
+    """
+    Admin-only: Updates top-up request status.
+    """
+    queryset = TopupRequest.objects.all()
+    serializer_class = TopupRequestSerializer
+    permission_classes = [IsAdminRole]
+
+    def update(self, request, *args, **kwargs):
+        topup = self.get_object()
+        status_action = request.data.get("status")
+        reason = request.data.get("rejected_reason", "")
+
+        if status_action not in ["approved", "rejected", "completed", "pending"]:
+            return Response(
+                {"message": "Invalid status action.", "status": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        topup.status = status_action
+        topup.updated_at = datetime.now()
+
+        # Optional: You can track who approved it by adding `approved_by = models.ForeignKey(...)`
+        if status_action == "rejected" and reason:
+            topup.note = f"{topup.note or ''}\n[REJECTION REASON] {reason}"
+
+        topup.save()
+        return Response({"message": "Top-up status updated successfully."}, status=status.HTTP_200_OK)
+    
+
+class WithdrawlRequestListCreateView(generics.ListCreateAPIView):
+    """
+    Admin: Lists pending top-ups.
+    Non-admin: Lists own top-ups.
+    """
+    serializer_class = WithdrawalRequestSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == "admin":
+            return WithdrawalRequest.objects.filter(status="pending").order_by('-created_at')
+        return WithdrawalRequest.objects.filter(user=user).order_by('-created_at')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class WithdrawlRequestUpdateView(generics.UpdateAPIView):
+    """
+    Admin-only: Updates top-up request status.
+    """
+    queryset = WithdrawalRequest.objects.all()
+    serializer_class = WithdrawalRequestSerializer
+    permission_classes = [IsAdminRole]
+
+    def update(self, request, *args, **kwargs):
+        topup = self.get_object()
+        status_action = request.data.get("status")
+        reason = request.data.get("rejected_reason", "")
+
+        if status_action not in ["approved", "rejected", "completed", "pending"]:
+            return Response(
+                {"message": "Invalid status action.", "status": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        topup.status = status_action
+        topup.updated_at = datetime.now()
+
+        # Optional: You can track who approved it by adding `approved_by = models.ForeignKey(...)`
+        if status_action == "rejected" and reason:
+            topup.note = f"{topup.note or ''}\n[REJECTION REASON] {reason}"
+
+        topup.save()
+        return Response({"message": "Top-up status updated successfully."}, status=status.HTTP_200_OK)
+    
+
+class UserPaymentDetailsView(generics.RetrieveUpdateAPIView):
+    serializer_class = UserPaymentDetailsSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        profile, created = Profile.objects.get_or_create(user=self.request.user)
+        return profile
+
+    # def put(self, request, *args, **kwargs):
+    #     instance = self.get_object()
+    #     serializer = self.get_serializer(instance, data=request.data, partial=True)
+
+    #     if serializer.is_valid():
+    #         serializer.save()
+    #         return Response({
+    #             "message": "Payment details updated successfully.",
+    #             "data": serializer.data
+    #         })
+    #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

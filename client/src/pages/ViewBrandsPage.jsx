@@ -2,10 +2,12 @@ import { useState, useMemo } from "react";
 import { FiEdit2, FiTrash2, FiSearch, FiX, FiPlus, FiImage, FiStar } from "react-icons/fi";
 import { Link } from "react-router-dom";
 import { useEffect } from "react";
+import { toast } from "react-toastify";
+
+
 import {
   useGetBrandsQuery,
-  useUpdateBrandMutation,
-  useDeleteBrandMutation,
+  useUpdateBrandMutation
 } from "../features/brand/brandApi";
 
 function useDebounce(value, delay) {
@@ -27,12 +29,11 @@ const ViewBrandsPage = () => {
     search: debouncedSearch,
   });
   const [updateBrand] = useUpdateBrandMutation();
-  const [deleteBrand] = useDeleteBrandMutation();
 
   const [selectedBrand, setSelectedBrand] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
-  const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [brandToDelete, setBrandToDelete] = useState(null);
+
+
 
   const memoizedBrands = useMemo(() => brands, [brands]);
 
@@ -60,18 +61,7 @@ const ViewBrandsPage = () => {
     );
   };
 
-  const handleDelete = async () => {
-    if (!brandToDelete) return;
-    try {
-      await deleteBrand(brandToDelete.id).unwrap();
-      refetch();
-    } catch (err) {
-      console.error("Delete failed:", err);
-    } finally {
-      setDeleteConfirmOpen(false);
-      setBrandToDelete(null);
-    }
-  };
+ 
 
   const handleUpdate = async () => {
     if (!selectedBrand) return;
@@ -80,7 +70,7 @@ const ViewBrandsPage = () => {
       const formData = new FormData();
       formData.append("name", selectedBrand.name);
       formData.append("description", selectedBrand.description || "");
-      formData.append("is_featured", selectedBrand.is_featured ? "true" : "false");
+      formData.append("is_active", selectedBrand.is_active ? "true" : "false");
   
       if (selectedBrand.logoFile) {
         formData.append("logo", selectedBrand.logoFile);
@@ -88,8 +78,10 @@ const ViewBrandsPage = () => {
   
       await updateBrand({ id: selectedBrand.id, data: formData }).unwrap();
       refetch();
+      toast.success("Brand Details Updated Successfully");
     } catch (err) {
       console.error("Update failed:", err);
+      toast.error(err.data.message);
     } finally {
       setSelectedBrand(null);
       setLogoPreview(null);
@@ -124,11 +116,11 @@ const ViewBrandsPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-8xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Brand Management</h1>
-            <p className="text-gray-500 mt-1">
+            <p className="text-gray-500 font-bold mt-1">
               {memoizedBrands.length} {memoizedBrands.length === 1 ? 'brand' : 'brands'} found
             </p>
           </div>
@@ -139,6 +131,8 @@ const ViewBrandsPage = () => {
                 <FiSearch className="h-5 w-5 text-gray-400" />
               </div>
               <input
+                id="searchbrand"
+                name="searchbrand"
                 type="text"
                 placeholder="Search brands..."
                 className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -171,71 +165,72 @@ const ViewBrandsPage = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sr No.</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Brand Name</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Logo</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Featured</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Sr No.</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Created Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Brand Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Logo</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Description</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Active</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Last Updated Date</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {memoizedBrands.map((brand, index) => (
                     <tr key={brand.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
                         {index + 1}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(brand.createdAt).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric'
-                        })}
+                       {brand.created_at}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{brand.name}</div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <ImageLoader
-                          src={brand.logo ? `${import.meta.env.VITE_IMAGE_API_URL}${brand.logo}` : "/placeholder-brand.png"}
+                          src={brand.logo ? brand.logo : "https://onno.spagreen.net/demo/public/default-image/default-1080x1000.png"}
                           alt={brand.name}
                           className="h-10 w-10 rounded-full object-cover border border-gray-200"
                         />
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
-                        {brand.is_featured ? (
+  <div className="text-sm font-medium text-gray-900">
+    {brand.description?.length > 18
+      ? `${brand.description.slice(0, 18)}...`
+      : brand.description}
+  </div>
+</td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        {brand.is_active ? (
                           <FiStar className="h-5 w-5 text-yellow-500 fill-yellow-500" />
                         ) : (
                           <span className="text-gray-400">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => setSelectedBrand({
-                              id: brand.id,
-                              name: brand.name,
-                              description: brand.description || "",
-                              is_featured: brand.is_featured,
-                              logo: brand.logo,
-                            })}
-                            className="text-blue-600 hover:text-blue-900 p-1 rounded-md hover:bg-blue-50"
-                            title="Edit"
-                          >
-                            <FiEdit2 className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setBrandToDelete(brand);
-                              setDeleteConfirmOpen(true);
-                            }}
-                            className="text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-red-50"
-                            title="Delete"
-                          >
-                            <FiTrash2 className="h-5 w-5" />
-                          </button>
-                        </div>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                       {brand.updated_at}
                       </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-center text-sm font-medium">
+  <div className="flex justify-end gap-2">
+    <button
+      onClick={() =>
+        setSelectedBrand({
+          id: brand.id,
+          name: brand.name,
+          description: brand.description || "",
+          is_active: brand.is_active,
+          logo: brand.logo,
+        })
+      }
+      className="flex items-center gap-1 text-blue-600 hover:text-blue-900 p-2 rounded-md hover:bg-blue-50 transition"
+      title="Edit"
+    >
+      <FiEdit2 className="h-4 w-4" />
+      <span className="hidden sm:inline">Edit</span>
+    </button>
+  </div>
+</td>
                     </tr>
                   ))}
                 </tbody>
@@ -268,13 +263,15 @@ const ViewBrandsPage = () => {
                 <ImageLoader
                   src={
                     logoPreview || 
-                    (selectedBrand.logo ? `${import.meta.env.VITE_IMAGE_API_URL}${selectedBrand.logo}` : "/placeholder-brand.png")
+                    (selectedBrand.logo ?selectedBrand.logo : "https://onno.spagreen.net/demo/public/default-image/default-1080x1000.png")
                   }
                   alt="Brand Logo"
                   className="w-28 h-28 rounded-full border-2 border-white shadow-md object-cover"
                 />
                 <label className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700">
                   <input
+                    id="logo"
+                    name="file"
                     type="file"
                     accept="image/*"
                     onChange={handleLogoChange}
@@ -289,6 +286,8 @@ const ViewBrandsPage = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Brand Name *</label>
                 <input
+                  id="brandname"
+                  name="brandname"
                   type="text"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                   value={selectedBrand.name}
@@ -300,6 +299,7 @@ const ViewBrandsPage = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                 <textarea
+                  id="description"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                   rows={4}
                   value={selectedBrand.description}
@@ -309,10 +309,11 @@ const ViewBrandsPage = () => {
 
               <div className="flex items-center">
                 <input
+                  id="isactive"
                   type="checkbox"
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  checked={selectedBrand.is_featured}
-                  onChange={(e) => setSelectedBrand(prev => ({ ...prev, is_featured: e.target.checked }))}
+                  checked={selectedBrand.is_active}
+                  onChange={(e) => setSelectedBrand(prev => ({ ...prev, is_active: e.target.checked }))}
                 />
                 <label className="ml-2 block text-sm text-gray-700">
                   Featured Brand
@@ -332,45 +333,16 @@ const ViewBrandsPage = () => {
               </button>
               <button
                 onClick={handleUpdate}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
               >
-                Save Changes
+                Update
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {isDeleteConfirmOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 text-center">
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
-              <FiTrash2 className="h-6 w-6 text-red-600" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Delete {brandToDelete?.name}?
-            </h3>
-            <p className="text-gray-500 mb-6">
-              This action cannot be undone. All products under this brand will remain but will no longer be associated with it.
-            </p>
-            <div className="flex justify-center gap-3">
-              <button
-                onClick={() => setDeleteConfirmOpen(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-              >
-                Confirm Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+  
     </div>
   );
 };

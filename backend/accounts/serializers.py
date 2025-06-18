@@ -1,10 +1,6 @@
 from rest_framework import serializers
 from .models import *
-
-
-
-
-
+from rest_framework.exceptions import ValidationError
 
 
 class WalletTransactionSerializer(serializers.ModelSerializer):
@@ -22,56 +18,50 @@ class WalletSerializer(serializers.ModelSerializer):
 
 
 
-class TopUpRequestSerializer(serializers.ModelSerializer):
-    user = serializers.StringRelatedField(read_only=True)
-    approved_by = serializers.StringRelatedField(read_only=True)
-    role = serializers.SerializerMethodField()
 
+class TopupRequestSerializer(serializers.ModelSerializer):
     class Meta:
-        model = TopUpRequest
-        fields = '__all__'
-        read_only_fields = [
-            'status', 'approved_by', 'reviewed_at',
-            'created_at', 'rejected_reason', 'role'
-        ]
-
-    def get_role(self, obj):
-        return getattr(obj.user, 'role', None)
-
-class NewTopUpRequestSerializer(serializers.ModelSerializer):
-    screenshot = serializers.ImageField(required=True)
-    
-    class Meta:
-        model = TopUpRequest
-        fields = [
-            'id',
-            'amount',
-            'screenshot',
-            'note',
-            'status',
-            'rejected_reason',
-            'created_at',
-            'reviewed_at',
-            'approved_by',
-        ]
-        read_only_fields = [
-            'id', 
-            'status', 
-            'created_at', 
-            'reviewed_at', 
-            'approved_by',
-            'rejected_reason',
-        ]
-    
+        model = TopupRequest
+        fields = ['id', 'amount', 'payment_method', 'screenshot','payment_details', 'note', 'status', 'created_at']
+        read_only_fields = ['id', 'status', 'created_at']
+        
     def validate_amount(self, value):
         if value <= 0:
             raise serializers.ValidationError("Amount must be greater than zero")
         return value
 
+class WithdrawalRequestSerializer(serializers.ModelSerializer):
+    wallet = WalletSerializer(read_only=True)  
+
+    class Meta:
+        model = WithdrawalRequest
+        fields = ['id', 'amount', 'payment_method', 'status', 'payment_details', 'wallet', 'created_at']
+        read_only_fields = ['id', 'status', 'created_at', 'wallet']
+
     def create(self, validated_data):
-        # Automatically set the user from request context
-        validated_data['user'] = self.context['request'].user
+        user = self.context['request'].user
+        amount = validated_data['amount']
+
+        # Check amount validity
+        if amount <= 0:
+            raise ValidationError({
+                "status": False,
+                "message": "Amount must be greater than zero"
+            })
+
+        # Check wallet balance
+        if user.wallet.balance < amount:
+            raise ValidationError({
+                "status": False,
+                "message": "Insufficient wallet balance"
+            })
+
+        # Assign user's wallet automatically
+        validated_data['wallet'] = user.wallet
+        validated_data['user'] = user
+
         return super().create(validated_data)
+
 
 class StateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -208,9 +198,16 @@ class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
         fields = [
-            'id', 'user', 'full_name', 'date_of_birth', 'phone', 'profile_picture', 'gender', 'bio',
-            'facebook', 'twitter', 'instagram', 'youtube', 'whatsapp_number', 'address'
+            'id', 'user', 'full_name', 'date_of_birth', 'phone', 'profile_picture',
+            'gender', 'bio', 'facebook', 'twitter', 'instagram', 'youtube',
+            'whatsapp_number', 'bank_upi', 'account_holder_name', 'passbook_pic',
+            'ifsc_code', 'bank_name', 'account_number',
+            'adhaar_card_pic', 'pancard_pic', 'kyc_other_document',
+            'adhaar_card_number', 'pancard_number', 'kyc_status',
+            'kyc_verified', 'kyc_verified_at', 'kyc_rejected_reason',
+            'created_at', 'updated_at', 'address'
         ]
+        read_only_fields = ['kyc_verified', 'kyc_verified_at', 'created_at', 'updated_at']
 
     def get_address(self, obj):
         address = Address.objects.filter(user=obj.user).first()
@@ -221,12 +218,11 @@ class ProfileSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         address_data = validated_data.pop('address', None)
 
-        # Update Profile fields
+        # Update all other profile fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        
-        # Handle the address data if provided
-        if address_data is not None:
+
+        if address_data:
             Address.objects.update_or_create(
                 user=instance.user,
                 defaults=address_data
@@ -234,29 +230,11 @@ class ProfileSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
-    
 
-class UserProfileSerializer(serializers.ModelSerializer):
-    full_name = serializers.CharField(source='profile.full_name', read_only=True)
-    phone = serializers.CharField(source='profile.phone', read_only=True)
-    gender = serializers.CharField(source='profile.gender', read_only=True)
-    profile_picture = serializers.ImageField(source='profile.profile_picture', read_only=True)
-
-    class Meta:
-        model = User
-        fields = [
-            'id',
-            'username',
-            'email',
-            'full_name',
-            'phone',
-            'gender',
-            'profile_picture'
-        ]
 
 
 class AddressWithUserAndProfileSerializer(serializers.ModelSerializer):
-    user = UserProfileSerializer(read_only=True)
+    user = ProfileSerializer(read_only=True)
 
     class Meta:
         model = Address
@@ -270,4 +248,27 @@ class AddressWithUserAndProfileSerializer(serializers.ModelSerializer):
             'country',
             'is_primary',
             'user'
+        ]
+
+
+class BroadcastMessageSerializer(serializers.ModelSerializer):
+    admin_name = serializers.CharField(source='admin.username', read_only=True)
+
+    class Meta:
+        model = BroadcastMessage
+        fields = '__all__'
+        read_only_fields = ['admin', 'created_at', 'updated_at']
+
+
+class UserPaymentDetailsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profile
+        fields = [
+            "upi_id",
+            'bank_upi',
+            'account_holder_name',
+            'account_number',
+            'ifsc_code',
+            'bank_name',
+            'passbook_pic',
         ]

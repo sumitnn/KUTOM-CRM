@@ -15,6 +15,7 @@ urlpatterns = [
     path('update-user/<uuid:pk>/', UpdateUserAPIView.as_view(), name='update-user'),
     path('delete-user/<uuid:pk>/', DeleteUserAPIView.as_view(), name='delete-user'),
     path('profile/', ProfileView.as_view(), name='profile'),
+    path('payment-details/', UserPaymentDetailsView.as_view(), name='user-payment-details'),
 
     # fetch stockist by state
     path('stockists/<int:state_id>/', StockistsByStateAPIView.as_view(), name='get_stockists_by_state'),
@@ -31,12 +32,23 @@ urlpatterns = [
 
     # topup request 
     path('topup-request/update/<int:pk>/', TopUpRequestUpdateView.as_view(), name='topup-update'),
-    path('topup-request/', TopUpRequestListCreateView.as_view(), name='topup-reqeust'),
+    path('topup-request/', TopUpRequestListCreateView.as_view(), name='topup-request'),
 
-    path('new-topup-request/', MyTopUpListCreateView.as_view(), name='my-topup-list-create'),
+    # withdrawal request
+    path('withdrawl-request/update/<int:pk>/', WithdrawlRequestUpdateView.as_view(), name='withdrawl-request-update'),
+    path('withdrawl-request/', WithdrawlRequestListCreateView.as_view(), name='withdrawl-request'),
+
+   
+
+
 
     # State and District related APIs
     path('states/', StateListView.as_view(), name='state-list'),
     path('states/<int:state_id>/districts/', DistrictListView.as_view(), name='district-list'),
+
+    # broadcast apis  
+    path('announcements/', BroadcastMessageListCreateAPIView.as_view(), name='announcement-list-create'),
+    path('announcements/<int:pk>/', BroadcastMessageDetailAPIView.as_view(), name='announcement-detail'),
+
 
 ]

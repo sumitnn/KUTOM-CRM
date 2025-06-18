@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FiEdit, FiTrash2, FiEye, FiPlus, FiUpload } from "react-icons/fi";
+import { FiEdit, FiEye, FiPlus, FiUpload } from "react-icons/fi";
 import {
   useGetAllProductsQuery,
-  useDeleteProductMutation,
 } from "../features/product/productApi";
 import { useDispatch, useSelector } from "react-redux";
 import { addItem } from "../features/cart/cartSlice";
@@ -22,9 +21,9 @@ function useDebounce(value, delay) {
 const getProductImage = (prod) => {
   if (prod.images && prod.images.length > 0) {
     const featured = prod.images.find((img) => img.is_featured);
-    return featured?.image || prod.images[0].image;
+    return featured?.image || prod.images[0]?.image || null;
   }
-  return "/placeholder.png";
+  return null;
 };
 
 const statusColors = {
@@ -32,6 +31,7 @@ const statusColors = {
   inactive: "bg-gray-100 text-gray-800",
   pending: "bg-yellow-100 text-yellow-800",
   out_of_stock: "bg-red-100 text-red-800",
+  draft: "bg-purple-100 text-purple-800",
 };
 
 const TabledProductListPage = ({ role }) => {
@@ -51,35 +51,28 @@ const TabledProductListPage = ({ role }) => {
     refetch,
   } = useGetAllProductsQuery();
 
-  const [deleteProductApi] = useDeleteProductMutation();
-
-  const categories = ["Electronics", "Apparel"];
-  const subCategories = {
-    Electronics: ["Mobiles", "Laptops"],
-    Apparel: ["Shirts", "Pants"],
-  };
+  const categories = [...new Set(products.map(p => p.category_name))].filter(Boolean);
+  const subCategories = products.reduce((acc, product) => {
+    if (product.category_name && product.subcategory_name) {
+      if (!acc[product.category_name]) {
+        acc[product.category_name] = new Set();
+      }
+      acc[product.category_name].add(product.subcategory_name);
+    }
+    return acc;
+  }, {});
 
   const filteredProducts = products.filter(
     (p) =>
       p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) &&
-      (selectedCategory ? p.category === selectedCategory : true) &&
-      (selectedSubCategory ? p.subCategory === selectedSubCategory : true)
+      (selectedCategory ? p.category_name === selectedCategory : true) &&
+      (selectedSubCategory ? p.subcategory_name === selectedSubCategory : true)
   );
 
-  const deleteProduct = async (id) => {
-    if (window.confirm("Are you sure you want to delete this product?")) {
-      try {
-        await deleteProductApi(id).unwrap();
-        toast.success("Product deleted successfully");
-        refetch();
-      } catch (error) {
-        toast.error("Failed to delete product");
-        console.error("Failed to delete product:", error);
-      }
-    }
-  };
-
   const handleAddToCart = (prod) => {
+    const defaultSize = prod.sizes?.find(size => size.is_default);
+    const price = defaultSize ? defaultSize.price : prod.price || 0;
+    
     const isAlreadyInCart = cartItems.some((item) => item.id === prod.id);
 
     if (isAlreadyInCart) {
@@ -89,9 +82,9 @@ const TabledProductListPage = ({ role }) => {
         addItem({
           id: prod.id,
           name: prod.name,
-          price: Number(prod.price),
+          price: Number(price),
           quantity: 1,
-          image: getProductImage(prod),
+          image: getProductImage(prod) || "/placeholder.png",
         })
       );
       toast.success("Item added to cart successfully!");
@@ -140,7 +133,7 @@ const TabledProductListPage = ({ role }) => {
           >
             <option value="">All Subcategories</option>
             {selectedCategory &&
-              subCategories[selectedCategory]?.map((sub) => (
+              Array.from(subCategories[selectedCategory] || []).map((sub) => (
                 <option key={sub} value={sub}>{sub}</option>
               ))}
           </select>
@@ -192,6 +185,7 @@ const TabledProductListPage = ({ role }) => {
                   <th>Category</th>
                   <th>Subcategory</th>
                   <th>Stock</th>
+                  <th>Price</th>
                   <th>Image</th>
                   <th>Status</th>
                   <th className="text-center">Actions</th>
@@ -201,97 +195,103 @@ const TabledProductListPage = ({ role }) => {
               {/* Table Body */}
               <tbody>
                 {filteredProducts.length > 0 ? (
-                  filteredProducts.map((prod, index) => (
-                    <tr key={prod.id} className="hover:bg-gray-50">
-                      <td>{index + 1}</td>
-                      <td>
-                        {new Date(prod.createdAt).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric'
-                        })}
-                      </td>
-                      <td>
-                        <div className="font-medium">{prod.name}</div>
-                        <div className="text-xs text-gray-500">₹{Number(prod.price).toFixed(2)}</div>
-                      </td>
-                      <td>{prod.brand || '-'}</td>
-                      <td>{prod.category || '-'}</td>
-                      <td>{prod.subCategory || '-'}</td>
-                      <td>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          prod.stock > 10 ? 'bg-green-100 text-green-800' : 
-                          prod.stock > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {prod.stock || 0} in stock
-                        </span>
-                      </td>
-                      <td>
-                        <div className="avatar">
-                          <div className="w-10 h-10 rounded-full">
-                            <img 
-                              src={getProductImage(prod)} 
-                              alt={prod.name}
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = "/placeholder.png";
-                              }}
-                            />
+                  filteredProducts.map((prod, index) => {
+                    const defaultSize = prod.sizes?.find(size => size.is_default);
+                    const stock = prod.sizes?.reduce((sum, size) => sum + (size.quantity || 0), 0);
+                    const price = defaultSize ? defaultSize.price : prod.price || 0;
+                    const productImage = getProductImage(prod);
+
+                    return (
+                      <tr key={prod.id} className="hover:bg-gray-50">
+                        <td>{index + 1}</td>
+                        <td>
+                          {new Date(prod.created_at).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </td>
+                        <td>
+                          <div className="font-medium">{prod.name}</div>
+                          <div className="text-xs text-gray-500">SKU: {prod.sku}</div>
+                        </td>
+                        <td>{prod.brand_name || prod.brand || '-'}</td>
+                        <td>{prod.category_name || prod.category || '-'}</td>
+                        <td>{prod.subcategory_name || prod.subcategory || '-'}</td>
+                        <td>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            stock > 10 ? 'bg-green-100 text-green-800' : 
+                            stock > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {stock || 0} in stock
+                          </span>
+                        </td>
+                        <td>
+                          ₹{Number(price).toFixed(2)}
+                        </td>
+                        <td>
+                          <div className="avatar">
+                            <div className="w-10 h-10 rounded-full">
+                              {productImage ? (
+                                <img 
+                                  src={productImage} 
+                                  alt={prod.name}
+                                  onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = "/placeholder.png";
+                                  }}
+                                />
+                              ) : (
+                                <div className="bg-gray-100 w-full h-full flex items-center justify-center">
+                                  <span className="text-xs text-gray-400">No Image</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          statusColors[prod.status?.toLowerCase() || 'active']
-                        }`}>
-                          {prod.status || 'Active'}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="flex justify-center gap-2">
-                          <button
-                            className="btn btn-xs btn-ghost btn-square hover:bg-gray-200"
-                            onClick={() => navigate(`/${role}/products/${prod.id}`)}
-                            title="View"
-                          >
-                            <FiEye className="text-gray-600" />
-                          </button>
-                          
-                          {(role === 'admin' || role === 'vendor') && (
-                            <>
+                        </td>
+                        <td>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            statusColors[prod.status?.toLowerCase() || 'active']
+                          }`}>
+                            {prod.status || 'Active'}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="flex justify-center gap-3">
+                            <button
+                              className="btn btn-ghost btn-sm hover:bg-gray-200 p-2"
+                              onClick={() => navigate(`/${role}/products/${prod.id}`)}
+                              title="View"
+                            >
+                              <FiEye className="text-gray-600 text-lg" />
+                            </button>
+                            
+                            {(role === 'admin' || role === 'vendor') && (
                               <button
-                                className="btn btn-xs btn-ghost btn-square hover:bg-blue-50"
+                                className="btn btn-ghost btn-sm hover:bg-blue-50 p-2"
                                 onClick={() => navigate(`/${role}/products/edit/${prod.id}`)}
                                 title="Edit"
                               >
-                                <FiEdit className="text-blue-600" />
+                                <FiEdit className="text-blue-600 text-lg" />
                               </button>
-                              
+                            )}
+                            
+                            {role === "reseller" && (
                               <button
-                                className="btn btn-xs btn-ghost btn-square hover:bg-red-50"
-                                onClick={() => deleteProduct(prod.id)}
-                                title="Delete"
+                                className="btn btn-xs btn-primary"
+                                onClick={() => handleAddToCart(prod)}
                               >
-                                <FiTrash2 className="text-red-600" />
+                                Add to Cart
                               </button>
-                            </>
-                          )}
-                          
-                          {role === "reseller" && (
-                            <button
-                              className="btn btn-xs btn-primary"
-                              onClick={() => handleAddToCart(prod)}
-                            >
-                              Add to Cart
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
-                    <td colSpan="10" className="text-center py-8">
+                    <td colSpan="11" className="text-center py-8">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>

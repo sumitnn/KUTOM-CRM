@@ -13,7 +13,7 @@ const WalletSummary = ({ walletData}) => {
         <div className="bg-gradient-to-r from-primary to-primary-focus text-white rounded-xl p-4 md:p-6 shadow hover:shadow-xl transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm md:text-base uppercase tracking-wider opacity-80">
+              <p className="text-sm md:text-base uppercase font-bold  tracking-wider opacity-80">
                 Current Balance
               </p>
               <p className="text-2xl md:text-4xl font-bold mt-2">
@@ -27,8 +27,8 @@ const WalletSummary = ({ walletData}) => {
         <div className="bg-gradient-to-r from-success to-success-focus text-white rounded-xl p-4 md:p-6 shadow hover:shadow-xl transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm md:text-base uppercase tracking-wider opacity-80">
-                Total Deposits
+              <p className="text-sm md:text-base text-black font-bold uppercase tracking-wider opacity-80">
+                Total Sales
               </p>
               <p className="text-2xl md:text-4xl font-bold mt-2">
                 {formatCurrency(walletData?.total_deposits)}
@@ -41,7 +41,7 @@ const WalletSummary = ({ walletData}) => {
         <div className="bg-gradient-to-r from-error to-error-focus text-white rounded-xl p-4 md:p-6 shadow hover:shadow-xl transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm md:text-base uppercase tracking-wider opacity-80">
+              <p className="text-sm md:text-base uppercase tracking-wider font-bold  opacity-80">
                 Total Withdrawals
               </p>
               <p className="text-2xl md:text-4xl font-bold mt-2">

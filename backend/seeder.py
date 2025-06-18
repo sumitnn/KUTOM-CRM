@@ -69,22 +69,22 @@ def create_initial_data():
     categories = [
         Category.objects.create(
             name="Footwear",
-            is_featured=True,
+          
             is_active=True
         ),
         Category.objects.create(
             name="Apparel",
-            is_featured=False,
+        
             is_active=True
         ),
         Category.objects.create(
             name="Accessories",
-            is_featured=True,
+           
             is_active=True
         ),
         Category.objects.create(
             name="Equipment",
-            is_featured=False,
+           
             is_active=True
         )
     ]

@@ -24,6 +24,9 @@ import SalesPage from "../../pages/SalesPage";
 import MyStockPage from "../../pages/MyStockPage";
 import RequestedProductsPage from "../../pages/RequestedProductsPage";
 import CategoryManagementPage from "../../pages/CategoryManagementPage";
+import Report from "../../pages/Report";
+import CreateWithdrawalRequest from "../../pages/CreateWithdrawalRequest";
+import WithdrawlRequestsList from "../../pages/WithdrawlRequestsList";
 
 
 const VendorRoutes = [
@@ -55,6 +58,7 @@ const VendorRoutes = [
     <Route path="/vendor/requested-products" element={<VendorMainLayout><RequestedProductsPage role="vendor"/></VendorMainLayout>}/>
     <Route path="/vendor/my-sales" element={<VendorMainLayout><SalesPage role="vendor"/></VendorMainLayout>}/>
     <Route path="/vendor/my-stocks" element={<VendorMainLayout><MyStockPage role="vendor" /></VendorMainLayout>} />
+    <Route path="/vendor/report" element={<VendorMainLayout><Report role="vendor" /></VendorMainLayout>} />
     
     <Route path="/vendor/products/:id" element={<VendorMainLayout><ProductDetailsPage role="vendor"/></VendorMainLayout>}/>
     <Route path="/vendor/create-product" element={<VendorMainLayout><CreateProductPage/></VendorMainLayout>}/>
@@ -62,8 +66,13 @@ const VendorRoutes = [
     <Route path="/vendor/products/edit/:id" element={<VendorMainLayout><EditProductPage role="vendor" /></VendorMainLayout>} />
     
     {/* topup  */}
-    <Route path="/vendor/topup-request" element={<VendorMainLayout><CreateTopupRequest/></VendorMainLayout>} />
-    <Route path="/vendor/my-topup" element={<VendorMainLayout><TopupRequestsList role="vendor"/></VendorMainLayout>} />
+    <Route path="/vendor/topup-request" element={<VendorMainLayout><CreateTopupRequest role="vendor"/></VendorMainLayout>} />
+    <Route path="/vendor/my-topup" element={<VendorMainLayout><TopupRequestsList role="vendor" /></VendorMainLayout>} />
+    
+    {/* withdrawl  */}
+    <Route path="/vendor/withdrawl-request" element={<VendorMainLayout><CreateWithdrawalRequest role="vendor"/></VendorMainLayout>} />
+    <Route path="/vendor/my-withdrawl" element={<VendorMainLayout><WithdrawlRequestsList role="vendor" /></VendorMainLayout>} />
+
 
     <Route path="vendor/settings/profile" element={<VendorMainLayout><Profile/></VendorMainLayout>} />
     <Route path="vendor/settings/change-password" element={<VendorMainLayout><ChangePassword /></VendorMainLayout>} />
