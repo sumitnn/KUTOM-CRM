@@ -31,3 +31,4 @@ class IsAdminOrVendorRole(BasePermission):
         return request.user and request.user.is_authenticated and (
             getattr(request.user, 'role', None) == 'admin' or getattr(request.user, 'role', None) == 'vendor'
         )
+    

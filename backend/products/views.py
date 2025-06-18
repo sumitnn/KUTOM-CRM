@@ -1,18 +1,18 @@
 from rest_framework import viewsets
 from .models import Brand
 from .serializers import *
-from accounts.permissions import IsAdminOrResellerRole,IsAdminOrVendorRole
+from accounts.permissions import IsAdminOrResellerRole,IsAdminOrVendorRole,IsVendorRole
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
-from django.db.models import Sum
+from django.db.models import Sum,Q
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.generics import ListAPIView
-
+from rest_framework import generics
 
 
 class BrandListCreateAPIView(APIView):
@@ -240,14 +240,31 @@ class ProductListCreateAPIView(APIView):
         return [IsAuthenticated()]
 
     def get(self, request):
+        # Get query parameters
+        search = request.query_params.get('search', None)
+        category = request.query_params.get('category', None)
+        
+        # Start with all products
         products = Product.objects.all()
+        
+        # Apply filters if provided
+        if search:
+            products = products.filter(
+                Q(name__icontains=search) |
+                Q(description__icontains=search) |
+                Q(sku__icontains=search)
+            )
+        
+        if category:
+            products = products.filter(
+               category_id=category
+            )
+        
         serializer = ProductSerializer(products, many=True)
         return Response(serializer.data)
 
     def post(self, request):
-        print("Request Data:", request.data)  # Debugging line
-
-        serializer = ProductSerializer(data=request.data,context={'request': request})
+        serializer = ProductSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save(owner=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -349,18 +366,35 @@ class ProductStatsView(APIView):
         })
     
 
-class StockListAPIView(ListAPIView):
-    queryset = Stock.objects.all()
+class StockListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = StockSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_staff:
+            return Stock.objects.all()
+        return Stock.objects.filter(owner=user)
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
 
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = {
         'product': ['exact'],
         'status': ['exact'],
         'created_at': ['gte', 'lte'],
-        'expected_date': ['gte', 'lte'],
     }
     search_fields = ['product__name', 'product__brand__name', 'notes']
-    ordering_fields = ['created_at', 'updated_at', 'expected_date', 'quantity']
+    ordering_fields = ['created_at', 'updated_at', 'quantity']
     ordering = ['-created_at']
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsVendorRole()]
+        return super().get_permissions()
+    
+class StockRetrieveUpdateAPIView(generics.RetrieveUpdateAPIView):
+    queryset = Stock.objects.all()
+    serializer_class = StockSerializer
+    permission_classes = [IsAuthenticated, IsVendorRole()]

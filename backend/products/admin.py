@@ -69,9 +69,9 @@ class TagAdmin(admin.ModelAdmin):
 class StockAdmin(admin.ModelAdmin):
     list_display = (
         'id', 'product', 'size', 'quantity', 'rate', 'total_price',
-        'status', 'expected_date', 'owner', 'created_at', 'updated_at'
+        'status', 'owner', 'created_at', 'updated_at'
     )
-    list_filter = ('status', 'product', 'expected_date', 'created_at')
-    search_fields = ('product__name', 'product__brand__name', 'notes')
+    list_filter = ('status', )
+    search_fields = ('product__name', 'product__brand__name')
     ordering = ('-created_at',)
     readonly_fields = ('total_price', 'created_at', 'updated_at')
