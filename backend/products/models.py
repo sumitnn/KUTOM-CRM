@@ -7,7 +7,9 @@ import uuid
 class Brand(models.Model):
     name = models.CharField(max_length=100, unique=True)
     logo = models.ImageField(upload_to='brands/logos/', blank=True, null=True)
+    description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
+    owner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='brands')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -20,7 +22,7 @@ class Brand(models.Model):
 
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
-    is_featured = models.BooleanField(default=False)
+    owner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='categories')
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -36,6 +38,8 @@ class Category(models.Model):
 
 class SubCategory(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='subcategories')
+    brand= models.ForeignKey(Brand, on_delete=models.SET_NULL, null=True, blank=True, related_name='subcategories')
+    owner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='subcategories')
     name = models.CharField(max_length=100)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -54,6 +58,7 @@ class SubCategory(models.Model):
 class Tag(models.Model):
     name = models.CharField(max_length=50, unique=True)
     slug = models.SlugField(max_length=50, unique=True, blank=True)
+    owner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='tags')
 
     def __str__(self):
         return self.name
@@ -81,6 +86,7 @@ class Product(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     is_featured = models.BooleanField(default=False)
     rating = models.DecimalField(max_digits=3, decimal_places=1, null=True, blank=True)
+    owner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

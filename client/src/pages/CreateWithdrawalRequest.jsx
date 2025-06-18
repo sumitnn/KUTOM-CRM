@@ -1,43 +1,25 @@
 import { useState, useEffect } from "react";
-import { useCreateTopupRequestMutation } from "../features/topupApi";
+import { useCreateWithdrawlRequestMutation } from "../features/topupApi";
 import { useGetPaymentDetailsQuery } from "../features/profile/profileApi";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 
-const CreateTopupRequest = ({role}) => {
+const CreateWithdrawalRequest = ({ role }) => {
   const [amount, setAmount] = useState("");
-  const [screenshot, setScreenshot] = useState(null);
-  const [previewImage, setPreviewImage] = useState(null);
   const [note, setNote] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
   const { data: paymentDetails } = useGetPaymentDetailsQuery();
-  const [createTopup] = useCreateTopupRequestMutation();
-
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error("File size should be less than 5MB");
-        return;
-      }
-      setScreenshot(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewImage(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+  const [createWithdrawal] = useCreateWithdrawlRequestMutation();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     // Validate required fields
-    if (!amount || !screenshot || !paymentMethod) {
-      toast.error("Amount, Screenshot and Payment Method are required");
+    if (!amount || !paymentMethod) {
+      toast.error("Amount and Payment Method are required");
       return;
     }
 
@@ -54,16 +36,11 @@ const CreateTopupRequest = ({role}) => {
 
     setIsSubmitting(true);
     try {
-      const formData = new FormData();
-      formData.append("amount", amount.toString());
-      formData.append("screenshot", screenshot);
-      formData.append("note", note);
-      formData.append("payment_method", paymentMethod);
-      
-      // Include the relevant payment details in the request
-      const paymentData = {
-        method: paymentMethod,
-        details: paymentMethod === 'upi' ? {
+      const withdrawalData = {
+        amount: parseFloat(amount),
+        payment_method: paymentMethod,
+        note: note,
+        payment_details: paymentMethod === 'upi' ? {
           upi_id: paymentDetails.upi_id,
           bank_upi: paymentDetails.bank_upi
         } : {
@@ -73,14 +50,11 @@ const CreateTopupRequest = ({role}) => {
           bank_name: paymentDetails.bank_name
         }
       };
-      
-      formData.append("payment_details", JSON.stringify(paymentData));
 
-      await createTopup(formData).unwrap();
-      toast.success("Topup request submitted successfully");
-      navigate(`/${role}/my-topup`);
+      await createWithdrawal(withdrawalData).unwrap();
+      toast.success("Withdrawal request submitted successfully");
+      navigate(`/${role}/my-withdrawl`);
     } catch (err) {
-      console.error(err);
       toast.error(err?.data?.message || "Failed to submit request");
     } finally {
       setIsSubmitting(false);
@@ -92,9 +66,9 @@ const CreateTopupRequest = ({role}) => {
       <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
         <div className="p-6 sm:p-8">
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-gray-800">Create Topup Request</h1>
+            <h1 className="text-2xl font-bold text-gray-800">Create Withdrawal Request</h1>
             <p className="mt-2 text-sm text-gray-600">
-              Please fill the required details to request a wallet topup
+              Request to withdraw money from your wallet
             </p>
           </div>
 
@@ -126,7 +100,7 @@ const CreateTopupRequest = ({role}) => {
               {/* Payment Method */}
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-gray-700">
-                  Payment Method Used <span className="text-red-500">*</span>
+                  Payment Method To Receive Money <span className="text-red-500">*</span>
                 </label>
                 <div className="mt-1 grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {/* UPI Payment Option */}
@@ -181,7 +155,7 @@ const CreateTopupRequest = ({role}) => {
               {/* Payment Details Preview */}
               {paymentMethod && (
                 <div className="sm:col-span-2">
-                  <h3 className="text-lg font-medium text-gray-900 mb-3">Payment Details</h3>
+                  <h3 className="text-lg font-medium text-gray-900 mb-3">Payment Details To Receive Money</h3>
                   <div className="bg-gray-50 p-4 rounded-md">
                     {paymentMethod === 'upi' ? (
                       paymentDetails?.upi_id ? (
@@ -189,9 +163,9 @@ const CreateTopupRequest = ({role}) => {
                           <p className="text-sm">
                             <span className="font-medium">UPI ID:</span> {paymentDetails.upi_id}
                           </p>
-                         
+                        
                           <p className="text-sm text-gray-700">
-                          The payment has been successfully made via the following UPI ID.
+                            Money will be transferred to this UPI ID upon approval.
                           </p>
                         </div>
                       ) : (
@@ -215,7 +189,7 @@ const CreateTopupRequest = ({role}) => {
                             <span className="font-medium">IFSC Code:</span> {paymentDetails.ifsc_code}
                           </p>
                           <p className="text-sm text-gray-700">
-                          The payment has been successfully made via the following Bank Details.
+                            Money will be transferred to this bank account upon approval.
                           </p>
                         </div>
                       ) : (
@@ -228,59 +202,6 @@ const CreateTopupRequest = ({role}) => {
                 </div>
               )}
 
-              {/* Screenshot Upload */}
-              <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Payment Screenshot <span className="text-red-500">*</span>
-                </label>
-                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-blue-400 transition-colors">
-                  <div className="space-y-1 text-center">
-                    {previewImage ? (
-                      <div className="relative">
-                        <img 
-                          src={previewImage} 
-                          alt="Preview" 
-                          className="mx-auto h-32 w-auto object-contain rounded" 
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPreviewImage(null);
-                            setScreenshot(null);
-                          }}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex text-sm text-gray-600 justify-center">
-                          <label
-                            htmlFor="screenshot"
-                            className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none"
-                          >
-                            <span>Upload a file</span>
-                            <input
-                              id="screenshot"
-                              name="screenshot"
-                              type="file"
-                              accept="image/*"
-                              className="sr-only"
-                              onChange={handleImageChange}
-                              required
-                            />
-                          </label>
-                        </div>
-                        <p className="text-xs text-gray-500">PNG, JPG, JPEG up to 5MB</p>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-
               {/* Note */}
               <div className="sm:col-span-2">
                 <label htmlFor="note" className="block text-sm font-medium text-gray-700">
@@ -291,7 +212,7 @@ const CreateTopupRequest = ({role}) => {
                   name="note"
                   rows={3}
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  placeholder="Any additional information about your transaction..."
+                  placeholder="Any additional information about your withdrawal request..."
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                 />
@@ -312,7 +233,6 @@ const CreateTopupRequest = ({role}) => {
                 disabled={
                   isSubmitting || 
                   !amount || 
-                  !screenshot || 
                   !paymentMethod ||
                   (paymentMethod === 'upi' && !paymentDetails?.upi_id) || 
                   (paymentMethod === 'bank' && !paymentDetails?.account_number)
@@ -339,4 +259,4 @@ const CreateTopupRequest = ({role}) => {
   );
 };
 
-export default CreateTopupRequest;
+export default CreateWithdrawalRequest;

@@ -5,6 +5,12 @@ export const profileApi = createApi({
     reducerPath: 'profileApi',
     baseQuery: axiosBaseQuery({ baseUrl: import.meta.env.VITE_BACKEND_API_URL }),
     endpoints: (builder) => ({
+        getPaymentDetails: builder.query({
+            query: () => ({
+                url: '/payment-details/',
+                method: 'GET',
+            }),
+        }),
         getProfile: builder.query({
             query: () => ({
                 url: '/profile/',
@@ -18,10 +24,12 @@ export const profileApi = createApi({
                 data, 
             }),
         }),
+        
     }),
 });
 
 export const {
     useGetProfileQuery,
     useUpdateProfileMutation,
+    useGetPaymentDetailsQuery,
 } = profileApi;

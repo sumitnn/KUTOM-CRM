@@ -22,19 +22,33 @@ export const topupApi = createApi({
 
         GetMyTopupRequest: builder.query({
             query: () => ({
-                url: '/new-topup-request/',
+                url: '/topup-request/',
                 method: 'GET',
             }),
          
         }),
         CreateTopupRequest: builder.mutation({
             query: (formData) => ({
-                url: "/new-topup-request/",
+                url: "/topup-request/",
                 method: "POST",
                 data: formData,
             }),
           
-          })
+        }),
+        CreateWithdrawlRequest: builder.mutation({
+            query: (formData) => ({
+                url: "/withdrawl-request/",
+                method: "POST",
+                data: formData,
+            }),
+
+        }),
+        getWithdrawlRequest: builder.query({
+            query: () => ({
+                url: '/withdrawl-request/',
+                method: 'GET',
+            }),
+        })
     }),
 });
 
@@ -42,5 +56,7 @@ export const {
     useGetTopupRequestQuery,
     useUpdateTopupRequestMutation,
     useCreateTopupRequestMutation,
-    useGetMyTopupRequestQuery
+    useGetMyTopupRequestQuery,
+    useCreateWithdrawlRequestMutation,
+    useGetWithdrawlRequestQuery
 } = topupApi;

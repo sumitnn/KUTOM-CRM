@@ -15,8 +15,8 @@ const CreateBrandPage = () => {
       // Increment reset trigger to reset form fields
       setResetTrigger((prev) => prev + 1);
     } catch (error) {
-      console.error(error);
-      toast.error("Failed to create brand");
+      console.error(error.data);
+      toast.error(error.data.message);
     }
   };
 

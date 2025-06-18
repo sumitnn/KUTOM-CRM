@@ -52,6 +52,33 @@ class Profile(models.Model):
     bio = models.TextField(blank=True)
     whatsapp_number = models.CharField(max_length=15, blank=True)
 
+    # 🔐 NEW: UPI & Bank info (stored in profile)
+    bank_upi = models.CharField(max_length=255, blank=True, null=True)
+    upi_id = models.CharField(max_length=255, blank=True, null=True)
+    account_holder_name = models.CharField(max_length=100, blank=True, null=True)
+    passbook_pic = models.FileField(upload_to='passbook/', blank=True, null=True)
+    ifsc_code = models.CharField(max_length=11, blank=True, null=True)
+    bank_name = models.CharField(max_length=100, blank=True, null=True)
+    account_number = models.CharField(max_length=20, blank=True, null=True)
+
+    # KYC fields
+    adhaar_card_pic = models.FileField(upload_to='adhaarcard/', blank=True, null=True)
+    pancard_pic = models.FileField(upload_to='pancard/', blank=True, null=True)
+    kyc_other_document = models.FileField(upload_to='kyc_other_documents/', blank=True, null=True)
+    adhaar_card_number = models.CharField(max_length=100, blank=True, null=True)
+    pancard_number = models.CharField(max_length=50, blank=True, null=True)
+    kyc_status = models.CharField(max_length=20, choices=[
+        ('PENDING', 'Pending'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+    ], default='PENDING')
+
+
+    kyc_verified = models.BooleanField(default=False)
+    kyc_verified_at = models.DateTimeField(null=True, blank=True)
+    kyc_rejected_reason = models.TextField(blank=True, null=True)
+    
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -91,39 +118,56 @@ class WalletTransaction(models.Model):
     def __str__(self):
         return f"{self.wallet.user.username} - {self.transaction_type} - ₹{self.amount}"
 
-class TopUpRequest(models.Model):
+class TopupRequest(models.Model):
     STATUS_CHOICES = [
-        ('PENDING', 'Pending'),
-        ('APPROVED', 'Approved'),
-        ('REJECTED', 'Rejected'),
-        ('INVALID_SCREENSHOT', 'Invalid Screenshot'),
-        ('INVALID_AMOUNT', 'Invalid Amount'),
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('completed', 'Completed'),
     ]
-
-
+    
+    PAYMENT_METHOD_CHOICES = [
+        ('upi', 'UPI'),
+        ('bank', 'Bank Transfer'),
+    ]
+    
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='topup_requests')
-    approved_by = models.ForeignKey(
-        User, 
-        on_delete=models.SET_NULL, 
-        related_name='approved_topups',
-        null=True, 
-        blank=True,
-        help_text="Admin who reviewed the request"
-    )
-
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
-
-    screenshot = models.ImageField(upload_to='topups/screenshots/', blank=True, null=True)
-
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    payment_method = models.CharField(max_length=10, choices=PAYMENT_METHOD_CHOICES)
+    screenshot = models.ImageField(upload_to='topup_screenshots/')
     note = models.TextField(blank=True, null=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
-    rejected_reason = models.TextField(blank=True, null=True)
-
+    payment_details=models.JSONField(blank=True, null=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
-    reviewed_at = models.DateTimeField(null=True, blank=True)
-
+    updated_at = models.DateTimeField(auto_now=True)
+    
     def __str__(self):
-        return f"TopUp: {self.user.username} - ₹{self.amount} - {self.status}"
+        return f"Topup #{self.id} - {self.user.email} - {self.amount}"
+
+class WithdrawalRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('completed', 'Completed'),
+    ]
+    
+    PAYMENT_METHOD_CHOICES = [
+        ('upi', 'UPI'),
+        ('bank', 'Bank Transfer'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='withdrawal_requests')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    wallet= models.ForeignKey(Wallet, on_delete=models.CASCADE, related_name='withdrawal_requests')
+    payment_method = models.CharField(max_length=10, choices=PAYMENT_METHOD_CHOICES)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    payment_details=models.JSONField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"Withdrawal #{self.id} - {self.user.email} - {self.amount}"
 
 
 class State(models.Model):
@@ -190,3 +234,29 @@ class StockistAssignment(models.Model):
     class Meta:
         verbose_name = "Stockist Assignment"
         verbose_name_plural = "Stockist Assignments"
+
+
+class BroadcastMessage(models.Model):
+    PRIORITY_CHOICES = [
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+        ('critical', 'Critical'),
+    ]
+    VISIBLE_CHOICES = [
+        ('all', 'All'),
+        ('vendor', 'Vendor'),
+        ('reseller', 'Reseller'),
+        ('stockist', 'Stockist'),
+    ]
+
+    admin = models.ForeignKey(User, on_delete=models.CASCADE, related_name='broadcast_messages')
+    title = models.CharField(max_length=255)
+    content = models.TextField()
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='medium')
+    visible_to=models.CharField(max_length=10, choices=VISIBLE_CHOICES, default='all')
+    start_time = models.DateTimeField(null=True, blank=True)
+    end_time = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)

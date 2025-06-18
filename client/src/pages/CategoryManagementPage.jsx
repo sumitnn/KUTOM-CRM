@@ -1,55 +1,84 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   useGetCategoriesQuery,
   useAddCategoryMutation,
   useUpdateCategoryMutation,
-  useDeleteCategoryMutation,
+  useGetSubcategoriesQuery,
   useAddSubcategoryMutation,
   useUpdateSubcategoryMutation,
-  useDeleteSubcategoryMutation,
 } from "../features/category/categoryApi";
+import { useGetBrandsQuery } from "../features/brand/brandApi";
 import { toast } from "react-toastify";
-import { FiEdit2, FiTrash2, FiPlus, FiX } from "react-icons/fi";
+import { FiEdit2, FiPlus, FiX } from "react-icons/fi";
+import { format } from "date-fns";
 
 const CategoryManagementPage = () => {
   // State for active tab
   const [activeTab, setActiveTab] = useState("categories");
   
   // Category states
-  const [categoryName, setCategoryName] = useState("");
+  const [categoryForm, setCategoryForm] = useState({
+    name: "",
+    is_active: true
+  });
   const [isCategoryFormOpen, setIsCategoryFormOpen] = useState(false);
   
   // Subcategory states
-  const [subcategoryName, setSubcategoryName] = useState("");
-  const [selectedCategoryId, setSelectedCategoryId] = useState("");
+  const [subcategoryForm, setSubcategoryForm] = useState({
+    name: "",
+    category: "",
+    brand: "",
+    is_active: true
+  });
   const [isSubcategoryFormOpen, setIsSubcategoryFormOpen] = useState(false);
   
-  // Edit modals
+  // Edit states
   const [editCategory, setEditCategory] = useState(null);
   const [editSubcategory, setEditSubcategory] = useState(null);
-  
+
   // Data fetching
-  const { data: categories = [], isLoading, refetch } = useGetCategoriesQuery({
-    withSubcategories: true,
-  });
+  const { 
+    data: categories = [], 
+    isLoading: isCategoriesLoading,
+    refetch: refetchCategories 
+  } = useGetCategoriesQuery();
   
+  const {
+    data: brands = [],
+    isLoading: isBrandsLoading
+  } = useGetBrandsQuery();
+
+  const { 
+    data: subcategories = [], 
+    isLoading: isSubcategoriesLoading,
+    refetch: refetchSubcategories 
+  } = useGetSubcategoriesQuery(undefined, {
+    skip: activeTab !== "subcategories"
+  });
+
   // Mutations
   const [addCategory] = useAddCategoryMutation();
   const [updateCategory] = useUpdateCategoryMutation();
-  const [deleteCategory] = useDeleteCategoryMutation();
   const [addSubcategory] = useAddSubcategoryMutation();
   const [updateSubcategory] = useUpdateSubcategoryMutation();
-  const [deleteSubcategory] = useDeleteSubcategoryMutation();
+
+  // Reset forms when tab changes
+  useEffect(() => {
+    setIsCategoryFormOpen(false);
+    setIsSubcategoryFormOpen(false);
+    setEditCategory(null);
+    setEditSubcategory(null);
+  }, [activeTab]);
 
   // Handle category creation
   const handleCreateCategory = async (e) => {
     e.preventDefault();
     try {
-      await addCategory({ name: categoryName }).unwrap();
-      setCategoryName("");
+      await addCategory(categoryForm).unwrap();
+      setCategoryForm({ name: "", is_active: true });
       setIsCategoryFormOpen(false);
       toast.success("Category created successfully");
-      refetch();
+      refetchCategories();
     } catch (error) {
       toast.error(error.data?.message || "Failed to create category");
     }
@@ -61,11 +90,11 @@ const CategoryManagementPage = () => {
     try {
       await updateCategory({
         id: editCategory.id,
-        data: { name: editCategory.name, isActive: editCategory.isActive }
+        data: editCategory
       }).unwrap();
       setEditCategory(null);
       toast.success("Category updated successfully");
-      refetch();
+      refetchCategories();
     } catch (error) {
       toast.error(error.data?.message || "Failed to update category");
     }
@@ -75,17 +104,13 @@ const CategoryManagementPage = () => {
   const handleCreateSubcategory = async (e) => {
     e.preventDefault();
     try {
-      await addSubcategory({ 
-        name: subcategoryName, 
-        parent: selectedCategoryId 
-      }).unwrap();
-      setSubcategoryName("");
-      setSelectedCategoryId("");
+      await addSubcategory(subcategoryForm).unwrap();
+      setSubcategoryForm({ name: "", category: "", brand: "", is_active: true });
       setIsSubcategoryFormOpen(false);
       toast.success("Subcategory created successfully");
-      refetch();
+      refetchSubcategories();
     } catch (error) {
-      toast.error(error.data?.details || "Failed to create subcategory");
+      toast.error(error.data?.message || "Failed to create subcategory");
     }
   };
 
@@ -95,47 +120,17 @@ const CategoryManagementPage = () => {
     try {
       await updateSubcategory({
         id: editSubcategory.id,
-        data: { 
-          name: editSubcategory.name, 
-          parent: editSubcategory.parent,
-          isActive: editSubcategory.isActive 
-        }
+        data: editSubcategory
       }).unwrap();
       setEditSubcategory(null);
       toast.success("Subcategory updated successfully");
-      refetch();
+      refetchSubcategories();
     } catch (error) {
       toast.error(error.data?.message || "Failed to update subcategory");
     }
   };
 
-  // Handle category deletion
-  const handleDeleteCategory = async (id) => {
-    if (window.confirm("Are you sure you want to delete this category and all its subcategories?")) {
-      try {
-        await deleteCategory(id).unwrap();
-        toast.success("Category deleted successfully");
-        refetch();
-      } catch (error) {
-        toast.error(error.data?.message || "Failed to delete category");
-      }
-    }
-  };
-
-  // Handle subcategory deletion
-  const handleDeleteSubcategory = async (id) => {
-    if (window.confirm("Are you sure you want to delete this subcategory?")) {
-      try {
-        await deleteSubcategory(id).unwrap();
-        toast.success("Subcategory deleted successfully");
-        refetch();
-      } catch (error) {
-        toast.error(error.data?.message || "Failed to delete subcategory");
-      }
-    }
-  };
-
-  if (isLoading) {
+  if (isCategoriesLoading || isBrandsLoading || (activeTab === "subcategories" && isSubcategoriesLoading)) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -144,8 +139,8 @@ const CategoryManagementPage = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200">
           <h1 className="text-2xl font-bold text-gray-800">Category Management</h1>
@@ -156,13 +151,21 @@ const CategoryManagementPage = () => {
           <nav className="flex -mb-px">
             <button
               onClick={() => setActiveTab("categories")}
-              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${activeTab === "categories" ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"}`}
+              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${
+                activeTab === "categories" 
+                  ? "border-blue-500 text-blue-600" 
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
             >
               Categories
             </button>
             <button
               onClick={() => setActiveTab("subcategories")}
-              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${activeTab === "subcategories" ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"}`}
+              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${
+                activeTab === "subcategories" 
+                  ? "border-blue-500 text-blue-600" 
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
             >
               Subcategories
             </button>
@@ -178,9 +181,10 @@ const CategoryManagementPage = () => {
                 <h2 className="text-xl font-semibold text-gray-800">Categories</h2>
                 <button
                   onClick={() => setIsCategoryFormOpen(true)}
-                  className="btn btn-primary gap-2"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
-                  <FiPlus /> New Category
+                  <FiPlus className="mr-2" />
+                  New Category
                 </button>
               </div>
               
@@ -189,25 +193,42 @@ const CategoryManagementPage = () => {
                 <div className="bg-gray-50 p-4 rounded-lg mb-6">
                   <form onSubmit={handleCreateCategory} className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Category Name</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Category Name*
+                      </label>
                       <input
                         type="text"
                         placeholder="Enter category name"
-                        className="input input-bordered w-full"
-                        value={categoryName}
-                        onChange={(e) => setCategoryName(e.target.value)}
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        value={categoryForm.name}
+                        onChange={(e) => setCategoryForm({...categoryForm, name: e.target.value})}
                         required
                       />
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="category-active"
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        checked={categoryForm.is_active}
+                        onChange={(e) => setCategoryForm({...categoryForm, is_active: e.target.checked})}
+                      />
+                      <label htmlFor="category-active" className="ml-2 block text-sm text-gray-700">
+                        Active
+                      </label>
                     </div>
                     <div className="flex justify-end gap-2">
                       <button
                         type="button"
                         onClick={() => setIsCategoryFormOpen(false)}
-                        className="btn btn-ghost"
+                        className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                       >
                         Cancel
                       </button>
-                      <button type="submit" className="btn btn-primary">
+                      <button 
+                        type="submit" 
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      >
                         Create Category
                       </button>
                     </div>
@@ -221,16 +242,16 @@ const CategoryManagementPage = () => {
                   <thead className="bg-gray-50">
                     <tr>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Sr No.
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Created Date
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Category Name
+                        Name
                       </th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Created At
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Updated At
                       </th>
                       <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
@@ -238,37 +259,31 @@ const CategoryManagementPage = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {categories.map((category, index) => (
+                    {categories.map((category) => (
                       <tr key={category.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {index + 1}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(category.createdAt).toLocaleDateString()}
-                        </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">{category.name}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${category.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                            {category.isActive ? 'Active' : 'Inactive'}
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            category.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {category.is_active ? 'Active' : 'Inactive'}
                           </span>
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {format(new Date(category.created_at), 'dd MMM yyyy, HH:mm')}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {format(new Date(category.updated_at), 'dd MMM yyyy, HH:mm')}
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex justify-end gap-2">
-                            <button
-                              onClick={() => setEditCategory(category)}
-                              className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
-                            >
-                              <FiEdit2 className="h-5 w-5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteCategory(category.id)}
-                              className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
-                            >
-                              <FiTrash2 className="h-5 w-5" />
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => setEditCategory(category)}
+                            className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                          >
+                            <FiEdit2 className="h-5 w-5" />
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -285,9 +300,10 @@ const CategoryManagementPage = () => {
                 <h2 className="text-xl font-semibold text-gray-800">Subcategories</h2>
                 <button
                   onClick={() => setIsSubcategoryFormOpen(true)}
-                  className="btn btn-primary gap-2"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
-                  <FiPlus /> New Subcategory
+                  <FiPlus className="mr-2" />
+                  New Subcategory
                 </button>
               </div>
               
@@ -296,11 +312,13 @@ const CategoryManagementPage = () => {
                 <div className="bg-gray-50 p-4 rounded-lg mb-6">
                   <form onSubmit={handleCreateSubcategory} className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Parent Category</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Parent Category*
+                      </label>
                       <select
-                        className="select select-bordered w-full"
-                        value={selectedCategoryId}
-                        onChange={(e) => setSelectedCategoryId(e.target.value)}
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        value={subcategoryForm.category}
+                        onChange={(e) => setSubcategoryForm({...subcategoryForm, category: e.target.value})}
                         required
                       >
                         <option value="" disabled>Select Category</option>
@@ -312,25 +330,60 @@ const CategoryManagementPage = () => {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Subcategory Name</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Brand*
+                      </label>
+                      <select
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        value={subcategoryForm.brand}
+                        onChange={(e) => setSubcategoryForm({...subcategoryForm, brand: e.target.value})}
+                        required
+                      >
+                        <option value="" disabled>Select Brand</option>
+                        {brands.map((brand) => (
+                          <option key={brand.id} value={brand.id}>
+                            {brand.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Subcategory Name*
+                      </label>
                       <input
                         type="text"
                         placeholder="Enter subcategory name"
-                        className="input input-bordered w-full"
-                        value={subcategoryName}
-                        onChange={(e) => setSubcategoryName(e.target.value)}
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        value={subcategoryForm.name}
+                        onChange={(e) => setSubcategoryForm({...subcategoryForm, name: e.target.value})}
                         required
                       />
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="subcategory-active"
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        checked={subcategoryForm.is_active}
+                        onChange={(e) => setSubcategoryForm({...subcategoryForm, is_active: e.target.checked})}
+                      />
+                      <label htmlFor="subcategory-active" className="ml-2 block text-sm text-gray-700">
+                        Active
+                      </label>
                     </div>
                     <div className="flex justify-end gap-2">
                       <button
                         type="button"
                         onClick={() => setIsSubcategoryFormOpen(false)}
-                        className="btn btn-ghost"
+                        className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                       >
                         Cancel
                       </button>
-                      <button type="submit" className="btn btn-primary">
+                      <button 
+                        type="submit" 
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      >
                         Create Subcategory
                       </button>
                     </div>
@@ -344,19 +397,22 @@ const CategoryManagementPage = () => {
                   <thead className="bg-gray-50">
                     <tr>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Sr No.
+                        Name
                       </th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Created Date
+                        Parent Category
                       </th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Subcategory Name
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Main Category
+                        Brand
                       </th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Created At
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Updated At
                       </th>
                       <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
@@ -364,48 +420,48 @@ const CategoryManagementPage = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {categories.flatMap((category, catIndex) => 
-                      category.subcategories?.map((subcategory, subIndex) => (
+                    {subcategories.map((subcategory) => {
+                      const parentCategory = categories.find(cat => cat.id === subcategory.category);
+                      const brand = brands.find(b => b.id === subcategory.brand);
+                      return (
                         <tr key={subcategory.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {catIndex + 1}.{subIndex + 1}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {new Date(subcategory.createdAt).toLocaleDateString()}
-                          </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">{subcategory.name}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-500">{category.name}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${subcategory.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                              {subcategory.isActive ? 'Active' : 'Inactive'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div className="flex justify-end gap-2">
-                              <button
-                                onClick={() => setEditSubcategory({
-                                  ...subcategory,
-                                  parent: category.id
-                                })}
-                                className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
-                              >
-                                <FiEdit2 className="h-5 w-5" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteSubcategory(subcategory.id)}
-                                className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
-                              >
-                                <FiTrash2 className="h-5 w-5" />
-                              </button>
+                            <div className="text-sm text-gray-500">
+                              {parentCategory?.name || 'Unknown'}
                             </div>
                           </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-500">
+                              {brand?.name || 'No Brand'}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              subcategory.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }`}>
+                              {subcategory.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {format(new Date(subcategory.created_at), 'dd MMM yyyy, HH:mm')}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {format(new Date(subcategory.updated_at), 'dd MMM yyyy, HH:mm')}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button
+                              onClick={() => setEditSubcategory(subcategory)}
+                              className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                            >
+                              <FiEdit2 className="h-5 w-5" />
+                            </button>
+                          </td>
                         </tr>
-                      ))
-                    )}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -420,44 +476,50 @@ const CategoryManagementPage = () => {
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold">Edit Category</h2>
-              <button onClick={() => setEditCategory(null)} className="text-gray-500 hover:text-gray-700">
+              <button 
+                onClick={() => setEditCategory(null)} 
+                className="text-gray-500 hover:text-gray-700"
+              >
                 <FiX className="h-6 w-6" />
               </button>
             </div>
             <form onSubmit={handleUpdateCategory} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Category Name*
+                </label>
                 <input
                   type="text"
-                  className="input input-bordered w-full"
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   value={editCategory.name}
                   onChange={(e) => setEditCategory({...editCategory, name: e.target.value})}
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <select
-                  className="select select-bordered w-full"
-                  value={editCategory.isActive ? "active" : "inactive"}
-                  onChange={(e) => setEditCategory({
-                    ...editCategory, 
-                    isActive: e.target.value === "active"
-                  })}
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="edit-category-active"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  checked={editCategory.is_active}
+                  onChange={(e) => setEditCategory({...editCategory, is_active: e.target.checked})}
+                />
+                <label htmlFor="edit-category-active" className="ml-2 block text-sm text-gray-700">
+                  Active
+                </label>
               </div>
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setEditCategory(null)}
-                  className="btn btn-ghost"
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary">
+                <button 
+                  type="submit" 
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
                   Update Category
                 </button>
               </div>
@@ -472,30 +534,23 @@ const CategoryManagementPage = () => {
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold">Edit Subcategory</h2>
-              <button onClick={() => setEditSubcategory(null)} className="text-gray-500 hover:text-gray-700">
+              <button 
+                onClick={() => setEditSubcategory(null)} 
+                className="text-gray-500 hover:text-gray-700"
+              >
                 <FiX className="h-6 w-6" />
               </button>
             </div>
             <form onSubmit={handleUpdateSubcategory} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Subcategory Name</label>
-                <input
-                  type="text"
-                  className="input input-bordered w-full"
-                  value={editSubcategory.name}
-                  onChange={(e) => setEditSubcategory({...editSubcategory, name: e.target.value})}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Parent Category</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Parent Category*
+                </label>
                 <select
-                  className="select select-bordered w-full"
-                  value={editSubcategory.parent}
-                  onChange={(e) => setEditSubcategory({
-                    ...editSubcategory, 
-                    parent: e.target.value
-                  })}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  value={editSubcategory.category}
+                  onChange={(e) => setEditSubcategory({...editSubcategory, category: e.target.value})}
+                  required
                 >
                   {categories.map((cat) => (
                     <option key={cat.id} value={cat.id}>
@@ -505,28 +560,59 @@ const CategoryManagementPage = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Brand*
+                </label>
                 <select
-                  className="select select-bordered w-full"
-                  value={editSubcategory.isActive ? "active" : "inactive"}
-                  onChange={(e) => setEditSubcategory({
-                    ...editSubcategory, 
-                    isActive: e.target.value === "active"
-                  })}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  value={editSubcategory.brand || ""}
+                  onChange={(e) => setEditSubcategory({...editSubcategory, brand: e.target.value})}
+                  required
                 >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
+                  <option value="" disabled>Select Brand</option>
+                  {brands.map((brand) => (
+                    <option key={brand.id} value={brand.id}>
+                      {brand.name}
+                    </option>
+                  ))}
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Subcategory Name*
+                </label>
+                <input
+                  type="text"
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  value={editSubcategory.name}
+                  onChange={(e) => setEditSubcategory({...editSubcategory, name: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="edit-subcategory-active"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  checked={editSubcategory.is_active}
+                  onChange={(e) => setEditSubcategory({...editSubcategory, is_active: e.target.checked})}
+                />
+                <label htmlFor="edit-subcategory-active" className="ml-2 block text-sm text-gray-700">
+                  Active
+                </label>
               </div>
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setEditSubcategory(null)}
-                  className="btn btn-ghost"
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary">
+                <button 
+                  type="submit" 
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
                   Update Subcategory
                 </button>
               </div>

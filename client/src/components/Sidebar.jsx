@@ -185,7 +185,9 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
           { label: "Create Topup Request", path: "/vendor/topup-request" },
           { label: "Topup Request History", path: "/vendor/my-topup" },
           { label: "My Wallet & Transaction", path: "/vendor/wallet" },
-          { label: "Withdrawl Request", path: "/vendor/my-topup" },
+          { label: "Create Withdrawl Request", path: "/vendor/withdrawl-request" },
+          { label: "Withdrawl Request History", path: "/vendor/my-withdrawl" },
+          { label: "Report", path: "/vendor/report" },
           
     
         ],
@@ -265,46 +267,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
           );
         })}
 
-        {/* Settings Section */}
-        {["admin", "stockist","reseller","vendor"].includes(role) && (
-          <div className="text-gray-700">
-            <div
-              className="flex items-center justify-between gap-2 p-2 rounded-md cursor-pointer hover:bg-indigo-100"
-              onClick={() => setSettingsOpen(!settingsOpen)}
-            >
-              <div className="flex items-center gap-3">
-                <FaCog className="text-lg" />
-                {expanded && <span className="font-medium flex-1">Settings</span>}
-              </div>
-              {expanded && <span className="text-sm">{settingsOpen ? "▲" : "▼"}</span>}
-            </div>
-
-            {settingsOpen && expanded && (
-              <div className="ml-6 mt-1 space-y-1">
-                <NavLink
-                  to={`/${role}/settings/profile`} 
-                  className={({ isActive }) =>
-                    `block p-2 rounded-md font-bold text-sm hover:bg-indigo-100 ${
-                      isActive ? "bg-indigo-200 font-extrabold" : ""
-                    }`
-                  }
-                >
-                  My Profile
-                </NavLink>
-                <NavLink
-                  to={`/${role}/settings/change-password`} 
-                  className={({ isActive }) =>
-                    `block p-2 rounded-md text-sm font-bold hover:bg-indigo-100 ${
-                      isActive ? "bg-indigo-200 font-extrabold" : ""
-                    }`
-                  }
-                >
-                  Change Password
-                </NavLink>
-              </div>
-            )}
-          </div>
-        )}
+        
       </nav>
 
       {/* Logout Button */}

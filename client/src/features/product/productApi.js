@@ -59,7 +59,15 @@ export const productApi = createApi({
                 url: '/products/stats/',
                 method: 'GET',
             }),
-          }),
+        }),
+        getProductsByStatus: builder.query({
+            query: (status) => ({
+                url: `/products/by-status/`,
+                method: 'GET',
+                params: { status }, 
+            }),
+            providesTags: ['Product'],
+        }),
     }),
 });
 
@@ -70,5 +78,6 @@ export const {
     useCreateProductMutation,
     useUpdateProductMutation,
     useDeleteProductMutation,
-    useGetProductStatsQuery
+    useGetProductStatsQuery,
+    useGetProductsByStatusQuery
 } = productApi;
