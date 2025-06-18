@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Order, OrderItem
+from .models import *
 from accounts.models import User
 from products.models import Product,ProductImage
 from decimal import Decimal
@@ -116,3 +116,37 @@ class OrderStatusUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ['status','note']
+
+
+class OrderHistorySerializer(serializers.ModelSerializer):
+    order_number = serializers.CharField(source='order.order_number', read_only=True)
+    user_name = serializers.CharField(source='actor.get_full_name', read_only=True)
+    brand_name = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
+    subcategory = serializers.SerializerMethodField()
+    quantity = serializers.SerializerMethodField()
+    actual_rate = serializers.SerializerMethodField()
+    accepted_price = serializers.DecimalField(source='order.accepted_price', max_digits=10, decimal_places=2, read_only=True)
+    amount = serializers.DecimalField(source='order.total_amount', max_digits=12, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = OrderHistory
+        fields = [
+            'id', 'timestamp', 'user_name', 'brand_name', 'category', 'subcategory',
+            'quantity', 'actual_rate', 'accepted_price', 'action', 'amount', 'order_number'
+        ]
+
+    def get_brand_name(self, obj):
+        return getattr(getattr(obj.order.product, 'brand', None), 'name', '')
+
+    def get_category(self, obj):
+        return getattr(getattr(obj.order.product, 'category', None), 'name', '')
+
+    def get_subcategory(self, obj):
+        return getattr(getattr(obj.order.product, 'subcategory', None), 'name', '')
+
+    def get_quantity(self, obj):
+        return getattr(obj.order, 'quantity', 0)
+
+    def get_actual_rate(self, obj):
+        return getattr(obj.order.product, 'actual_rate', None)

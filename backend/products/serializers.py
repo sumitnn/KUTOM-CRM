@@ -1,9 +1,6 @@
 from rest_framework import serializers
-from .models import (
-    Brand, Category, SubCategory, Tag,
-    Product, ProductSize, ProductImage,
-    ProductPriceTier, Notification
-)
+from .models import *
+   
 from django.utils.text import slugify
 import json
 
@@ -123,14 +120,7 @@ class ProductSizeSerializer(serializers.ModelSerializer):
 
 
 
-class NotificationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Notification
-        fields = [
-            'id', 'user', 'title', 'message', 'notification_type',
-            'is_read', 'related_url', 'created_at'
-        ]
-        read_only_fields = ['created_at']
+
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -233,6 +223,17 @@ class ProductSerializer(serializers.ModelSerializer):
                 product=product,
                 image=img
             )
+
+        # Create stock entries for each size
+        for size in product.sizes.all():
+            Stock.objects.create(
+                product=product,
+                size=size,
+                quantity=size.quantity,
+                rate=size.price,
+                status='in_stock',
+                owner=self.context['request'].user
+            )
         
         return product
     
@@ -327,4 +328,33 @@ class ProductSerializer(serializers.ModelSerializer):
         for img in request.FILES.getlist('additional_images'):
             ProductImage.objects.create(product=instance, image=img)
 
+        
+
         return instance
+
+
+
+class StockSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    brand_name = serializers.CharField(source='product.brand.name', read_only=True)
+    category_name = serializers.CharField(source='product.category.name', read_only=True)
+    subcategory_name = serializers.CharField(source='product.subcategory.name', read_only=True)
+    size_display = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Stock
+        fields = [
+            'id', 'product', 'product_name', 'size', 'size_display', 'quantity', 
+            'rate', 'total_price', 'status', 'expected_date', 'notes',
+            'brand_name', 'category_name', 'subcategory_name', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['total_price', 'created_at', 'updated_at']
+    
+    def get_size_display(self, obj):
+        if obj.size:
+            return f"{obj.size.size}{obj.size.unit}"
+        return None
+    
+    def create(self, validated_data):
+        validated_data['total_price'] = validated_data['quantity'] * validated_data['rate']
+        return super().create(validated_data)

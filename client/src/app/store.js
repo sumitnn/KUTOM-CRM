@@ -17,6 +17,9 @@ import { locationApi } from "../features/location/locationApi";
 import { resellerApi } from "../features/reseller/resellerApi";
 import { profileApi } from "../features/profile/profileApi";
 import { announcementApi } from "../features/announcement/announcementApi";
+import { dashboardApi } from "../features/dashboardApi";
+import { stocksApi } from "../features/stocks/stocksApi";
+import { notificationApi } from "../features/notification/notificationApi";
 
 
 
@@ -36,7 +39,10 @@ export const store = configureStore({
         [locationApi.reducerPath]: locationApi.reducer,
         [resellerApi.reducerPath]: resellerApi.reducer,
         [profileApi.reducerPath]: profileApi.reducer,
-        [announcementApi.reducerPath]:announcementApi.reducer,
+        [announcementApi.reducerPath]: announcementApi.reducer,
+        [dashboardApi.reducerPath]: dashboardApi.reducer,
+        [stocksApi.reducerPath]: stocksApi.reducer,
+        [notificationApi.reducerPath]:notificationApi.reducer,
         
     },
     middleware: (getDefaultMiddleware) =>
@@ -50,5 +56,8 @@ export const store = configureStore({
             resellerApi.middleware,
             profileApi.middleware,
             announcementApi.middleware,
+            dashboardApi.middleware,
+            stocksApi.middleware,
+            notificationApi.middleware,
         ),
 });

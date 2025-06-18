@@ -113,3 +113,10 @@ class WithdrawalRequestAdmin(admin.ModelAdmin):
     search_fields = ('user__email', 'amount')
     readonly_fields = ('created_at', 'updated_at')
     ordering = ('-created_at',)
+
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ['user', 'title', 'notification_type']
+    list_filter = ['notification_type']
+    search_fields = ['user__username', 'title']

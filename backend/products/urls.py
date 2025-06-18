@@ -20,4 +20,8 @@ urlpatterns = [
     path("products/my-products/", MyProductListAPIView.as_view(), name="my-products"),
     path('products/stats/', ProductStatsView.as_view(), name='product-stats'),
     path('products/by-status/', ProductByStatusAPIView.as_view(), name='product-by-status'),
+
+
+    # stocks 
+    path('stocks/', StockListAPIView.as_view(), name='stock-list'),
 ]

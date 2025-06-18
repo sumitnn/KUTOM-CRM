@@ -13,8 +13,8 @@ const TransactionFilter = ({ filters, onFilterChange }) => {
             className="select select-bordered w-full"
           >
             <option value="">All</option>
-            <option value="Deposit">Deposit</option>
-            <option value="Withdrawal">Withdrawal</option>
+            <option value="CREDIT">Credit</option>
+            <option value="DEBIT">Debit</option>
           </select>
         </div>
         <div>
@@ -28,9 +28,11 @@ const TransactionFilter = ({ filters, onFilterChange }) => {
             className="select select-bordered w-full"
           >
             <option value="">All</option>
-            <option value="Completed">Completed</option>
-            <option value="Pending">Pending</option>
-            <option value="Rejected">Rejected</option>
+            <option value="SUCCESS">Success</option>
+            <option value="PENDING">Pending</option>
+            <option value="FAILED">Failed</option>
+            <option value="REFUND">Refund</option>
+            <option value="RECEIVED">Received</option>
           </select>
         </div>
         <div>

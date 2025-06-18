@@ -9,6 +9,10 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.db.models import Sum
+from rest_framework.filters import SearchFilter, OrderingFilter
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.generics import ListAPIView
+
 
 
 class BrandListCreateAPIView(APIView):
@@ -345,41 +349,18 @@ class ProductStatsView(APIView):
         })
     
 
-# def order_summary(request):
-#     # Status counts
-#     status_counts = Order.objects.values('status').annotate(count=Count('id'))
-#     status_map = {'All': Order.objects.count()}
-#     for item in status_counts:
-#         status_map[item['status']] = item['count']
+class StockListAPIView(ListAPIView):
+    queryset = Stock.objects.all()
+    serializer_class = StockSerializer
+    permission_classes = [IsAuthenticated]
 
-#     # Monthly orders
-#     months = Order.objects.annotate(month=TruncMonth('created_at')) \
-#         .values('month', 'status') \
-#         .annotate(count=Count('id'))
-
-#     # Build monthly datasets
-#     label_set = set()
-#     data_map = {'All': {}, 'Pending': {}, 'Approved': {}, 'Rejected': {}}
-#     for entry in months:
-#         month_label = entry['month'].strftime('%B')
-#         label_set.add(month_label)
-#         status = entry['status']
-#         data_map['All'].setdefault(month_label, 0)
-#         data_map[status].setdefault(month_label, 0)
-#         data_map['All'][month_label] += entry['count']
-#         data_map[status][month_label] += entry['count']
-
-#     sorted_labels = sorted(label_set, key=lambda m: datetime.strptime(m, '%B').month)
-
-#     datasets = [
-#         {'label': status, 'data': [data_map[status].get(label, 0) for label in sorted_labels]}
-#         for status in ['All', 'Pending', 'Approved', 'Rejected']
-#     ]
-
-#     return Response({
-#         'statusCounts': status_map,
-#         'monthlyOrders': {
-#             'labels': sorted_labels,
-#             'datasets': datasets,
-#         }
-#     })   
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = {
+        'product': ['exact'],
+        'status': ['exact'],
+        'created_at': ['gte', 'lte'],
+        'expected_date': ['gte', 'lte'],
+    }
+    search_fields = ['product__name', 'product__brand__name', 'notes']
+    ordering_fields = ['created_at', 'updated_at', 'expected_date', 'quantity']
+    ordering = ['-created_at']

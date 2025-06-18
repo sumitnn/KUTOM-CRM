@@ -2,7 +2,7 @@ from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import *
-from .serializers import OrderSerializer,OrderDetailSerializer,OrderStatusUpdateSerializer
+from .serializers import *
 from django.utils.timezone import now
 from accounts.permissions import IsAdminRole, IsStockistRole, IsVendorRole
 from django.db.models import Q
@@ -16,6 +16,10 @@ from django.db import transaction
 from decimal import Decimal
 from .services import OrderService
 from rest_framework.exceptions import ValidationError
+import csv
+from django.http import HttpResponse
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import OrderingFilter
 
 
 # Reseller can create
@@ -248,3 +252,51 @@ class StockistUpdateOrderStatusView(APIView):
             return Response(serializer.data)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+
+class OrderHistoryListAPIView(generics.ListAPIView):
+    queryset = OrderHistory.objects.select_related(
+        'order', 'actor'
+    )
+    serializer_class = OrderHistorySerializer
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_fields = {
+        'action': ['exact'],
+        'timestamp': ['gte', 'lte'],
+        'actor__id': ['exact'],
+    }
+    ordering_fields = ['timestamp', 'action']
+    ordering = ['-timestamp']
+
+
+class ExportOrderHistoryExcelAPIView(generics.ListAPIView):
+    queryset = OrderHistory.objects.select_related('order', 'actor', 'order__product__brand', 'order__product__category', 'order__product__subcategory')
+    serializer_class = OrderHistorySerializer
+
+    def get(self, request, *args, **kwargs):
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="order_history.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow([
+            'Sr No', 'Date', 'Name', 'Brand', 'Category', 'Subcategory',
+            'Qty', 'Actual Rate', 'Accepted Price', 'Status Received', 'Amount'
+        ])
+
+        for idx, history in enumerate(self.get_queryset(), start=1):
+            writer.writerow([
+                idx,
+                history.timestamp.strftime("%Y-%m-%d %H:%M"),
+                history.actor.get_full_name() if history.actor else "",
+                getattr(history.order.product.brand, 'name', ''),
+                getattr(history.order.product.category, 'name', ''),
+                getattr(history.order.product.subcategory, 'name', ''),
+                getattr(history.order, 'quantity', ''),
+                getattr(history.order.product, 'actual_rate', ''),
+                getattr(history.order, 'accepted_price', ''),
+                history.action,
+                getattr(history.order, 'total_amount', ''),
+            ])
+
+        return response

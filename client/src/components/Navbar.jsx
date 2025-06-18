@@ -3,16 +3,23 @@ import logo from "../assets/icons/fev.png";
 import { MdOutlineNotificationAdd } from "react-icons/md";
 import { Link } from "react-router-dom";
 import { useGetAnnouncementsQuery } from "../features/announcement/announcementApi";
+import { useGetTodayNotificationsQuery } from "../features/notification/notificationApi";
 
 const Navbar = ({ role }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [notificationOpen, setNotificationOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const notificationRef = useRef(null);
   const { data: announcements, isLoading } = useGetAnnouncementsQuery();
+  const { data: notifications, refetch } = useGetTodayNotificationsQuery();
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setDropdownOpen(false);
+      }
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setNotificationOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -20,6 +27,9 @@ const Navbar = ({ role }) => {
   }, []);
 
   const marqueeMessages = announcements?.map((msg) => msg.title).join(" 🔔 ") || "";
+
+  // Count unread notifications
+  const unreadCount = notifications?.filter(notif => !notif.is_read).length || 0;
 
   return (
     <nav className="bg-white shadow-sm fixed top-0 left-0 right-0 z-50 border-b border-gray-100">
@@ -55,10 +65,49 @@ const Navbar = ({ role }) => {
 
           {/* Right side icons */}
           <div className="flex items-center space-x-3 ml-2">
-            <button className="relative p-1.5 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors">
-              <MdOutlineNotificationAdd className="text-xl" />
-              <span className="absolute top-1 right-1 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
-            </button>
+            <div className="relative" ref={notificationRef}>
+              <button 
+                onClick={() => {
+                  setNotificationOpen(!notificationOpen);
+                  refetch(); // Refresh notifications when clicked
+                }}
+                className="relative p-1.5 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                <MdOutlineNotificationAdd className="text-xl" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+                )}
+              </button>
+
+              {notificationOpen && (
+                <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white rounded-lg shadow-lg py-1 z-50 border border-gray-100 divide-y divide-gray-100 max-h-96 overflow-y-auto">
+                  <div className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50">
+                    Notifications
+                  </div>
+                  {notifications?.length > 0 ? (
+                    notifications.map((notification) => (
+                      <Link
+                        key={notification.id}
+                        to={notification.related_url || `/${role}/dashboard`}
+                        className={`block px-4 py-3 text-sm ${notification.is_read ? 'text-gray-600' : 'text-gray-900 bg-amber-50'}`}
+                      >
+                        <div className="font-medium">{notification.title}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {notification.message}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          {new Date(notification.created_at).toLocaleTimeString()}
+                        </div>
+                      </Link>
+                    ))
+                  ) : (
+                    <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                      No notifications today
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             <div className="relative" ref={dropdownRef}>
               <button
