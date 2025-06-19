@@ -1,6 +1,17 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { FiBox, FiDollarSign, FiShoppingCart, FiTruck, FiCreditCard, FiActivity, FiRefreshCw, FiDownload } from 'react-icons/fi';
+
+const iconMap = {
+  "Active Products": <FiBox className="text-xl" />,
+  "Requested Products": <FiBox className="text-xl" />,
+  "Total Sales": <FiDollarSign className="text-xl" />,
+  "Dipatch": <FiTruck className="text-xl" />,
+  "Wallet Balance": <FiCreditCard className="text-xl" />,
+  "Topup Requests": <FiActivity className="text-xl" />,
+  "Last Tranaction": <FiRefreshCw className="text-xl" />,
+  "Withdrawals (request)": <FiDownload className="text-xl" />,
+};
 
 const StatCard = ({ 
   title, 
@@ -11,9 +22,19 @@ const StatCard = ({
   navlink 
 }) => (
   <Link to={navlink} className="block h-full group">
-    <div className={`${bgColor} ${borderColor} p-5 rounded-xl border-2 shadow-xs hover:shadow-md transition-all duration-200 h-full flex flex-col`}>
-      <p className={`text-sm font-extrabold ${textColor} mb-1`}>{title}</p>
-      <p className="text-2xl font-bold text-gray-900">{value}</p>
+    <div className={`${bgColor} ${borderColor} p-5 rounded-xl border hover:border-gray-300 shadow-xs hover:shadow-md transition-all duration-200 h-full flex flex-col`}>
+      <div className="flex justify-between items-start">
+        <div>
+          <p className={`text-sm font-medium ${textColor} mb-1`}>{title}</p>
+          <p className="text-2xl font-bold text-gray-900">{value}</p>
+        </div>
+        <div className={`p-2 rounded-lg ${textColor} bg-white bg-opacity-50`}>
+          {iconMap[title]}
+        </div>
+      </div>
+      <div className="mt-2 text-xs text-gray-500">
+        View all →
+      </div>
     </div>
   </Link>
 );

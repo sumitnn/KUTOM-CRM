@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FiPackage, FiTruck, FiCheckCircle, FiPlus, FiEdit, FiX } from "react-icons/fi";
 import { useGetStocksQuery, useCreateStockMutation, useUpdateStockMutation } from "../features/stocks/stocksApi";
+import { useGetVendorActiveProductsQuery, useGetProductSizesQuery } from "../features/product/productApi";
 
 const MyStockPage = ({ role }) => {
   const [activeTab, setActiveTab] = useState("in_stock"); 
@@ -9,6 +10,7 @@ const MyStockPage = ({ role }) => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [selectedStock, setSelectedStock] = useState(null);
+  const [selectedProductId, setSelectedProductId] = useState(null);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -27,8 +29,23 @@ const MyStockPage = ({ role }) => {
     pageSize
   });
 
+  // Get active products for dropdown
+  const { data: activeProducts } = useGetVendorActiveProductsQuery();
+  
+  // Get product sizes when product is selected
+  const { data: productSizes } = useGetProductSizesQuery(selectedProductId, {
+    skip: !selectedProductId
+  });
+
+ 
   const [createStock] = useCreateStockMutation();
   const [updateStock] = useUpdateStockMutation();
+
+  useEffect(() => {
+    if (showEditForm && selectedStock) {
+      setSelectedProductId(selectedStock.product_id);
+    }
+  }, [showEditForm, selectedStock]);
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -45,14 +62,15 @@ const MyStockPage = ({ role }) => {
       notes: '',
       expected_date: ''
     });
+    setSelectedProductId(null);
     setShowCreateForm(true);
   };
 
   const openEditForm = (stock) => {
     setSelectedStock(stock);
     setFormData({
-      product: stock.product,
-      size: stock.size,
+      product: stock.product_id,
+      size: stock.size_id,
       quantity: stock.quantity,
       rate: stock.rate,
       status: stock.status,
@@ -75,13 +93,33 @@ const MyStockPage = ({ role }) => {
     }));
   };
 
+  const handleProductChange = (e) => {
+    const productId = e.target.value;
+    setSelectedProductId(productId);
+    setFormData(prev => ({
+      ...prev,
+      product: productId,
+      size: '' // Reset size when product changes
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const payload = {
+        ...formData,
+        product: selectedProductId,
+      };
+
       if (showEditForm) {
-        await updateStock({ id: selectedStock.id, ...formData }).unwrap();
+        await updateStock({ 
+          id: selectedStock.id, 
+          ...payload,
+          product: selectedStock.product,
+          size: selectedStock.size
+        }).unwrap();
       } else {
-        await createStock(formData).unwrap();
+        await createStock(payload).unwrap();
       }
       closeForm();
     } catch (error) {
@@ -91,7 +129,7 @@ const MyStockPage = ({ role }) => {
 
   if (isLoading) return <div>Loading...</div>;
   if (isError) return <div>Error loading stocks</div>;
-
+  console.log(selectedStock)
   return (
     <div className="px-4 py-8 max-w-8xl mx-auto">
       {/* Header */}
@@ -151,7 +189,7 @@ const MyStockPage = ({ role }) => {
                 <th>Qty</th>
                 <th>Rate</th>
                 <th>Price</th>
-                <th>Expected Date</th>
+                
                 <th>Status</th>
                 {activeTab === "in_stock" && <th>Actions</th>}
               </tr>
@@ -176,12 +214,7 @@ const MyStockPage = ({ role }) => {
                     <td>{item.quantity}</td>
                     <td>₹{item.rate.toLocaleString()}</td>
                     <td>₹{item.total_price.toLocaleString()}</td>
-                    <td>
-                      {item.expected_date ? new Date(item.expected_date).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric'
-                      }) : '-'}
-                    </td>
+                   
                     <td>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         item.status === 'in_stock' ? 'bg-blue-100 text-blue-800' :
@@ -281,28 +314,43 @@ const MyStockPage = ({ role }) => {
                   <label className="label">
                     <span className="label-text">Product</span>
                   </label>
-                  <input
-                    type="text"
+                  <select
                     name="product"
                     value={formData.product}
-                    onChange={handleInputChange}
-                    className="input input-bordered"
+                    onChange={handleProductChange}
+                    className="select select-bordered"
                     required
-                  />
+                  >
+                    <option value="">Select a product</option>
+                    {activeProducts?.map(product => (
+                      <option key={product.id} value={product.id}>
+                        {product.name} - {product.brand?.name || 'No Brand'}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+                
                 <div className="form-control">
                   <label className="label">
                     <span className="label-text">Size</span>
                   </label>
-                  <input
-                    type="text"
+                  <select
                     name="size"
                     value={formData.size}
                     onChange={handleInputChange}
-                    className="input input-bordered"
+                    className="select select-bordered"
                     required
-                  />
+                    disabled={!selectedProductId}
+                  >
+                    <option value="">Select a size</option>
+                    {productSizes?.map(size => (
+                      <option key={size.id} value={size.id}>
+                        {size.size} ({size.measurement})
+                      </option>
+                    ))}
+                  </select>
                 </div>
+                
                 <div className="form-control">
                   <label className="label">
                     <span className="label-text">Quantity</span>
@@ -316,13 +364,14 @@ const MyStockPage = ({ role }) => {
                     required
                   />
                 </div>
+                
                 <div className="form-control">
                   <label className="label">
                     <span className="label-text">Rate</span>
                   </label>
                   <input
                     type="number"
-                    step="0.01"
+                    step="1"
                     name="rate"
                     value={formData.rate}
                     onChange={handleInputChange}
@@ -330,34 +379,11 @@ const MyStockPage = ({ role }) => {
                     required
                   />
                 </div>
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text">Status</span>
-                  </label>
-                  <select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleInputChange}
-                    className="select select-bordered"
-                    required
-                  >
-                    <option value="in_stock">In Stock</option>
-                    <option value="in_transit">In Transit</option>
-                    <option value="delivered">Delivered</option>
-                  </select>
-                </div>
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text">Expected Date</span>
-                  </label>
-                  <input
-                    type="date"
-                    name="expected_date"
-                    value={formData.expected_date}
-                    onChange={handleInputChange}
-                    className="input input-bordered"
-                  />
-                </div>
+                
+                
+                
+               
+                
                 <div className="form-control md:col-span-2">
                   <label className="label">
                     <span className="label-text">Notes</span>
@@ -385,7 +411,7 @@ const MyStockPage = ({ role }) => {
       )}
 
       {/* Edit Stock Form Overlay */}
-      {showEditForm && (
+      {showEditForm && selectedStock && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-4 border-b">
@@ -402,26 +428,24 @@ const MyStockPage = ({ role }) => {
                   </label>
                   <input
                     type="text"
-                    name="product"
-                    value={formData.product}
-                    onChange={handleInputChange}
+                    value={selectedStock.product_name}
                     className="input input-bordered"
-                    required
+                    readOnly
                   />
                 </div>
+                
                 <div className="form-control">
                   <label className="label">
                     <span className="label-text">Size</span>
                   </label>
                   <input
                     type="text"
-                    name="size"
-                    value={formData.size}
-                    onChange={handleInputChange}
+                    value={selectedStock.size_display}
                     className="input input-bordered"
-                    required
+                    readOnly
                   />
                 </div>
+                
                 <div className="form-control">
                   <label className="label">
                     <span className="label-text">Quantity</span>
@@ -435,13 +459,14 @@ const MyStockPage = ({ role }) => {
                     required
                   />
                 </div>
+                
                 <div className="form-control">
                   <label className="label">
                     <span className="label-text">Rate</span>
                   </label>
                   <input
                     type="number"
-                    step="0.01"
+                    step="1"
                     name="rate"
                     value={formData.rate}
                     onChange={handleInputChange}
@@ -449,34 +474,10 @@ const MyStockPage = ({ role }) => {
                     required
                   />
                 </div>
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text">Status</span>
-                  </label>
-                  <select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleInputChange}
-                    className="select select-bordered"
-                    required
-                  >
-                    <option value="in_stock">In Stock</option>
-                    <option value="in_transit">In Transit</option>
-                    <option value="delivered">Delivered</option>
-                  </select>
-                </div>
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text">Expected Date</span>
-                  </label>
-                  <input
-                    type="date"
-                    name="expected_date"
-                    value={formData.expected_date}
-                    onChange={handleInputChange}
-                    className="input input-bordered"
-                  />
-                </div>
+                
+               
+               
+                
                 <div className="form-control md:col-span-2">
                   <label className="label">
                     <span className="label-text">Notes</span>

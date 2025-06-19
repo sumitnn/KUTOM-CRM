@@ -347,3 +347,14 @@ class StockSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data['total_price'] = validated_data['quantity'] * validated_data['rate']
         return super().create(validated_data)
+
+
+class ProductSizeDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductSize
+        fields = '__all__'  
+
+class ProductDropdownSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ['id', 'name', 'sku']

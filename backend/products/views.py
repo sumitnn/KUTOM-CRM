@@ -397,4 +397,23 @@ class StockListCreateAPIView(generics.ListCreateAPIView):
 class StockRetrieveUpdateAPIView(generics.RetrieveUpdateAPIView):
     queryset = Stock.objects.all()
     serializer_class = StockSerializer
-    permission_classes = [IsAuthenticated, IsVendorRole()]
+    permission_classes = [IsVendorRole]
+
+
+class VendorActiveProductListView(generics.ListAPIView):
+    serializer_class = ProductDropdownSerializer
+    permission_classes = [IsVendorRole]
+    pagination_class=None
+
+    def get_queryset(self):
+        return Product.objects.filter(status='published', owner=self.request.user)
+
+# View to fetch all sizes for a selected product
+class ProductSizeListByProductView(generics.ListAPIView):
+    serializer_class = ProductSizeSerializer
+    permission_classes = [IsVendorRole]
+    pagination_class=None
+
+    def get_queryset(self):
+        product_id = self.kwargs['product_id']
+        return ProductSize.objects.filter(product_id=product_id, is_active=True)
