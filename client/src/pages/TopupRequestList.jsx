@@ -3,7 +3,7 @@ import { useGetMyTopupRequestQuery } from "../features/topupApi";
 import { toast } from "react-toastify";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
-
+import { Fragment } from 'react';
 const statusColors = {
   PENDING: "bg-yellow-100 text-yellow-800",
   APPROVED: "bg-green-100 text-green-800",
@@ -52,6 +52,11 @@ const TopupRequestsList = ({ role }) => {
     setExpandedRequest(expandedRequest === requestId ? null : requestId);
   };
 
+  const handleRefresh = () => {
+    refetch();
+    toast.success("Requests refreshed successfully");
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -90,7 +95,7 @@ const TopupRequestsList = ({ role }) => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-4 sm:py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-8xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">My Topup Requests</h1>
@@ -98,26 +103,49 @@ const TopupRequestsList = ({ role }) => {
               View all your wallet topup requests and their status
             </p>
           </div>
-          <Link
-            to={`/${role}/topup-request`}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 mr-2"
-              viewBox="0 0 20 20"
-              fill="currentColor"
+          <div className="flex gap-3">
+            <button
+              onClick={handleRefresh}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-              <path
-                fillRule="evenodd"
-                d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-                clipRule="evenodd"
-              />
-            </svg>
-            New Request
-          </Link>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 mr-2"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              Refresh
+            </button>
+            <Link
+              to={`/${role}/topup-request`}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 mr-2"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              New TopUp Request
+            </Link>
+          </div>
         </div>
 
+        {/* Rest of the component remains the same */}
         <div className="bg-white shadow overflow-hidden sm:rounded-lg">
           {requests.length === 0 ? (
             <div className="text-center py-12 px-4">
@@ -157,37 +185,37 @@ const TopupRequestsList = ({ role }) => {
                   <tr>
                     <th
                       scope="col"
-                      className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      className="px-4 sm:px-6 py-3 text-left text-xs font-bold text-black uppercase tracking-wider"
                     >
                       Amount
                     </th>
                     <th
                       scope="col"
-                      className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      className="px-4 sm:px-6 py-3 text-left text-xs font-bold text-black uppercase tracking-wider"
                     >
                       Method
                     </th>
                     <th
                       scope="col"
-                      className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      className="px-4 sm:px-6 py-3 text-left text-xs font-bold text-black uppercase tracking-wider"
                     >
                       Status
                     </th>
                     <th
                       scope="col"
-                      className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      className="px-4 sm:px-6 py-3 text-left text-xs font-bold text-black uppercase tracking-wider"
                     >
                       Date
                     </th>
                     <th
                       scope="col"
-                      className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      className="px-4 sm:px-6 py-3 text-left text-xs font-bold text-black uppercase tracking-wider"
                     >
                       Screenshot
                     </th>
                     <th
                       scope="col"
-                      className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      className="px-4 sm:px-6 py-3 text-right text-xs font-bold text-black uppercase tracking-wider"
                     >
                       Actions
                     </th>
@@ -195,38 +223,38 @@ const TopupRequestsList = ({ role }) => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {requests.map((request) => (
-                    <>
+                    <Fragment key={request.id}>
                       <tr key={request.id} className="hover:bg-gray-50">
                         <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className="text-sm font-medium text-gray-900">
+                            <div className="text-sm font-bold text-gray-900">
                               ₹{request.amount}
                             </div>
                           </div>
                         </td>
                         <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
-                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 capitalize">
+                          <span className="px-2 inline-flex text-xs leading-6 font-bold rounded-full bg-blue-200 text-blue-800 capitalize">
                             {request.payment_method}
                           </span>
                         </td>
                         <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <span
-                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              className={`px-2 inline-flex text-md leading-5 font-semibold rounded-full ${
                                 statusColors[request.status.toUpperCase()] ||
                                 "bg-gray-100 text-gray-800"
                               } capitalize`}
                             >
                               {statusIcons[request.status.toUpperCase()]}
-                              {request.status.toLowerCase()}
+                              {request.status}
                             </span>
                           </div>
                         </td>
                         <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">
+                          <div className="text-sm text-gray-700">
                             {format(new Date(request.created_at), "MMM d, yyyy")}
                             <br />
-                            <span className="text-xs text-gray-400">
+                            <span className="text-xs font-bold text-gray-700">
                               {format(new Date(request.created_at), "h:mm a")}
                             </span>
                           </div>
@@ -235,7 +263,7 @@ const TopupRequestsList = ({ role }) => {
                           {request.screenshot ? (
                             <button
                               onClick={() => openModal(request.screenshot)}
-                              className="text-sm text-blue-600 hover:text-blue-800 hover:underline flex items-center"
+                              className="text-sm text-blue-600  hover:bg-amber-100 hover:text-red-400 hover:cursor-pointer flex items-center"
                             >
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -260,21 +288,21 @@ const TopupRequestsList = ({ role }) => {
                         <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <button
                             onClick={() => toggleExpandRequest(request.id)}
-                            className="text-blue-600 hover:text-blue-900 flex items-center justify-end w-full"
+                            className="text-blue-600 hover:text-red-900 flex items-center justify-end w-full"
                           >
                             {expandedRequest === request.id ? (
-                              <span className="flex items-center">
+                              <span className="flex items-center font-bold">
                                 <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                                 </svg>
-                                Less
+                                Less Details
                               </span>
                             ) : (
-                              <span className="flex items-center">
+                              <span className="flex items-center font-bold">
                                 <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                 </svg>
-                                More
+                                More Details
                               </span>
                             )}
                           </button>
@@ -286,7 +314,7 @@ const TopupRequestsList = ({ role }) => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                               <div className="space-y-4">
                                 <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                                  <h3 className="font-medium text-gray-900 mb-3 flex items-center">
+                                  <h3 className="font-extrabold text-gray-900 mb-3 flex items-center">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
                                       className="h-5 w-5 mr-2 text-blue-500"
@@ -305,7 +333,7 @@ const TopupRequestsList = ({ role }) => {
                                   </h3>
                                   <div className="space-y-3">
                                     <div>
-                                      <p className="text-xs text-gray-500 mb-1">Note</p>
+                                      <p className="text-xs text-gray-500 font-bold mb-1">Note</p>
                                       <p className="text-sm">
                                         {request.note || (
                                           <span className="text-gray-400">Not provided</span>
@@ -313,27 +341,22 @@ const TopupRequestsList = ({ role }) => {
                                       </p>
                                     </div>
                                     <div>
-                                      <p className="text-xs text-gray-500 mb-1">Payment Method</p>
-                                      <p className="text-sm capitalize">{request.payment_method}</p>
+                                      <p className="text-xs text-gray-500 mb-1 font-bold">Payment Method</p>
+                                      <p className="text-sm font-bold">{request.payment_method}</p>
                                     </div>
                                     {request.payment_details?.details?.upi_id && (
                                       <div>
-                                        <p className="text-xs text-gray-500 mb-1">UPI ID</p>
-                                        <p className="text-sm">{request.payment_details.details.upi_id}</p>
+                                        <p className="text-xs text-gray-500 mb-1 font-extrabold">UPI ID</p>
+                                        <p className="text-sm font-extrabold">{request.payment_details.details.upi_id}</p>
                                       </div>
                                     )}
-                                    {request.payment_details?.details?.bank_upi && (
-                                      <div>
-                                        <p className="text-xs text-gray-500 mb-1">Bank UPI</p>
-                                        <p className="text-sm">{request.payment_details.details.bank_upi}</p>
-                                      </div>
-                                    )}
+                                   
                                   </div>
                                 </div>
 
                                 {request.payment_method === 'bank' && (
                                   <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                                    <h3 className="font-medium text-gray-900 mb-3 flex items-center">
+                                    <h3 className="font-extrabold text-gray-900 mb-3 flex items-center">
                                       <svg
                                         xmlns="http://www.w3.org/2000/svg"
                                         className="h-5 w-5 mr-2 text-green-500"
@@ -353,32 +376,32 @@ const TopupRequestsList = ({ role }) => {
                                     <div className="space-y-3">
                                       {request.payment_details?.details?.account_holder_name && (
                                         <div>
-                                          <p className="text-xs text-gray-500 mb-1">Account Holder</p>
-                                          <p className="text-sm">
+                                          <p className="text-xs text-gray-500 mb-1 font-bold">Account Holder</p>
+                                          <p className="text-sm font-bold">
                                             {request.payment_details.details.account_holder_name}
                                           </p>
                                         </div>
                                       )}
                                       {request.payment_details?.details?.bank_name && (
                                         <div>
-                                          <p className="text-xs text-gray-500 mb-1">Bank Name</p>
-                                          <p className="text-sm">
+                                          <p className="text-xs text-gray-500 mb-1 font-extrabold">Bank Name</p>
+                                          <p className="text-sm font-bold" >
                                             {request.payment_details.details.bank_name}
                                           </p>
                                         </div>
                                       )}
                                       {request.payment_details?.details?.account_number && (
                                         <div>
-                                          <p className="text-xs text-gray-500 mb-1">Account Number</p>
-                                          <p className="text-sm">
+                                          <p className="text-xs text-gray-500 mb-1 font-extrabold">Account Number</p>
+                                          <p className="text-sm font-bold">
                                             {request.payment_details.details.account_number}
                                           </p>
                                         </div>
                                       )}
                                       {request.payment_details?.details?.ifsc_code && (
                                         <div>
-                                          <p className="text-xs text-gray-500 mb-1">IFSC Code</p>
-                                          <p className="text-sm">
+                                          <p className="text-xs text-gray-500 mb-1 font-extrabold">IFSC Code</p>
+                                          <p className="text-sm font-bold">
                                             {request.payment_details.details.ifsc_code}
                                           </p>
                                         </div>
@@ -390,7 +413,7 @@ const TopupRequestsList = ({ role }) => {
 
                               <div className="space-y-4">
                                 <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                                  <h3 className="font-medium text-gray-900 mb-3 flex items-center">
+                                  <h3 className=" text-gray-800 mb-3 flex items-center font-extrabold">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
                                       className="h-5 w-5 mr-2 text-purple-500"
@@ -409,8 +432,8 @@ const TopupRequestsList = ({ role }) => {
                                   </h3>
                                   <div className="space-y-3">
                                     <div>
-                                      <p className="text-xs text-gray-500 mb-1">Created At</p>
-                                      <p className="text-sm">
+                                      <p className="text-xs text-gray-500 mb-1 font-bold">Created At</p>
+                                      <p className="text-sm font-bold">
                                         {format(new Date(request.created_at), "MMM d, yyyy h:mm a")}
                                       </p>
                                     </div>
@@ -426,7 +449,7 @@ const TopupRequestsList = ({ role }) => {
                                 </div>
 
                                 <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                                  <h3 className="font-medium text-gray-900 mb-3 flex items-center">
+                                  <h3 className="font-extrabold text-gray-900 mb-3 flex items-center">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
                                       className="h-5 w-5 mr-2 text-yellow-500"
@@ -446,8 +469,8 @@ const TopupRequestsList = ({ role }) => {
                                   <div className="space-y-3">
                                     {request.approved_by && (
                                       <div>
-                                        <p className="text-xs text-gray-500 mb-1">Approved By</p>
-                                        <p className="text-sm text-green-600">
+                                        <p className="text-md text-gray-500 mb-1 font-bold">Approved By(Name)</p>
+                                        <p className="text-sm text-green-600 font-bold  capitalize">
                                           {request.approved_by}
                                         </p>
                                       </div>
@@ -455,7 +478,7 @@ const TopupRequestsList = ({ role }) => {
                                     {request.rejected_reason && (
                                       <div>
                                         <p className="text-xs text-gray-500 mb-1">Rejection Reason</p>
-                                        <p className="text-sm text-red-600">
+                                        <p className="text-sm text-red-600 font-bold">
                                           {request.rejected_reason}
                                         </p>
                                       </div>
@@ -465,7 +488,7 @@ const TopupRequestsList = ({ role }) => {
 
                                 {request.screenshot && (
                                   <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                                    <h3 className="font-medium text-gray-900 mb-3 flex items-center">
+                                    <h3 className="font-bold text-gray-900 mb-3 flex items-center">
                                       <svg
                                         xmlns="http://www.w3.org/2000/svg"
                                         className="h-5 w-5 mr-2 text-blue-500"
@@ -491,7 +514,7 @@ const TopupRequestsList = ({ role }) => {
                                         alt="Payment proof"
                                         className="w-full h-auto rounded-md border border-gray-200 max-h-40 object-contain"
                                       />
-                                      <p className="mt-2 text-sm text-blue-600 text-center">
+                                      <p className="mt-2 text-sm text-blue-600 text-center font-bold hover:cursor-pointer">
                                         Click to view full size
                                       </p>
                                     </button>
@@ -502,7 +525,7 @@ const TopupRequestsList = ({ role }) => {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   ))}
                 </tbody>
               </table>

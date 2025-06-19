@@ -138,6 +138,9 @@ class TopupRequest(models.Model):
     note = models.TextField(blank=True, null=True)
     payment_details=models.JSONField(blank=True, null=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    rejected_reason = models.TextField(blank=True, null=True, help_text="Reason for rejection if applicable")
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='topup_approved_by')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

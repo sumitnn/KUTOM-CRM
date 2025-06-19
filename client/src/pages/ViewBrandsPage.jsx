@@ -165,23 +165,23 @@ const ViewBrandsPage = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Sr No.</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Created Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Brand Name</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Logo</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Description</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Active</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Last Updated Date</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">Sr No.</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">Created Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">Brand Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">Logo</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">Description</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">Active</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">Last Updated Date</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-black uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {memoizedBrands.map((brand, index) => (
                     <tr key={brand.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-extrabold text-gray-900">
                         {index + 1}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-gray-500">
                        {brand.created_at}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
@@ -208,7 +208,7 @@ const ViewBrandsPage = () => {
                           <span className="text-gray-400">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-gray-500">
                        {brand.updated_at}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-center text-sm font-medium">
@@ -227,7 +227,7 @@ const ViewBrandsPage = () => {
       title="Edit"
     >
       <FiEdit2 className="h-4 w-4" />
-      <span className="hidden sm:inline">Edit</span>
+      <span className="hidden sm:inline font-bold hover:cursor-pointer">Edit</span>
     </button>
   </div>
 </td>

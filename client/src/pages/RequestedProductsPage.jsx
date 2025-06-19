@@ -22,6 +22,7 @@ const RequestedProductsPage = ({ role }) => {
       id: product.id,
       date: product.created_at,
       name: product.name,
+      sku: product.sku,
       brand: product.brand_name,
       category: product.category_name,
       subcategory: product.subcategory_name,
@@ -36,6 +37,7 @@ const RequestedProductsPage = ({ role }) => {
       id: product.id,
       date: product.created_at,
       name: product.name,
+      sku: product.sku,
       brand: product.brand_name,
       category: product.category_name,
       subcategory: product.subcategory_name,
@@ -50,6 +52,7 @@ const RequestedProductsPage = ({ role }) => {
       id: product.id,
       date: product.created_at,
       name: product.name,
+      sku: product.sku,
       brand: product.brand_name,
       category: product.category_name,
       subcategory: product.subcategory_name,
@@ -114,28 +117,28 @@ const RequestedProductsPage = ({ role }) => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Product Requests</h1>
-          <p className="text-sm text-gray-500">Manage product status and visibility</p>
+          <p className="text-sm text-gray-500 font-bold">Manage product status and visibility</p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="tabs tabs-boxed bg-gray-100 p-1 rounded-lg mb-6">
+      <div className="tabs tabs-boxed bg-gray-500 text-black font-bold  p-1 rounded-lg mb-6">
         <button
-          className={`tab ${activeTab === "pending" ? "tab-active bg-white shadow-sm" : ""}`}
+          className={`tab ${activeTab === "pending" ? "tab-active bg-white font-bold shadow-sm" : ""}`}
           onClick={() => setActiveTab("pending")}
         >
           <FiClock className="mr-2" />
           Draft ({pendingProducts.length})
         </button>
         <button
-          className={`tab ${activeTab === "accepted" ? "tab-active bg-white shadow-sm" : ""}`}
+          className={`tab ${activeTab === "accepted" ? "tab-active bg-white font-bold  shadow-sm" : ""}`}
           onClick={() => setActiveTab("accepted")}
         >
           <FiCheckCircle className="mr-2" />
           Published ({acceptedProducts.length})
         </button>
         <button
-          className={`tab ${activeTab === "inactive" ? "tab-active bg-white shadow-sm" : ""}`}
+          className={`tab ${activeTab === "inactive" ? "tab-active bg-white font-bold  shadow-sm" : ""}`}
           onClick={() => setActiveTab("inactive")}
         >
           <FiEyeOff className="mr-2" />
@@ -155,11 +158,12 @@ const RequestedProductsPage = ({ role }) => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="table w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-gray-300 font-bold text-black">
                 <tr>
                   <th className="w-12">Sr No.</th>
-                  <th>Date</th>
-                  <th>Name</th>
+                  <th>Created Date</th>
+                  <th>Product Name</th>
+                  <th>Product (SKU)</th>
                   <th>Brand</th>
                   <th>Category</th>
                   <th>Subcategory</th>
@@ -179,10 +183,12 @@ const RequestedProductsPage = ({ role }) => {
                       <td>
                         {new Date(item.date).toLocaleDateString('en-US', {
                           month: 'short',
-                          day: 'numeric'
+                          day: 'numeric',
+                          year:"numeric"
                         })}
                       </td>
-                      <td className="font-medium">{item.name}</td>
+                      <td className="font-bold">{item.name}</td>
+                      <td className="font-bold">{item.sku}</td>
                       <td>{item.brand}</td>
                       <td>{item.category}</td>
                       <td>{item.subcategory}</td>
@@ -192,7 +198,8 @@ const RequestedProductsPage = ({ role }) => {
                       <td>
                         {new Date(item.demandDate).toLocaleDateString('en-US', {
                           month: 'short',
-                          day: 'numeric'
+                          day: 'numeric',
+                          year:"numeric"
                         })}
                       </td>
                       
@@ -232,7 +239,7 @@ const RequestedProductsPage = ({ role }) => {
           {/* Pagination */}
           {requestData[activeTab]?.length > 0 && (
             <div className="flex justify-between items-center p-4 border-t border-gray-100">
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-gray-500 font-bold">
                 Showing <span className="font-medium">1</span> to <span className="font-medium">{requestData[activeTab].length}</span> entries
               </div>
               <div className="join">

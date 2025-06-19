@@ -178,17 +178,17 @@ const MyStockPage = ({ role }) => {
         <div className="overflow-x-auto">
           <table className="table w-full">
             <thead className="bg-gray-50">
-              <tr>
+              <tr className="font-bold text-black">
                 <th className="w-12">Sr No.</th>
-                <th>Date</th>
-                <th>Name</th>
+                <th>Created Date</th>
+                <th>Product Name</th>
                 <th>Brand</th>
                 <th>Category</th>
                 <th>Subcategory</th>
                 <th>Size</th>
                 <th>Qty</th>
-                <th>Rate</th>
                 <th>Price</th>
+                <th>Total Price</th>
                 
                 <th>Status</th>
                 {activeTab === "in_stock" && <th>Actions</th>}
@@ -199,11 +199,12 @@ const MyStockPage = ({ role }) => {
               {stocks?.results?.length > 0 ? (
                 stocks.results.map((item, index) => (
                   <tr key={item.id} className="hover:bg-gray-50">
-                    <td>{(page - 1) * pageSize + index + 1}</td>
+                    <td className="font-bold">{(page - 1) * pageSize + index + 1}</td>
                     <td>
                       {new Date(item.created_at).toLocaleDateString('en-US', {
                         month: 'short',
-                        day: 'numeric'
+                        day: 'numeric',
+                        year:"numeric"
                       })}
                     </td>
                     <td className="font-medium">{item.product_name}</td>
@@ -230,7 +231,7 @@ const MyStockPage = ({ role }) => {
                       <td>
                         <button 
                           onClick={() => openEditForm(item)}
-                          className="btn btn-ghost btn-sm"
+                          className="btn btn-ghost btn-md"
                         >
                           <FiEdit />
                         </button>
@@ -272,7 +273,7 @@ const MyStockPage = ({ role }) => {
         {/* Pagination */}
         {stocks?.results?.length > 0 && (
           <div className="flex justify-between items-center p-4 border-t border-gray-100">
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-gray-500 font-bold ">
               Showing <span className="font-medium">{(page - 1) * pageSize + 1}</span> to{' '}
               <span className="font-medium">{(page - 1) * pageSize + stocks.results.length}</span> of{' '}
               <span className="font-medium">{stocks.count}</span> entries

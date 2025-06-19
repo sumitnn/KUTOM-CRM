@@ -112,7 +112,7 @@ const TabledProductListPage = ({ role }) => {
               className="input input-bordered w-full pl-10 focus:ring-2 focus:ring-primary"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && setDebouncedSearchTerm(searchTerm)}
+              onKeyUp={(e) => e.key === "Enter" && setDebouncedSearchTerm(searchTerm)}
             />
             <FiSearch className="absolute left-3 top-3.5 text-gray-400" />
           </div>

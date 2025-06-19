@@ -92,7 +92,7 @@ const VendorDashboard = () => {
       navlink: "/vendor/my-sales"
     },
     {
-      title: "Dipatch",
+      title: "Dispatch",
       value: data.products.active,
       bgColor: "bg-yellow-50",
       textColor: "text-yellow-600",
