@@ -676,6 +676,7 @@ class DashboardAPIView(APIView):
             'total': product_qs.count(),
             'active': product_qs.filter(status='published').count(),
             'draft': product_qs.filter(status='draft').count(),
+            'inactive': product_qs.filter(is_featured=False).count(),
         }
 
 

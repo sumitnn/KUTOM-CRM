@@ -10,7 +10,7 @@ ChartJS.register(BarElement, ArcElement, CategoryScale, LinearScale, Tooltip, Le
 
 const VendorDashboard = () => {
   const [timeRange, setTimeRange] = useState(0);
-  const [activeFilter, setActiveFilter] = useState('all');
+  const [activeFilter, setActiveFilter] = useState('products'); // Changed default to 'products'
   const { data, isLoading, isError } = useGetDashboardDataQuery(timeRange);
 
   if (isLoading) return (
@@ -43,12 +43,12 @@ const VendorDashboard = () => {
         };
       case 'products':
         return {
-          labels: ['Total', 'Active', 'Requested', 'Dispatched'],
+          labels: ['Total', 'Active', 'Requested', 'In Active'],
           data: [
             data.products.total,
             data.products.active,
-            data.products.requested,
-            data.products.dispatched
+            data.products.draft,
+            data.products.inactive
           ]
         };
       case 'wallet':
@@ -134,11 +134,27 @@ const VendorDashboard = () => {
   ];
 
   const filterOptions = [
-    { value: 'all', label: 'All Data' },
-    { value: 'orders', label: 'Orders' },
     { value: 'products', label: 'Products' },
+    { value: 'orders', label: 'Orders' },
     { value: 'wallet', label: 'Wallet' },
+    { value: 'all', label: 'All Data' },
   ];
+
+  // Get data based on active filter
+  const getFilteredChartData = () => {
+    if (activeFilter === 'all') {
+      return {
+        orders: processChartData('orders'),
+        products: processChartData('products'),
+        wallet: processChartData('wallet')
+      };
+    }
+    return {
+      [activeFilter]: processChartData(activeFilter)
+    };
+  };
+
+  const filteredData = getFilteredChartData();
 
   return (
     <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
@@ -204,105 +220,169 @@ const VendorDashboard = () => {
 
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <motion.div
-            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-          >
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-gray-800">Orders Overview</h2>
-              <div className="flex gap-2">
-                <button className="btn btn-xs btn-outline">Daily</button>
-                <button className="btn btn-xs btn-outline btn-active">Weekly</button>
-                <button className="btn btn-xs btn-outline">Monthly</button>
+          {/* Orders Chart - only show if activeFilter is 'orders' or 'all' */}
+          {(activeFilter === 'orders' || activeFilter === 'all') && (
+            <motion.div
+              className="bg-white p-6 rounded-xl shadow-sm border border-gray-100"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold text-gray-800">Orders Overview</h2>
+                <div className="flex gap-2">
+                  <button className="btn btn-xs btn-outline">Daily</button>
+                  <button className="btn btn-xs btn-outline btn-active">Weekly</button>
+                  <button className="btn btn-xs btn-outline">Monthly</button>
+                </div>
               </div>
-            </div>
-            <div className="h-64">
-              <Bar
-                data={{
-                  labels: processChartData('orders').labels,
-                  datasets: [{
-                    label: 'Orders',
-                    data: processChartData('orders').data,
-                    backgroundColor: [
-                      'rgba(59, 130, 246, 0.7)',
-                      'rgba(16, 185, 129, 0.7)',
-                      'rgba(244, 63, 94, 0.7)'
-                    ],
-                    borderColor: [
-                      'rgba(59, 130, 246, 1)',
-                      'rgba(16, 185, 129, 1)',
-                      'rgba(244, 63, 94, 1)'
-                    ],
-                    borderWidth: 1,
-                    borderRadius: 6
-                  }]
-                }}
-                options={{ 
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      display: false
-                    }
-                  },
-                  scales: {
-                    y: {
-                      beginAtZero: true,
-                      grid: {
-                        drawBorder: false
-                      }
-                    },
-                    x: {
-                      grid: {
+              <div className="h-64">
+                <Bar
+                  data={{
+                    labels: filteredData.orders?.labels || [],
+                    datasets: [{
+                      label: 'Orders',
+                      data: filteredData.orders?.data || [],
+                      backgroundColor: [
+                        'rgba(59, 130, 246, 0.7)',
+                        'rgba(16, 185, 129, 0.7)',
+                        'rgba(244, 63, 94, 0.7)'
+                      ],
+                      borderColor: [
+                        'rgba(59, 130, 246, 1)',
+                        'rgba(16, 185, 129, 1)',
+                        'rgba(244, 63, 94, 1)'
+                      ],
+                      borderWidth: 1,
+                      borderRadius: 6
+                    }]
+                  }}
+                  options={{ 
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
                         display: false
                       }
+                    },
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        grid: {
+                          drawBorder: false
+                        }
+                      },
+                      x: {
+                        grid: {
+                          display: false
+                        }
+                      }
                     }
-                  }
-                }}
-              />
-            </div>
-          </motion.div>
+                  }}
+                />
+              </div>
+            </motion.div>
+          )}
 
-          <motion.div
-            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-          >
-            <h2 className="text-xl font-semibold text-gray-800 mb-6">Products Distribution</h2>
-            <div className="h-64">
-              <Pie
-                data={{
-                  labels: processChartData('products').labels,
-                  datasets: [{
-                    data: processChartData('products').data,
-                    backgroundColor: [
-                      'rgba(59, 130, 246, 0.7)',
-                      'rgba(16, 185, 129, 0.7)',
-                      'rgba(245, 158, 11, 0.7)',
-                      'rgba(244, 63, 94, 0.7)'
-                    ],
-                    borderColor: [
-                      'rgba(59, 130, 246, 1)',
-                      'rgba(16, 185, 129, 1)',
-                      'rgba(245, 158, 11, 1)',
-                      'rgba(244, 63, 94, 1)'
-                    ],
-                    borderWidth: 1
-                  }]
-                }}
-                options={{ 
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      position: 'right'
+          {/* Products Chart - only show if activeFilter is 'products' or 'all' */}
+          {(activeFilter === 'products' || activeFilter === 'all') && (
+            <motion.div
+              className="bg-white p-6 rounded-xl shadow-sm border border-gray-100"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+            >
+              <h2 className="text-xl font-semibold text-gray-800 mb-6">Products Distribution</h2>
+              <div className="h-64">
+                <Pie
+                  data={{
+                    labels: filteredData.products?.labels || [],
+                    datasets: [{
+                      data: filteredData.products?.data || [],
+                      backgroundColor: [
+                        'rgba(59, 130, 246, 0.7)',
+                        'rgba(16, 185, 129, 0.7)',
+                        'rgba(245, 158, 11, 0.7)',
+                        'rgba(244, 63, 94, 0.7)'
+                      ],
+                      borderColor: [
+                        'rgba(59, 130, 246, 1)',
+                        'rgba(16, 185, 129, 1)',
+                        'rgba(245, 158, 11, 1)',
+                        'rgba(244, 63, 94, 1)'
+                      ],
+                      borderWidth: 1
+                    }]
+                  }}
+                  options={{ 
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        position: 'right'
+                      }
                     }
-                  }
-                }}
-              />
-            </div>
-          </motion.div>
+                  }}
+                />
+              </div>
+            </motion.div>
+          )}
+
+          {/* Wallet Chart - only show if activeFilter is 'wallet' or 'all' */}
+          {(activeFilter === 'wallet' || activeFilter === 'all') && (
+            <motion.div
+              className="bg-white p-6 rounded-xl shadow-sm border border-gray-100"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+            >
+              <h2 className="text-xl font-semibold text-gray-800 mb-6">Wallet Overview</h2>
+              <div className="h-64">
+                <Bar
+                  data={{
+                    labels: filteredData.wallet?.labels || [],
+                    datasets: [{
+                      label: 'Wallet',
+                      data: filteredData.wallet?.data || [],
+                      backgroundColor: [
+                        'rgba(59, 130, 246, 0.7)',
+                        'rgba(16, 185, 129, 0.7)',
+                        'rgba(245, 158, 11, 0.7)',
+                        'rgba(244, 63, 94, 0.7)'
+                      ],
+                      borderColor: [
+                        'rgba(59, 130, 246, 1)',
+                        'rgba(16, 185, 129, 1)',
+                        'rgba(245, 158, 11, 1)',
+                        'rgba(244, 63, 94, 1)'
+                      ],
+                      borderWidth: 1,
+                      borderRadius: 6
+                    }]
+                  }}
+                  options={{ 
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        display: false
+                      }
+                    },
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        grid: {
+                          drawBorder: false
+                        }
+                      },
+                      x: {
+                        grid: {
+                          display: false
+                        }
+                      }
+                    }
+                  }}
+                />
+              </div>
+            </motion.div>
+          )}
         </div>
       </div>
     </div>
