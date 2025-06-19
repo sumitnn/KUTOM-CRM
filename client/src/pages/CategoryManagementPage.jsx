@@ -151,9 +151,9 @@ const CategoryManagementPage = () => {
           <nav className="flex -mb-px">
             <button
               onClick={() => setActiveTab("categories")}
-              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${
+              className={`py-4 px-6 text-center border-b-2 font-bold hover:cursor-pointer text-sm ${
                 activeTab === "categories" 
-                  ? "border-blue-500 text-blue-600" 
+                  ? "border-blue-900 text-blue-600" 
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
@@ -161,9 +161,9 @@ const CategoryManagementPage = () => {
             </button>
             <button
               onClick={() => setActiveTab("subcategories")}
-              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${
+              className={`py-4 px-6 text-center border-b-2 font-bold hover:cursor-pointer text-sm ${
                 activeTab === "subcategories" 
-                  ? "border-blue-500 text-blue-600" 
+                  ? "border-blue-900 text-blue-600" 
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
@@ -178,10 +178,10 @@ const CategoryManagementPage = () => {
           {activeTab === "categories" && (
             <div>
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold text-gray-800">Categories</h2>
+                <h2 className="text-xl font-extrabold text-gray-800">Categories</h2>
                 <button
                   onClick={() => setIsCategoryFormOpen(true)}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 hover:cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
                   <FiPlus className="mr-2" />
                   New Category
@@ -241,19 +241,19 @@ const CategoryManagementPage = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                         Name
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                         Status
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                         Created At
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                         Updated At
                       </th>
-                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
@@ -280,7 +280,7 @@ const CategoryManagementPage = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <button
                             onClick={() => setEditCategory(category)}
-                            className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                            className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 hover:cursor-pointer"
                           >
                             <FiEdit2 className="h-5 w-5" />
                           </button>
@@ -297,10 +297,10 @@ const CategoryManagementPage = () => {
           {activeTab === "subcategories" && (
             <div>
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold text-gray-800">Subcategories</h2>
+                <h2 className="text-xl font-extrabold text-gray-800">Subcategories</h2>
                 <button
                   onClick={() => setIsSubcategoryFormOpen(true)}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md hover:cursor-pointer shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
                   <FiPlus className="mr-2" />
                   New Subcategory
@@ -396,25 +396,25 @@ const CategoryManagementPage = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                         Name
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                         Parent Category
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                         Brand
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                         Status
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                         Created At
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                         Updated At
                       </th>
-                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
@@ -454,7 +454,7 @@ const CategoryManagementPage = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <button
                               onClick={() => setEditSubcategory(subcategory)}
-                              className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                              className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 hover:cursor-pointer"
                             >
                               <FiEdit2 className="h-5 w-5" />
                             </button>

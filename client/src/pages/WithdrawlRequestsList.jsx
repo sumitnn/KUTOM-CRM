@@ -152,45 +152,45 @@ const WithdrawlRequestsList = ({ role }) => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">
                       ID
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">
                       Amount
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">
                       Method
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">
                       Status
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">
+                      Created Date
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">
                       Payment Details
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {requests.map((request) => (
+                  {requests.map((request,index) => (
                     <tr key={request.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {request.id}
+                      <td className="px-6 py-4 whitespace-nowrap text-md text-black">
+                        {index+1}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-bold text-gray-900">
                           ₹{request.amount}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 capitalize">
+                        <span className="px-2 inline-flex text-xs leading-5 font-bold rounded-full bg-blue-100 text-blue-800 capitalize">
                           {request.payment_method}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          className={`px-2 inline-flex text-md leading-5 font-semibold rounded-full ${
                             statusColors[request.status.toLowerCase()] ||
                             "bg-gray-100 text-gray-800"
                           } capitalize`}
@@ -198,21 +198,21 @@ const WithdrawlRequestsList = ({ role }) => {
                           {request.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-500">
                         {format(new Date(request.created_at), "MMM d, yyyy h:mm a")}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {request.payment_method === 'bank' ? (
                           <div>
-                            <div><strong>Bank:</strong> {request.payment_details.bank_name}</div>
-                            <div><strong>Account:</strong> {request.payment_details.account_number}</div>
-                            <div><strong>IFSC:</strong> {request.payment_details.ifsc_code}</div>
-                            <div><strong>Name:</strong> {request.payment_details.account_holder_name}</div>
+                            <div className="font-bold"><strong className="text-red-600">Bank:</strong>&nbsp;&nbsp; {request.payment_details.bank_name}</div>
+                            <div className="font-bold"><strong className="text-red-600">Account:</strong>&nbsp;&nbsp; {request.payment_details.account_number}</div>
+                            <div className="font-bold"><strong className="text-red-600">IFSC:</strong>&nbsp;&nbsp; {request.payment_details.ifsc_code}</div>
+                            <div className="font-bold"><strong className="text-red-600">Name:</strong>&nbsp;&nbsp; {request.payment_details.account_holder_name}</div>
                           </div>
                         ) : (
                           <div>
-                            <div><strong>UPI ID:</strong> {request.payment_details.upi_id}</div>
-                            <div><strong>Bank UPI:</strong> {request.payment_details.bank_upi}</div>
+                            <div className="font-bold"><strong className="text-blue-600">UPI ID:</strong>&nbsp;&nbsp; {request.payment_details.upi_id}</div>
+                            <div><strong className="text-blue-600">Bank UPI:</strong>&nbsp;&nbsp; {request.payment_details.bank_upi}</div>
                           </div>
                         )}
                       </td>

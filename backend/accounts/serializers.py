@@ -20,15 +20,20 @@ class WalletSerializer(serializers.ModelSerializer):
 
 
 class TopupRequestSerializer(serializers.ModelSerializer):
+    approved_by=serializers.SerializerMethodField()
     class Meta:
         model = TopupRequest
-        fields = ['id', 'amount', 'payment_method', 'screenshot','payment_details', 'note', 'status', 'created_at']
+        fields = ['id', 'amount', 'payment_method', 'screenshot','payment_details','approved_by','rejected_reason','reviewed_at', 'note', 'status', 'created_at']
         read_only_fields = ['id', 'status', 'created_at']
         
     def validate_amount(self, value):
         if value <= 0:
             raise serializers.ValidationError("Amount must be greater than zero")
         return value
+    def get_approved_by(self, obj):
+        if obj.approved_by:
+            return obj.approved_by.username
+        return "Not Approved Yet"
 
 class WithdrawalRequestSerializer(serializers.ModelSerializer):
     wallet = WalletSerializer(read_only=True)  

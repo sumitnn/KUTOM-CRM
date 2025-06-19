@@ -182,10 +182,10 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         label: "Accounts Mangement",
         children: [
       
-          { label: "Create Topup Request", path: "/vendor/topup-request" },
+          { label: "Topup Request", path: "/vendor/topup-request" },
           { label: "Topup Request History", path: "/vendor/my-topup" },
           { label: "My Wallet & Transaction", path: "/vendor/wallet" },
-          { label: "Create Withdrawl Request", path: "/vendor/withdrawl-request" },
+          { label: "Withdrawl Request", path: "/vendor/withdrawl-request" },
           { label: "Withdrawl Request History", path: "/vendor/my-withdrawl" },
 
           
