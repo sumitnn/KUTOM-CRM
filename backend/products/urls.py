@@ -21,6 +21,9 @@ urlpatterns = [
     path('products/stats/', ProductStatsView.as_view(), name='product-stats'),
     path('products/by-status/', ProductByStatusAPIView.as_view(), name='product-by-status'),
 
+    # vendor api 
+    path('vendor/products/', VendorActiveProductListView.as_view(), name='vendor-product-list'),
+    path('vendor/products/<int:product_id>/sizes/', ProductSizeListByProductView.as_view(), name='product-size-list'),
 
     # stocks 
     path('stocks/', StockListCreateAPIView.as_view(), name='stock-list-create'),

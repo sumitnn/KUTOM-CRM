@@ -4,7 +4,7 @@ import axiosBaseQuery from '../../utils/axiosBaseQuery'; // adjust path if neede
 export const productApi = createApi({
     reducerPath: 'productApi',
     baseQuery: axiosBaseQuery({ baseUrl: import.meta.env.VITE_BACKEND_API_URL }),
-    tagTypes: ['Product'],
+    tagTypes: ['Product', 'ProductSize'],
     endpoints: (builder) => ({
         getAllProducts: builder.query({
             query: ({ search, category }) => ({
@@ -72,6 +72,21 @@ export const productApi = createApi({
             }),
             providesTags: ['Product'],
         }),
+        getVendorActiveProducts: builder.query({
+            query: () => ({
+                url: 'vendor/products/',
+                method: 'GET',
+            }),
+            providesTags: ['Product'],
+        }),
+
+        getProductSizes: builder.query({
+            query: (productId) => ({
+                url: `vendor/products/${productId}/sizes/`,
+                method: 'GET',
+            }),
+            providesTags: ['ProductSize'],
+        }),
     }),
 });
 
@@ -83,5 +98,7 @@ export const {
     useUpdateProductMutation,
     useDeleteProductMutation,
     useGetProductStatsQuery,
-    useGetProductsByStatusQuery
+    useGetProductsByStatusQuery,
+    useGetVendorActiveProductsQuery,
+    useGetProductSizesQuery,
 } = productApi;

@@ -187,7 +187,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
           { label: "My Wallet & Transaction", path: "/vendor/wallet" },
           { label: "Create Withdrawl Request", path: "/vendor/withdrawl-request" },
           { label: "Withdrawl Request History", path: "/vendor/my-withdrawl" },
-          { label: "Report", path: "/vendor/report" },
+
           
     
         ],
