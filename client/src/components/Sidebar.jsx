@@ -160,30 +160,12 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
           
         ],
       },
-      {
-        icon: <SiBrandfolder />,
-        label: "Brands Management",
-        children: [
-          { label: "All Brands", path: "/vendor/brand" },
-          { label: "Add New Brand", path: "/vendor/create-brand" }
-          
-    
-        ],
-      },{
-        icon: <TbCategoryPlus />,
-        label: "Categories",
-        children: [
-          { label: "All Category & Subcategory", path: "/vendor/categories" },
-          
-        ],
-      },
+      { icon: <SiBrandfolder />, label: "Brand Management", path: "/vendor/brand" },
+      { icon: <TbCategoryPlus />, label: "Category & Subcategory", path: "/vendor/categories" },
       {
         icon: <FaCodePullRequest />,
         label: "Accounts Mangement",
         children: [
-      
-          { label: "Topup Request", path: "/vendor/topup-request" },
-          { label: "Topup Request History", path: "/vendor/my-topup" },
           { label: "My Wallet & Transaction", path: "/vendor/wallet" },
           { label: "Withdrawl Request", path: "/vendor/withdrawl-request" },
           { label: "Withdrawl Request History", path: "/vendor/my-withdrawl" },

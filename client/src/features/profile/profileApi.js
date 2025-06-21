@@ -20,7 +20,7 @@ export const profileApi = createApi({
         updateProfile: builder.mutation({
             query: (data) => ({
                 url: '/profile/',
-                method: 'PUT',
+                method: 'PATCH',
                 data, 
             }),
         }),

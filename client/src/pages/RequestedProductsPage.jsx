@@ -122,7 +122,7 @@ const RequestedProductsPage = ({ role }) => {
       </div>
 
       {/* Tabs */}
-      <div className="tabs tabs-boxed bg-gray-500 text-black font-bold  p-1 rounded-lg mb-6">
+      <div className="tabs tabs-boxed bg-gray-100 text-black font-bold  p-1 rounded-lg mb-6">
         <button
           className={`tab ${activeTab === "pending" ? "tab-active bg-white font-bold shadow-sm" : ""}`}
           onClick={() => setActiveTab("pending")}
@@ -158,7 +158,7 @@ const RequestedProductsPage = ({ role }) => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="table w-full">
-              <thead className="bg-gray-300 font-bold text-black">
+              <thead className="bg-gray-100 font-bold text-black">
                 <tr>
                   <th className="w-12">Sr No.</th>
                   <th>Created Date</th>

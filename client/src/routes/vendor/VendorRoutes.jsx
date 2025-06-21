@@ -3,12 +3,9 @@ import ProtectedRoute from "../ProtectedRoutes";
 import VendorDashboard from "../../pages/vendor/VendorDashboard";
 import VendorMainLayout from "../../layout/vendor/VendorMainLayout";
 import Logout from "../../pages/Logout";
-import CreateBrandPage from "../../pages/CreateBrandPage";
+
 import ViewBrandsPage from "../../pages/ViewBrandsPage";
-import CreateCategoryPage from "../../pages/CreateCategoryPage";
-import ViewCategoriesPage from "../../pages/ViewCategoriesPage";
-import CreateSubcategoryPage from "../../pages/CreateSubcategoryPage";
-import ViewSubcategoriesPage from "../../pages/ViewSubcategoriesPage";
+
 
 import CreateProductPage from "../../pages/CreateProductPage";
 
@@ -17,8 +14,7 @@ import EditProductPage from "../../pages/EditProductPage";
 import Profile from "../../pages/common/Profile";
 import ChangePassword from "../../components/auths/ChangePassword";
 import UserWalletPage from "../../pages/UserWalletPage";
-import CreateTopupRequest from "../../pages/CreateTopupRequest";
-import TopupRequestsList from "../../pages/TopupRequestList";
+
 import TabledProductListPage from "../../pages/TabledProductListPage";
 import SalesPage from "../../pages/SalesPage";
 import MyStockPage from "../../pages/MyStockPage";
@@ -36,10 +32,6 @@ const VendorRoutes = [
       element={<VendorMainLayout><VendorDashboard /></VendorMainLayout>}
     />
     {/* brand  */}
-    <Route
-      path="/vendor/create-brand"
-      element={<VendorMainLayout><CreateBrandPage/></VendorMainLayout>}
-    />
     <Route
       path="/vendor/brand"
       element={<VendorMainLayout><ViewBrandsPage/></VendorMainLayout>}
@@ -66,8 +58,8 @@ const VendorRoutes = [
     <Route path="/vendor/products/edit/:id" element={<VendorMainLayout><EditProductPage role="vendor" /></VendorMainLayout>} />
     
     {/* topup  */}
-    <Route path="/vendor/topup-request" element={<VendorMainLayout><CreateTopupRequest role="vendor"/></VendorMainLayout>} />
-    <Route path="/vendor/my-topup" element={<VendorMainLayout><TopupRequestsList role="vendor" /></VendorMainLayout>} />
+    {/* <Route path="/vendor/topup-request" element={<VendorMainLayout><CreateTopupRequest role="vendor"/></VendorMainLayout>} />
+    <Route path="/vendor/my-topup" element={<VendorMainLayout><TopupRequestsList role="vendor" /></VendorMainLayout>} /> */}
     
     {/* withdrawl  */}
     <Route path="/vendor/withdrawl-request" element={<VendorMainLayout><CreateWithdrawalRequest role="vendor"/></VendorMainLayout>} />
@@ -75,7 +67,7 @@ const VendorRoutes = [
 
 
     <Route path="vendor/settings/profile" element={<VendorMainLayout><Profile/></VendorMainLayout>} />
-    <Route path="vendor/settings/change-password" element={<VendorMainLayout><ChangePassword /></VendorMainLayout>} />
+    <Route path="vendor/settings/change-password" element={<VendorMainLayout><ChangePassword role="vendor"/></VendorMainLayout>} />
     <Route path="/vendor/wallet" element={<VendorMainLayout><UserWalletPage/></VendorMainLayout>} />
     
     <Route key="logout" path="/vendor/logout" element={<Logout/>} />

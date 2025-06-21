@@ -198,9 +198,11 @@ const TabledProductListPage = ({ role }) => {
                   <th className="w-12">#</th>
                   <th>Product</th>
                   <th>Category</th>
+                  <th>Sub-Category</th>
                   <th>Price</th>
-                  <th>Stock</th>
+               
                   <th>Status</th>
+                  <th>Short Description</th>
                   <th className="text-center">Actions</th>
                 </tr>
               </thead>
@@ -209,7 +211,6 @@ const TabledProductListPage = ({ role }) => {
                 {products.length > 0 ? (
                   products.map((prod, index) => {
                     const defaultSize = prod.sizes?.find(size => size.is_default);
-                    const stock = prod.sizes?.reduce((sum, size) => sum + (size.quantity || 0), 0);
                     const price = defaultSize ? defaultSize.price : prod.price || 0;
                     const productImage = getProductImage(prod);
 
@@ -243,15 +244,9 @@ const TabledProductListPage = ({ role }) => {
                           </div>
                         </td>
                         <td>{prod.category_name || '-'}</td>
+                        <td>{prod.subcategory_name || '-'}</td>
                         <td>₹{Number(price).toFixed(2)}</td>
-                        <td>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            stock > 10 ? 'bg-green-100 text-green-800' : 
-                            stock > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
-                          }`}>
-                            {stock || 0} in stock
-                          </span>
-                        </td>
+                     
                         <td>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                             statusColors[prod.status?.toLowerCase() || 'active']
@@ -259,6 +254,7 @@ const TabledProductListPage = ({ role }) => {
                             {prod.status || 'Active'}
                           </span>
                         </td>
+                        <td>{prod.short_description}</td>
                         <td>
                           <div className="flex justify-center gap-3">
                             <button

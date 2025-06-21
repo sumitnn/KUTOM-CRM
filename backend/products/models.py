@@ -84,7 +84,7 @@ class Product(models.Model):
     subcategory = models.ForeignKey(SubCategory, on_delete=models.SET_NULL, null=True, blank=True)
     tags = models.ManyToManyField(Tag, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
-    is_featured = models.BooleanField(default=False)
+    is_featured = models.BooleanField(default=True)
     rating = models.DecimalField(max_digits=3, decimal_places=1, null=True, blank=True)
     owner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -105,12 +105,9 @@ class Product(models.Model):
 
 class ProductSize(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='sizes')
-    name = models.CharField(max_length=50, blank=True)
     size = models.CharField(max_length=50)
     unit = models.CharField(max_length=20)
     price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
-    cost_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    quantity = models.PositiveIntegerField(default=0)
     is_default = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -123,8 +120,6 @@ class ProductSize(models.Model):
         return f"{self.product.name} - {self.size}{self.unit}"
 
     def save(self, *args, **kwargs):
-        if not self.name:
-            self.name = f"{self.size}{self.unit}"
         if self.is_default:
             ProductSize.objects.filter(product=self.product).exclude(pk=self.pk).update(is_default=False)
         super().save(*args, **kwargs)
@@ -133,7 +128,7 @@ class ProductImage(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
     image = models.ImageField(upload_to='products/images/')
     alt_text = models.CharField(max_length=150, blank=True)
-    is_featured = models.BooleanField(default=False)
+    is_featured = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

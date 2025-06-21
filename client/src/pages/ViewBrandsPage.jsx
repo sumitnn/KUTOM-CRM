@@ -1,13 +1,21 @@
 import { useState, useMemo } from "react";
-import { FiEdit2, FiTrash2, FiSearch, FiX, FiPlus, FiImage, FiStar } from "react-icons/fi";
-import { Link } from "react-router-dom";
+import { 
+  FiEdit2, 
+  FiSearch, 
+  FiX, 
+  FiPlus, 
+  FiImage, 
+  FiStar,
+  FiCheckCircle,
+  FiUpload
+} from "react-icons/fi";
+
 import { useEffect } from "react";
 import { toast } from "react-toastify";
-
-
 import {
   useGetBrandsQuery,
-  useUpdateBrandMutation
+  useUpdateBrandMutation,
+  useCreateBrandMutation
 } from "../features/brand/brandApi";
 
 function useDebounce(value, delay) {
@@ -29,11 +37,17 @@ const ViewBrandsPage = () => {
     search: debouncedSearch,
   });
   const [updateBrand] = useUpdateBrandMutation();
+  const [createBrand, { isLoading: isCreating }] = useCreateBrandMutation();
 
   const [selectedBrand, setSelectedBrand] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
-
-
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newBrand, setNewBrand] = useState({
+    name: "",
+    description: "",
+    is_active: false,
+    logoFile: null
+  });
 
   const memoizedBrands = useMemo(() => brands, [brands]);
 
@@ -61,8 +75,6 @@ const ViewBrandsPage = () => {
     );
   };
 
- 
-
   const handleUpdate = async () => {
     if (!selectedBrand) return;
   
@@ -78,20 +90,50 @@ const ViewBrandsPage = () => {
   
       await updateBrand({ id: selectedBrand.id, data: formData }).unwrap();
       refetch();
-      toast.success("Brand Details Updated Successfully");
-    } catch (err) {
-      console.error("Update failed:", err);
-      toast.error(err.data.message);
-    } finally {
+      toast.success("Brand updated successfully");
       setSelectedBrand(null);
       setLogoPreview(null);
+    } catch (err) {
+      console.error("Update failed:", err);
+      toast.error(err.data?.message || "Failed to update brand");
     }
   };
 
-  const handleLogoChange = (e) => {
+  const handleCreate = async () => {
+    try {
+      const formData = new FormData();
+      formData.append("name", newBrand.name);
+      formData.append("description", newBrand.description || "");
+      formData.append("is_active", newBrand.is_active ? "true" : "false");
+  
+      if (newBrand.logoFile) {
+        formData.append("logo", newBrand.logoFile);
+      }
+  
+      await createBrand(formData).unwrap();
+      refetch();
+      toast.success("Brand created successfully");
+      setIsCreateModalOpen(false);
+      setNewBrand({
+        name: "",
+        description: "",
+        is_active: false,
+        logoFile: null
+      });
+    } catch (err) {
+      console.error("Create failed:", err);
+      toast.error(err.data?.message || "Failed to create brand");
+    }
+  };
+
+  const handleLogoChange = (e, isCreate = false) => {
     const file = e.target.files[0];
     if (file) {
-      setSelectedBrand(prev => ({ ...prev, logoFile: file }));
+      if (isCreate) {
+        setNewBrand(prev => ({ ...prev, logoFile: file }));
+      } else {
+        setSelectedBrand(prev => ({ ...prev, logoFile: file }));
+      }
       setLogoPreview(URL.createObjectURL(file));
     }
   };
@@ -140,12 +182,12 @@ const ViewBrandsPage = () => {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <Link 
-              to="/vendor/create-brand" 
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
               className="btn btn-primary gap-2 whitespace-nowrap"
             >
-              <FiPlus /> New Brand
-            </Link>
+              <FiPlus /> Create New Brand
+            </button>
           </div>
         </div>
 
@@ -170,8 +212,8 @@ const ViewBrandsPage = () => {
                     <th className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">Brand Name</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">Logo</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">Description</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">Active</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">Last Updated Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">Active</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">Last Updated Date</th>
                     <th className="px-4 py-3 text-right text-xs font-bold text-black uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
@@ -195,12 +237,12 @@ const ViewBrandsPage = () => {
                         />
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
-  <div className="text-sm font-medium text-gray-900">
-    {brand.description?.length > 18
-      ? `${brand.description.slice(0, 18)}...`
-      : brand.description}
-  </div>
-</td>
+                        <div className="text-sm font-medium text-gray-900">
+                          {brand.description?.length > 18
+                            ? `${brand.description.slice(0, 18)}...`
+                            : brand.description}
+                        </div>
+                      </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         {brand.is_active ? (
                           <FiStar className="h-5 w-5 text-yellow-500 fill-yellow-500" />
@@ -212,25 +254,25 @@ const ViewBrandsPage = () => {
                        {brand.updated_at}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-center text-sm font-medium">
-  <div className="flex justify-end gap-2">
-    <button
-      onClick={() =>
-        setSelectedBrand({
-          id: brand.id,
-          name: brand.name,
-          description: brand.description || "",
-          is_active: brand.is_active,
-          logo: brand.logo,
-        })
-      }
-      className="flex items-center gap-1 text-blue-600 hover:text-blue-900 p-2 rounded-md hover:bg-blue-50 transition"
-      title="Edit"
-    >
-      <FiEdit2 className="h-4 w-4" />
-      <span className="hidden sm:inline font-bold hover:cursor-pointer">Edit</span>
-    </button>
-  </div>
-</td>
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() =>
+                              setSelectedBrand({
+                                id: brand.id,
+                                name: brand.name,
+                                description: brand.description || "",
+                                is_active: brand.is_active,
+                                logo: brand.logo,
+                              })
+                            }
+                            className="flex items-center gap-1 text-blue-600 hover:text-blue-900 p-2 rounded-md hover:bg-blue-50 transition"
+                            title="Edit"
+                          >
+                            <FiEdit2 className="h-4 w-4" />
+                            <span className="hidden sm:inline font-bold hover:cursor-pointer">Edit</span>
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -251,24 +293,22 @@ const ViewBrandsPage = () => {
               }}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
             >
-              <FiX className="h-6 w-6" />
+              <FiX className="h-6 w-6 font-bold hover:cursor-pointer" />
             </button>
             
-            <h2 className="text-2xl font-bold mb-6 text-gray-900">
-              {selectedBrand.id ? "Edit Brand" : "Create Brand"}
-            </h2>
+            <h2 className="text-2xl font-extrabold mb-6 text-gray-900">Edit Brand</h2>
 
             <div className="flex flex-col items-center space-y-4 mb-6">
               <div className="relative">
                 <ImageLoader
                   src={
                     logoPreview || 
-                    (selectedBrand.logo ?selectedBrand.logo : "https://onno.spagreen.net/demo/public/default-image/default-1080x1000.png")
+                    (selectedBrand.logo ? selectedBrand.logo : "https://onno.spagreen.net/demo/public/default-image/default-1080x1000.png")
                   }
                   alt="Brand Logo"
                   className="w-28 h-28 rounded-full border-2 border-white shadow-md object-cover"
                 />
-                <label className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700">
+                <label className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition">
                   <input
                     id="logo"
                     name="file"
@@ -277,14 +317,14 @@ const ViewBrandsPage = () => {
                     onChange={handleLogoChange}
                     className="hidden"
                   />
-                  <FiEdit2 className="h-4 w-4" />
+                  <FiUpload className="h-4 w-4" />
                 </label>
               </div>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Brand Name *</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Brand Name *</label>
                 <input
                   id="brandname"
                   name="brandname"
@@ -297,7 +337,7 @@ const ViewBrandsPage = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
                 <textarea
                   id="description"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
@@ -308,17 +348,35 @@ const ViewBrandsPage = () => {
               </div>
 
               <div className="flex items-center">
-                <input
-                  id="isactive"
-                  type="checkbox"
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  checked={selectedBrand.is_active}
-                  onChange={(e) => setSelectedBrand(prev => ({ ...prev, is_active: e.target.checked }))}
-                />
-                <label className="ml-2 block text-sm text-gray-700">
-                  Featured Brand
-                </label>
-              </div>
+  <label htmlFor="isactive" className="flex items-center cursor-pointer select-none">
+    <div className="relative">
+      <input
+        id="isactive"
+        type="checkbox"
+        className="sr-only"
+        checked={selectedBrand.is_active}
+        onChange={(e) =>
+          setSelectedBrand((prev) => ({
+            ...prev,
+            is_active: e.target.checked,
+          }))
+        }
+      />
+      <div
+        className={`w-10 h-6 sm:w-12 sm:h-7 rounded-full transition-colors duration-300 ${
+          selectedBrand.is_active ? "bg-blue-600" : "bg-gray-300"
+        }`}
+      ></div>
+      <div
+        className={`absolute top-0.5 left-0.5 w-5 h-5 sm:w-6 sm:h-6 bg-white rounded-full shadow-md transform transition-transform duration-300 ${
+          selectedBrand.is_active ? "translate-x-4 sm:translate-x-5" : ""
+        }`}
+      ></div>
+    </div>
+    <span className="ml-3 text-sm sm:text-base text-gray-700 font-bold">Is Active</span>
+  </label>
+</div>
+
             </div>
 
             <div className="mt-8 flex justify-end gap-3">
@@ -327,22 +385,167 @@ const ViewBrandsPage = () => {
                   setSelectedBrand(null);
                   setLogoPreview(null);
                 }}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleUpdate}
-                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-500 transition flex items-center gap-2"
+                disabled={isLoading}
               >
-                Update
+                {isLoading ? (
+                  <>
+                    <span className="loading loading-spinner loading-sm"></span>
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <FiCheckCircle /> Update
+                  </>
+                )}
               </button>
             </div>
           </div>
         </div>
       )}
 
-  
+      {/* Create Brand Modal */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => {
+                setIsCreateModalOpen(false);
+                setLogoPreview(null);
+                setNewBrand({
+                  name: "",
+                  description: "",
+                  is_active: false,
+                  logoFile: null
+                });
+              }}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <FiX className="h-6 w-6 font-bold hover:cursor-pointer" />
+            </button>
+            
+            <h2 className="text-2xl font-extrabold mb-6 text-gray-900">Create New Brand</h2>
+
+            <div className="flex flex-col items-center space-y-4 mb-6">
+              <div className="relative">
+                <ImageLoader
+                  src={
+                    logoPreview || 
+                    "https://onno.spagreen.net/demo/public/default-image/default-1080x1000.png"
+                  }
+                  alt="Brand Logo"
+                  className="w-28 h-28 rounded-full border-2 border-white shadow-md object-cover"
+                />
+                <label className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition">
+                  <input
+                    id="logo"
+                    name="file"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleLogoChange(e, true)}
+                    className="hidden"
+                  />
+                  <FiUpload className="h-4 w-4" />
+                </label>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Brand Name *</label>
+                <input
+                  id="brandname"
+                  name="brandname"
+                  type="text"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  value={newBrand.name}
+                  onChange={(e) => setNewBrand(prev => ({ ...prev, name: e.target.value }))}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
+                <textarea
+                  id="description"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  rows={4}
+                  value={newBrand.description}
+                  onChange={(e) => setNewBrand(prev => ({ ...prev, description: e.target.value }))}
+                />
+              </div>
+
+              <div className="flex items-center">
+  <label htmlFor="isactive" className="flex items-center cursor-pointer">
+    <div className="relative">
+      <input
+        id="isactive"
+        type="checkbox"
+        className="sr-only"
+        checked={newBrand.is_active}
+        onChange={(e) =>
+          setNewBrand((prev) => ({ ...prev, is_active: e.target.checked }))
+        }
+      />
+      <div
+        className={`block w-14 h-8 rounded-full ${
+          newBrand.is_active ? "bg-blue-600" : "bg-gray-300"
+        }`}
+      ></div>
+      <div
+        className={`dot absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition ${
+          newBrand.is_active ? "translate-x-6" : ""
+        }`}
+      ></div>
+    </div>
+    <span className="ml-3 text-sm text-gray-700 font-bold">Is Active</span>
+  </label>
+</div>
+
+            </div>
+
+            <div className="mt-8 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setIsCreateModalOpen(false);
+                  setLogoPreview(null);
+                  setNewBrand({
+                    name: "",
+                    description: "",
+                    is_active: false,
+                    logoFile: null
+                  });
+                }}
+                className="px-4 py-2 border border-gray-300 font-bold hover:cursor-pointer rounded-md text-gray-700 hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreate}
+                className="px-4 py-2 bg-green-600 text-white font-bold hover:cursor-pointer rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition flex items-center gap-2"
+                disabled={isCreating || !newBrand.name}
+              >
+                {isCreating ? (
+                  <>
+                    <span className="loading loading-spinner loading-sm"></span>
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <FiCheckCircle /> Create Brand
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
