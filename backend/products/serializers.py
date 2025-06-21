@@ -2,8 +2,9 @@ from rest_framework import serializers
 from .models import *
    
 from django.utils.text import slugify
-import json
 
+import json
+from collections import defaultdict
 
 class BrandSerializer(serializers.ModelSerializer):
     created_at = serializers.SerializerMethodField()
@@ -112,8 +113,8 @@ class ProductSizeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductSize
         fields = [
-            'id', 'name', 'size', 'unit', 'price', 'cost_price', 
-            'quantity', 'is_default', 'is_active', 'price_tiers',
+            'id',  'size', 'unit', 'price', 
+             'is_default', 'is_active', 'price_tiers',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
@@ -131,13 +132,14 @@ class ProductSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
     subcategory_name = serializers.CharField(source='subcategory.name', read_only=True)
 
+
     class Meta:
         model = Product
         fields = [
             'id', 'sku', 'name', 'slug', 'description', 'short_description',
             'brand', 'brand_name', 'category', 'category_name', 'subcategory',
             'subcategory_name', 'tags', 'status', 'is_featured', 'rating',
-            'images', 'sizes', 'created_at', 'updated_at'
+            'images', 'sizes', 'created_at', 'updated_at',
         ]
         read_only_fields = ['sku', 'slug', 'created_at', 'updated_at']
         extra_kwargs = {
@@ -146,179 +148,145 @@ class ProductSerializer(serializers.ModelSerializer):
             'subcategory': {'required': False},
         }
 
-    def create(self, validated_data):
-        # Get the request object from context
-        request = self.context.get('request')
-        
-        # Create the product first
-        product = Product.objects.create(**validated_data)
-        
-        # Handle tags if they exist in request data
-        tags_data = request.data.get('tags', [])
-        if tags_data:
-            try:
-                tags_list = json.loads(tags_data[0]) if isinstance(tags_data, list) else json.loads(tags_data)
-                for tag_name in tags_list:
-                    tag, created = Tag.objects.get_or_create(name=tag_name.strip())
-                    product.tags.add(tag)
-            except (json.JSONDecodeError, TypeError):
-                pass
-        
-        # Handle sizes and price tiers
-        sizes_data = {}
-        for key, value in request.data.items():
-            if key.startswith('sizes['):
-                # Parse size index and field name
-                parts = key.split('[')
-                index = int(parts[1].split(']')[0])
-                field = parts[2].split(']')[0]
-                
-                if index not in sizes_data:
-                    sizes_data[index] = {}
-                sizes_data[index][field] = value[0] if isinstance(value, list) else value
-        
-        # Create sizes
-        for index, size_data in sizes_data.items():
-            size = ProductSize.objects.create(
+    def _parse_json_field(self, request, field_name, default=None):
+        """Helper to parse JSON fields from request data"""
+        if default is None:
+            default = []
+        data = request.data.get(field_name)
+        try:
+            return json.loads(data) if data else default
+        except (json.JSONDecodeError, TypeError):
+            return default
+
+    def _process_tags(self, product, tags_data):
+        """Process product tags"""
+        if not tags_data:
+            return
+
+        product.tags.clear()
+        for tag_name in tags_data:
+            tag, _ = Tag.objects.get_or_create(name=tag_name.strip())
+            product.tags.add(tag)
+
+    def _process_sizes_and_tiers(self, product, sizes_data, price_tiers_data, is_update=False):
+        """Process sizes and price tiers with bulk operations"""
+        # Delete existing sizes if updating
+        if is_update:
+            product.sizes.all().delete()
+
+        # Prepare size objects
+        size_objs = []
+        for size_data in sizes_data:
+            size_objs.append(ProductSize(
                 product=product,
                 size=size_data.get('size', ''),
-                unit=size_data.get('unit', ''),
-                price=size_data.get('price', 0),
-                cost_price=size_data.get('cost_price'),
-                quantity=size_data.get('quantity', 0),
-                is_default=size_data.get('is_default', 'false').lower() == 'true'
-            )
-            
-            # Handle price tiers for this size
-            for key, value in request.data.items():
-                if key.startswith(f'price_tiers['):
-                    parts = key.split('[')
-                    tier_index = int(parts[1].split(']')[0])
-                    field = parts[2].split(']')[0]
-                    
-                    if str(index) == request.data.get(f'price_tiers[{tier_index}][size_index]', [''])[0]:
-                        if field == 'min_quantity':
-                            min_quantity = value[0] if isinstance(value, list) else value
-                        elif field == 'price':
-                            price = value[0] if isinstance(value, list) else value
-                            ProductPriceTier.objects.create(
-                                size=size,
-                                min_quantity=min_quantity,
-                                price=price
-                            )
+                unit=size_data.get('unit', 'gram'),
+                price=float(size_data.get('price', 0)),
+                is_default=size_data.get('is_default', False)
+            ))
+
+        # Bulk create sizes
+        created_sizes = ProductSize.objects.bulk_create(size_objs)
+
+        # Process price tiers
+        tier_objs = []
+        for tier_data in price_tiers_data:
+            size_index = tier_data.get('size_index', -1)
+            if 0 <= size_index < len(created_sizes):
+                tier_objs.append(ProductPriceTier(
+                    size=created_sizes[size_index],
+                    min_quantity=int(tier_data.get('min_quantity', 0)),
+                    price=float(tier_data.get('price', 0))
+                ))
+
+        # Bulk create price tiers
+        if tier_objs:
+            ProductPriceTier.objects.bulk_create(tier_objs)
+
+    def _process_images(self, product, request, is_update=False):
+        """Process product images"""
+        try:
+            if is_update:
+                # Handle removed images
+                removed_images = request.data.getlist('removed_images')
+                if removed_images:
+                    try:
+                        # Convert to integers
+                        removed_ids = [int(img_id) for img_id in removed_images if img_id.isdigit()]
+                        # Delete the images from storage and database
+                        ProductImage.objects.filter(
+                            product=product,
+                            id__in=removed_ids
+                        ).delete()
+                    except (ValueError, TypeError) as e:
+                        print(f"Error processing removed images: {e}")
+
+                # Clear existing featured images
+                ProductImage.objects.filter(product=product, is_featured=True).update(is_featured=False)
+
+            # Process main image
+            if 'image' in request.FILES:
+                main_images = request.FILES.getlist('image')
+                if main_images:
+                    ProductImage.objects.create(
+                        product=product,
+                        image=main_images[0],
+                        is_featured=True
+                    )
+                    # Add remaining main images as non-featured
+                    for img in main_images[1:]:
+                        ProductImage.objects.create(
+                            product=product,
+                            image=img
+                        )
+
+            # Process additional images
+            additional_images = request.FILES.getlist('additional_images')
+            for img in additional_images:
+                ProductImage.objects.create(
+                    product=product,
+                    image=img
+                )
+        except Exception as e:
+            print(f"Error in _process_images: {e}")
+            raise
+
+    def create(self, validated_data):
+        request = self.context.get('request')
         
-        # Handle main image
-        if 'image' in request.FILES:
-            main_image = request.FILES['image']
-            ProductImage.objects.create(
-                product=product,
-                image=main_image,
-                is_featured=True
-            )
+        # Create the product
+        product = Product.objects.create(**validated_data)
         
-        # Handle additional images
-        additional_images = request.FILES.getlist('additional_images')
-        for img in additional_images:
-            ProductImage.objects.create(
-                product=product,
-                image=img
-            )
+        # Parse JSON data
+        sizes_data = self._parse_json_field(request, 'sizes')
+        price_tiers_data = self._parse_json_field(request, 'price_tiers')
+        tags_data = self._parse_json_field(request, 'tags')
+
+        # Process related data
+        self._process_tags(product, tags_data)
+        self._process_sizes_and_tiers(product, sizes_data, price_tiers_data)
+        self._process_images(product, request)
         
         return product
     
     def update(self, instance, validated_data):
         request = self.context.get('request')
-
-        # === Update basic fields ===
-        instance.name = validated_data.get('name', instance.name)
-        instance.description = validated_data.get('description', instance.description)
-        instance.short_description = validated_data.get('short_description', instance.short_description)
-        instance.brand = validated_data.get('brand', instance.brand)
-        instance.category = validated_data.get('category', instance.category)
-        instance.subcategory = validated_data.get('subcategory', instance.subcategory)
-        instance.status = validated_data.get('status', instance.status)
-        instance.is_featured = validated_data.get('is_featured', instance.is_featured)
-        instance.save()
-
-        # === Helper to safely parse JSON lists ===
-        def parse_json_list(data, default='[]'):
-            try:
-                return json.loads(data) if isinstance(data, str) else data
-            except (json.JSONDecodeError, TypeError):
-                return []
-
-        # === Handle tags ===
-        tags_data = parse_json_list(request.data.get('tags', '[]'))
-        instance.tags.clear()
-        for tag_name in tags_data:
-            tag, _ = Tag.objects.get_or_create(name=tag_name.strip())
-            instance.tags.add(tag)
-
-        # === Handle sizes ===
-        sizes = parse_json_list(request.data.get('sizes', '[]'))
-
-        for index, size_data in enumerate(sizes):
-            size_id = size_data.get('id')
-            is_default = str(size_data.get('is_default', 'false')).lower() == 'true'
-
-            if size_id:
-                try:
-                    size = ProductSize.objects.get(id=size_id, product=instance)
-                    size.size = size_data.get('size', size.size)
-                    size.unit = size_data.get('unit', size.unit)
-                    size.price = size_data.get('price', size.price)
-                    size.cost_price = size_data.get('cost_price', size.cost_price)
-                    size.quantity = size_data.get('quantity', size.quantity)
-                    size.is_default = is_default
-                    size.save()
-                except ProductSize.DoesNotExist:
-                    continue
-            else:
-                size = ProductSize.objects.create(
-                    product=instance,
-                    size=size_data.get('size', ''),
-                    unit=size_data.get('unit', ''),
-                    price=size_data.get('price', 0),
-                    cost_price=size_data.get('cost_price', 0),
-                    quantity=size_data.get('quantity', 0),
-                    is_default=is_default
-                )
-
-            # Clear and re-add price tiers for this size
-            ProductPriceTier.objects.filter(size=size).delete()
-
-        # === Handle price tiers ===
-        price_tiers = parse_json_list(request.data.get('price_tiers', '[]'))
-
-        for tier in price_tiers:
-            size_index = int(tier.get('size_index', -1))
-            if 0 <= size_index < len(sizes):
-                related_size_data = sizes[size_index]
-                try:
-                    size = ProductSize.objects.get(product=instance, size=related_size_data.get('size'))
-                    ProductPriceTier.objects.create(
-                        size=size,
-                        min_quantity=tier.get('min_quantity', 0),
-                        price=tier.get('price', 0)
-                    )
-                except ProductSize.DoesNotExist:
-                    continue
-
-        # === Handle featured image ===
-        if 'image' in request.FILES:
-            ProductImage.objects.filter(product=instance, is_featured=True).update(is_featured=False)
-            ProductImage.objects.create(
-                product=instance,
-                image=request.FILES['image'],
-                is_featured=True
-            )
-
-        # === Handle additional images ===
-        for img in request.FILES.getlist('additional_images'):
-            ProductImage.objects.create(product=instance, image=img)
-
         
+        # Update basic fields
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+        instance.save()
+        
+        # Parse JSON data
+        sizes_data = self._parse_json_field(request, 'sizes')
+        price_tiers_data = self._parse_json_field(request, 'price_tiers')
+        tags_data = self._parse_json_field(request, 'tags')
 
+        # Process related data
+        self._process_tags(instance, tags_data)
+        self._process_sizes_and_tiers(instance, sizes_data, price_tiers_data, is_update=True)
+        self._process_images(instance, request, is_update=True)
+        
         return instance
 
 
@@ -341,7 +309,7 @@ class StockSerializer(serializers.ModelSerializer):
     
     def get_size_display(self, obj):
         if obj.size:
-            return f"{obj.size.size}{obj.size.unit}"
+            return f"{obj.size.size}"
         return None
     
     def create(self, validated_data):

@@ -199,20 +199,16 @@ class BasicUserProfileSerializer(serializers.ModelSerializer):
 class ProfileSerializer(serializers.ModelSerializer):
     user = BasicUserProfileSerializer(read_only=True)
     address = serializers.SerializerMethodField()
+    date_of_birth = serializers.DateField(
+        input_formats=['%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y', 'iso-8601'],
+        required=False,
+        allow_null=True
+    )
 
     class Meta:
         model = Profile
-        fields = [
-            'id', 'user', 'full_name', 'date_of_birth', 'phone', 'profile_picture',
-            'gender', 'bio', 'facebook', 'twitter', 'instagram', 'youtube',
-            'whatsapp_number', 'bank_upi', 'account_holder_name', 'passbook_pic',
-            'ifsc_code', 'bank_name', 'account_number',
-            'adhaar_card_pic', 'pancard_pic', 'kyc_other_document',
-            'adhaar_card_number', 'pancard_number', 'kyc_status',
-            'kyc_verified', 'kyc_verified_at', 'kyc_rejected_reason',
-            'created_at', 'updated_at', 'address'
-        ]
-        read_only_fields = ['kyc_verified', 'kyc_verified_at', 'created_at', 'updated_at']
+        fields = '__all__'
+        read_only_fields = ['id', 'user', 'kyc_verified', 'kyc_verified_at', 'created_at', 'updated_at']
 
     def get_address(self, obj):
         address = Address.objects.filter(user=obj.user).first()
@@ -220,13 +216,61 @@ class ProfileSerializer(serializers.ModelSerializer):
             return AddressSerializer(address).data
         return None
 
+    def to_internal_value(self, data):
+        data = data.copy()
+        
+        # Handle null values
+        for field in ['date_of_birth', 'profile_picture']:
+            if field in data and data[field] in ('null', 'None'):
+                data[field] = None
+                
+        ret = super().to_internal_value(data)
+        request = self.context.get('request')
+        
+        # Handle file uploads
+        if request and hasattr(request, 'FILES'):
+            for field in request.FILES:
+                ret[field] = request.FILES[field]
+        
+        # Handle address data
+        address_data = {}
+        address_fields = ['street_address', 'city', 'postal_code', 'country']
+        
+        for field in address_fields:
+            key = f'address[{field}]'
+            if key in data:
+                address_data[field] = data[key]
+        
+        # Handle state and district foreign keys
+        foreign_key_fields = {
+            'state': State,
+            'district': District
+        }
+        
+        for field, model in foreign_key_fields.items():
+            key = f'address[{field}]'
+            if key in data and data[key]:
+                try:
+                    address_data[field] = model.objects.get(id=data[key])
+                except model.DoesNotExist:
+                    raise serializers.ValidationError({
+                        field: f'Invalid {field} ID'
+                    })
+        
+        if address_data:
+            ret['address'] = address_data
+            
+        return ret
+
     def update(self, instance, validated_data):
         address_data = validated_data.pop('address', None)
-
-        # Update all other profile fields
+        
+        # Update profile fields
         for attr, value in validated_data.items():
-            setattr(instance, attr, value)
+            if value is not None or attr in ['profile_picture']:
+                setattr(instance, attr, value)
 
+        # Update or create address
         if address_data:
             Address.objects.update_or_create(
                 user=instance.user,
@@ -235,7 +279,6 @@ class ProfileSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
-
 
 
 class AddressWithUserAndProfileSerializer(serializers.ModelSerializer):

@@ -23,6 +23,7 @@ from datetime import timedelta,timezone
 from orders.models import Order, OrderItem
 from rest_framework.pagination import PageNumberPagination
 from products.models import Product
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 10
@@ -411,44 +412,28 @@ class StockistsByStateAPIView(APIView):
     
 
 class ProfileView(APIView):
-    permission_classes = [IsAuthenticated]  
+    parser_classes = [MultiPartParser, FormParser]
+    permission_classes = [IsAuthenticated]
 
-    def get(self, request, *args, **kwargs):
-        try:
-            profile = Profile.objects.get(user=request.user)
-        except Profile.DoesNotExist:
-            return Response({"detail": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        # Serialize and return the profile data
-        serializer = ProfileSerializer(profile)
+    def get(self, request):
+        profile, created = Profile.objects.get_or_create(user=request.user)
+        serializer = ProfileSerializer(profile, context={'request': request})
         return Response(serializer.data)
 
-    def put(self, request, *args, **kwargs):
-        try:
-            profile = Profile.objects.get(user=request.user)
-        except Profile.DoesNotExist:
-            return Response({"detail": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        # Serialize and update the profile data
-        serializer = ProfileSerializer(profile, data=request.data)
+    def patch(self, request):
+        print("Request data:", request.data)  # Debugging line
+        profile = Profile.objects.get(user=request.user)
+        serializer = ProfileSerializer(
+            profile,
+            data=request.data,
+            context={'request': request},
+            partial=True
+        )
+        
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def patch(self, request, *args, **kwargs):
-        try:
-            profile = Profile.objects.get(user=request.user)
-        except Profile.DoesNotExist:
-            return Response({"detail": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        # Serialize and update the profile data (partial update)
-        serializer = ProfileSerializer(profile, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
 
 
 

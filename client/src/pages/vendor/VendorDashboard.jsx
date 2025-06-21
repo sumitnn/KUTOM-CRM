@@ -175,7 +175,7 @@ const VendorDashboard = () => {
                 <FiFilter className="text-gray-400" />
               </div>
               <select 
-                className="select select-bordered pl-10 w-full"
+                className="select select-bordered pl-10 w-full cursor-pointer"
                 value={activeFilter}
                 onChange={(e) => setActiveFilter(e.target.value)}
               >
@@ -190,7 +190,7 @@ const VendorDashboard = () => {
                 <FiCalendar className="text-gray-400" />
               </div>
               <select 
-                className="select select-bordered pl-10 w-full"
+                className="select select-bordered pl-10 w-full cursor-pointer"
                 value={timeRange}
                 onChange={(e) => setTimeRange(Number(e.target.value))}
               >
@@ -291,7 +291,7 @@ const VendorDashboard = () => {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.4 }}
             >
-              <h2 className="text-xl font-semibold text-gray-800 mb-6">Products Distribution</h2>
+              <h2 className="text-xl font-bold text-gray-800 mb-6">Products Analysis</h2>
               <div className="h-64">
                 <Pie
                   data={{

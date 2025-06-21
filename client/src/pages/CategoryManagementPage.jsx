@@ -190,13 +190,15 @@ const CategoryManagementPage = () => {
               
               {/* Category Form */}
               {isCategoryFormOpen && (
-                <div className="bg-gray-50 p-4 rounded-lg mb-6">
+                <div className="bg-gray-50 p-4 rounded-lg mb-6 border-4 border-gray-500">
                   <form onSubmit={handleCreateCategory} className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-bold text-gray-700 mb-1">
                         Category Name*
                       </label>
                       <input
+                        id="categoryname"
+                        name="categoryname"
                         type="text"
                         placeholder="Enter category name"
                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
@@ -209,11 +211,11 @@ const CategoryManagementPage = () => {
                       <input
                         type="checkbox"
                         id="category-active"
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        className="h-6 w-6 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
                         checked={categoryForm.is_active}
                         onChange={(e) => setCategoryForm({...categoryForm, is_active: e.target.checked})}
                       />
-                      <label htmlFor="category-active" className="ml-2 block text-sm text-gray-700">
+                      <label htmlFor="category-active" className="ml-2 block text-sm font-bold text-gray-700">
                         Active
                       </label>
                     </div>
@@ -221,13 +223,13 @@ const CategoryManagementPage = () => {
                       <button
                         type="button"
                         onClick={() => setIsCategoryFormOpen(false)}
-                        className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        className="inline-flex items-center cursor-pointer px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                       >
                         Cancel
                       </button>
                       <button 
                         type="submit" 
-                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        className="inline-flex items-center cursor-pointer px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                       >
                         Create Category
                       </button>
@@ -309,10 +311,10 @@ const CategoryManagementPage = () => {
               
               {/* Subcategory Form */}
               {isSubcategoryFormOpen && (
-                <div className="bg-gray-50 p-4 rounded-lg mb-6">
+                <div className="bg-gray-50 p-4 rounded-lg mb-6 border-4 border-gray-500">
                   <form onSubmit={handleCreateSubcategory} className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-bold text-gray-700 mb-1">
                         Parent Category*
                       </label>
                       <select
@@ -330,7 +332,7 @@ const CategoryManagementPage = () => {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-bold text-gray-700 mb-1">
                         Brand*
                       </label>
                       <select
@@ -347,11 +349,13 @@ const CategoryManagementPage = () => {
                         ))}
                       </select>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <div >
+                      <label className="block text-sm font-bold text-gray-700 mb-1">
                         Subcategory Name*
                       </label>
                       <input
+                        id="subcategoryname"
+                        name="subcategoryname"
                         type="text"
                         placeholder="Enter subcategory name"
                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
@@ -363,8 +367,9 @@ const CategoryManagementPage = () => {
                     <div className="flex items-center">
                       <input
                         type="checkbox"
+
                         id="subcategory-active"
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        className="h-6 w-6 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                         checked={subcategoryForm.is_active}
                         onChange={(e) => setSubcategoryForm({...subcategoryForm, is_active: e.target.checked})}
                       />
@@ -376,13 +381,13 @@ const CategoryManagementPage = () => {
                       <button
                         type="button"
                         onClick={() => setIsSubcategoryFormOpen(false)}
-                        className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        className="inline-flex items-center px-4 py-2 cursor-pointer border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                       >
                         Cancel
                       </button>
                       <button 
                         type="submit" 
-                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        className="inline-flex items-center px-4  cursor-pointer py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                       >
                         Create Subcategory
                       </button>
@@ -500,7 +505,7 @@ const CategoryManagementPage = () => {
                 <input
                   type="checkbox"
                   id="edit-category-active"
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   checked={editCategory.is_active}
                   onChange={(e) => setEditCategory({...editCategory, is_active: e.target.checked})}
                 />
@@ -593,7 +598,7 @@ const CategoryManagementPage = () => {
                 <input
                   type="checkbox"
                   id="edit-subcategory-active"
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   checked={editSubcategory.is_active}
                   onChange={(e) => setEditSubcategory({...editSubcategory, is_active: e.target.checked})}
                 />

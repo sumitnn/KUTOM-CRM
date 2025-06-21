@@ -15,6 +15,7 @@ const EditProductPage = ({ role = "vendor" }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
+  const [tagInput, setTagInput] = useState("");
   
   const { data: product, isLoading, isError } = useGetProductByIdQuery(id);
   const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation();
@@ -29,60 +30,65 @@ const EditProductPage = ({ role = "vendor" }) => {
 
   const [formData, setFormData] = useState({
     name: "",
-    sku: "",
     description: "",
     short_description: "",
     brand: "",
     category: "",
     subcategory: "",
-    status: "draft",
-    is_featured: false,
-    tags: [],
+    image: null,
+    tags: []
   });
 
-  const [tagInput, setTagInput] = useState("");
-  const [sizes, setSizes] = useState([]);
-  const [priceTiers, setPriceTiers] = useState([]);
-  const [images, setImages] = useState([]);
+  const [sizes, setSizes] = useState([{ 
+    size: "",
+    unit: "gram", 
+    price: "", 
+    quantity: "",
+    is_default: false,
+  }]);
+
+  const [priceTiers, setPriceTiers] = useState([{
+    sizeIndex: 0,
+    min_quantity: "",
+    price: ""
+  }]);
+
+  const [existingImages, setExistingImages] = useState([]);
   const [newImages, setNewImages] = useState([]);
-  const [removedImages, setRemovedImages] = useState([]);
+  const [removedImageIds, setRemovedImageIds] = useState([]);
   const [preview, setPreview] = useState(null);
-  const [mainImage, setMainImage] = useState(null);
 
   useEffect(() => {
     if (product) {
+      // Set form data with product values
       setFormData({
         name: product.name || "",
-        sku: product.sku || "",
         description: product.description || "",
         short_description: product.short_description || "",
-        brand: product.brand || "",
-        category: product.category || "",
-        subcategory: product.subcategory || "",
-        status: product.status || "draft",
-        is_featured: product.is_featured || false,
+        brand: product.brand?.id || "",
+        category: product.category?.id || "",
+        subcategory: product.subcategory?.id || "",
         tags: product.tags?.map(tag => tag.name) || [],
       });
 
-      setSelectedCategoryId(product.category || "");
+      // Set selected category for subcategory dropdown
+      setSelectedCategoryId(product.category?.id || "");
       
+      // Set sizes data
       if (product.sizes) {
         setSizes(product.sizes.map(size => ({
           id: size.id,
-          name: size.name,
           size: size.size,
           unit: size.unit,
           price: size.price,
-          cost_price: size.cost_price,
           quantity: size.quantity,
           is_default: size.is_default,
-          is_active: size.is_active,
         })));
 
         // Extract price tiers
         const tiers = [];
         product.sizes.forEach((size, sizeIndex) => {
-          if (size.price_tiers && size.price_tiers.length > 0) {
+          if (size.price_tiers?.length > 0) {
             size.price_tiers.forEach(tier => {
               tiers.push({
                 id: tier.id,
@@ -97,17 +103,23 @@ const EditProductPage = ({ role = "vendor" }) => {
         setPriceTiers(tiers);
       }
 
+      // Set images data
       if (product.images) {
-        setImages(product.images);
+        setExistingImages(product.images);
+        // Set preview for main image
+        const mainImage = product.images.find(img => img.is_featured);
+        if (mainImage) {
+          setPreview(mainImage.image);
+        }
       }
     }
   }, [product]);
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: value
     }));
 
     if (name === 'category') {
@@ -119,31 +131,66 @@ const EditProductPage = ({ role = "vendor" }) => {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setMainImage(file);
+      setFormData(prev => ({ ...prev, image: file }));
       setPreview(URL.createObjectURL(file));
     }
   };
 
   const handleImagesChange = (e) => {
     const files = Array.from(e.target.files);
+    const totalImages = existingImages.length + newImages.length + files.length;
+    
+    if (totalImages > 5) {
+      toast.error("You can upload a maximum of 5 images");
+      return;
+    }
+    
     if (files.length > 0) {
-      const newImages = files.map(file => ({
-        id: Date.now() + Math.random(),
+      const uploadedImages = files.map(file => ({
         file,
         preview: URL.createObjectURL(file)
       }));
-      setNewImages(prev => [...prev, ...newImages]);
+      setNewImages(prev => [...prev, ...uploadedImages]);
     }
   };
 
-  const removeImage = (index, isNew = false) => {
-    if (isNew) {
-      setNewImages(prev => prev.filter((_, i) => i !== index));
-    } else {
-      const imageToRemove = images[index];
-      setRemovedImages(prev => [...prev, imageToRemove.id]);
-      setImages(prev => prev.filter((_, i) => i !== index));
+  const removeExistingImage = (imageId) => {
+    setRemovedImageIds(prev => [...prev, imageId]);
+    setExistingImages(prev => prev.filter(img => img.id !== imageId));
+    
+    // If we're removing the featured image, clear the preview
+    const removedImage = existingImages.find(img => img.id === imageId);
+    if (removedImage?.is_featured) {
+      setPreview(null);
     }
+  };
+
+  const removeNewImage = (index) => {
+    setNewImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleTagInputChange = (e) => {
+    setTagInput(e.target.value);
+  };
+
+  const addTag = (e) => {
+    if (e.key === 'Enter' && tagInput.trim()) {
+      e.preventDefault();
+      if (!formData.tags.includes(tagInput.trim())) {
+        setFormData(prev => ({
+          ...prev,
+          tags: [...prev.tags, tagInput.trim()]
+        }));
+      }
+      setTagInput("");
+    }
+  };
+
+  const removeTag = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      tags: prev.tags.filter((_, i) => i !== index)
+    }));
   };
 
   const handleSizeChange = (index, field, value) => {
@@ -160,32 +207,25 @@ const EditProductPage = ({ role = "vendor" }) => {
 
   const addSize = () => {
     setSizes(prev => [...prev, { 
-      id: Date.now(), // Temporary ID for new sizes
-      name: "",
       size: "",
-      unit: "g", 
+      unit: "gram", 
       price: "", 
-      cost_price: "",
-      quantity: "", 
+      quantity: "",
       is_default: false,
-      is_active: true,
     }]);
   };
 
   const removeSize = (index) => {
-    // Remove price tiers associated with this size
     const sizeToRemove = sizes[index];
     setPriceTiers(prev => prev.filter(tier => 
-      tier.sizeIndex !== index && tier.sizeId !== sizeToRemove.id
+      tier.sizeIndex !== index && tier.sizeId !== sizeToRemove?.id
     ));
-    
     setSizes(prev => prev.filter((_, i) => i !== index));
   };
 
   const addPriceTier = (sizeIndex) => {
     const sizeId = sizes[sizeIndex]?.id;
     setPriceTiers(prev => [...prev, { 
-      id: Date.now(), // Temporary ID for new tiers
       sizeIndex,
       sizeId,
       min_quantity: "",
@@ -197,33 +237,12 @@ const EditProductPage = ({ role = "vendor" }) => {
     setPriceTiers(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleTagKeyDown = (e) => {
-    if (['Enter', 'Tab', ','].includes(e.key)) {
-      e.preventDefault();
-      const newTag = tagInput.trim();
-      if (newTag && !formData.tags.includes(newTag)) {
-        setFormData(prev => ({
-          ...prev,
-          tags: [...prev.tags, newTag]
-        }));
-      }
-      setTagInput('');
-    }
-  };
-
-  const removeTag = (tagToRemove) => {
-    setFormData(prev => ({
-      ...prev,
-      tags: prev.tags.filter(tag => tag !== tagToRemove)
-    }));
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       const formDataToSend = new FormData();
       
-      // Append basic product data
+      // Add basic product info
       Object.entries(formData).forEach(([key, value]) => {
         if (value !== null && value !== "") {
           if (key === 'tags') {
@@ -234,44 +253,30 @@ const EditProductPage = ({ role = "vendor" }) => {
         }
       });
 
-      // Append sizes
-      sizes.forEach((size, index) => {
-        if (size.id) formDataToSend.append(`sizes[${index}][id]`, size.id);
-        formDataToSend.append(`sizes[${index}][size]`, size.size);
-        formDataToSend.append(`sizes[${index}][unit]`, size.unit);
-        formDataToSend.append(`sizes[${index}][price]`, size.price);
-        formDataToSend.append(`sizes[${index}][cost_price]`, size.cost_price || '');
-        formDataToSend.append(`sizes[${index}][quantity]`, size.quantity);
-        formDataToSend.append(`sizes[${index}][is_default]`, size.is_default);
-        formDataToSend.append(`sizes[${index}][is_active]`, size.is_active);
+      // Add sizes as JSON
+      formDataToSend.append('sizes', JSON.stringify(sizes));
+
+      // Add price tiers as JSON
+      formDataToSend.append('price_tiers', JSON.stringify(priceTiers));
+
+      // Add removed image IDs
+      removedImageIds.forEach(id => {
+        formDataToSend.append('removed_images', id);
       });
 
-      // Append price tiers
-      priceTiers.forEach((tier, index) => {
-        if (tier.id) formDataToSend.append(`price_tiers[${index}][id]`, tier.id);
-        if (tier.sizeId) formDataToSend.append(`price_tiers[${index}][size_id]`, tier.sizeId);
-        formDataToSend.append(`price_tiers[${index}][min_quantity]`, tier.min_quantity);
-        formDataToSend.append(`price_tiers[${index}][price]`, tier.price);
-      });
-
-      // Append removed images
-      removedImages.forEach((imgId, index) => {
-        formDataToSend.append(`removed_images[${index}]`, imgId);
-      });
-
-      // Append main image if changed
-      if (mainImage) {
-        formDataToSend.append('image', mainImage);
+      // Add main image if changed
+      if (formData.image) {
+        formDataToSend.append('image', formData.image);
       }
 
-      // Append new additional images
-      newImages.forEach((img, index) => {
-        formDataToSend.append(`additional_images[${index}]`, img.file);
+      // Add new additional images
+      newImages.forEach(img => {
+        formDataToSend.append('additional_images', img.file);
       });
 
       await updateProduct({ id, data: formDataToSend }).unwrap();
       toast.success("Product updated successfully!");
-      navigate("/admin/products");
+      navigate(`/${role}/products`);
     } catch (err) {
       toast.error(err.data?.message || "Failed to update product");
       console.error("Product update error:", err);
@@ -292,17 +297,17 @@ const EditProductPage = ({ role = "vendor" }) => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <h2 className="text-2xl font-bold text-gray-900">Edit Product</h2>
           <button
-            onClick={() => navigate("/admin/products")}
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 w-full md:w-auto"
+            onClick={() => navigate(`/${role}/products`)}
+            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 w-full md:w-auto cursor-pointer"
           >
-            Back to All Products
+            Back to Products
           </button>
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Information Section */}
           <div className="bg-gray-50 p-4 md:p-6 rounded-lg border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Basic Information</h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Basic Information</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               <div className="space-y-1">
@@ -318,49 +323,37 @@ const EditProductPage = ({ role = "vendor" }) => {
               </div>
               
               <div className="space-y-1">
-                <label className="block text-sm font-medium text-gray-700">SKU*</label>
-                <input
-                  type="text"
-                  name="sku"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
-                  value={formData.sku}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-              
-              <div className="space-y-1">
                 <label className="block text-sm font-medium text-gray-700">Brand*</label>
                 <select
                   name="brand"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base cursor-pointer"
                   value={formData.brand}
                   onChange={handleChange}
                   required
                 >
                   <option value="">Select Brand</option>
-                  {brands.map(brand => (
-                    <option key={brand.id} value={brand.id}>{brand.name}</option>
+                  {brands.map((brand) => (
+                    <option key={brand.id} value={brand.id} defaultValue={brand.id === formData.brand}>
+                      {brand.name}
+                    </option>
                   ))}
                 </select>
               </div>
               
               <div className="space-y-1 md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700">Short Description*</label>
-                <input
-                  type="text"
+                <label className="block text-sm font-bold text-gray-700">Short Description*</label>
+                <textarea
                   name="short_description"
-                  maxLength="160"
+                  rows={4}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
                   value={formData.short_description}
                   onChange={handleChange}
                   required
                 />
-                <p className="mt-1 text-xs text-gray-500">{formData.short_description.length}/160 characters</p>
               </div>
               
               <div className="space-y-1 md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700">Full Description*</label>
+                <label className="block text-sm font-medium text-gray-700">Description*</label>
                 <textarea
                   name="description"
                   rows={5}
@@ -370,26 +363,62 @@ const EditProductPage = ({ role = "vendor" }) => {
                   required
                 />
               </div>
+
+              {/* Tags Field */}
+              <div className="space-y-1 md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700">Tags</label>
+                <div className="flex flex-wrap gap-2 items-center">
+                  {formData.tags.map((tag, index) => (
+                    <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => removeTag(index)}
+                        className="ml-1.5 inline-flex text-blue-400 hover:text-blue-600 focus:outline-none"
+                      >
+                        <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                          <path strokeLinecap="round" strokeWidth="1.5" d="M1 1l6 6m0-6L1 7" />
+                        </svg>
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    type="text"
+                    value={tagInput}
+                    onChange={handleTagInputChange}
+                    onKeyDown={addTag}
+                    placeholder="Type a tag and press Enter"
+                    className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500">Add tags to help customers find your product</p>
+              </div>
             </div>
           </div>
 
           {/* Categories Section */}
           <div className="bg-gray-50 p-4 md:p-6 rounded-lg border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Categories</h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Categories</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               <div className="space-y-1">
                 <label className="block text-sm font-medium text-gray-700">Category*</label>
                 <select
                   name="category"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base cursor-pointer"
                   value={formData.category}
                   onChange={handleChange}
                   required
                 >
-                  <option value="">Select Category</option>
+                  <option value="">Select Category{formData.category}</option>
                   {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    <option 
+                      key={cat.id} 
+                      value={cat.id}
+                      defaultValue={cat.id === formData.category}
+                    >
+                      {cat.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -398,14 +427,20 @@ const EditProductPage = ({ role = "vendor" }) => {
                 <label className="block text-sm font-medium text-gray-700">Subcategory</label>
                 <select
                   name="subcategory"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base cursor-pointer"
                   value={formData.subcategory}
                   onChange={handleChange}
                   disabled={!formData.category}
                 >
                   <option value="">Select Subcategory</option>
                   {subcategories.map(sub => (
-                    <option key={sub.id} value={sub.id}>{sub.name}</option>
+                    <option 
+                      key={sub.id} 
+                      value={sub.id}
+                      defaultValue={sub.id === formData.subcategory}
+                    >
+                      {sub.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -415,11 +450,11 @@ const EditProductPage = ({ role = "vendor" }) => {
           {/* Product Sizes & Pricing Section */}
           <div className="bg-gray-50 p-4 md:p-6 rounded-lg border border-gray-200">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-2">
-              <h3 className="text-lg font-semibold text-gray-800">Product Sizes & Pricing</h3>
+              <h3 className="text-lg font-bold text-gray-800">Product Sizes & Pricing</h3>
               <button
                 type="button"
                 onClick={addSize}
-                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 w-full md:w-auto"
+                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 w-full md:w-auto cursor-pointer"
               >
                 + Add Size
               </button>
@@ -427,13 +462,13 @@ const EditProductPage = ({ role = "vendor" }) => {
             
             <div className="space-y-4">
               {sizes.map((size, index) => (
-                <div key={size.id} className="border rounded-lg p-3 md:p-4 bg-white">
+                <div key={size.id || index} className="border-3 border-cyan-700 rounded-lg p-3 md:p-4 bg-white">
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-3">
                     <div className="space-y-1">
-                      <label className="block text-xs md:text-sm font-medium text-gray-700">Size*</label>
+                      <label className="block text-xs md:text-sm font-bold text-gray-700">Size*</label>
                       <input
                         type="text"
-                        placeholder="e.g., medium"
+                        placeholder="Medium"
                         className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                         value={size.size}
                         onChange={(e) => handleSizeChange(index, "size", e.target.value)}
@@ -442,23 +477,23 @@ const EditProductPage = ({ role = "vendor" }) => {
                     </div>
                     
                     <div className="space-y-1">
-                      <label className="block text-xs md:text-sm font-medium text-gray-700">Unit*</label>
+                      <label className="block text-xs md:text-sm font-bold text-gray-700">Unit*</label>
                       <select
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm cursor-pointer"
                         value={size.unit}
                         onChange={(e) => handleSizeChange(index, "unit", e.target.value)}
                         required
                       >
-                        <option value="g">g</option>
-                        <option value="kg">kg</option>
-                        <option value="ml">ml</option>
-                        <option value="l">l</option>
-                        <option value="pcs">pcs</option>
+                        <option value="gram">Gram</option>
+                        <option value="kg">Kilogram</option>
+                        <option value="ml">ML</option>
+                        <option value="litre">Litre</option>
+                        <option value="pcs">Pieces</option>
                       </select>
                     </div>
                     
                     <div className="space-y-1">
-                      <label className="block text-xs md:text-sm font-medium text-gray-700">Price (₹)*</label>
+                      <label className="block text-xs md:text-sm font-bold text-gray-700">Price (₹)*</label>
                       <input
                         type="number"
                         min="0"
@@ -466,146 +501,86 @@ const EditProductPage = ({ role = "vendor" }) => {
                         className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                         value={size.price}
                         onChange={(e) => handleSizeChange(index, "price", e.target.value)}
+                        placeholder="Product price"
                         required
                       />
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-3">
-                    <div className="space-y-1">
-                      <label className="block text-xs md:text-sm font-medium text-gray-700">Cost Price (₹)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
-                        value={size.cost_price}
-                        onChange={(e) => handleSizeChange(index, "cost_price", e.target.value)}
-                      />
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <label className="block text-xs md:text-sm font-medium text-gray-700">Quantity*</label>
-                      <input
-                        type="number"
-                        min="0"
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
-                        value={size.quantity}
-                        onChange={(e) => handleSizeChange(index, "quantity", e.target.value)}
-                        required
-                      />
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id={`default-size-${size.id}`}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        checked={size.is_default}
-                        onChange={(e) => {
-                          handleSizeChange(index, "is_default", e.target.checked);
-                          if (e.target.checked) {
-                            setSizes(prev => prev.map((s, i) => 
-                              i === index ? s : { ...s, is_default: false }
-                            ));
-                          }
-                        }}
-                      />
-                      <label htmlFor={`default-size-${size.id}`} className="block text-xs md:text-sm text-gray-700">
-                        Default size
-                      </label>
                     </div>
                   </div>
                   
                   {/* Price Tiers for this size */}
                   <div className="mt-3">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
-                      <h4 className="text-xs md:text-sm font-medium text-gray-700">Bulk Pricing Tiers</h4>
+                      <h4 className="text-xs md:text-sm font-bold text-gray-700">Bulk Pricing Tiers</h4>
                       <button
                         type="button"
                         onClick={() => addPriceTier(index)}
-                        className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs font-medium hover:bg-blue-200 w-full sm:w-auto"
+                        className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs font-extrabold hover:bg-blue-200 w-full sm:w-auto cursor-pointer"
                       >
                         + Add Tier
                       </button>
                     </div>
                     
                     <div className="space-y-2">
-                      {priceTiers.filter(tier => 
-                        tier.sizeIndex === index || tier.sizeId === size.id
-                      ).map((tier) => (
-                        <div key={tier.id} className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          <div className="space-y-1">
-                            <label className="block text-xs text-gray-500">Min Quantity*</label>
-                            <input
-                              type="number"
-                              min="1"
-                              className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-xs"
-                              value={tier.min_quantity}
-                              onChange={(e) => handlePriceTierChange(
-                                priceTiers.findIndex(t => t.id === tier.id),
-                                "min_quantity",
-                                e.target.value
-                              )}
-                              required
-                            />
+                      {priceTiers.filter(tier => tier.sizeIndex === index || tier.sizeId === size.id).map((tier, tierIndex) => {
+                        const tierKey = tier.id || `${tier.sizeIndex}-${tier.min_quantity}-${tierIndex}`;
+                        const tierIdx = priceTiers.findIndex(t => 
+                          (t.id && tier.id && t.id === tier.id) ||
+                          (t.sizeIndex === tier.sizeIndex && t.min_quantity === tier.min_quantity)
+                        );
+
+                        return (
+                          <div key={tierKey} className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <div className="space-y-1">
+                              <label className="block text-md font-bold text-gray-500">Min Quantity*</label>
+                              <input
+                                type="number"
+                                min="1"
+                                className="w-full h-10 px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-xs"
+                                value={tier.min_quantity}
+                                onChange={(e) => handlePriceTierChange(tierIdx, "min_quantity", e.target.value)}
+                                required
+                              />
+                            </div>
+                            
+                            <div className="space-y-1">
+                              <label className="block text-md font-bold text-gray-500">Price (₹)*</label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                className="w-full h-10 px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-xs"
+                                value={tier.price}
+                                onChange={(e) => handlePriceTierChange(tierIdx, "price", e.target.value)}
+                                required
+                              />
+                            </div>
+                            
+                            <div className="flex items-end">
+                              <button
+                                type="button"
+                                onClick={() => removePriceTier(tierIdx)}
+                                className="px-2 py-1 h-10 bg-red-100 text-red-700 rounded-md text-md font-bold hover:bg-red-200 w-full cursor-pointer"
+                              >
+                                Remove
+                              </button>
+                            </div>
                           </div>
-                          
-                          <div className="space-y-1">
-                            <label className="block text-xs text-gray-500">Price (₹)*</label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-xs"
-                              value={tier.price}
-                              onChange={(e) => handlePriceTierChange(
-                                priceTiers.findIndex(t => t.id === tier.id),
-                                "price",
-                                e.target.value
-                              )}
-                              required
-                            />
-                          </div>
-                          
-                          <div className="flex items-end">
-                            <button
-                              type="button"
-                              onClick={() => removePriceTier(
-                                priceTiers.findIndex(t => t.id === tier.id)
-                              )}
-                              className="px-2 py-1 bg-red-100 text-red-700 rounded-md text-xs font-medium hover:bg-red-200 w-full"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                   
-                  <div className="mt-3 flex justify-between items-center">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id={`active-size-${size.id}`}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        checked={size.is_active}
-                        onChange={(e) => handleSizeChange(index, "is_active", e.target.checked)}
-                      />
-                      <label htmlFor={`active-size-${size.id}`} className="block text-xs md:text-sm text-gray-700">
-                        Active
-                      </label>
+                  {sizes.length > 1 && (
+                    <div className="mt-3 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => removeSize(index)}
+                        className="px-3 py-1 bg-red-600 text-white rounded-md text-xs md:text-sm font-medium hover:bg-red-700 cursor-pointer"
+                      >
+                        Remove Size
+                      </button>
                     </div>
-                    
-                    <button
-                      type="button"
-                      onClick={() => removeSize(index)}
-                      className="px-3 py-1 bg-red-600 text-white rounded-md text-xs md:text-sm font-medium hover:bg-red-700"
-                    >
-                      Remove Size
-                    </button>
-                  </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -613,15 +588,15 @@ const EditProductPage = ({ role = "vendor" }) => {
 
           {/* Images Section */}
           <div className="bg-gray-50 p-4 md:p-6 rounded-lg border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Product Images</h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Product Images</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               {/* Main Image */}
               <div className="space-y-3">
-                <label className="block text-sm font-medium text-gray-700">Main Image</label>
+                <label className="block text-sm font-medium text-gray-700">Main Image*</label>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                   <label className="cursor-pointer inline-flex">
-                    <span className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <span className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer">
                       Choose File
                     </span>
                     <input
@@ -631,14 +606,14 @@ const EditProductPage = ({ role = "vendor" }) => {
                       onChange={handleImageChange}
                     />
                   </label>
-                  {mainImage && (
-                    <span className="text-sm text-gray-500 truncate max-w-xs">{mainImage.name}</span>
+                  {formData.image && (
+                    <span className="text-sm text-gray-500 truncate max-w-xs">{formData.image.name}</span>
                   )}
                 </div>
-                {(preview || (images.length > 0 && images[0].is_featured)) && (
+                {(preview || (existingImages.length > 0 && existingImages[0].is_featured)) && (
                   <div className="mt-2">
                     <img
-                      src={preview || images.find(img => img.is_featured)?.image}
+                      src={preview || existingImages.find(img => img.is_featured)?.image}
                       alt="Preview"
                       className="w-32 h-32 rounded-lg object-cover border"
                     />
@@ -648,10 +623,10 @@ const EditProductPage = ({ role = "vendor" }) => {
               
               {/* Additional Images */}
               <div className="space-y-3">
-                <label className="block text-sm font-medium text-gray-700">Additional Images</label>
+                <label className="block text-sm font-medium text-gray-700">Additional Images (Max 5)</label>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                   <label className="cursor-pointer inline-flex">
-                    <span className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <span className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer">
                       Choose Files
                     </span>
                     <input
@@ -660,13 +635,17 @@ const EditProductPage = ({ role = "vendor" }) => {
                       className="sr-only"
                       onChange={handleImagesChange}
                       multiple
+                      disabled={existingImages.length + newImages.length >= 5}
                     />
                   </label>
+                  <span className="text-sm text-gray-500">
+                    {existingImages.length + newImages.length} / 5 images selected
+                  </span>
                 </div>
                 
                 <div className="mt-2 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 lg:grid-cols-4 gap-2">
                   {/* Existing images */}
-                  {images.filter(img => !removedImages.includes(img.id)).map((img, index) => (
+                  {existingImages.map((img) => (
                     <div key={img.id} className="relative aspect-square">
                       <img
                         src={img.image}
@@ -675,8 +654,8 @@ const EditProductPage = ({ role = "vendor" }) => {
                       />
                       <button
                         type="button"
-                        onClick={() => removeImage(index)}
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
+                        onClick={() => removeExistingImage(img.id)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 cursor-pointer"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                           <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -687,16 +666,16 @@ const EditProductPage = ({ role = "vendor" }) => {
                   
                   {/* New images */}
                   {newImages.map((img, index) => (
-                    <div key={img.id} className="relative aspect-square">
+                    <div key={index} className="relative aspect-square">
                       <img
                         src={img.preview}
-                        alt={`New Preview ${img.id}`}
+                        alt={`New Preview ${index}`}
                         className="w-full h-full rounded-md object-cover border"
                       />
                       <button
                         type="button"
-                        onClick={() => removeImage(index, true)}
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
+                        onClick={() => removeNewImage(index)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 cursor-pointer"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                           <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -709,71 +688,19 @@ const EditProductPage = ({ role = "vendor" }) => {
             </div>
           </div>
 
-          {/* Tags & Status Section */}
-          <div className="bg-gray-50 p-4 md:p-6 rounded-lg border border-gray-200">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">Tags</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {formData.tags.map(tag => (
-                    <span key={tag} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {tag}
-                      <button
-                        type="button"
-                        onClick={() => removeTag(tag)}
-                        className="ml-1 inline-flex text-blue-400 hover:text-blue-600"
-                      >
-                        <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
-                          <path strokeLinecap="round" strokeWidth="1.5" d="M1 1l6 6m0-6L1 7" />
-                        </svg>
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                <input
-                  type="text"
-                  placeholder="Type tag and press enter"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyDown={handleTagKeyDown}
-                />
-                <p className="text-xs text-gray-500">Press enter or comma(,) to add tags</p>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="featured"
-                    name="is_featured"
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    checked={formData.is_featured}
-                    onChange={handleChange}
-                  />
-                  <label htmlFor="featured" className="ml-2 block text-sm text-gray-700">
-                    Featured Product
-                  </label>
-                </div>
-                
-                
-              </div>
-            </div>
-          </div>
-
           {/* Submit Button */}
           <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
             <button
               type="button"
               onClick={() => navigate(`/${role}/products`)}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isUpdating}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
             >
               {isUpdating ? (
                 <>

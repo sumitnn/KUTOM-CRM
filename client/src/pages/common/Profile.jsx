@@ -1,21 +1,24 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useGetProfileQuery, useUpdateProfileMutation } from '../../features/profile/profileApi';
 import { EditProfileModal } from "../../components/EditProfileModal";
 import Spinner from '../../components/common/Spinner';
 import ErrorMessage from '../../components/common/ErrorMessage';
+import {
+  FaEdit, FaEnvelope, FaPhone, FaBirthdayCake, FaMapMarkerAlt, 
+  FaUser, FaVenusMars, FaWhatsapp, FaFacebook, FaTwitter, 
+  FaInstagram, FaYoutube, FaIdCard, FaPassport
+} from 'react-icons/fa';
+import { BsBank2, BsCreditCard } from 'react-icons/bs';
+
 
 export default function Profile() {
-  const [isEditing, setIsEditing] = React.useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const { data: profileData, isLoading, isError, refetch } = useGetProfileQuery();
   const [updateProfile] = useUpdateProfileMutation();
 
-  // Default profile data structure based on API response
   const defaultProfile = {
     id: '',
-    user: {
-      username: '',
-      email: ''
-    },
+    user: { username: '', email: '' },
     full_name: '',
     date_of_birth: null,
     phone: '',
@@ -32,263 +35,329 @@ export default function Profile() {
     bank_name: '',
     account_number: '',
     ifsc_code: '',
+    adhaar_card_number: '',
+    pancard_number: '',
+    kyc_status: 'PENDING',
     address: {
       street_address: '',
       city: '',
       state: '',
       district: '',
       postal_code: '',
-      country: '',
-      is_primary: false
+      country: 'India'
     }
   };
 
-  // Merge API data with defaults to ensure all fields exist
   const profile = profileData ? { ...defaultProfile, ...profileData } : defaultProfile;
 
   const handleSave = async (updatedData) => {
     try {
-      await updateProfile(updatedData).unwrap();
-      refetch(); // Refresh the data after successful update
+      const formData = new FormData();
+      
+      // Append only changed fields
+      Object.keys(updatedData).forEach(key => {
+        if (updatedData[key] !== undefined && updatedData[key] !== null) {
+          if (key === 'address') {
+            Object.keys(updatedData.address).forEach(addrKey => {
+              formData.append(`address[${addrKey}]`, updatedData.address[addrKey]);
+            });
+          } else if (key === 'user') {
+            formData.append('username', updatedData.user.username);
+          } else if (key !== 'profile_picture') {
+            formData.append(key, updatedData[key]);
+          }
+        }
+      });
+      
+      if (updatedData.profile_picture instanceof File) {
+        formData.append('profile_picture', updatedData.profile_picture);
+      }
+
+      await updateProfile(formData).unwrap();
+      refetch();
       setIsEditing(false);
     } catch (error) {
       console.error('Failed to update profile:', error);
     }
   };
 
-  if (isLoading) return <Spinner fullScreen={false} />;
-  if (isError) return <ErrorMessage message="Failed to load profile data" />;
-
-  // Format date of birth
   const formatDate = (dateString) => {
     if (!dateString) return 'Not specified';
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
-  // Format address string
   const formatAddress = (address) => {
     if (!address) return 'No address provided';
     const parts = [
       address.street_address,
       address.city,
-      address.district,
-      address.state,
+      address.district.name,
+      address.state.name,
       address.postal_code,
       address.country
     ].filter(Boolean);
     return parts.join(', ') || 'No address provided';
   };
 
+  const hasSocialLinks = profile.facebook || profile.twitter || profile.instagram || profile.youtube;
+  const hasBankDetails = profile.bank_upi || profile.account_number;
+  const hasKycDetails = profile.adhaar_card_number || profile.pancard_number;
+
+  if (isLoading) return <Spinner fullScreen={false} />;
+  if (isError) return <ErrorMessage message="Failed to load profile data" />;
+
   return (
-    <div className="max-w-4xl mx-auto p-4 space-y-6">
-      {/* Profile Header */}
-      <div className="flex flex-col md:flex-row items-center gap-6 bg-white rounded-lg shadow p-6">
-        <div className="avatar">
-          <div className="w-24 h-24 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
-            <img 
-              src={profile.profile_picture || 'https://i.pravatar.cc/150?img=5'} 
-              alt="Profile" 
-              className="object-cover" 
-              onError={(e) => {
-                e.target.src = 'https://i.pravatar.cc/150?img=5';
-              }}
-            />
+    <div className="max-w-6xl mx-auto px-4 py-8">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
+        <div className="flex items-center gap-4">
+          <div className="avatar">
+            <div className="w-20 h-20 md:w-24 md:h-24 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
+              <img 
+                src={profile.profile_picture || 'https://i.pravatar.cc/150?img=5'} 
+                alt="Profile" 
+                className="object-cover w-full h-full"
+                onError={(e) => {
+                  e.target.src = 'https://i.pravatar.cc/150?img=5';
+                }}
+              />
+            </div>
           </div>
-        </div>
-        
-        <div className="flex-1 text-center md:text-left">
-          <h1 className="text-2xl font-bold">
-            {profile.full_name || profile.user.username || 'No name provided'}
-          </h1>
-          <p className="text-gray-600 mb-2">@{profile.user.username || 'user'}</p>
-          
-          <div className="flex flex-wrap justify-center md:justify-start gap-4 text-sm">
-            {profile.user.email && (
-              <div className="flex items-center text-gray-600">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                {profile.user.email}
-              </div>
-            )}
-            
-            {(profile.phone || profile.whatsapp_number) && (
-              <div className="flex items-center text-gray-600">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                </svg>
-                {profile.phone || profile.whatsapp_number}
-              </div>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold">
+              {profile.full_name || profile.user.username || 'No name provided'}
+            </h1>
+            <p className="text-gray-600">@{profile.user.username || 'user'}</p>
+            {profile.kyc_status === 'APPROVED' && (
+              <span className="badge badge-success mt-1">KYC Verified</span>
             )}
           </div>
         </div>
-        
         <button 
           onClick={() => setIsEditing(true)} 
-          className="btn btn-primary btn-sm md:btn-md"
+          className="btn btn-primary gap-2"
         >
-          Edit Profile
+          <FaEdit /> Edit Profile
         </button>
       </div>
 
       {/* Main Content */}
-      <div className="space-y-6">
-        {/* Personal Info Card */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Personal Information</h2>
-            <button 
-              onClick={() => setIsEditing(true)} 
-              className="text-primary text-sm font-medium"
-            >
-              Edit
-            </button>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm text-gray-500">Full Name</label>
-                <p className="font-medium">{profile.full_name || '-'}</p>
-              </div>
-              <div>
-                <label className="block text-sm text-gray-500">Gender</label>
-                <p className="font-medium">{profile.gender || '-'}</p>
-              </div>
-              <div>
-                <label className="block text-sm text-gray-500">Date of Birth</label>
-                <p className="font-medium">{formatDate(profile.date_of_birth)}</p>
-              </div>
-            </div>
-            
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm text-gray-500">Phone</label>
-                <p className="font-medium">{profile.phone || '-'}</p>
-              </div>
-              <div>
-                <label className="block text-sm text-gray-500">WhatsApp</label>
-                <p className="font-medium">{profile.whatsapp_number || '-'}</p>
-              </div>
-              <div>
-                <label className="block text-sm text-gray-500">Address</label>
-                <p className="font-medium">{formatAddress(profile.address)}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Bio Card */}
-        {profile.bio && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">About</h2>
-            <p className="text-gray-700">{profile.bio}</p>
-          </div>
-        )}
-
-        {/* Bank Details Card */}
-        {(profile.bank_upi || profile.account_number) && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Bank Details</h2>
-              <button 
-                onClick={() => setIsEditing(true)} 
-                className="text-primary text-sm font-medium"
-              >
-                Edit
-              </button>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                {profile.bank_upi && (
-                  <div>
-                    <label className="block text-sm text-gray-500">UPI ID</label>
-                    <p className="font-medium">{profile.bank_upi}</p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column - Personal Info */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Personal Info Card */}
+          <div className="card bg-base-100 shadow">
+            <div className="card-body">
+              <h2 className="card-title text-xl font-bold mb-4">Personal Information</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <FaUser className="text-gray-500" />
+                    <div>
+                      <p className="text-sm text-gray-500">Full Name</p>
+                      <p className="font-medium">{profile.full_name || '-'}</p>
+                    </div>
                   </div>
-                )}
-                {profile.account_holder_name && (
-                  <div>
-                    <label className="block text-sm text-gray-500">Account Holder</label>
-                    <p className="font-medium">{profile.account_holder_name}</p>
+                  <div className="flex items-center gap-3">
+                    <FaVenusMars className="text-gray-500" />
+                    <div>
+                      <p className="text-sm text-gray-500">Gender</p>
+                      <p className="font-medium">
+                        {profile.gender ? 
+                          profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : 
+                          '-'}
+                      </p>
+                    </div>
                   </div>
-                )}
-                {profile.bank_name && (
-                  <div>
-                    <label className="block text-sm text-gray-500">Bank Name</label>
-                    <p className="font-medium">{profile.bank_name}</p>
+                  <div className="flex items-center gap-3">
+                    <FaBirthdayCake className="text-gray-500" />
+                    <div>
+                      <p className="text-sm text-gray-500">Date of Birth</p>
+                      <p className="font-medium">{formatDate(profile.date_of_birth)}</p>
+                    </div>
                   </div>
-                )}
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <FaPhone className="text-gray-500" />
+                    <div>
+                      <p className="text-sm text-gray-500">Phone</p>
+                      <p className="font-medium">{profile.phone || '-'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <FaWhatsapp className="text-gray-500" />
+                    <div>
+                      <p className="text-sm text-gray-500">WhatsApp</p>
+                      <p className="font-medium">{profile.whatsapp_number || '-'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <FaEnvelope className="text-gray-500" />
+                    <div>
+                      <p className="text-sm text-gray-500">Email</p>
+                      <p className="font-medium">{profile.user.email || '-'}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
               
-              <div className="space-y-3">
-                {profile.account_number && (
-                  <div>
-                    <label className="block text-sm text-gray-500">Account Number</label>
-                    <p className="font-medium">{profile.account_number}</p>
-                  </div>
-                )}
-                {profile.ifsc_code && (
-                  <div>
-                    <label className="block text-sm text-gray-500">IFSC Code</label>
-                    <p className="font-medium">{profile.ifsc_code}</p>
-                  </div>
-                )}
+              {/* Bio Section */}
+              {profile.bio && (
+                <div className="mt-6">
+                  <h3 className="font-bold mb-2">About</h3>
+                  <p className="text-gray-700 whitespace-pre-line">{profile.bio}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Address Card */}
+          <div className="card bg-base-100 shadow">
+            <div className="card-body">
+              <h2 className="card-title text-xl font-bold mb-4">Address</h2>
+              <div className="flex items-start gap-3">
+                <FaMapMarkerAlt className="text-gray-500 mt-1" />
+                <p className="font-medium">
+                  {formatAddress(profile.address)}
+                </p>
               </div>
             </div>
           </div>
-        )}
 
-        {/* Social Media Card */}
-        {(profile.facebook || profile.twitter || profile.instagram || profile.youtube) && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Social Media</h2>
-              <button 
-                onClick={() => setIsEditing(true)} 
-                className="text-primary text-sm font-medium"
-              >
-                Edit
-              </button>
+          {/* Social Media Card */}
+          {hasSocialLinks && (
+            <div className="card bg-base-100 shadow">
+              <div className="card-body">
+                <h2 className="card-title text-xl font-bold mb-4">Social Media</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {profile.facebook && (
+                    <a href={profile.facebook} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-blue-600 hover:underline">
+                      <SiFacebook className="text-lg" />
+                      <span>Facebook</span>
+                    </a>
+                  )}
+                  {profile.twitter && (
+                    <a href={profile.twitter} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-blue-400 hover:underline">
+                      <SiTwitter className="text-lg" />
+                      <span>Twitter</span>
+                    </a>
+                  )}
+                  {profile.instagram && (
+                    <a href={profile.instagram} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-pink-600 hover:underline">
+                      <SiInstagram className="text-lg" />
+                      <span>Instagram</span>
+                    </a>
+                  )}
+                  {profile.youtube && (
+                    <a href={profile.youtube} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-red-600 hover:underline">
+                      <SiYoutube className="text-lg" />
+                      <span>YouTube</span>
+                    </a>
+                  )}
+                </div>
+              </div>
             </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {profile.facebook && (
-                <div>
-                  <label className="block text-sm text-gray-500">Facebook</label>
-                  <a href={profile.facebook} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline">
-                    {profile.facebook}
-                  </a>
+          )}
+        </div>
+
+        {/* Right Column - Additional Info */}
+        <div className="space-y-6">
+          {/* Payment Details Card */}
+          {(profile.bank_upi || profile.account_number) && (
+            <div className="card bg-base-100 shadow">
+              <div className="card-body">
+                <h2 className="card-title text-xl font-bold mb-4">
+                  {profile.bank_upi ? 'UPI Details' : 'Bank Details'}
+                </h2>
+                <div className="space-y-4">
+                  {profile.bank_upi ? (
+                    <div>
+                      <p className="text-sm text-gray-500">UPI ID</p>
+                      <p className="font-medium">{profile.bank_upi}</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-3">
+                        <BsBank2 className="text-gray-500" />
+                        <div>
+                          <p className="text-sm text-gray-500">Bank Name</p>
+                          <p className="font-medium">{profile.bank_name || '-'}</p>
+                        </div>
+                      </div>
+                      {profile.account_holder_name && (
+                        <div>
+                          <p className="text-sm text-gray-500">Account Holder</p>
+                          <p className="font-medium">{profile.account_holder_name}</p>
+                        </div>
+                      )}
+                      {profile.account_number && (
+                        <div className="flex items-center gap-3">
+                          <BsCreditCard className="text-gray-500" />
+                          <div>
+                            <p className="text-sm text-gray-500">Account Number</p>
+                            <p className="font-medium">{profile.account_number}</p>
+                          </div>
+                        </div>
+                      )}
+                      {profile.ifsc_code && (
+                        <div>
+                          <p className="text-sm text-gray-500">IFSC Code</p>
+                          <p className="font-medium">{profile.ifsc_code}</p>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
-              )}
-              {profile.twitter && (
-                <div>
-                  <label className="block text-sm text-gray-500">Twitter</label>
-                  <a href={profile.twitter} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline">
-                    {profile.twitter}
-                  </a>
-                </div>
-              )}
-              {profile.instagram && (
-                <div>
-                  <label className="block text-sm text-gray-500">Instagram</label>
-                  <a href={profile.instagram} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline">
-                    {profile.instagram}
-                  </a>
-                </div>
-              )}
-              {profile.youtube && (
-                <div>
-                  <label className="block text-sm text-gray-500">YouTube</label>
-                  <a href={profile.youtube} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline">
-                    {profile.youtube}
-                  </a>
-                </div>
-              )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* KYC Details Card */}
+          {hasKycDetails && (
+            <div className="card bg-base-100 shadow">
+              <div className="card-body">
+                <h2 className="card-title text-xl font-bold mb-4">KYC Details</h2>
+                <div className="space-y-4">
+                  {profile.adhaar_card_number && (
+                    <div className="flex items-center gap-3">
+                      <FaIdCard className="text-gray-500" />
+                      <div>
+                        <p className="text-sm text-gray-500">Aadhaar Card Number</p>
+                        <p className="font-medium">{profile.adhaar_card_number}</p>
+                      </div>
+                    </div>
+                  )}
+                  {profile.pancard_number && (
+                    <div className="flex items-center gap-3">
+                      <FaPassport className="text-gray-500" />
+                      <div>
+                        <p className="text-sm text-gray-500">PAN Card Number</p>
+                        <p className="font-medium">{profile.pancard_number}</p>
+                      </div>
+                    </div>
+                  )}
+                  {profile.kyc_status && (
+                    <div>
+                      <p className="text-sm text-gray-500">KYC Status</p>
+                      <p className="font-medium capitalize">
+                        <span className={`badge ${
+                          profile.kyc_status === 'APPROVED' ? 'badge-success' :
+                          profile.kyc_status === 'REJECTED' ? 'badge-error' : 'badge-warning'
+                        }`}>
+                          {profile.kyc_status.toLowerCase()}
+                        </span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Edit Modal */}

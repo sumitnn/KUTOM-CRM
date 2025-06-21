@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { toast } from "react-toastify";
 import { useUpdatePasswordMutation } from "../../features/auth/authApi";
+import { Link } from "react-router-dom";
 
-const ChangePassword = () => {
+const ChangePassword = ({ role }) => {
   const [formData, setFormData] = useState({
     currentPassword: "",
     newPassword: "",
@@ -70,9 +71,15 @@ const ChangePassword = () => {
     return "bg-green-500";
   };
 
+  const getStrengthTextColor = (strength) => {
+    if (strength <= 1) return "text-red-500";
+    if (strength <= 3) return "text-yellow-500";
+    return "text-green-500";
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-base-200 to-base-300 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-base-100 rounded-xl shadow-2xl overflow-hidden">
+      <div className="w-full max-w-md bg-base-100 rounded-xl shadow-2xl overflow-hidden transition-all duration-300 hover:shadow-3xl">
         <div className="bg-gradient-to-r from-primary to-secondary p-6 text-center">
           <h2 className="text-2xl font-bold text-white">Change Password</h2>
           <p className="text-white/90 mt-1">Secure your account with a new password</p>
@@ -82,7 +89,7 @@ const ChangePassword = () => {
           {/* Current Password */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text font-medium">Current Password</span>
+              <span className="label-text font-bold">Current Password</span>
             </label>
             <div className="relative">
               <input
@@ -91,13 +98,14 @@ const ChangePassword = () => {
                 value={formData.currentPassword}
                 onChange={handleChange}
                 placeholder="Enter current password"
-                className="input input-bordered w-full pr-12 focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="input input-bordered w-full pr-12 focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200"
                 required
               />
               <button
                 type="button"
                 onClick={() => toggleVisibility("current")}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 btn btn-ghost btn-sm p-1"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 btn btn-ghost btn-sm p-1 hover:bg-base-200 rounded-full"
+                aria-label={show.current ? "Hide password" : "Show password"}
               >
                 {show.current ? (
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -117,7 +125,7 @@ const ChangePassword = () => {
           {/* New Password */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text font-medium">New Password</span>
+              <span className="label-text font-bold">New Password</span>
             </label>
             <div className="relative">
               <input
@@ -126,13 +134,14 @@ const ChangePassword = () => {
                 value={formData.newPassword}
                 onChange={handleChange}
                 placeholder="Enter new password"
-                className="input input-bordered w-full pr-12 focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="input input-bordered w-full pr-12 focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200"
                 required
               />
               <button
                 type="button"
                 onClick={() => toggleVisibility("new")}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 btn btn-ghost btn-sm p-1"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 btn btn-ghost btn-sm p-1 hover:bg-base-200 rounded-full"
+                aria-label={show.new ? "Hide password" : "Show password"}
               >
                 {show.new ? (
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -150,39 +159,70 @@ const ChangePassword = () => {
             
             {/* Password Strength Meter */}
             {formData.newPassword && (
-              <div className="mt-2">
-                <div className="flex gap-1 h-1.5">
+              <div className="mt-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold">Password strength:</span>
+                  <span className={`text-xs font-bold ${getStrengthTextColor(passwordStrength)}`}>
+                    {passwordStrength <= 1 && "Very weak"}
+                    {passwordStrength === 2 && "Weak"}
+                    {passwordStrength === 3 && "Moderate"}
+                    {passwordStrength === 4 && "Strong"}
+                    {passwordStrength >= 5 && "Very strong"}
+                  </span>
+                </div>
+                <div className="flex gap-1 h-2">
                   {[1, 2, 3, 4, 5].map((i) => (
                     <div 
                       key={i} 
-                      className={`flex-1 rounded-full ${i <= passwordStrength ? getStrengthColor(passwordStrength) : "bg-gray-200"}`}
+                      className={`flex-1 rounded-full transition-all duration-300 ${i <= passwordStrength ? getStrengthColor(passwordStrength) : "bg-gray-200"}`}
                     />
                   ))}
                 </div>
-                <p className="text-xs mt-1 text-gray-500">
-                  {passwordStrength <= 1 && "Very weak"}
-                  {passwordStrength === 2 && "Weak"}
-                  {passwordStrength === 3 && "Moderate"}
-                  {passwordStrength === 4 && "Strong"}
-                  {passwordStrength >= 5 && "Very strong"}
-                </p>
               </div>
             )}
             
             {/* Password Requirements */}
-            <div className="mt-2 text-xs text-gray-500">
-              <p>Password must contain:</p>
-              <ul className="list-disc list-inside space-y-1 mt-1">
-                <li className={formData.newPassword.length >= 8 ? "text-green-500" : ""}>
+            <div className="mt-4">
+              <p className="text-xs font-bold text-gray-500 mb-2">Password requirements:</p>
+              <ul className="space-y-1">
+                <li className={`flex items-center text-xs ${formData.newPassword.length >= 8 ? "text-green-500" : "text-gray-500"}`}>
+                  <svg className={`w-4 h-4 mr-1 ${formData.newPassword.length >= 8 ? "text-green-500" : "text-gray-300"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    {formData.newPassword.length >= 8 ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    )}
+                  </svg>
                   At least 8 characters
                 </li>
-                <li className={/[A-Z]/.test(formData.newPassword) ? "text-green-500" : ""}>
+                <li className={`flex items-center text-xs ${/[A-Z]/.test(formData.newPassword) ? "text-green-500" : "text-gray-500"}`}>
+                  <svg className={`w-4 h-4 mr-1 ${/[A-Z]/.test(formData.newPassword) ? "text-green-500" : "text-gray-300"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    {/[A-Z]/.test(formData.newPassword) ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    )}
+                  </svg>
                   At least one uppercase letter
                 </li>
-                <li className={/[0-9]/.test(formData.newPassword) ? "text-green-500" : ""}>
+                <li className={`flex items-center text-xs ${/[0-9]/.test(formData.newPassword) ? "text-green-500" : "text-gray-500"}`}>
+                  <svg className={`w-4 h-4 mr-1 ${/[0-9]/.test(formData.newPassword) ? "text-green-500" : "text-gray-300"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    {/[0-9]/.test(formData.newPassword) ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    )}
+                  </svg>
                   At least one number
                 </li>
-                <li className={/[^A-Za-z0-9]/.test(formData.newPassword) ? "text-green-500" : ""}>
+                <li className={`flex items-center text-xs ${/[^A-Za-z0-9]/.test(formData.newPassword) ? "text-green-500" : "text-gray-500"}`}>
+                  <svg className={`w-4 h-4 mr-1 ${/[^A-Za-z0-9]/.test(formData.newPassword) ? "text-green-500" : "text-gray-300"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    {/[^A-Za-z0-9]/.test(formData.newPassword) ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    )}
+                  </svg>
                   At least one special character
                 </li>
               </ul>
@@ -192,7 +232,7 @@ const ChangePassword = () => {
           {/* Confirm New Password */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text font-medium">Confirm New Password</span>
+              <span className="label-text font-bold">Confirm New Password</span>
             </label>
             <div className="relative">
               <input
@@ -201,13 +241,14 @@ const ChangePassword = () => {
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 placeholder="Confirm new password"
-                className="input input-bordered w-full pr-12 focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="input input-bordered w-full pr-12 focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200"
                 required
               />
               <button
                 type="button"
                 onClick={() => toggleVisibility("confirm")}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 btn btn-ghost btn-sm p-1"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 btn btn-ghost btn-sm p-1 hover:bg-base-200 rounded-full"
+                aria-label={show.confirm ? "Hide password" : "Show password"}
               >
                 {show.confirm ? (
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -225,20 +266,33 @@ const ChangePassword = () => {
             
             {/* Password Match Indicator */}
             {formData.newPassword && formData.confirmPassword && (
-              <p className={`text-xs mt-1 ${formData.newPassword === formData.confirmPassword ? "text-green-500" : "text-red-500"}`}>
+              <div className={`flex items-center mt-2 text-sm ${formData.newPassword === formData.confirmPassword ? "text-green-500" : "text-red-500"}`}>
+                <svg className={`w-4 h-4 mr-1 ${formData.newPassword === formData.confirmPassword ? "text-green-500" : "text-red-500"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  {formData.newPassword === formData.confirmPassword ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  )}
+                </svg>
                 {formData.newPassword === formData.confirmPassword 
                   ? "Passwords match" 
                   : "Passwords do not match"}
-              </p>
+              </div>
             )}
           </div>
 
           {/* Submit Button */}
-          <div className="pt-2">
+          <div className="pt-4 flex flex-col sm:flex-row gap-4">
+            <Link 
+              to={`/${role}/dashboard`} 
+              className="btn btn-outline btn-secondary flex-1 shadow-md hover:shadow-lg transition-all"
+            >
+              Back to Dashboard
+            </Link>
             <button 
-              className="btn btn-primary w-full shadow-lg hover:shadow-xl transition-all" 
+              className="btn btn-primary flex-1 shadow-md hover:shadow-lg transition-all" 
               type="submit" 
-              disabled={isLoading}
+              disabled={isLoading || formData.newPassword !== formData.confirmPassword}
             >
               {isLoading ? (
                 <>

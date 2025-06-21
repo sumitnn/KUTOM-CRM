@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { FiPackage, FiTruck, FiCheckCircle, FiPlus, FiEdit, FiX } from "react-icons/fi";
 import { useGetStocksQuery, useCreateStockMutation, useUpdateStockMutation } from "../features/stocks/stocksApi";
 import { useGetVendorActiveProductsQuery, useGetProductSizesQuery } from "../features/product/productApi";
+import { toast } from "react-toastify";
 
 const MyStockPage = ({ role }) => {
   const [activeTab, setActiveTab] = useState("in_stock"); 
@@ -118,12 +119,16 @@ const MyStockPage = ({ role }) => {
           product: selectedStock.product,
           size: selectedStock.size
         }).unwrap();
+        toast.success("Stock Updated successfully!");
+        refetch();
       } else {
         await createStock(payload).unwrap();
+        toast.success("stock created successfully!");
       }
       closeForm();
     } catch (error) {
       console.error('Error saving stock:', error);
+      toast.error(err.data?.message || "Failed to create stock");
     }
   };
 
@@ -187,8 +192,8 @@ const MyStockPage = ({ role }) => {
                 <th>Subcategory</th>
                 <th>Size</th>
                 <th>Qty</th>
-                <th>Price</th>
-                <th>Total Price</th>
+                <th>Product Price</th>
+                <th>Total Stock Price</th>
                 
                 <th>Status</th>
                 {activeTab === "in_stock" && <th>Actions</th>}
@@ -231,7 +236,7 @@ const MyStockPage = ({ role }) => {
                       <td>
                         <button 
                           onClick={() => openEditForm(item)}
-                          className="btn btn-ghost btn-md"
+                          className="btn btn-ghost btn-md font-bold"
                         >
                           <FiEdit />
                         </button>
@@ -304,7 +309,7 @@ const MyStockPage = ({ role }) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-4 border-b">
-              <h3 className="font-bold text-lg">Add New Stock</h3>
+              <h3 className="font-extrabold text-lg">Add New Stock</h3>
               <button onClick={closeForm} className="btn btn-ghost btn-circle">
                 <FiX />
               </button>
@@ -313,7 +318,7 @@ const MyStockPage = ({ role }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text">Product</span>
+                    <span className="label-text font-bold">Product</span>
                   </label>
                   <select
                     name="product"
@@ -325,7 +330,7 @@ const MyStockPage = ({ role }) => {
                     <option value="">Select a product</option>
                     {activeProducts?.map(product => (
                       <option key={product.id} value={product.id}>
-                        {product.name} - {product.brand?.name || 'No Brand'}
+                        {product.name}
                       </option>
                     ))}
                   </select>
@@ -333,7 +338,7 @@ const MyStockPage = ({ role }) => {
                 
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text">Size</span>
+                    <span className="label-text font-bold">Size</span>
                   </label>
                   <select
                     name="size"
@@ -346,7 +351,7 @@ const MyStockPage = ({ role }) => {
                     <option value="">Select a size</option>
                     {productSizes?.map(size => (
                       <option key={size.id} value={size.id}>
-                        {size.size} ({size.measurement})
+                        {size.size} 
                       </option>
                     ))}
                   </select>
@@ -354,7 +359,7 @@ const MyStockPage = ({ role }) => {
                 
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text">Quantity</span>
+                    <span className="label-text font-bold">Quantity</span>
                   </label>
                   <input
                     type="number"
@@ -368,7 +373,7 @@ const MyStockPage = ({ role }) => {
                 
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text">Rate</span>
+                    <span className="label-text font-bold">Single Quantity Price</span>
                   </label>
                   <input
                     type="number"
@@ -387,22 +392,22 @@ const MyStockPage = ({ role }) => {
                 
                 <div className="form-control md:col-span-2">
                   <label className="label">
-                    <span className="label-text">Notes</span>
+                    <span className="label-text font-bold">Notes</span>
                   </label>
                   <textarea
                     name="notes"
                     value={formData.notes}
                     onChange={handleInputChange}
                     className="textarea textarea-bordered"
-                    rows="3"
+                    rows="4"
                   />
                 </div>
               </div>
               <div className="flex justify-end gap-2 mt-4">
-                <button type="button" onClick={closeForm} className="btn btn-ghost">
+                <button type="button" onClick={closeForm} className="btn btn-ghost cursor-pointer">
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary">
+                <button type="submit" className="btn btn-primary cursor-pointer">
                   Save Stock
                 </button>
               </div>
