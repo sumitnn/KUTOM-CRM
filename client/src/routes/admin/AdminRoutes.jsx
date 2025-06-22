@@ -1,74 +1,223 @@
-// src/routes/admin/AdminRoutes.jsx
+import { lazy, Suspense } from "react";
 import { Route } from "react-router-dom";
 import ProtectedRoute from "../ProtectedRoutes";
 import AdminMainLayout from "../../layout/admin/AdminMainLayout";
+import Spinner from "../../components/common/Spinner";
 
-import AdminDashboard from "../../pages/admin/AdminDashboard";
-import WalletManagementPage from "../../pages/admin/WalletManagementPage";
+// Lazy-loaded components
+const AdminDashboard = lazy(() => import("../../pages/admin/AdminDashboard"));
+const WalletManagementPage = lazy(() => import("../../pages/admin/WalletManagementPage"));
+const AdminVendor = lazy(() => import("../../pages/admin/AdminVendor"));
+const AdminStockist = lazy(() => import("../../pages/admin/AdminStockist"));
+const Profile = lazy(() => import("../../pages/common/Profile"));
+const ChangePassword = lazy(() => import("../../components/auths/ChangePassword"));
+const Logout = lazy(() => import("../../pages/Logout"));
+const ViewBrandsPage = lazy(() => import("../../pages/ViewBrandsPage"));
+const CreateBrandPage = lazy(() => import("../../pages/CreateBrandPage"));
+const ViewCategoriesPage = lazy(() => import("../../pages/ViewCategoriesPage"));
+const CreateCategoryPage = lazy(() => import("../../pages/CreateCategoryPage"));
+const CreateSubcategoryPage = lazy(() => import("../../pages/CreateSubcategoryPage"));
+const ViewSubcategoriesPage = lazy(() => import("../../pages/ViewSubcategoriesPage"));
+const ProductListPage = lazy(() => import("../../pages/ProductListPage"));
+const ProductDetailsPage = lazy(() => import("../../pages/ProductDetailPage"));
+const CreateProductPage = lazy(() => import("../../pages/CreateProductPage"));
+const MyProductsPage = lazy(() => import("../../pages/MyProductsPage"));
+const EditProductPage = lazy(() => import("../../pages/EditProductPage"));
+const AdminReseller = lazy(() => import("../../pages/admin/AdminReseller"));
+const OrdersManagement = lazy(() => import("../../pages/OrdersManagement"));
+const AdminTopupPage = lazy(() => import("../../pages/admin/AdminTopupPage"));
+const AdminProductApprovalPage = lazy(() => import("../../pages/admin/AdminProductApprovalPage"));
 
-
-import AdminVendor from "../../pages/admin/AdminVendor";
-import AdminStockist from "../../pages/admin/AdminStockist";
-import Profile from "../../pages/common/Profile";
-import ChangePassword from "../../components/auths/ChangePassword";
-import Logout from "../../pages/Logout";
-import ViewBrandsPage from "../../pages/ViewBrandsPage";
-import CreateBrandPage from "../../pages/CreateBrandPage";
-import CreateCategoryPage from "../../pages/CreateCategoryPage";
-import ViewCategoriesPage from "../../pages/ViewCategoriesPage";
-import CreateSubcategoryPage from "../../pages/CreateSubcategoryPage";
-import ViewSubcategoriesPage from "../../pages/ViewSubcategoriesPage";
-import ProductListPage from "../../pages/ProductListPage";
-import ProductDetailsPage from "../../pages/ProductDetailPage";
-import CreateProductPage from "../../pages/CreateProductPage";
-import MyProductsPage from "../../pages/MyProductsPage";
-import EditProductPage from "../../pages/EditProductPage";
-import AdminReseller from "../../pages/admin/AdminReseller";
-import OrdersManagement from "../../pages/OrdersManagement";
-import AdminTopupPage from "../../pages/admin/AdminTopupPage";
-import AdminProductApprovalPage from "../../pages/admin/AdminProductApprovalPage";
-
-const adminRoutes = [
+const AdminRoutes = [
   <Route key="admin" element={<ProtectedRoute allowedRoles={["admin"]} />}>
-    <Route path="/admin/dashboard" element={<AdminMainLayout><AdminDashboard /></AdminMainLayout>} />
+    <Route 
+      path="/admin/dashboard" 
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <AdminDashboard />
+          </Suspense>
+        </AdminMainLayout>
+      } 
+    />
 
-     {/* brand  */}
-     <Route path="/admin/create-brand" element={<AdminMainLayout><CreateBrandPage/></AdminMainLayout>}/>
+    {/* brand routes */}
+    <Route 
+      path="/admin/create-brand" 
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <CreateBrandPage/>
+          </Suspense>
+        </AdminMainLayout>
+      }
+    />
     <Route
       path="/admin/brand"
-      element={<AdminMainLayout><ViewBrandsPage/></AdminMainLayout>}
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <ViewBrandsPage/>
+          </Suspense>
+        </AdminMainLayout>
+      }
     />
-    {/* category  */}
- 
+    
+    {/* category routes */}
     <Route
       path="/admin/categories"
-      element={<AdminMainLayout><ViewCategoriesPage/></AdminMainLayout>}
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <ViewCategoriesPage/>
+          </Suspense>
+        </AdminMainLayout>
+      }
     />
-    {/* sub category  */}
+    
+    {/* subcategory routes */}
+    <Route 
+      path="/admin/subcategories" 
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <ViewSubcategoriesPage />
+          </Suspense>
+        </AdminMainLayout>
+      } 
+    />
 
-    <Route path="/admin/subcategories" element={<AdminMainLayout><ViewSubcategoriesPage /></AdminMainLayout>} />
+    {/* product routes */}
+    <Route 
+      path="/admin/products" 
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <ProductListPage role="admin"/>
+          </Suspense>
+        </AdminMainLayout>
+      }
+    />
+    <Route 
+      path="/admin/product-requests" 
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <AdminProductApprovalPage/>
+          </Suspense>
+        </AdminMainLayout>
+      }
+    />
+    <Route 
+      path="/admin/products/:id" 
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <ProductDetailsPage role="admin"/>
+          </Suspense>
+        </AdminMainLayout>
+      }
+    />
+    <Route 
+      path="/admin/products/edit/:id" 
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <EditProductPage role="admin"/>
+          </Suspense>
+        </AdminMainLayout>
+      } 
+    />
 
-      {/* products  */}
-      <Route path="/admin/products" element={<AdminMainLayout><ProductListPage role="admin"/></AdminMainLayout>}/>
-      <Route path="/admin/product-requests" element={<AdminMainLayout><AdminProductApprovalPage/></AdminMainLayout>}/>
-    <Route path="/admin/products/:id" element={<AdminMainLayout><ProductDetailsPage role="admin"/></AdminMainLayout>}/>
-    <Route path="/admin/products/edit/:id" element={<AdminMainLayout><EditProductPage role="admin"/></AdminMainLayout>} />
+    {/* wallet */}
+    <Route 
+      path="/admin/wallet" 
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <WalletManagementPage />
+          </Suspense>
+        </AdminMainLayout>
+      } 
+    />
+    
+    {/* user management */}
+    <Route 
+      path="/admin/vendor" 
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <AdminVendor />
+          </Suspense>
+        </AdminMainLayout>
+      } 
+    />
+    <Route 
+      path="/admin/stockist" 
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <AdminStockist />
+          </Suspense>
+        </AdminMainLayout>
+      } 
+    />
+    <Route 
+      path="/admin/reseller" 
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <AdminReseller />
+          </Suspense>
+        </AdminMainLayout>
+      } 
+    />
 
+    {/* topup */}
+    <Route 
+      path="/admin/topup" 
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <AdminTopupPage />
+          </Suspense>
+        </AdminMainLayout>
+      } 
+    />
 
-    <Route path="/admin/wallet" element={<AdminMainLayout><WalletManagementPage /></AdminMainLayout>} />
-    {/* <Route path="/admin/orders" element={<AdminMainLayout><OrdersManagement /></AdminMainLayout>} /> */}
-    <Route path="/admin/vendor" element={<AdminMainLayout><AdminVendor /></AdminMainLayout>} />
-    <Route path="/admin/stockist" element={<AdminMainLayout><AdminStockist /></AdminMainLayout>} />
-    <Route path="/admin/reseller" element={<AdminMainLayout><AdminReseller /></AdminMainLayout>} />
-
-    {/* topup  */}
-    <Route path="/admin/topup" element={<AdminMainLayout><AdminTopupPage /></AdminMainLayout>} />
-
-
-    <Route path="/admin/settings/profile" element={<AdminMainLayout><Profile /></AdminMainLayout>} />
-    <Route path="/admin/settings/change-password" element={<AdminMainLayout><ChangePassword /></AdminMainLayout>} />
-    <Route key="logout" path="/admin/logout" element={<Logout />} />
+    {/* settings */}
+    <Route 
+      path="/admin/settings/profile" 
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <Profile />
+          </Suspense>
+        </AdminMainLayout>
+      } 
+    />
+    <Route 
+      path="/admin/settings/change-password" 
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <ChangePassword />
+          </Suspense>
+        </AdminMainLayout>
+      } 
+    />
+    
+    {/* logout */}
+    <Route 
+      key="logout" 
+      path="/admin/logout" 
+      element={
+        <Suspense fallback={<Spinner />}>
+          <Logout />
+        </Suspense>
+      } 
+    />
   </Route>
 ];
 
-export default adminRoutes;
+export default AdminRoutes;
