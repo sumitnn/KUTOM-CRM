@@ -24,10 +24,16 @@ export const authApi = createApi({
             query: (refresh) => ({
                 url: "/token/refresh/",
                 method: "POST",
-                data: { refresh },
+                body: { refresh }, 
             }),
-        
-        }),
+            transformErrorResponse: (response) => {
+                // Handle specific error cases
+                if (response.status === 401) {
+                    return { message: "Refresh token expired or invalid" };
+                }
+                return response.data;
+            }
+          }),
         updatePassword: builder.mutation({
             query: (data) => ({
                 url: "/change-password/",
