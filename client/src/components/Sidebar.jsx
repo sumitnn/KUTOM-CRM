@@ -7,7 +7,6 @@ import {
   FaChevronDown,
   FaChevronUp,
 } from "react-icons/fa";
-
 import { CiWallet, CiLogout } from "react-icons/ci";
 import { RxDashboard } from "react-icons/rx";
 import { FaUsersGear } from "react-icons/fa6";
@@ -21,22 +20,26 @@ import { TbCategoryPlus } from "react-icons/tb";
 import { TbCategoryMinus } from "react-icons/tb";
 import { FaCodePullRequest } from "react-icons/fa6";
 
-
-
 const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
   const [openMenus, setOpenMenus] = useState({}); // Track open/close state for each item
-  const [settingsOpen, setSettingsOpen] = useState(
-    location.pathname.startsWith("/settings")
-  );
+ 
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const toggleMenu = (label) => {
     setOpenMenus((prev) => ({ ...prev, [label]: !prev[label] }));
   };
 
+  const handleLogoutClick = (e) => {
+    e.preventDefault();
+    setShowLogoutConfirm(true);
+  };
 
+  const handleConfirmLogout = () => {
+    navigate(`/${role}/logout`);
+  };
 
   const navItemsByRole = {
     admin: [
@@ -48,8 +51,6 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
           { label: "Vendor", path: "/admin/vendor" },
           { label: "Stockist", path: "/admin/stockist" },
           { label: "Reseller", path: "/admin/reseller" },
-
-          
         ],
       },
       {
@@ -58,7 +59,6 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         children: [
           { label: "All Products", path: "/admin/products" },
           { label: "Product Request", path: "/admin/product-requests" },
-          
         ],
       },
       { icon: <SiBrandfolder />, label: "Brands", path: "/admin/brand" },
@@ -69,7 +69,6 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         label: "TopUp Management",
         children: [
           { label: "Topup Request & History", path: "/admin/topup" },
-
         ],
       },
       { icon: <CiWallet />, label: "Wallet", path: "/admin/wallet" },
@@ -81,26 +80,20 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         label: "My Network",
         children: [
           { label: "My Reseller", path: "/stockist/reseller" },
-
-          
         ],
       },
-
       {
         icon: <MdInventory />,
         label: "Stock Management",
         children: [
           { label: "My Stocks", path: "" },
           { label: "Stocks Report", path: "" },
-  
         ],
       },{
         icon: <FaCodePullRequest />,
         label: "Order Management",
         children: [
           { label: "Order Requests", path: "/stockist/orders" },
-
-  
         ],
       },{
         icon: <FaCodePullRequest />,
@@ -108,7 +101,6 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         children: [
           { label: "Create Topup Requests", path: "/stockist/topup-request" },
           { label: "Topup Request History", path: "/stockist/my-topup" },
-  
         ],
       },
       { icon: <CiWallet />, label: "Wallet & Transactions", path: "/stockist/wallet" },
@@ -116,13 +108,11 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
     reseller: [
       { icon: <MdSpaceDashboard />, label: "Dashboard", path: "/reseller/dashboard" },
       { icon: <RxDashboard />, label: "Product Market", path: "/reseller/products" },
-     {
+      {
         icon: <FaCodePullRequest />,
         label: "Order Management",
         children: [
           { label: "Order History", path: "/reseller/orders" },
-
-       
         ],
       },{
         icon: <FaCodePullRequest />,
@@ -130,8 +120,6 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         children: [
           { label: "Create Topup Request", path: "/reseller/topup-request" },
           { label: "Topup Request History", path: "/reseller/my-topup" },
-          
-    
         ],
       },
       { icon: <CiWallet />, label: "My Wallet", path: "/reseller/wallet" },
@@ -140,41 +128,63 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         label: "My Cart",
         children: [
           { label: "Cart", path: "/reseller/my-cart" },
-
-       
         ],
       },
-
     ],
     vendor: [
       { icon: <MdSpaceDashboard />, label: "Dashboard", path: "/vendor/dashboard" },
+      
       {
-        icon: <RxDashboard />,
-        label: "Products",
+        icon: <SiBrandfolder />,
+        label: "Brand",
+        children: [
+
+          { label: "Company", path: "/vendor/brand" },
+          { label: "Category & Subcategory", path: "/vendor/categories" },
+      
+        ],
+      },
+      {
+        icon: <TbCategoryPlus />,
+        label: "Production",
         children: [
           { label: "All Products", path: "/vendor/products" },
           { label: "Create New Product", path: "/vendor/create-product" },
-          { label: "Requests", path: "/vendor/requested-products" },
-          { label: "Stock", path: "/vendor/my-stocks" },
-          { label: "Sales", path: "/vendor/my-sales" },
+          { label: "Product Requests", path: "/vendor/requested-products" },
           
+        
         ],
       },
-      { icon: <SiBrandfolder />, label: "Brand Management", path: "/vendor/brand" },
-      { icon: <TbCategoryPlus />, label: "Category & Subcategory", path: "/vendor/categories" },
       {
-        icon: <FaCodePullRequest />,
-        label: "Accounts Mangement",
+        icon: <RxDashboard />,
+        label: "Business",
         children: [
-          { label: "My Wallet & Transaction", path: "/vendor/wallet" },
-          { label: "Withdrawl Request", path: "/vendor/withdrawl-request" },
-          { label: "Withdrawl Request History", path: "/vendor/my-withdrawl" },
-
-          
     
+          { label: "Stock", path: "/vendor/my-stocks" },
+          { label: "Orders", path: "/vendor/my-sales" },
+          { label: "Dispatch", path: "/vendor/my-sales" },
         ],
       },
-      { icon: <CiWallet />, label: "My Wallet", path: "/vendor/wallet" },
+      {
+        icon: <MdInventory />,
+        label: "Accounts",
+        children: [
+          { label: "Sales", path: "/vendor/my-sales" },
+          { label: "Stock", path: "/vendor/my-stocks" },
+          { label: "Report", path: "" },
+       
+        ],
+      },
+      {
+        icon: <CiWallet />,
+        label: "Wallet",
+        children: [
+          { label: "Balance", path: "/vendor/wallet" },
+          { label: "Withdrawal Request", path: "/vendor/withdrawl-request" },
+          { label: "Withdrawal Request History", path: "/vendor/my-withdrawl" },
+        ],
+      }
+     
     ]
   };
 
@@ -186,6 +196,30 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         expanded ? "w-70" : "w-16"
       }`}
     >
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Confirm Logout</h3>
+            <p className="text-gray-600 mb-6">Are you sure you want to logout?</p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmLogout}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center p-4">
         {expanded && <span className="text-xl font-bold capitalize">{role} Portal</span>}
         <button
@@ -239,8 +273,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
                         }`
                       }
                     >
-                      <span className="font-bold "> {subItem.label}</span>
-                     
+                      <span className="font-bold"> {subItem.label}</span>
                     </NavLink>
                   ))}
                 </div>
@@ -248,14 +281,12 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
             </div>
           );
         })}
-
-        
       </nav>
 
       {/* Logout Button */}
       <div className="px-2 pb-40">
         <button
-          onClick={() => navigate(`/${role}/logout`)}
+          onClick={handleLogoutClick}
           className="flex items-center gap-4 p-2 rounded-md hover:bg-red-100 text-red-600 transition w-full text-left"
         >
           <CiLogout className="text-lg" />

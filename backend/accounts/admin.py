@@ -120,3 +120,8 @@ class NotificationAdmin(admin.ModelAdmin):
     list_display = ['user', 'title', 'notification_type']
     list_filter = ['notification_type']
     search_fields = ['user__username', 'title']
+
+@admin.register(NewAccountApplication)
+class NewAccountApplicationAdmin(admin.ModelAdmin):
+    list_display = ('full_name', 'email', 'role', 'status', 'created_at')
+    readonly_fields = ()

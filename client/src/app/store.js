@@ -20,6 +20,7 @@ import { announcementApi } from "../features/announcement/announcementApi";
 import { dashboardApi } from "../features/dashboardApi";
 import { stocksApi } from "../features/stocks/stocksApi";
 import { notificationApi } from "../features/notification/notificationApi";
+import { newAccountApplicationApi } from "../features/newapplication/newAccountApplicationApi";
 
 
 
@@ -42,7 +43,8 @@ export const store = configureStore({
         [announcementApi.reducerPath]: announcementApi.reducer,
         [dashboardApi.reducerPath]: dashboardApi.reducer,
         [stocksApi.reducerPath]: stocksApi.reducer,
-        [notificationApi.reducerPath]:notificationApi.reducer,
+        [notificationApi.reducerPath]: notificationApi.reducer,
+        [newAccountApplicationApi.reducerPath]:newAccountApplicationApi.reducer,
         
     },
     middleware: (getDefaultMiddleware) =>
@@ -59,5 +61,6 @@ export const store = configureStore({
             dashboardApi.middleware,
             stocksApi.middleware,
             notificationApi.middleware,
+            newAccountApplicationApi.middleware,
         ),
 });

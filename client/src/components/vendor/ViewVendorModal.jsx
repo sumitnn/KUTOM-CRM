@@ -1,6 +1,8 @@
 import React from 'react';
 
 export default function ViewVendorModal({ user, onClose }) {
+  if (!user) return null; // Add this check to handle undefined user
+
   return (
     <dialog open className="modal modal-bottom sm:modal-middle">
       <div className="modal-box max-w-2xl">
@@ -10,8 +12,8 @@ export default function ViewVendorModal({ user, onClose }) {
           <div className="avatar mb-4">
             <div className="w-24 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
               <img
-                src={user.profile || "https://img.daisyui.com/images/profile/demo/5@94.webp"}
-                alt={user.username || user.name}
+                src={user.profile?.profile_picture || "https://img.daisyui.com/images/profile/demo/5@94.webp"}
+                alt={user.username || 'Vendor'}
               />
             </div>
           </div>
@@ -20,21 +22,35 @@ export default function ViewVendorModal({ user, onClose }) {
             <div className="bg-base-200 p-4 rounded-xl shadow-md">
               <h4 className="text-lg font-semibold text-accent mb-2">Personal Info</h4>
               <p><span className="font-medium">Username:</span> {user.username || 'N/A'}</p>
-              <p><span className="font-medium">Full Name:</span> {user.full_name || 'N/A'}</p>
+              <p><span className="font-medium">Full Name:</span> {user.profile?.full_name || 'N/A'}</p>
+              <p><span className="font-medium">Date of Birth:</span> {user.profile?.date_of_birth || 'N/A'}</p>
+              <p><span className="font-medium">Gender:</span> {user.profile?.gender || 'N/A'}</p>
             </div>
 
             <div className="bg-base-200 p-4 rounded-xl shadow-md">
               <h4 className="text-lg font-semibold text-accent mb-2">Contact Info</h4>
               <p><span className="font-medium">Email:</span> {user.email}</p>
-              <p><span className="font-medium">Phone:</span> {user.phone || 'N/A'}</p>
+              <p><span className="font-medium">Phone:</span> {user.profile?.phone || 'N/A'}</p>
+              <p><span className="font-medium">WhatsApp:</span> {user.profile?.whatsapp_number || 'N/A'}</p>
             </div>
 
             <div className="bg-base-200 p-4 rounded-xl shadow-md col-span-1 sm:col-span-2">
               <h4 className="text-lg font-semibold text-accent mb-2">Address Info</h4>
-              <p><span className="font-medium">City:</span> {user.city || 'N/A'}</p>
-              <p><span className="font-medium">State:</span> {user.state || 'N/A'}</p>
-              <p><span className="font-medium">Pincode:</span> {user.pincode || 'N/A'}</p>
-              <p><span className="font-medium">Full Address:</span> {user.address || 'N/A'}</p>
+              <p><span className="font-medium">Street:</span> {user.address?.street_address || 'N/A'}</p>
+              <p><span className="font-medium">City:</span> {user.address?.city || 'N/A'}</p>
+              <p><span className="font-medium">State:</span> {user.address?.state_name || 'N/A'}</p>
+              <p><span className="font-medium">District:</span> {user.address?.district_name || 'N/A'}</p>
+              <p><span className="font-medium">Postal Code:</span> {user.address?.postal_code || 'N/A'}</p>
+              <p><span className="font-medium">Country:</span> {user.address?.country || 'N/A'}</p>
+            </div>
+
+            <div className="bg-base-200 p-4 rounded-xl shadow-md col-span-1 sm:col-span-2">
+              <h4 className="text-lg font-semibold text-accent mb-2">Bank Details</h4>
+              <p><span className="font-medium">Bank UPI:</span> {user.profile?.bank_upi || 'N/A'}</p>
+              <p><span className="font-medium">Account Holder:</span> {user.profile?.account_holder_name || 'N/A'}</p>
+              <p><span className="font-medium">Bank Name:</span> {user.profile?.bank_name || 'N/A'}</p>
+              <p><span className="font-medium">Account Number:</span> {user.profile?.account_number || 'N/A'}</p>
+              <p><span className="font-medium">IFSC Code:</span> {user.profile?.ifsc_code || 'N/A'}</p>
             </div>
           </div>
         </div>

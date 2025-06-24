@@ -329,3 +329,72 @@ class NotificationSerializer(serializers.ModelSerializer):
             'is_read', 'related_url', 'created_at'
         ]
         read_only_fields = ['created_at']
+
+
+class NewAccountApplicationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NewAccountApplication
+        fields = '__all__'
+        read_only_fields = ['status', 'created_at']
+
+    def validate(self, data):
+        email = data.get('email')
+        phone = data.get('phone')
+
+        if NewAccountApplication.objects.filter(email=email, status='pending').exists():
+            raise serializers.ValidationError({
+                'email': "You already have a pending application with this email."
+            })
+
+        if NewAccountApplication.objects.filter(phone=phone, status='pending').exists():
+            raise serializers.ValidationError({
+                'phone': "You already have a pending application with this phone number."
+            })
+
+        return data
+    
+
+
+class UserAddressSerializer(serializers.ModelSerializer):
+    state_name = serializers.CharField(source='state.name', read_only=True)
+    district_name = serializers.CharField(source='district.name', read_only=True)
+
+    class Meta:
+        model = Address
+        fields = [
+            'street_address', 'city', 'postal_code', 'country',
+            'is_primary', 'state_name', 'district_name', 'state', 'district'
+        ]
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    created_at = serializers.SerializerMethodField()
+    class Meta:
+        model = Profile
+        fields = [
+            'full_name', 'date_of_birth', 'phone', 'profile_picture',
+            'gender', 'facebook', 'twitter', 'instagram', 'youtube',
+            'bio', 'whatsapp_number', 'bank_upi', 'upi_id',
+            'account_holder_name', 'passbook_pic', 'ifsc_code', 'bank_name',
+            'account_number', 'adhaar_card_pic', 'pancard_pic',
+            'kyc_other_document', 'adhaar_card_number', 'pancard_number',
+            'kyc_status', 'kyc_verified', 'kyc_verified_at', 'kyc_rejected_reason',
+            'created_at', 'updated_at'
+        ]
+        
+    def get_created_at(self, obj):
+        return obj.created_at.date() if obj.created_at else None
+
+class UserListSerializer(serializers.ModelSerializer):
+    address = UserAddressSerializer(read_only=True)
+    profile = UserProfileSerializer(read_only=True)
+
+
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'email', 'role', 'username', 'is_default_user', 'is_active',
+            'address', 'profile',
+        ]
+
