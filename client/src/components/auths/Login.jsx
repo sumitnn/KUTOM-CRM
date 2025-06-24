@@ -64,24 +64,30 @@ const Login = () => {
         <form onSubmit={handleSubmit} className="w-full flex flex-col items-center gap-5">
           <input
             type="email"
+            id="email"
+            name="email"
             placeholder="Email"
             className="w-full h-12 border border-gray-300 rounded-md px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            autoComplete="on"
           />
           <input
+            id="password"
+            name="password"
             type="password"
             placeholder="Password"
             className="w-full h-12 border border-gray-300 rounded-md px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            autoComplete="off"
           />
 
           <div className="flex justify-between items-center w-full text-sm text-gray-600">
             <label className="flex items-center gap-2">
-              <input type="checkbox" className="w-4 h-4" />
+              <input type="checkbox" name="checkbox" id="checkbox" className="w-4 h-4" />
               Remember me
             </label>
             <Link to="/forget-password" className="text-indigo-600 hover:underline">

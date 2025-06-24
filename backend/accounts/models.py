@@ -282,3 +282,115 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"{self.title} - {self.user.username}"
+    
+class NewAccountApplication(models.Model):
+    ROLE_CHOICES = (
+        ('vendor', 'Vendor'),
+        ('reseller', 'Reseller'),
+        ('stockist', 'Stockist'),
+    )
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES)
+    full_name = models.CharField(max_length=255)
+    email = models.EmailField()
+    phone = models.CharField(max_length=15)
+    rejected_reason = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=20, default='new', choices=[('new', 'New Record'),('pending', 'Pending'), ('approved', 'Approved'), ('rejected', 'Rejected')])
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.full_name} - {self.role} ({self.status})"
+    
+
+class Company(models.Model):
+    BUSINESS_TYPE_CHOICES = [
+        ('proprietorship', 'Proprietorship'),
+        ('partnership', 'Partnership'),
+        ('llp', 'Limited Liability Partnership (LLP)'),
+        ('pvt_ltd', 'Private Limited Company'),
+        ('ltd', 'Public Limited Company'),
+        ('other', 'Other'),
+    ]
+    
+    BUSINESS_CATEGORY_CHOICES = [
+        ('manufacturer', 'Manufacturer'),
+        ('wholesaler', 'Wholesaler'),
+        ('retailer', 'Retailer'),
+        ('distributor', 'Distributor'),
+        ('service_provider', 'Service Provider'),
+        ('other', 'Other'),
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='company')
+    
+    # Company Identification
+
+    company_name = models.CharField(max_length=255)
+    company_email = models.EmailField()
+    company_phone = models.CharField(max_length=15)
+    designation = models.CharField(max_length=100, help_text="User's designation in the company")
+    
+    # Business Details
+    business_type = models.CharField(max_length=20, choices=BUSINESS_TYPE_CHOICES)
+    business_category = models.CharField(max_length=20, choices=BUSINESS_CATEGORY_CHOICES)
+    business_description = models.TextField(blank=True)
+    joining_date = models.DateField(null=True, blank=True)
+    
+    # Registration Numbers
+    gst_number = models.CharField(max_length=15, blank=True, null=True)
+    pan_number = models.CharField(max_length=10, blank=True, null=True)
+    business_registration_number = models.CharField(max_length=50, blank=True, null=True)
+    food_license_number = models.CharField(max_length=50, blank=True, null=True)
+    
+    # Document Images
+    gst_certificate = models.FileField(upload_to='company_documents/gst/', blank=True, null=True)
+    pan_card = models.FileField(upload_to='company_documents/pan/', blank=True, null=True)
+    business_registration_doc = models.FileField(upload_to='company_documents/registration/', blank=True, null=True)
+    food_license_doc = models.FileField(upload_to='company_documents/fssai/', blank=True, null=True)
+    
+    # Address Details
+    registered_address = models.TextField()
+    operational_address = models.TextField(blank=True, null=True)
+    state = models.ForeignKey(State, on_delete=models.SET_NULL, null=True, blank=True)
+    district = models.ForeignKey(District, on_delete=models.SET_NULL, null=True, blank=True)
+    pincode = models.CharField(max_length=10)
+    
+    # Verification Status
+    is_verified = models.BooleanField(default=False)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    verification_notes = models.TextField(blank=True, null=True)
+    
+    # Meta
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Company"
+        verbose_name_plural = "Companies"
+        ordering = ['company_name']
+
+    def __str__(self):
+        return f"{self.company_name}"
+
+
+# def generate_vendor_id(self):
+#         """
+#         Generates a vendor ID in format VIXXXX where XXXX is incremental
+#         Returns the generated ID without saving the model
+#         """
+#         if self.vendor_id:
+#             return self.vendor_id  # Already has an ID
+            
+#         # Get the highest existing vendor ID number
+#         last_vendor = Company.objects.exclude(vendor_id__isnull=True).order_by('-vendor_id').first()
+        
+#         if last_vendor and last_vendor.vendor_id:
+#             try:
+#                 last_number = int(last_vendor.vendor_id[2:])
+#             except (ValueError, IndexError):
+#                 last_number = 0
+#         else:
+#             last_number = 0
+            
+#         new_id = f"VI{str(last_number + 1).zfill(4)}"
+#         self.vendor_id = new_id
+#         return new_id

@@ -12,6 +12,7 @@ urlpatterns = [
     path('assigned-resellers/', AssignedResellersView.as_view(), name='assigned-resellers'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('update-user/<uuid:pk>/', UpdateUserAPIView.as_view(), name='update-user'),
+    path('update-user-status/<uuid:pk>/', UpdateUserStatusAPIView.as_view(), name='update-user-status'),
     path('delete-user/<uuid:pk>/', DeleteUserAPIView.as_view(), name='delete-user'),
     path('profile/', ProfileView.as_view(), name='profile'),
     path('payment-details/', UserPaymentDetailsView.as_view(), name='user-payment-details'),
@@ -38,10 +39,6 @@ urlpatterns = [
     path('withdrawl-request/update/<int:pk>/', WithdrawlRequestUpdateView.as_view(), name='withdrawl-request-update'),
     path('withdrawl-request/', WithdrawlRequestListCreateView.as_view(), name='withdrawl-request'),
 
-   
-
-
-
     # State and District related APIs
     path('states/', StateListView.as_view(), name='state-list'),
     path('states/<int:state_id>/districts/', DistrictListView.as_view(), name='district-list'),
@@ -50,12 +47,17 @@ urlpatterns = [
     path('announcements/', BroadcastMessageListCreateAPIView.as_view(), name='announcement-list-create'),
     path('announcements/<int:pk>/', BroadcastMessageDetailAPIView.as_view(), name='announcement-detail'),
 
-
     # notification
     path('notifications/today/', TodayNotificationListAPIView.as_view(), name='today-notifications'),
 
     # DashboardAPI
     path('dashboard-summary/', DashboardAPIView.as_view(), name='dashboard-summary'),
+
+    # user application Apis 
+    path('apply/', NewAccountApplicationCreateView.as_view(), name='apply'),
+    path('applications/', NewAccountApplicationListView.as_view(), name='list-applications'),
+    path('applications/<int:pk>/approve/', ApproveApplicationView.as_view(), name='approve-application'),
+    path('applications/<int:pk>/reject/', RejectApplicationView.as_view(), name='reject-application'),
 
 
 

@@ -7,11 +7,18 @@ export const vendorApi = createApi({
     baseQuery: axiosBaseQuery({ baseUrl: import.meta.env.VITE_BACKEND_API_URL }),
     endpoints: (builder) => ({
         fetchVendors: builder.query({
-            query: () => ({
-                url: '/users-list/?role=vendor',
+            query: (params = {}) => ({
+                url: '/users-list/',
                 method: 'GET',
+                params: {
+                    role: 'vendor',
+                    ...(params.status && { status: params.status }),
+                    ...(params.search && { search: params.search }),
+                    ...(params.search_type && { search_type: params.search_type }),
+                },
             }),
-        }),
+            providesTags: ['Vendor']
+          }),
         createVendor: builder.mutation({
             query: (vendorData) => ({
                 url: '/register/',
@@ -22,6 +29,13 @@ export const vendorApi = createApi({
         updateVendor: builder.mutation({
             query: ({ id, data }) => ({
                 url: `/update-user/${id}/`,
+                method: 'PUT',
+                data,
+            }),
+        }),
+        updateVendorStatus: builder.mutation({
+            query: ({ id, data }) => ({
+                url: `/update-user-status/${id}/`,
                 method: 'PUT',
                 data,
             }),
@@ -40,4 +54,5 @@ export const {
     useCreateVendorMutation,
     useUpdateVendorMutation,
     useDeleteVendorMutation,
+    useUpdateVendorStatusMutation,
 } = vendorApi;

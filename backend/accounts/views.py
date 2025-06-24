@@ -72,7 +72,8 @@ class LoginView(APIView):
                 "user": {
                     "username": username,
                     "email": email,
-                    "role": role
+                    "role": role,
+                    "profile_completed":10
                 }
                 
             }, status=status.HTTP_200_OK)
@@ -114,20 +115,69 @@ class UpdateUserAPIView(APIView):
 
         return Response({"success": False, "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
+class UpdateUserStatusAPIView(APIView):
+    permission_classes=[IsAdminRole]
+    def put(self,request,pk):
+
+        status_type=request.data.get("status")
+
+        if not status_type:
+            return Response({"success": False, "message": "Invalid Action "}, status=status.HTTP_404_NOT_FOUND)
+        
+        result=True
+        if status_type and status_type == "suspended":
+            result=False
+
+        if status_type and status_type =="active":
+            result=True
+            
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({"success": False, "message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+        user.is_active=result
+        user.save()
+        return Response({
+                "success": True,
+                "message": "User Status Updated Successfully"
+                
+            }, status=status.HTTP_200_OK)
+
+
+
 class ListUsersView(APIView):
     permission_classes = [IsAdminRole]
 
     def get(self, request):
+        role = request.GET.get("role")
+        status_type = request.GET.get("status")
+        search = request.GET.get("search")
+        search_type = request.GET.get("search_type")
 
-        if request.GET.get("role")=="vendor":
-            users = User.objects.filter(role="vendor")
-        elif request.GET.get("role")=="stockist":
-            users = User.objects.filter(role="stockist")
-        elif request.GET.get("role")=="reseller":
-            users = User.objects.filter(role="reseller")
-        else:
-            users = User.objects.all()
-        serializer = UserSerializer(users, many=True)
+        users = User.objects.all()
+
+
+        if role in ["vendor", "stockist", "reseller"]:
+            users = users.filter(role=role)
+        if status_type and status_type == "active":
+            users = users.filter(is_active=True)
+
+        if status_type and status_type =="suspended":
+            users = users.filter(is_active=False)
+
+        if search:
+            if search_type == "email":
+                users = users.filter(Q(email__icontains=search))
+            elif search_type == "phone":
+                users = users.filter(Q(profile__phone__icontains=search))
+            else:
+                # Generic search across common fields
+                users = users.filter(
+                    Q(email__icontains=search) |
+                    Q(profile__phone__icontains=search)
+                )
+
+        serializer = UserListSerializer(users, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
 class DeleteUserAPIView(APIView):
@@ -724,3 +774,87 @@ class TodayNotificationListAPIView(APIView):
         )
         serializer = NotificationSerializer(notifications, many=True)
         return Response(serializer.data)
+
+
+# new user application 
+
+class NewAccountApplicationCreateView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = NewAccountApplicationSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                'message': 'Application submitted successfully',
+                'status': True
+            }, status=status.HTTP_201_CREATED)
+
+        error_messages = serializer.errors
+
+        if 'email' in error_messages:
+            return Response({
+                'message': error_messages['email'][0],
+                'status': False
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if 'phone' in error_messages:
+            return Response({
+                'message': error_messages['phone'][0],
+                'status': False
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Fallback for any other error
+        return Response({
+            'message': 'Invalid data',
+            'errors': error_messages,
+            'status': False
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+class NewAccountApplicationListView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        status_filter = request.query_params.get('status')
+        search = request.query_params.get('search')
+        search_type = request.query_params.get('search_type')
+
+        applications = NewAccountApplication.objects.all().order_by('-created_at')
+
+        if status_filter:
+            applications = applications.filter(status=status_filter)
+
+        if search and search_type:
+            if search_type == "email":
+                applications = applications.filter(email__icontains=search)
+            elif search_type == "name":
+                applications = applications.filter(name__icontains=search)
+            elif search_type == "phone":
+                applications = applications.filter(phone__icontains=search)
+            # Add more `search_type` options here as needed
+
+        serializer = NewAccountApplicationSerializer(applications, many=True)
+        return Response(serializer.data)
+
+class ApproveApplicationView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def post(self, request, pk):
+        application = get_object_or_404(NewAccountApplication, pk=pk)
+        application.status = 'pending'
+        application.save()
+
+        return Response({'message': f'Update application Status Successfully.'}, status=200)
+
+class RejectApplicationView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def post(self, request, pk):
+        application = get_object_or_404(NewAccountApplication, pk=pk)
+
+        application.status = 'rejected'
+        application.rejected_reason = request.data.get('reason', 'No reason provided')
+
+        application.save()
+
+        return Response({'message': 'Application rejected.'}, status=200)

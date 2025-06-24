@@ -8,6 +8,7 @@ import { useGetTodayNotificationsQuery } from "../features/notification/notifica
 const Navbar = ({ role }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const dropdownRef = useRef(null);
   const notificationRef = useRef(null);
   const { data: announcements, isLoading } = useGetAnnouncementsQuery();
@@ -31,8 +32,43 @@ const Navbar = ({ role }) => {
   // Count unread notifications
   const unreadCount = notifications?.filter(notif => !notif.is_read).length || 0;
 
+  const handleLogoutClick = (e) => {
+    e.preventDefault();
+    setDropdownOpen(false);
+    setShowLogoutConfirm(true);
+  };
+
+  const handleConfirmLogout = () => {
+    // You can perform any cleanup here before redirecting
+    window.location.href = `/${role}/logout`; // or use navigate if you're using react-router
+  };
+
   return (
     <nav className="bg-white shadow-sm fixed top-0 left-0 right-0 z-50 border-b border-gray-100">
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Confirm Logout</h3>
+            <p className="text-gray-600 mb-6">Are you sure you want to logout?</p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmLogout}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-full mx-auto px-4 sm:px-6">
         <div className="flex justify-between h-16 items-center">
           {/* Logo + Name - Always visible */}
@@ -136,12 +172,13 @@ const Navbar = ({ role }) => {
                     Change Password
                   </Link>
                   <div className="border-t border-gray-100 my-1"></div>
-                  <Link
-                    to={`/${role}/logout`}
+                  <a
+                    href={`/${role}/logout`}
+                    onClick={handleLogoutClick}
                     className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors"
                   >
                     Logout
-                  </Link>
+                  </a>
                 </div>
               )}
             </div>
