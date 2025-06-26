@@ -42,7 +42,7 @@ class Profile(models.Model):
     full_name = models.CharField(max_length=100)
     date_of_birth = models.DateField(null=True, blank=True)
 
-    phone = models.CharField(max_length=15, blank=True)
+    phone = models.CharField(max_length=10, blank=True)
     profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True)
     
     # New fields
@@ -54,7 +54,7 @@ class Profile(models.Model):
     youtube = models.URLField(max_length=255, blank=True)
 
     bio = models.TextField(blank=True)
-    whatsapp_number = models.CharField(max_length=15, blank=True)
+    whatsapp_number = models.CharField(max_length=10, blank=True)
 
     # 🔐 NEW: UPI & Bank info (stored in profile)
     bank_upi = models.CharField(max_length=255, blank=True, null=True)
@@ -69,8 +69,8 @@ class Profile(models.Model):
     adhaar_card_pic = models.FileField(upload_to='adhaarcard/', blank=True, null=True)
     pancard_pic = models.FileField(upload_to='pancard/', blank=True, null=True)
     kyc_other_document = models.FileField(upload_to='kyc_other_documents/', blank=True, null=True)
-    adhaar_card_number = models.CharField(max_length=100, blank=True, null=True)
-    pancard_number = models.CharField(max_length=50, blank=True, null=True)
+    adhaar_card_number = models.CharField(max_length=12, blank=True, null=True)
+    pancard_number = models.CharField(max_length=10, blank=True, null=True)
     kyc_status = models.CharField(max_length=20, choices=[
         ('PENDING', 'Pending'),
         ('APPROVED', 'Approved'),
@@ -213,11 +213,11 @@ class District(models.Model):
 
 class Address(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True, related_name="address")
-    street_address = models.CharField(max_length=255)
+    street_address = models.CharField(max_length=255,null=True,blank=True)
     city = models.CharField(max_length=100,blank=True, null=True)
     state = models.ForeignKey(State, on_delete=models.SET_NULL, null=True, blank=True)
     district = models.ForeignKey(District, on_delete=models.SET_NULL, null=True, blank=True)
-    postal_code = models.CharField(max_length=10, blank=True, null=True)
+    postal_code = models.CharField(max_length=6, blank=True, null=True)
     country = models.CharField(max_length=100, default='India')
     is_primary = models.BooleanField(default=False)
 
@@ -296,9 +296,9 @@ class NewAccountApplication(models.Model):
         ('stockist', 'Stockist'),
     )
     role = models.CharField(max_length=10, choices=ROLE_CHOICES)
-    full_name = models.CharField(max_length=255)
+    full_name = models.CharField(max_length=20)
     email = models.EmailField()
-    phone = models.CharField(max_length=15)
+    phone = models.CharField(max_length=10)
     rejected_reason = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=20, default='new', choices=[('new', 'New Record'),('pending', 'Pending'), ('approved', 'Approved'), ('rejected', 'Rejected')])
     created_at = models.DateTimeField(auto_now_add=True)
@@ -310,18 +310,24 @@ class NewAccountApplication(models.Model):
 class Company(models.Model):
     BUSINESS_TYPE_CHOICES = [
         ('proprietorship', 'Proprietorship'),
+        ('individual', 'Individual'),
+        ('business', 'Business'),
         ('partnership', 'Partnership'),
         ('llp', 'Limited Liability Partnership (LLP)'),
         ('pvt_ltd', 'Private Limited Company'),
-        ('ltd', 'Public Limited Company'),
+        ('public_ltd', 'Public Limited Company'),
         ('other', 'Other'),
     ]
-    
+
+  
     BUSINESS_CATEGORY_CHOICES = [
         ('production', 'Production'),
+        ('manufacturing', 'Manufacturing'),
         ('trading', 'Trading'),
-        ('restaurant', 'Restaurent'),
+        ('wholesale', 'Wholesale'),
+        ('restaurant', 'Restaurant'),
         ('services', 'Service Provider'),
+        ('ecommerce', 'E-Commerce'),
         ('other', 'Other'),
     ]
 
@@ -329,10 +335,10 @@ class Company(models.Model):
     
     # Company Identification
 
-    company_name = models.CharField(max_length=255,null=True, blank=True)
+    company_name = models.CharField(max_length=50,null=True, blank=True)
     company_email = models.EmailField(null=True, blank=True)
     company_phone = models.CharField(max_length=15,null=True, blank=True)
-    designation = models.CharField(max_length=100,null=True, blank=True)
+    designation = models.CharField(max_length=50,null=True, blank=True)
     
     # Business Details
     business_type = models.CharField(max_length=20, choices=BUSINESS_TYPE_CHOICES,default="other")
@@ -357,7 +363,7 @@ class Company(models.Model):
     operational_address = models.TextField(blank=True, null=True)
     state = models.ForeignKey(State, on_delete=models.SET_NULL, null=True, blank=True)
     district = models.ForeignKey(District, on_delete=models.SET_NULL, null=True, blank=True)
-    pincode = models.CharField(max_length=10,null=True, blank=True)
+    pincode = models.CharField(max_length=6,null=True, blank=True)
     
     # Verification Status
     is_verified = models.BooleanField(default=False)

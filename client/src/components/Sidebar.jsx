@@ -140,7 +140,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         children: [
 
           { label: "Company", path: "/vendor/brand" },
-          { label: "Category & Subcategory", path: "/vendor/categories" },
+          { label: "Category", path: "/vendor/categories" },
       
         ],
       },

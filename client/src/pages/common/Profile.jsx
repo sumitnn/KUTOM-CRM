@@ -81,7 +81,11 @@ export default function Profile() {
     company: profileData.company,
     username: profileData.username,
     email: profileData.email,
-    id: profileData.id
+    id: profileData.id,
+    role: profileData.role,
+    stockist_id:profileData.stockist_id,
+    vendor_id:profileData.vendor_id,
+    reseller_id:profileData.reseller_id,
   } : defaultProfile;
 
   const handleCopy = (text) => {
@@ -699,7 +703,7 @@ export default function Profile() {
       {/* Edit Modal */}
       {isEditing && (
         <EditProfileModal 
-          profile={profile} 
+          profile={profileData} 
           onClose={() => setIsEditing(false)} 
           onSave={handleSave} 
         />

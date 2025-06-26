@@ -489,6 +489,7 @@ class ProfileView(APIView):
         return Response(serializer.data)
 
     def patch(self, request):
+        import pdb;pdb.set_trace()
         try:
             # Get the user's profile
             profile = Profile.objects.get(user=request.user)
