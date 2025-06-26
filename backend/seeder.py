@@ -45,74 +45,74 @@ def create_initial_data():
     print("✅ Created 4 users (admin, vendor, reseller, stockist)")
 
     # Create 4 brands
-    brands = [
-        Brand.objects.create(
-            name="Nike",
-            is_active=True
-        ),
-        Brand.objects.create(
-            name="Adidas",
-            is_active=True
-        ),
-        Brand.objects.create(
-            name="Puma",
-            is_active=True
-        ),
-        Brand.objects.create(
-            name="Reebok",
-            is_active=True
-        )
-    ]
-    print("✅ Created 4 brands")
+    # brands = [
+    #     Brand.objects.create(
+    #         name="Nike",
+    #         is_active=True
+    #     ),
+    #     Brand.objects.create(
+    #         name="Adidas",
+    #         is_active=True
+    #     ),
+    #     Brand.objects.create(
+    #         name="Puma",
+    #         is_active=True
+    #     ),
+    #     Brand.objects.create(
+    #         name="Reebok",
+    #         is_active=True
+    #     )
+    # ]
+    # print("✅ Created 4 brands")
 
-    # Create 4 categories
-    categories = [
-        Category.objects.create(
-            name="Footwear",
+    # # Create 4 categories
+    # categories = [
+    #     Category.objects.create(
+    #         name="Footwear",
           
-            is_active=True
-        ),
-        Category.objects.create(
-            name="Apparel",
+    #         is_active=True
+    #     ),
+    #     Category.objects.create(
+    #         name="Apparel",
         
-            is_active=True
-        ),
-        Category.objects.create(
-            name="Accessories",
+    #         is_active=True
+    #     ),
+    #     Category.objects.create(
+    #         name="Accessories",
            
-            is_active=True
-        ),
-        Category.objects.create(
-            name="Equipment",
+    #         is_active=True
+    #     ),
+    #     Category.objects.create(
+    #         name="Equipment",
            
-            is_active=True
-        )
-    ]
-    print("✅ Created 4 categories")
+    #         is_active=True
+    #     )
+    # ]
+    # print("✅ Created 4 categories")
 
-    # Create 1 subcategory for each category
-    subcategories = [
-        SubCategory.objects.create(
-            category=categories[0],
-            name="Running Shoes",
-            is_active=True
-        ),
-        SubCategory.objects.create(
-            category=categories[1],
-            name="T-Shirts",
-            is_active=True
-        ),
-        SubCategory.objects.create(
-            category=categories[2],
-            name="Socks",
-            is_active=True
-        ),
-        SubCategory.objects.create(
-            category=categories[3],
-            name="Balls",
-            is_active=True
-        )
-    ]
+    # # Create 1 subcategory for each category
+    # subcategories = [
+    #     SubCategory.objects.create(
+    #         category=categories[0],
+    #         name="Running Shoes",
+    #         is_active=True
+    #     ),
+    #     SubCategory.objects.create(
+    #         category=categories[1],
+    #         name="T-Shirts",
+    #         is_active=True
+    #     ),
+    #     SubCategory.objects.create(
+    #         category=categories[2],
+    #         name="Socks",
+    #         is_active=True
+    #     ),
+    #     SubCategory.objects.create(
+    #         category=categories[3],
+    #         name="Balls",
+    #         is_active=True
+    #     )
+    # ]
     print("✅ Created 4 subcategories (1 for each category)")
 
     print("🎉 Initial data seeding complete!")

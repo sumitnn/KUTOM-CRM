@@ -14,6 +14,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_default_user = models.BooleanField(default=False)
+    is_user_active=models.BooleanField(default=False)
+    vendor_id = models.CharField(max_length=20, null=True, blank=True, unique=True)
+    stockist_id = models.CharField(max_length=20, null=True, blank=True, unique=True)
+    reseller_id = models.CharField(max_length=20, null=True, blank=True, unique=True)
 
     # Role field
     ROLE_CHOICES = (
@@ -77,6 +81,8 @@ class Profile(models.Model):
     kyc_verified = models.BooleanField(default=False)
     kyc_verified_at = models.DateTimeField(null=True, blank=True)
     kyc_rejected_reason = models.TextField(blank=True, null=True)
+    completion_percentage = models.FloatField(default=0.0)
+    
     
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -312,11 +318,10 @@ class Company(models.Model):
     ]
     
     BUSINESS_CATEGORY_CHOICES = [
-        ('manufacturer', 'Manufacturer'),
-        ('wholesaler', 'Wholesaler'),
-        ('retailer', 'Retailer'),
-        ('distributor', 'Distributor'),
-        ('service_provider', 'Service Provider'),
+        ('production', 'Production'),
+        ('trading', 'Trading'),
+        ('restaurant', 'Restaurent'),
+        ('services', 'Service Provider'),
         ('other', 'Other'),
     ]
 
@@ -324,15 +329,15 @@ class Company(models.Model):
     
     # Company Identification
 
-    company_name = models.CharField(max_length=255)
-    company_email = models.EmailField()
-    company_phone = models.CharField(max_length=15)
-    designation = models.CharField(max_length=100, help_text="User's designation in the company")
+    company_name = models.CharField(max_length=255,null=True, blank=True)
+    company_email = models.EmailField(null=True, blank=True)
+    company_phone = models.CharField(max_length=15,null=True, blank=True)
+    designation = models.CharField(max_length=100,null=True, blank=True)
     
     # Business Details
-    business_type = models.CharField(max_length=20, choices=BUSINESS_TYPE_CHOICES)
-    business_category = models.CharField(max_length=20, choices=BUSINESS_CATEGORY_CHOICES)
-    business_description = models.TextField(blank=True)
+    business_type = models.CharField(max_length=20, choices=BUSINESS_TYPE_CHOICES,default="other")
+    business_category = models.CharField(max_length=20, choices=BUSINESS_CATEGORY_CHOICES,default="other")
+    business_description = models.TextField(blank=True,null=True)
     joining_date = models.DateField(null=True, blank=True)
     
     # Registration Numbers
@@ -348,11 +353,11 @@ class Company(models.Model):
     food_license_doc = models.FileField(upload_to='company_documents/fssai/', blank=True, null=True)
     
     # Address Details
-    registered_address = models.TextField()
+    registered_address = models.TextField(null=True, blank=True)
     operational_address = models.TextField(blank=True, null=True)
     state = models.ForeignKey(State, on_delete=models.SET_NULL, null=True, blank=True)
     district = models.ForeignKey(District, on_delete=models.SET_NULL, null=True, blank=True)
-    pincode = models.CharField(max_length=10)
+    pincode = models.CharField(max_length=10,null=True, blank=True)
     
     # Verification Status
     is_verified = models.BooleanField(default=False)
@@ -372,25 +377,47 @@ class Company(models.Model):
         return f"{self.company_name}"
 
 
-# def generate_vendor_id(self):
-#         """
-#         Generates a vendor ID in format VIXXXX where XXXX is incremental
-#         Returns the generated ID without saving the model
-#         """
-#         if self.vendor_id:
-#             return self.vendor_id  # Already has an ID
-            
-#         # Get the highest existing vendor ID number
-#         last_vendor = Company.objects.exclude(vendor_id__isnull=True).order_by('-vendor_id').first()
-        
-#         if last_vendor and last_vendor.vendor_id:
-#             try:
-#                 last_number = int(last_vendor.vendor_id[2:])
-#             except (ValueError, IndexError):
-#                 last_number = 0
-#         else:
-#             last_number = 0
-            
-#         new_id = f"VI{str(last_number + 1).zfill(4)}"
-#         self.vendor_id = new_id
-#         return new_id
+
+
+
+
+APPROVAL_SECTIONS = ['user_details', 'bank_details', 'business_details', 'documents', 'address', 'contact']
+class ProfileApprovalStatus(models.Model):
+    APPROVAL_CHOICES = [
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('pending', 'Pending'),
+    ]
+
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile_approval_status')
+
+    # Status and reason fields
+    user_details = models.CharField(max_length=20, choices=APPROVAL_CHOICES, default='pending')
+    user_details_reason = models.TextField(blank=True)
+
+    bank_details = models.CharField(max_length=20, choices=APPROVAL_CHOICES, default='pending')
+    bank_details_reason = models.TextField(blank=True)
+
+    business_details = models.CharField(max_length=20, choices=APPROVAL_CHOICES, default='pending')
+    business_details_reason = models.TextField(blank=True)
+
+    documents = models.CharField(max_length=20, choices=APPROVAL_CHOICES, default='pending')
+    documents_reason = models.TextField(blank=True)
+
+    address = models.CharField(max_length=20, choices=APPROVAL_CHOICES, default='pending')
+    address_reason = models.TextField(blank=True)
+
+    contact = models.CharField(max_length=20, choices=APPROVAL_CHOICES, default='pending')
+    contact_reason = models.TextField(blank=True)
+
+    last_updated = models.DateTimeField(auto_now=True)
+
+    def calculate_completion(self):
+        approved_count = sum(
+            getattr(self, section) == 'approved' for section in APPROVAL_SECTIONS
+        )
+        return round((approved_count / len(APPROVAL_SECTIONS)) * 100, 2)
+
+    def __str__(self):
+        return f"ApprovalStatus({self.user.email})"

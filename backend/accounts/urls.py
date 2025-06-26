@@ -58,8 +58,11 @@ urlpatterns = [
     path('applications/', NewAccountApplicationListView.as_view(), name='list-applications'),
     path('applications/<int:pk>/approve/', ApproveApplicationView.as_view(), name='approve-application'),
     path('applications/<int:pk>/reject/', RejectApplicationView.as_view(), name='reject-application'),
+    path('update-profile-status/<uuid:user_id>/', UpdateApprovalStatusView.as_view(), name='update-profile-approval-status'),
+    path('get-profile-status/<uuid:user_id>/', GetProfileApprovalStatusView.as_view(), name='get-profile-approval-status'),
 
-
+    # kyc verified 
+    path('admin/user-kyc-verify/<uuid:user_id>/', VerifyUserKYCView.as_view(), name='user-verify-kyc'),
 
 
 ]

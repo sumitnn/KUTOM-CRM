@@ -125,3 +125,16 @@ class NotificationAdmin(admin.ModelAdmin):
 class NewAccountApplicationAdmin(admin.ModelAdmin):
     list_display = ('full_name', 'email', 'role', 'status', 'created_at')
     readonly_fields = ()
+
+
+@admin.register(Company)
+class CompanyAdmin(admin.ModelAdmin):
+    list_display = ('company_name', 'company_email', 'company_phone', 'business_type', 'is_verified')
+    search_fields = ('company_name', 'company_email', )
+    list_filter = ('business_type', 'business_category',)
+
+
+@admin.register(ProfileApprovalStatus)
+class ProfileApprovalStatusAdmin(admin.ModelAdmin):
+    list_display = ('user', 'user_details', 'bank_details', 'business_details', 'documents', 'address', 'contact', 'last_updated')
+    search_fields = ('user__email', )
