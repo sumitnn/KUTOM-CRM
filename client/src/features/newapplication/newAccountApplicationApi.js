@@ -17,6 +17,7 @@ export const newAccountApplicationApi = createApi({
                     ...(params.status && { status: params.status }),
                     ...(params.search && { search: params.search }),
                     ...(params.search_type && { search_type: params.search_type }),
+                    ...(params.role && { role: params.role }),
                 },
             }),
             providesTags: ['NewAccountApplication']
@@ -39,12 +40,39 @@ export const newAccountApplicationApi = createApi({
                 data: { reason }  
             }),
             invalidatesTags: ['NewAccountApplication']
-          }),
+        }),
+        updateProfileApprovalStatus: builder.mutation({
+            query: ({ userId, data }) => ({
+                url: `/update-profile-status/${userId}/`,
+                method: 'PUT',
+                data,
+            }),
+            invalidatesTags: ['NewAccountApplication'],
+        }),
+        getProfileApprovalStatus: builder.query({
+            query: (userId) => ({
+                url: `/get-profile-status/${userId}/`,
+                method: 'GET',
+            }),
+            providesTags: ['NewAccountApplication'],
+        }),
+        updateUserAccountKyc: builder.mutation({
+            query: ({ userId}) => ({
+                url: `/admin/user-kyc-verify/${userId}/`,
+                method: 'POST',
+                data: {}
+            }),
+            invalidatesTags: ['NewAccountApplication']
+        })
     }),
+   
 });
 
 export const {
     useGetAllAccountApplicationsQuery,
     useApproveAccountApplicationMutation,
-    useRejectAccountApplicationMutation
+    useRejectAccountApplicationMutation,
+    useUpdateProfileApprovalStatusMutation,
+    useGetProfileApprovalStatusQuery,
+    useUpdateUserAccountKycMutation
 } = newAccountApplicationApi;

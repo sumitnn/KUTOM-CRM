@@ -355,6 +355,22 @@ class NewAccountApplicationSerializer(serializers.ModelSerializer):
     
 
 
+class ApplicationWithUserSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+
+    class Meta:
+        model = NewAccountApplication
+        fields = ['id','role','created_at','status','rejected_reason','phone','email','full_name','user']
+
+    def get_user(self, obj):
+        try:
+            user = User.objects.get(email=obj.email)
+            return UserListSerializer(user).data
+        except User.DoesNotExist:
+            return None
+
+
+
 class UserAddressSerializer(serializers.ModelSerializer):
     state_name = serializers.CharField(source='state.name', read_only=True)
     district_name = serializers.CharField(source='district.name', read_only=True)
@@ -369,6 +385,7 @@ class UserAddressSerializer(serializers.ModelSerializer):
 
 class UserProfileSerializer(serializers.ModelSerializer):
     created_at = serializers.SerializerMethodField()
+    updated_at = serializers.SerializerMethodField()
     class Meta:
         model = Profile
         fields = [
@@ -379,22 +396,103 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'account_number', 'adhaar_card_pic', 'pancard_pic',
             'kyc_other_document', 'adhaar_card_number', 'pancard_number',
             'kyc_status', 'kyc_verified', 'kyc_verified_at', 'kyc_rejected_reason',
-            'created_at', 'updated_at'
+            'created_at', 'updated_at','completion_percentage'
         ]
         
     def get_created_at(self, obj):
         return obj.created_at.date() if obj.created_at else None
 
+    def get_updated_at(self, obj):
+        return obj.updated_at.date() if obj.updated_at else None
+
+
+
+
+class CompanySerializer(serializers.ModelSerializer):
+    state = serializers.PrimaryKeyRelatedField(queryset=State.objects.all(), required=False, allow_null=True)
+    district = serializers.PrimaryKeyRelatedField(queryset=District.objects.all(), required=False, allow_null=True)
+
+    joining_date = serializers.DateField(format="%Y-%m-%d", required=False, allow_null=True)
+    verified_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M", required=False, allow_null=True)
+    created_at = serializers.SerializerMethodField()
+    updated_at = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Company
+        fields = [
+            'id',
+            'user',
+            'company_name', 'company_email', 'company_phone', 'designation',
+            'business_type', 'business_category', 'business_description', 'joining_date',
+            'gst_number', 'pan_number', 'business_registration_number', 'food_license_number',
+            'gst_certificate', 'pan_card', 'business_registration_doc', 'food_license_doc',
+            'registered_address', 'operational_address',
+            'state', 'district', 'pincode',
+            'is_verified', 'verified_at', 'verification_notes',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+    
+    def get_created_at(self, obj):
+        return obj.created_at.date() if obj.created_at else None
+
+    def get_updated_at(self, obj):
+        return obj.updated_at.date() if obj.updated_at else None
+
+
 class UserListSerializer(serializers.ModelSerializer):
     address = UserAddressSerializer(read_only=True)
     profile = UserProfileSerializer(read_only=True)
+    company = CompanySerializer(read_only=True)
 
 
 
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'role', 'username', 'is_default_user', 'is_active',
-            'address', 'profile',
+            'id', 'email', 'role', 'username', 
+            'address', 'profile','company',"reseller_id","stockist_id","vendor_id"
         ]
 
+
+
+# create serializers
+class AddressCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields = '__all__'
+        extra_kwargs = {
+            'profile': {'read_only': True}
+        }
+
+class CompanyCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Company
+        fields = '__all__'
+        extra_kwargs = {
+            'user': {'read_only': True}
+        }
+
+class ProfileCreateSerializer(serializers.ModelSerializer):
+    address = AddressCreateSerializer(required=False)
+    company = CompanyCreateSerializer(required=False)
+    
+    class Meta:
+        model = Profile
+        fields = '__all__'
+        extra_kwargs = {
+            'user': {'read_only': True}
+        }
+
+
+class ProfileApprovalStatusUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProfileApprovalStatus
+        fields = [
+            'user_details', 'user_details_reason',
+            'bank_details', 'bank_details_reason',
+            'business_details', 'business_details_reason',
+            'documents', 'documents_reason',
+            'address', 'address_reason',
+            'contact', 'contact_reason',
+        ]

@@ -2,7 +2,7 @@ import { lazy, Suspense } from "react";
 import { Route } from "react-router-dom";
 import ProtectedRoute from "../ProtectedRoutes";
 import VendorMainLayout from "../../layout/vendor/VendorMainLayout";
-import Spinner from "../../components/common/Spinner"; 
+import Spinner from "../../components/common/Spinner";
 
 // Lazy-loaded components
 const VendorDashboard = lazy(() => import("../../pages/vendor/VendorDashboard"));
@@ -23,8 +23,11 @@ const Report = lazy(() => import("../../pages/Report"));
 const CreateWithdrawalRequest = lazy(() => import("../../pages/CreateWithdrawalRequest"));
 const WithdrawlRequestsList = lazy(() => import("../../pages/WithdrawlRequestsList"));
 
+
 const VendorRoutes = [
-  <Route element={<ProtectedRoute allowedRoles={["vendor"]} />} key="vendor">
+  // Main protected route with profile completion check
+  <Route element={<ProtectedRoute allowedRoles={["vendor"]} checkProfileCompletion={true} />} key="vendor">
+    {/* Dashboard */}
     <Route
       path="/vendor/dashboard"
       element={
@@ -35,7 +38,8 @@ const VendorRoutes = [
         </VendorMainLayout>
       }
     />
-    {/* brand */}
+    
+    {/* Brand */}
     <Route
       path="/vendor/brand"
       element={
@@ -46,7 +50,8 @@ const VendorRoutes = [
         </VendorMainLayout>
       }
     />
-    {/* category */}
+    
+    {/* Category */}
     <Route
       path="/vendor/categories"
       element={
@@ -58,7 +63,7 @@ const VendorRoutes = [
       }
     />
 
-    {/* products */}
+    {/* Products */}
     <Route
       path="/vendor/products"
       element={
@@ -80,6 +85,8 @@ const VendorRoutes = [
         </VendorMainLayout>
       }
     />
+    
+    {/* Sales */}
     <Route
       path="/vendor/my-sales"
       element={
@@ -90,6 +97,8 @@ const VendorRoutes = [
         </VendorMainLayout>
       }
     />
+    
+    {/* Stocks */}
     <Route
       path="/vendor/my-stocks"
       element={
@@ -100,6 +109,8 @@ const VendorRoutes = [
         </VendorMainLayout>
       }
     />
+    
+    {/* Report */}
     <Route
       path="/vendor/report"
       element={
@@ -111,6 +122,7 @@ const VendorRoutes = [
       }
     />
     
+    {/* Product Details */}
     <Route
       path="/vendor/products/:id"
       element={
@@ -121,6 +133,8 @@ const VendorRoutes = [
         </VendorMainLayout>
       }
     />
+    
+    {/* Create Product */}
     <Route
       path="/vendor/create-product"
       element={
@@ -132,6 +146,7 @@ const VendorRoutes = [
       }
     />
   
+    {/* Edit Product */}
     <Route
       path="/vendor/products/edit/:id"
       element={
@@ -143,7 +158,7 @@ const VendorRoutes = [
       }
     />
     
-    {/* withdrawl */}
+    {/* Withdrawal */}
     <Route
       path="/vendor/withdrawl-request"
       element={
@@ -154,6 +169,7 @@ const VendorRoutes = [
         </VendorMainLayout>
       }
     />
+    
     <Route
       path="/vendor/my-withdrawl"
       element={
@@ -164,27 +180,8 @@ const VendorRoutes = [
         </VendorMainLayout>
       }
     />
-
-    <Route
-      path="vendor/settings/profile"
-      element={
-        <VendorMainLayout>
-          <Suspense fallback={<Spinner />}>
-            <Profile />
-          </Suspense>
-        </VendorMainLayout>
-      }
-    />
-    <Route
-      path="vendor/settings/change-password"
-      element={
-        <VendorMainLayout>
-          <Suspense fallback={<Spinner />}>
-            <ChangePassword role="vendor" />
-          </Suspense>
-        </VendorMainLayout>
-      }
-    />
+    
+    {/* Wallet */}
     <Route
       path="/vendor/wallet"
       element={
@@ -195,7 +192,35 @@ const VendorRoutes = [
         </VendorMainLayout>
       }
     />
+  </Route>,
+
+  // Routes that don't require profile completion
+  <Route element={<ProtectedRoute allowedRoles={["vendor"]} checkProfileCompletion={false} />} key="vendor-no-profile-check">
+    {/* Profile Settings - accessible without completion */}
+    <Route
+      path="vendor/settings/profile"
+      element={
+        <VendorMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <Profile />
+          </Suspense>
+        </VendorMainLayout>
+      }
+    />
     
+    {/* Change Password - accessible without completion */}
+    <Route
+      path="vendor/settings/change-password"
+      element={
+        <VendorMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <ChangePassword role="vendor" />
+          </Suspense>
+        </VendorMainLayout>
+      }
+    />
+    
+    {/* Logout - accessible without completion */}
     <Route
       key="logout"
       path="/vendor/logout"
@@ -205,6 +230,8 @@ const VendorRoutes = [
         </Suspense>
       }
     />
+    
+    
   </Route>
 ];
 

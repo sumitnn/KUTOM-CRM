@@ -24,6 +24,9 @@ from orders.models import Order, OrderItem
 from rest_framework.pagination import PageNumberPagination
 from products.models import Product
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from django.db import transaction
+
+
 
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 10
@@ -55,15 +58,25 @@ class LoginView(APIView):
     def post(self, request):
         email = request.data.get('email')
         password = request.data.get('password')
+
         if not email or not password:
-            return Response({"message": "Email and password are required","success":False}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                "message": "Email and password are required",
+                "success": False
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         user = authenticate(request, email=email, password=password)
+
         if user is not None:
             tokens = get_tokens_for_user(user)
-            role = getattr(user, 'role', None)  
-            username = getattr(user, 'username', None)  
-            email = getattr(user, 'email', None)  
+            role = getattr(user, 'role', None)
+            username = getattr(user, 'username', None)
+            email = getattr(user, 'email', None)
+
+            # Safely fetch profile completion
+            profile_completion = 0
+            if hasattr(user, 'profile'):
+                profile_completion = getattr(user.profile, 'completion_percentage', 0)
 
             return Response({
                 "message": "Login successful",
@@ -73,13 +86,15 @@ class LoginView(APIView):
                     "username": username,
                     "email": email,
                     "role": role,
-                    "profile_completed":10
+                    "profile_completed": profile_completion
                 }
-                
             }, status=status.HTTP_200_OK)
-            
+
         else:
-            return Response({"message": "Invalid email or password","success":False}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({
+                "message": "Invalid email or password",
+                "success": False
+            }, status=status.HTTP_401_UNAUTHORIZED)
         
 
 class GetUserView(APIView):
@@ -160,10 +175,10 @@ class ListUsersView(APIView):
         if role in ["vendor", "stockist", "reseller"]:
             users = users.filter(role=role)
         if status_type and status_type == "active":
-            users = users.filter(is_active=True)
+            users = users.filter(is_user_active=True)
 
         if status_type and status_type =="suspended":
-            users = users.filter(is_active=False)
+            users = users.filter(is_user_active=False)
 
         if search:
             if search_type == "email":
@@ -466,24 +481,83 @@ class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        profile, created = Profile.objects.get_or_create(user=request.user)
-        serializer = ProfileSerializer(profile, context={'request': request})
+        user= User.objects.get(id=request.user.id)
+        if request.user.role == "vendor": 
+            serializer = UserListSerializer(user,many=False)
+        else:
+            serializer = ProfileSerializer(user.profile, context={'request': request})
         return Response(serializer.data)
 
     def patch(self, request):
-        print("Request data:", request.data)  # Debugging line
-        profile = Profile.objects.get(user=request.user)
-        serializer = ProfileSerializer(
-            profile,
-            data=request.data,
-            context={'request': request},
-            partial=True
-        )
-        
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            # Get the user's profile
+            profile = Profile.objects.get(user=request.user)
+            
+            # Initialize response data
+            response_data = {}
+            
+            # Update main profile fields
+            profile_serializer = ProfileCreateSerializer(
+                profile,
+                data=request.data,
+                context={'request': request},
+                partial=True
+            )
+            
+            if profile_serializer.is_valid():
+                profile_serializer.save()
+                response_data.update(profile_serializer.data)
+            else:
+                return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Handle address update
+            if 'address' in request.data:
+                address = profile.address
+                if not address:
+                    address = Address.objects.create(profile=profile)
+                
+                address_serializer = AddressCreateSerializer(
+                    address,
+                    data=request.data['address'],
+                    partial=True
+                )
+                
+                if address_serializer.is_valid():
+                    address_serializer.save()
+                    response_data['address'] = address_serializer.data
+                else:
+                    return Response(address_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Handle company update
+            if 'company' in request.data:
+                company = profile.company
+                if not company:
+                    company = Company.objects.create(user=request.user)
+                
+                company_serializer = CompanyCreateSerializer(
+                    company,
+                    data=request.data['company'],
+                    partial=True
+                )
+                
+                if company_serializer.is_valid():
+                    company_serializer.save()
+                    response_data['company'] = company_serializer.data
+                else:
+                    return Response(company_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            return Response(response_data)
+            
+        except Profile.DoesNotExist:
+            return Response(
+                {"detail": "Profile not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 
@@ -818,11 +892,12 @@ class NewAccountApplicationListView(APIView):
         status_filter = request.query_params.get('status')
         search = request.query_params.get('search')
         search_type = request.query_params.get('search_type')
+        role_type = request.query_params.get('role')
 
         applications = NewAccountApplication.objects.all().order_by('-created_at')
 
         if status_filter:
-            applications = applications.filter(status=status_filter)
+            applications = applications.filter(status=status_filter,role=role_type)
 
         if search and search_type:
             if search_type == "email":
@@ -833,18 +908,49 @@ class NewAccountApplicationListView(APIView):
                 applications = applications.filter(phone__icontains=search)
             # Add more `search_type` options here as needed
 
-        serializer = NewAccountApplicationSerializer(applications, many=True)
+        if status_filter == "pending":
+            serializer = ApplicationWithUserSerializer(applications, many=True)
+        else:
+            serializer = NewAccountApplicationSerializer(applications, many=True)
         return Response(serializer.data)
 
 class ApproveApplicationView(APIView):
-    permission_classes = [IsAdminRole]
+    permission_classes = [IsAdminRole] 
 
     def post(self, request, pk):
         application = get_object_or_404(NewAccountApplication, pk=pk)
+
+        # Set status
         application.status = 'pending'
         application.save()
 
-        return Response({'message': f'Update application Status Successfully.'}, status=200)
+        # Check if user already exists for this application
+        if not User.objects.filter(email=application.email).exists():
+
+            # Create user with default password
+            default_passwords = {
+                "stockist": "KutomS@123",
+                "vendor": "KutomV@123",
+                "reseller": "KutomR@123"
+            }
+            default_password = default_passwords.get(application.role, "Kutom@123")
+
+            user = User.objects.create_user(
+                username=application.full_name,
+                email=application.email,
+                password=default_password,
+                role=application.role, 
+                is_active=True
+            )
+            if hasattr(user, 'profile'):
+                user.profile.full_name = application.full_name
+                user.profile.save()
+            # Optional: send welcome email with password info here
+
+        else:
+            return Response({'error': 'User already exists with this email.'}, status=400)
+
+        return Response({'message': 'Application approved and user account created.'}, status=200)
 
 class RejectApplicationView(APIView):
     permission_classes = [IsAdminRole]
@@ -858,3 +964,97 @@ class RejectApplicationView(APIView):
         application.save()
 
         return Response({'message': 'Application rejected.'}, status=200)
+    
+
+class UpdateApprovalStatusView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def put(self, request, user_id):
+        approval = get_object_or_404(ProfileApprovalStatus, user__id=user_id)
+        frontend_data = request.data
+
+        # Mapping camelCase keys from frontend to snake_case keys expected by serializer
+        key_map = {
+            'userDetails': 'user_details',
+            'bankDetails': 'bank_details',
+            'businessDetails': 'business_details',
+            'documents': 'documents',
+            'address': 'address',
+            'contact': 'contact',
+        }
+
+        transformed_data = {}
+        for frontend_key, section in key_map.items():
+            if frontend_key in frontend_data:
+                transformed_data[section] = frontend_data[frontend_key].get('status')
+                transformed_data[f"{section}_reason"] = frontend_data[frontend_key].get('reason', '')
+
+        serializer = ProfileApprovalStatusUpdateSerializer(approval, data=transformed_data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'message': 'Approval status updated successfully'}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class GetProfileApprovalStatusView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def get(self, request, user_id):
+
+        approval = get_object_or_404(ProfileApprovalStatus, user__id=user_id)
+        serializer = ProfileApprovalStatusUpdateSerializer(approval)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class VerifyUserKYCView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def post(self, request, user_id):
+        try:
+            with transaction.atomic():
+                profile = Profile.objects.select_related("user").get(user__id=user_id)
+                user = profile.user
+
+                if profile.kyc_verified:
+                    return Response({"detail": "KYC already verified."}, status=status.HTTP_400_BAD_REQUEST)
+
+                profile.kyc_verified = True
+                profile.kyc_status = "APPROVED"
+                profile.kyc_verified_at = datetime.now()
+
+                role = getattr(user, "role", None)
+                if not role:
+                    return Response({"detail": "User role is not set."}, status=status.HTTP_400_BAD_REQUEST)
+
+                if role == "vendor" and not user.vendor_id:
+                    user.vendor_id = self._generate_next_id(User, "vendor_id", "VID")
+                elif role == "stockist" and not user.stockist_id:
+                    user.stockist_id = self._generate_next_id(User, "stockist_id", "SID")
+                elif role == "reseller" and not user.reseller_id:
+                    user.reseller_id = self._generate_next_id(User, "reseller_id", "RID")
+                else:
+                    return Response({"detail": "Unsupported or already assigned role ID."}, status=status.HTTP_400_BAD_REQUEST)
+
+                user.save()
+                profile.save()
+                return Response({"detail": f"KYC verified. {role.title()} ID assigned."}, status=status.HTTP_200_OK)
+
+        except Profile.DoesNotExist:
+            return Response({"detail": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    def _generate_next_id(self, model, field_name, prefix):
+        latest = (
+            model.objects
+            .exclude(**{field_name: None})
+            .order_by(f"-{field_name}")
+            .first()
+        )
+        if latest:
+            latest_id = getattr(latest, field_name)
+            try:
+                number = int(latest_id.replace(prefix, ""))
+            except (ValueError, TypeError):
+                number = 0
+        else:
+            number = 0
+
+        return f"{prefix}{number + 1:05d}"

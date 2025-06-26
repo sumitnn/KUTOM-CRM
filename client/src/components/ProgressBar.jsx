@@ -3,6 +3,7 @@ import React from 'react';
 
 export default function ProgressBar({ percentage }) {
   const getColor = (percent) => {
+    
     if (percent < 30) return 'bg-error';
     if (percent < 70) return 'bg-warning';
     return 'bg-success';
@@ -11,8 +12,8 @@ export default function ProgressBar({ percentage }) {
   return (
     <div className="w-full">
       <div className="flex justify-between mb-1">
-        <span className="text-sm font-medium">Profile Completion</span>
-        <span className="text-sm font-medium">{percentage}%</span>
+        <span className="text-sm font-bold">Profile Completion</span>
+        <span className="text-sm font-extrabold">{percentage}%</span>
       </div>
       <div className="w-full bg-gray-200 rounded-full h-2.5">
         <div 

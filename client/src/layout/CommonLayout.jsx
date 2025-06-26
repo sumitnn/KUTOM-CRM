@@ -38,8 +38,8 @@ const CommonLayout = ({ children }) => {
     }
     if (!formData.phone.trim()) {
       newErrors.phone = "Phone number is required";
-    } else if (!/^[0-9]{10,15}$/.test(formData.phone)) {
-      newErrors.phone = "Please enter a valid phone number";
+    } else if (!/^\d{10}$/.test(formData.phone)) {  
+      newErrors.phone = "Please enter a valid 10-digit phone number";
     }
 
     setErrors(newErrors);
@@ -320,18 +320,26 @@ const CommonLayout = ({ children }) => {
                       <MdPhone className="h-5 w-5 text-gray-400" />
                     </div>
                     <input
-                      type="tel"
-                      id="phone"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleChange}
-                      className={`block w-full pl-10 pr-3 py-2 border cursor-pointer ${
-                        errors.phone
-                          ? "border-red-300 focus:ring-red-500 focus:border-red-500"
-                          : "border-gray-300 focus:ring-indigo-500 focus:border-indigo-500"
-                      } rounded-md shadow-sm`}
-                      placeholder="9876543210"
-                    />
+                        type="tel"
+                        id="phone"
+                        name="phone"
+                        value={formData.phone}
+                        onChange={(e) => {
+                          // Only allow numbers and limit to 10 characters
+                          const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          setFormData({
+                            ...formData,
+                            phone: value
+                          });
+                        }}
+                        className={`block w-full pl-10 pr-3 py-2 border cursor-pointer ${
+                          errors.phone
+                            ? "border-red-300 focus:ring-red-500 focus:border-red-500"
+                            : "border-gray-300 focus:ring-indigo-500 focus:border-indigo-500"
+                        } rounded-md shadow-sm`}
+                        placeholder="9876543210"
+                        maxLength={10}  // HTML attribute to limit input length
+                      />
                   </div>
                   {errors.phone && (
                     <p className="mt-1 text-sm text-red-600">{errors.phone}</p>

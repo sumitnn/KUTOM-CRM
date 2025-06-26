@@ -36,7 +36,9 @@ const AdminVendor = () => {
       ? { 
           status: activeTab,
           search: searchParams.searchTerm,
-          search_type: searchParams.searchType
+        search_type: searchParams.searchType,
+         role: 'vendor'
+          
         } 
       : null,
     { skip: !['new', 'pending', 'rejected'].includes(activeTab) }
@@ -93,10 +95,10 @@ const AdminVendor = () => {
   const handleApproveApplication = async (id) => {
     try {
       await approveApplication(id).unwrap();
-      toast.success('Application approved!');
+      toast.success('Application approved,User Account Created Successfully');
       refetchApplications();
     } catch (err) {
-      toast.error('Failed to approve application');
+      toast.error(err?.error||"something went wrong");
     }
   };
 

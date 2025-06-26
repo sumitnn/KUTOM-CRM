@@ -3,13 +3,14 @@ import VendorTableRow from './VendorTableRow';
 import ViewVendorModal from './ViewVendorModal';
 import ProfileReviewModal from '../ProfileReviewModal';
 import ProgressBar from '../ProgressBar';
+import { useUpdateUserAccountKycMutation } from "../../features/newapplication/newAccountApplicationApi";
 
 const statusTabs = [
   { id: 'new', label: 'New Request' },
   { id: 'pending', label: 'Request Processing' },
   { id: 'rejected', label: 'Rejected Request' },
   { id: 'active', label: 'Active Users' },
-  { id: 'suspended', label: 'Deactive Users' },
+  { id: 'suspended', label: 'Inactive Users' },
 ];
 
 export default function VendorTable({ 
@@ -25,6 +26,7 @@ export default function VendorTable({
   const [reviewVendor, setReviewVendor] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchType, setSearchType] = useState('email');
+  const [updateKyc] = useUpdateUserAccountKycMutation();
 
   const handleSearch = () => {
     onSearch(searchTerm, searchType);
@@ -33,6 +35,16 @@ export default function VendorTable({
   const handleClearSearch = () => {
     setSearchTerm('');
     onSearch('', searchType);
+  };
+
+  const handleMarkKycCompleted = async (userId) => {
+    try {
+      await updateKyc({ userId }).unwrap();
+      // Optionally add toast notification: toast.success('KYC marked as completed');
+    } catch (error) {
+      console.error('Failed to update KYC status:', error);
+      // Optionally add toast notification: toast.error('Failed to update KYC status');
+    }
   };
 
   const getTableHeaders = () => {
@@ -49,15 +61,6 @@ export default function VendorTable({
       default:
         return [];
     }
-  };
-
-  const calculateProfilePercentage = (vendor) => {
-    const requiredFields = [
-      'full_name', 'email', 'phone', 'business_name', 
-      'business_type', 'address', 'state', 'pincode'
-    ];
-    const filledFields = requiredFields.filter(field => vendor[field]).length;
-    return Math.round((filledFields / requiredFields.length) * 100);
   };
 
   return (
@@ -88,6 +91,8 @@ export default function VendorTable({
           >
             <option value="email">Email</option>
             <option value="phone">Phone</option>
+            <option value="name">Name</option>
+            <option value="business">Business</option>
           </select>
           <input
             type="text"
@@ -95,7 +100,7 @@ export default function VendorTable({
             placeholder={`Search by ${searchType}`}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+            onKeyUp={(e) => e.key === 'Enter' && handleSearch()}
           />
           <button 
             className="join-item btn btn-primary"
@@ -116,7 +121,7 @@ export default function VendorTable({
       <div className="overflow-x-auto rounded-xl border border-gray-200">
         <div className="max-h-[70vh] overflow-y-auto">
           <table className="table table-zebra">
-            <thead className="bg-gray-50 sticky top-0">
+            <thead className="bg-gray-50 sticky top-0 font-bold text-black">
               <tr>
                 {getTableHeaders().map(header => (
                   <th key={header}>{header}</th>
@@ -137,11 +142,11 @@ export default function VendorTable({
                     vendor={item}
                     index={index}
                     activeTab={activeTab}
-                    profilePercentage={calculateProfilePercentage(item)}
                     onView={() => setViewVendor(item)}
                     onReview={() => setReviewVendor(item)}
                     onApprove={() => onApprove(item.id)}
                     onReject={() => onReject(item.id)}
+                    onMarkKycCompleted={handleMarkKycCompleted}
                   />
                 ))
               ) : (
@@ -168,14 +173,6 @@ export default function VendorTable({
         <ProfileReviewModal
           vendor={reviewVendor}
           onClose={() => setReviewVendor(null)}
-          onApprove={() => {
-            onApprove(reviewVendor.id);
-            setReviewVendor(null);
-          }}
-          onReject={() => {
-            onReject(reviewVendor.id);
-            setReviewVendor(null);
-          }}
         />
       )}
     </div>
