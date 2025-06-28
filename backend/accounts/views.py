@@ -476,6 +476,16 @@ class StockistsByStateAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
 
+
+def clean_null_strings(data):
+    cleaned = {}
+    for key, value in data.items():
+        if value == "null":
+            cleaned[key] = None
+        else:
+            cleaned[key] = value
+    return cleaned
+
 class ProfileView(APIView):
     parser_classes = [MultiPartParser, FormParser]
     permission_classes = [IsAuthenticated]
@@ -489,66 +499,87 @@ class ProfileView(APIView):
         return Response(serializer.data)
 
     def patch(self, request):
-        import pdb;pdb.set_trace()
         try:
-            # Get the user's profile
-            profile = Profile.objects.get(user=request.user)
-            
-            # Initialize response data
+            user = request.user
+            data = clean_null_strings(request.data.copy())
+            files = request.FILES
             response_data = {}
-            
-            # Update main profile fields
-            profile_serializer = ProfileCreateSerializer(
-                profile,
-                data=request.data,
-                context={'request': request},
-                partial=True
-            )
-            
-            if profile_serializer.is_valid():
-                profile_serializer.save()
-                response_data.update(profile_serializer.data)
-            else:
-                return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            
-            # Handle address update
+
+            def handle_file_fields(data_dict, file_fields):
+                for field in file_fields:
+                    if field in files:
+                        data_dict[field] = files[field]
+                    else:
+                        data_dict.pop(field, None)
+                return data_dict
+
+            # --- Profile Update ---
+            if 'profile' in request.data:
+                profile = Profile.objects.get(user=user)
+                data_profile = data.copy()
+                data_profile.pop('profile', None)
+                file_fields = ['pancard_pic', 'profile_picture', 'adhaar_card_pic']
+                data_profile = handle_file_fields(data_profile, file_fields)
+
+                serializer = ProfileCreateSerializer(
+                    profile, data=data_profile, context={'request': request}, partial=True
+                )
+                if serializer.is_valid():
+                    serializer.save()
+                    response_data['profile'] = serializer.data
+                else:
+                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            # --- Address Update ---
             if 'address' in request.data:
-                address = profile.address
-                if not address:
-                    address = Address.objects.create(profile=profile)
-                
-                address_serializer = AddressCreateSerializer(
-                    address,
-                    data=request.data['address'],
-                    partial=True
-                )
-                
-                if address_serializer.is_valid():
-                    address_serializer.save()
-                    response_data['address'] = address_serializer.data
+                address = getattr(user, 'address', None) or Address.objects.create(user=user)
+                data_address = data.copy()
+                for field in ['user', 'address']:
+                    data_address.pop(field, None)
+
+                serializer = AddressCreateSerializer(address, data=data_address, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                    response_data['address'] = serializer.data
                 else:
-                    return Response(address_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            
-            # Handle company update
-            if 'company' in request.data:
-                company = profile.company
+                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            # --- Business/Company Update ---
+            if 'business' in request.data:
+                company = getattr(user, 'company', None)
                 if not company:
-                    company = Company.objects.create(user=request.user)
-                
-                company_serializer = CompanyCreateSerializer(
-                    company,
-                    data=request.data['company'],
-                    partial=True
-                )
-                
-                if company_serializer.is_valid():
-                    company_serializer.save()
-                    response_data['company'] = company_serializer.data
+                    return Response(
+                        {"message": "Your Company Details Not Exist"},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+
+                data_business = data.copy()
+                for field in ['created_at', 'updated_at', 'user', 'business']:
+                    data_business.pop(field, None)
+
+                file_fields = ['gst_certificate', 'pan_card', 'business_registration_doc', 'food_license_doc']
+                data_business = handle_file_fields(data_business, file_fields)
+
+                serializer = CompanyCreateSerializer(company, data=data_business, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                    response_data['business'] = serializer.data
                 else:
-                    return Response(company_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            
-            return Response(response_data)
-            
+                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            # --- Payment Update ---
+            if 'payment' in request.data:
+                profile = Profile.objects.get(user=user)
+                if 'passbook_pic' in files:
+                    profile.passbook_pic = files['passbook_pic']
+
+                for field in ['account_number', 'bank_name', 'ifsc_code', 'account_holder_name', 'upi_id']:
+                    setattr(profile, field, data.get(field))
+                profile.save()
+                response_data['payment'] = "Payment Details Updated Successfully"
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
         except Profile.DoesNotExist:
             return Response(
                 {"detail": "Profile not found"},
@@ -559,6 +590,7 @@ class ProfileView(APIView):
                 {"detail": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
 
 
 

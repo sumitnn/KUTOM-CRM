@@ -314,22 +314,22 @@ class Company(models.Model):
         ('business', 'Business'),
         ('partnership', 'Partnership'),
         ('llp', 'Limited Liability Partnership (LLP)'),
-        ('pvt_ltd', 'Private Limited Company'),
-        ('public_ltd', 'Public Limited Company'),
+        ('private_limited', 'Private Limited Company'),
+        ('public_limited', 'Public Limited Company'),
         ('other', 'Other'),
     ]
 
   
     BUSINESS_CATEGORY_CHOICES = [
         ('production', 'Production'),
-        ('manufacturing', 'Manufacturing'),
+        ('manufacturer', 'Manufacturing'),
         ('trading', 'Trading'),
-        ('wholesale', 'Wholesale'),
+        ('wholesaler', 'Wholesale'),
         ('restaurant', 'Restaurant'),
-        ('services', 'Service Provider'),
+        ('service_provider', 'Service Provider'),
         ('ecommerce', 'E-Commerce'),
         ('other', 'Other'),
-    ]
+    ]           
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='company')
     
