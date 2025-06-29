@@ -10,6 +10,9 @@ urlpatterns = [
     path('brands/', BrandListCreateAPIView.as_view(), name='brand-list-create'),
     path('brands/<int:pk>/', BrandDetailAPIView.as_view(), name='brand-detail'),
 
+    path('main-categories/', MainCategoryAPIView.as_view()),
+    path('main-categories/<int:pk>/', MainCategoryAPIView.as_view()),
+
     path('categories/', CategoryAPIView.as_view()),
     path('categories/<int:pk>/', CategoryAPIView.as_view()),
     path('subcategories/', SubcategoryAPIView.as_view()),
