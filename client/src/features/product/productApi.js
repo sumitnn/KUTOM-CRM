@@ -7,15 +7,16 @@ export const productApi = createApi({
     tagTypes: ['Product', 'ProductSize'],
     endpoints: (builder) => ({
         getAllProducts: builder.query({
-            query: ({ search, category }) => ({
-                url: 'products/',
-                method: 'GET',
+            query: (params = {}) => ({
+                url: "products/",
+                method: "GET",
                 params: {
-                    ...(search && { search }),
-                    ...(category && { category }),
+                    ...(params.search && { search: params.search }),
+                    ...(params.category && { category: params.category }),
+                    ...(params.subCategory && { sub_category: params.subCategory }),
                 },
             }),
-            providesTags: ['Product'],
+            providesTags: ["Product"],
           }),
 
         getMyProducts: builder.query({
