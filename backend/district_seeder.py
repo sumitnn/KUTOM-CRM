@@ -211,7 +211,7 @@ def run_district_seeder():
                     defaults={'is_active': True}
                 )
         else:
-            print(f"⚠️ State '{district}' not found. Skipping its districts.")
+            print(f"⚠️ State '{districts}' not found. Skipping its districts.")
 
     print("✅ Districts seeded successfully.")
 

@@ -7,7 +7,7 @@ import {
 } from "../features/product/productApi";
 import { useDispatch, useSelector } from "react-redux";
 import { addItem } from "../features/cart/cartSlice";
-import { toast} from "react-toastify";
+import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 function useDebounce(value, delay) {
@@ -19,13 +19,10 @@ function useDebounce(value, delay) {
   return debouncedValue;
 }
 
-// Helper to get featured or fallback image
 const getProductImage = (prod) => {
-  console.log(prod.images );
-  console.log(typeof(prod.images) );
   if (prod.images && prod.images.length > 0) {
     const featured = prod.images.find((img) => img.is_featured);
-    return featured?.image;
+    return featured?.image || prod.images[0].image;
   }
   return "/placeholder.png";
 };
@@ -45,7 +42,11 @@ const ProductListPage = ({ role }) => {
     isLoading,
     isError,
     refetch,
-  } = useGetAllProductsQuery();
+  } = useGetAllProductsQuery({
+    search: debouncedSearch,
+    category: selectedCategory,
+    subCategory: selectedSubCategory,
+  });
 
   const [deleteProductApi] = useDeleteProductMutation();
 
@@ -55,19 +56,14 @@ const ProductListPage = ({ role }) => {
     Apparel: ["Shirts", "Pants"],
   };
 
-  const filteredProducts = products.filter(
-    (p) =>
-      p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) &&
-      (selectedCategory ? p.category === selectedCategory : true) &&
-      (selectedSubCategory ? p.subCategory === selectedSubCategory : true)
-  );
-
   const deleteProduct = async (id) => {
     if (window.confirm("Are you sure you want to delete this product?")) {
       try {
         await deleteProductApi(id).unwrap();
+        toast.success("Product deleted successfully!");
         refetch();
       } catch (error) {
+        toast.error("Failed to delete product");
         console.error("Failed to delete product:", error);
       }
     }
@@ -94,8 +90,6 @@ const ProductListPage = ({ role }) => {
 
   return (
     <div className="px-4 py-8 max-w-7xl mx-auto">
-     
-      
       {/* Filters */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
         <h1 className="text-2xl font-bold text-gray-800">All Products</h1>
@@ -132,23 +126,22 @@ const ProductListPage = ({ role }) => {
                 <option key={sub}>{sub}</option>
               ))}
           </select>
-          {}
-          {(role === 'admin' || role === 'vendor') && (
-  <button
-    className="btn btn-primary"
-    onClick={() => navigate(`/${role}/create-product`)}
-  >
-    + Add Product
-  </button>
-)}
+          {(role === "admin" || role === "vendor") && (
+            <button
+              className="btn btn-primary"
+              onClick={() => navigate(`/${role}/create-product`)}
+            >
+              + Add Product
+            </button>
+          )}
         </div>
       </div>
 
       {/* Product Grid */}
       {isLoading ? (
         <div className="flex items-center justify-center h-[60vh]">
-        <span className="loading loading-spinner text-error loading-lg"></span>
-      </div>
+          <span className="loading loading-spinner text-error loading-lg"></span>
+        </div>
       ) : isError ? (
         <div className="text-center text-red-500">
           Failed to load products.{" "}
@@ -158,12 +151,11 @@ const ProductListPage = ({ role }) => {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {filteredProducts.length > 0 ? (
-            filteredProducts.map((prod) => (
+          {products.length > 0 ? (
+            products.map((prod) => (
               <div
                 key={prod.id}
                 className="card bg-white shadow-md hover:shadow-xl transition-transform transform hover:-translate-y-1 cursor-pointer rounded-lg overflow-hidden"
-                onClick={() => navigate(`/${role}/products/${prod.id}`)}
               >
                 <figure className="h-48 bg-gray-100">
                   <img
@@ -218,25 +210,29 @@ const ProductListPage = ({ role }) => {
                       <FiEye />
                     </button>
 
-                    <button
-                      className="btn btn-sm btn-warning"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/${role}/products/edit/${prod.id}`);
-                      }}
-                    >
-                      <FiEdit />
-                    </button>
+                    {(role === "admin" || role === "vendor") && (
+                      <>
+                        <button
+                          className="btn btn-sm btn-warning"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/${role}/products/edit/${prod.id}`);
+                          }}
+                        >
+                          <FiEdit />
+                        </button>
 
-                    <button
-                      className="btn btn-sm btn-error"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteProduct(prod.id);
-                      }}
-                    >
-                      <FiTrash2 />
-                    </button>
+                        <button
+                          className="btn btn-sm btn-error"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteProduct(prod.id);
+                          }}
+                        >
+                          <FiTrash2 />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
