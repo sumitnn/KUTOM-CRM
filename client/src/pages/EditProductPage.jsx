@@ -16,6 +16,7 @@ const EditProductPage = ({ role = "vendor" }) => {
   const navigate = useNavigate();
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [tagInput, setTagInput] = useState("");
+  const [featureInput, setFeatureInput] = useState("");
   
   const { data: product, isLoading, isError } = useGetProductByIdQuery(id);
   const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation();
@@ -28,6 +29,28 @@ const EditProductPage = ({ role = "vendor" }) => {
   
   const subcategories = Array.isArray(subcategoriesData) ? subcategoriesData : [];
 
+  const currencyOptions = [
+    { value: "USD", label: "US Dollar (USD)" },
+    { value: "EUR", label: "Euro (EUR)" },
+    { value: "GBP", label: "British Pound (GBP)" },
+    { value: "INR", label: "Indian Rupee (INR)" },
+    { value: "JPY", label: "Japanese Yen (JPY)" },
+  ];
+
+  const weightUnitOptions = [
+    { value: "kg", label: "Kilograms (kg)" },
+    { value: "g", label: "Grams (g)" },
+    { value: "lb", label: "Pounds (lb)" },
+    { value: "oz", label: "Ounces (oz)" },
+  ];
+
+  const productTypeOptions = [
+    { value: "physical", label: "Physical Product" },
+    { value: "digital", label: "Digital Product" },
+    { value: "service", label: "Service" },
+    { value: "subscription", label: "Subscription" },
+  ];
+
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -36,7 +59,17 @@ const EditProductPage = ({ role = "vendor" }) => {
     category: "",
     subcategory: "",
     image: null,
-    tags: []
+    tags: [],
+    currency: "INR",
+    weight: "",
+    weight_unit: "kg",
+    dimensions: "",
+    product_type: "physical",
+    shipping_info: "",
+    video_url: "",
+    warranty: "",
+    content_embeds: "",
+    features: []
   });
 
   const [sizes, setSizes] = useState([{ 
@@ -65,14 +98,24 @@ const EditProductPage = ({ role = "vendor" }) => {
         name: product.name || "",
         description: product.description || "",
         short_description: product.short_description || "",
-        brand: product.brand?.id || "",
-        category: product.category?.id || "",
-        subcategory: product.subcategory?.id || "",
-        tags: product.tags?.map(tag => tag.name) || [],
+        brand: product.brand?.id || product.brand || "",
+        category: product.category?.id || product.category || "",
+        subcategory: product.subcategory?.id || product.subcategory || "",
+        tags: product.tags || [],
+        currency: product.currency || "INR",
+        weight: product.weight || "",
+        weight_unit: product.weight_unit || "kg",
+        dimensions: product.dimensions || "",
+        product_type: product.product_type || "physical",
+        shipping_info: product.shipping_info || "",
+        video_url: product.video_url || "",
+        warranty: product.warranty || "",
+        content_embeds: product.content_embeds || "",
+        features: product.features || []
       });
 
       // Set selected category for subcategory dropdown
-      setSelectedCategoryId(product.category?.id || "");
+      setSelectedCategoryId(product.category?.id || product.category || "");
       
       // Set sizes data
       if (product.sizes) {
@@ -106,10 +149,10 @@ const EditProductPage = ({ role = "vendor" }) => {
       // Set images data
       if (product.images) {
         setExistingImages(product.images);
-        // Set preview for main image
-        const mainImage = product.images.find(img => img.is_featured);
-        if (mainImage) {
-          setPreview(mainImage.image);
+        // Set preview for featured image
+        const featuredImage = product.images.find(img => img.is_featured);
+        if (featuredImage) {
+          setPreview(featuredImage.image);
         }
       }
     }
@@ -193,6 +236,30 @@ const EditProductPage = ({ role = "vendor" }) => {
     }));
   };
 
+  const handleFeatureInputChange = (e) => {
+    setFeatureInput(e.target.value);
+  };
+
+  const addFeature = (e) => {
+    if (e.key === 'Enter' && featureInput.trim()) {
+      e.preventDefault();
+      if (!formData.features.includes(featureInput.trim())) {
+        setFormData(prev => ({
+          ...prev,
+          features: [...prev.features, featureInput.trim()]
+        }));
+      }
+      setFeatureInput("");
+    }
+  };
+
+  const removeFeature = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      features: prev.features.filter((_, i) => i !== index)
+    }));
+  };
+
   const handleSizeChange = (index, field, value) => {
     setSizes(prev => prev.map((size, i) => 
       i === index ? { ...size, [field]: value } : size
@@ -245,7 +312,7 @@ const EditProductPage = ({ role = "vendor" }) => {
       // Add basic product info
       Object.entries(formData).forEach(([key, value]) => {
         if (value !== null && value !== "") {
-          if (key === 'tags') {
+          if (key === 'tags' || key === 'features') {
             formDataToSend.append(key, JSON.stringify(value));
           } else {
             formDataToSend.append(key, value);
@@ -298,7 +365,7 @@ const EditProductPage = ({ role = "vendor" }) => {
           <h2 className="text-2xl font-bold text-gray-900">Edit Product</h2>
           <button
             onClick={() => navigate(`/${role}/products`)}
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 w-full md:w-auto cursor-pointer"
+            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-bold text-gray-700 hover:bg-gray-50 w-full md:w-auto cursor-pointer"
           >
             Back to Products
           </button>
@@ -307,11 +374,11 @@ const EditProductPage = ({ role = "vendor" }) => {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Information Section */}
           <div className="bg-gray-50 p-4 md:p-6 rounded-lg border border-gray-200">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">Basic Information</h3>
+            <h3 className="text-lg font-extrabold text-gray-800 mb-4">Basic Information</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               <div className="space-y-1">
-                <label className="block text-sm font-medium text-gray-700">Product Name*</label>
+                <label className="block text-sm font-bold text-gray-700">Product Name*</label>
                 <input
                   type="text"
                   name="name"
@@ -323,7 +390,7 @@ const EditProductPage = ({ role = "vendor" }) => {
               </div>
               
               <div className="space-y-1">
-                <label className="block text-sm font-medium text-gray-700">Brand*</label>
+                <label className="block text-sm font-bold text-gray-700">Brand*</label>
                 <select
                   name="brand"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base cursor-pointer"
@@ -333,9 +400,39 @@ const EditProductPage = ({ role = "vendor" }) => {
                 >
                   <option value="">Select Brand</option>
                   {brands.map((brand) => (
-                    <option key={brand.id} value={brand.id} defaultValue={brand.id === formData.brand}>
+                    <option key={brand.id} value={brand.id}>
                       {brand.name}
                     </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="space-y-1">
+                <label className="block text-sm font-bold text-gray-700">Currency*</label>
+                <select
+                  name="currency"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base cursor-pointer"
+                  value={formData.currency}
+                  onChange={handleChange}
+                  required
+                >
+                  {currencyOptions.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="space-y-1">
+                <label className="block text-sm font-bold text-gray-700">Product Type*</label>
+                <select
+                  name="product_type"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base cursor-pointer"
+                  value={formData.product_type}
+                  onChange={handleChange}
+                  required
+                >
+                  {productTypeOptions.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
               </div>
@@ -353,7 +450,7 @@ const EditProductPage = ({ role = "vendor" }) => {
               </div>
               
               <div className="space-y-1 md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700">Description*</label>
+                <label className="block text-sm font-bold text-gray-700">Description*</label>
                 <textarea
                   name="description"
                   rows={5}
@@ -366,10 +463,10 @@ const EditProductPage = ({ role = "vendor" }) => {
 
               {/* Tags Field */}
               <div className="space-y-1 md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700">Tags</label>
+                <label className="block text-sm font-bold text-gray-700">Tags</label>
                 <div className="flex flex-wrap gap-2 items-center">
                   {formData.tags.map((tag, index) => (
-                    <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
                       {tag}
                       <button
                         type="button"
@@ -402,7 +499,7 @@ const EditProductPage = ({ role = "vendor" }) => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               <div className="space-y-1">
-                <label className="block text-sm font-medium text-gray-700">Category*</label>
+                <label className="block text-sm font-bold text-gray-700">Category*</label>
                 <select
                   name="category"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base cursor-pointer"
@@ -410,13 +507,9 @@ const EditProductPage = ({ role = "vendor" }) => {
                   onChange={handleChange}
                   required
                 >
-                  <option value="">Select Category{formData.category}</option>
+                  <option value="">Select Category</option>
                   {categories.map(cat => (
-                    <option 
-                      key={cat.id} 
-                      value={cat.id}
-                      defaultValue={cat.id === formData.category}
-                    >
+                    <option key={cat.id} value={cat.id}>
                       {cat.name}
                     </option>
                   ))}
@@ -424,7 +517,7 @@ const EditProductPage = ({ role = "vendor" }) => {
               </div>
               
               <div className="space-y-1">
-                <label className="block text-sm font-medium text-gray-700">Subcategory</label>
+                <label className="block text-sm font-bold text-gray-700">Subcategory</label>
                 <select
                   name="subcategory"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base cursor-pointer"
@@ -434,15 +527,133 @@ const EditProductPage = ({ role = "vendor" }) => {
                 >
                   <option value="">Select Subcategory</option>
                   {subcategories.map(sub => (
-                    <option 
-                      key={sub.id} 
-                      value={sub.id}
-                      defaultValue={sub.id === formData.subcategory}
-                    >
+                    <option key={sub.id} value={sub.id}>
                       {sub.name}
                     </option>
                   ))}
                 </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Product Specifications Section */}
+          <div className="bg-gray-50 p-4 md:p-6 rounded-lg border border-gray-200">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Product Specifications</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+              <div className="space-y-1">
+                <label className="block text-sm font-bold text-gray-700">Weight</label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    name="weight"
+                    min="0"
+                    step="0.01"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                    value={formData.weight}
+                    onChange={handleChange}
+                    placeholder="Product weight"
+                  />
+                  <select
+                    name="weight_unit"
+                    className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base cursor-pointer"
+                    value={formData.weight_unit}
+                    onChange={handleChange}
+                  >
+                    {weightUnitOptions.map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              
+              <div className="space-y-1">
+                <label className="block text-sm font-bold text-gray-700">Dimensions</label>
+                <input
+                  type="text"
+                  name="dimensions"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  value={formData.dimensions}
+                  onChange={handleChange}
+                  placeholder="e.g., 10x5x2 cm"
+                />
+              </div>
+              
+              <div className="space-y-1">
+                <label className="block text-sm font-bold text-gray-700">Shipping Information</label>
+                <input
+                  type="text"
+                  name="shipping_info"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  value={formData.shipping_info}
+                  onChange={handleChange}
+                  placeholder="e.g., Free shipping, Special handling"
+                />
+              </div>
+              
+              <div className="space-y-1">
+                <label className="block text-sm font-bold text-gray-700">Warranty Information</label>
+                <input
+                  type="text"
+                  name="warranty"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  value={formData.warranty}
+                  onChange={handleChange}
+                  placeholder="e.g., 1 year manufacturer warranty"
+                />
+              </div>
+              
+              <div className="space-y-1 md:col-span-2">
+                <label className="block text-sm font-bold text-gray-700">Product Video URL</label>
+                <input
+                  type="url"
+                  name="video_url"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  value={formData.video_url}
+                  onChange={handleChange}
+                  placeholder="https://youtube.com/embed/example"
+                />
+              </div>
+              
+              <div className="space-y-1 md:col-span-2">
+                <label className="block text-sm font-bold text-gray-700">Content Embeds</label>
+                <textarea
+                  name="content_embeds"
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  value={formData.content_embeds}
+                  onChange={handleChange}
+                  placeholder="HTML or iframe code for embedded content"
+                />
+              </div>
+              
+              <div className="space-y-1 md:col-span-2">
+                <label className="block text-sm font-bold text-gray-700">Product Features</label>
+                <div className="flex flex-wrap gap-2 items-center">
+                  {formData.features.map((feature, index) => (
+                    <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800">
+                      {feature}
+                      <button
+                        type="button"
+                        onClick={() => removeFeature(index)}
+                        className="ml-1.5 inline-flex text-green-400 hover:text-green-600 focus:outline-none"
+                      >
+                        <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                          <path strokeLinecap="round" strokeWidth="1.5" d="M1 1l6 6m0-6L1 7" />
+                        </svg>
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    type="text"
+                    value={featureInput}
+                    onChange={handleFeatureInputChange}
+                    onKeyDown={addFeature}
+                    placeholder="Type a feature and press Enter"
+                    className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500">Add key features or selling points of the product</p>
               </div>
             </div>
           </div>
@@ -454,7 +665,7 @@ const EditProductPage = ({ role = "vendor" }) => {
               <button
                 type="button"
                 onClick={addSize}
-                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 w-full md:w-auto cursor-pointer"
+                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 w-full md:w-auto cursor-pointer"
               >
                 + Add Size
               </button>
@@ -575,7 +786,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                       <button
                         type="button"
                         onClick={() => removeSize(index)}
-                        className="px-3 py-1 bg-red-600 text-white rounded-md text-xs md:text-sm font-medium hover:bg-red-700 cursor-pointer"
+                        className="px-3 py-1 bg-red-600 text-white rounded-md text-xs md:text-sm font-bold hover:bg-red-700 cursor-pointer"
                       >
                         Remove Size
                       </button>
@@ -593,10 +804,10 @@ const EditProductPage = ({ role = "vendor" }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               {/* Main Image */}
               <div className="space-y-3">
-                <label className="block text-sm font-medium text-gray-700">Main Image*</label>
+                <label className="block text-sm font-bold text-gray-700">Main Image*</label>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                   <label className="cursor-pointer inline-flex">
-                    <span className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer">
+                    <span className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer">
                       Choose File
                     </span>
                     <input
@@ -610,7 +821,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                     <span className="text-sm text-gray-500 truncate max-w-xs">{formData.image.name}</span>
                   )}
                 </div>
-                {(preview || (existingImages.length > 0 && existingImages[0].is_featured)) && (
+                {(preview || (existingImages.length > 0 && existingImages.some(img => img.is_featured))) && (
                   <div className="mt-2">
                     <img
                       src={preview || existingImages.find(img => img.is_featured)?.image}
@@ -623,10 +834,10 @@ const EditProductPage = ({ role = "vendor" }) => {
               
               {/* Additional Images */}
               <div className="space-y-3">
-                <label className="block text-sm font-medium text-gray-700">Additional Images (Max 5)</label>
+                <label className="block text-sm font-bold text-gray-700">Additional Images (Max 5)</label>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                   <label className="cursor-pointer inline-flex">
-                    <span className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer">
+                    <span className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer">
                       Choose Files
                     </span>
                     <input
@@ -693,14 +904,14 @@ const EditProductPage = ({ role = "vendor" }) => {
             <button
               type="button"
               onClick={() => navigate(`/${role}/products`)}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isUpdating}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm text-sm font-bold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
             >
               {isUpdating ? (
                 <>

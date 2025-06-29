@@ -19,9 +19,30 @@ class Brand(models.Model):
     def __str__(self):
         return self.name
 
+class MainCategory(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    image = models.ImageField(upload_to='main_categories/', null=True, blank=True)
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='main_categories'
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = "Main Categories"
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
 
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
+    main_category=models.ForeignKey(MainCategory,on_delete=models.SET_NULL,null=True, blank=True, related_name='categories')
     owner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='categories')
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -37,7 +58,7 @@ class Category(models.Model):
 
 
 class SubCategory(models.Model):
-    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='subcategories')
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL,null=True, blank=True, related_name='subcategories')
     brand= models.ForeignKey(Brand, on_delete=models.SET_NULL, null=True, blank=True, related_name='subcategories')
     owner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='subcategories')
     name = models.CharField(max_length=100)
@@ -72,6 +93,28 @@ class Product(models.Model):
     STATUS_CHOICES = [
         ('draft', 'Draft'),
         ('published', 'Published'),
+    ] 
+    
+    PRODUCT_TYPE_CHOICES = [
+        ('physical', 'Physical Product'),
+        ('digital', 'Digital Product'),
+        ('service', 'Service'),
+        ('subscription', 'Subscription'),
+    ]
+    
+    WEIGHT_UNIT_CHOICES = [
+        ('kg', 'Kilogram'),
+        ('g', 'Gram'),
+        ('lb', 'Pound'),
+        ('oz', 'Ounce'),
+    ]
+    
+    CURRENCY_CHOICES = [
+        ('USD', 'US Dollar'),
+        ('EUR', 'Euro'),
+        ('GBP', 'British Pound'),
+        ('INR', 'Indian Rupee'),
+        ('JPY', 'Japanese Yen'),
     ]
 
     sku = models.CharField(max_length=50, unique=True, blank=True)
@@ -86,6 +129,19 @@ class Product(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     is_featured = models.BooleanField(default=True)
     rating = models.DecimalField(max_digits=3, decimal_places=1, null=True, blank=True)
+    
+    # New fields from frontend data
+    currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default='USD')
+    weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    weight_unit = models.CharField(max_length=2, choices=WEIGHT_UNIT_CHOICES, default='kg')
+    dimensions = models.CharField(max_length=100, blank=True, null=True)
+    product_type = models.CharField(max_length=20, choices=PRODUCT_TYPE_CHOICES, default='physical')
+    shipping_info = models.TextField(blank=True, null=True)
+    video_url = models.URLField(blank=True, null=True)
+    warranty = models.CharField(max_length=100, blank=True, null=True)
+    content_embeds = models.TextField(blank=True, null=True)
+    features = models.JSONField(default=list)  
+    
     owner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -129,12 +185,14 @@ class ProductImage(models.Model):
     image = models.ImageField(upload_to='products/images/')
     alt_text = models.CharField(max_length=150, blank=True)
     is_featured = models.BooleanField(default=True)
+    is_default= models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Image for {self.product.name}"
 
 class ProductPriceTier(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='price_tiers')
     size = models.ForeignKey(ProductSize, on_delete=models.CASCADE, related_name='price_tiers')
     min_quantity = models.PositiveIntegerField(validators=[MinValueValidator(1)])
     price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])

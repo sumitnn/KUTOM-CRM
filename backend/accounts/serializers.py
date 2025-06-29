@@ -377,10 +377,7 @@ class UserAddressSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Address
-        fields = [
-            'street_address', 'city', 'postal_code', 'country',
-            'is_primary', 'state_name', 'district_name', 'state', 'district'
-        ]
+        fields = "__all__"
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -388,16 +385,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     updated_at = serializers.SerializerMethodField()
     class Meta:
         model = Profile
-        fields = [
-            'full_name', 'date_of_birth', 'phone', 'profile_picture',
-            'gender', 'facebook', 'twitter', 'instagram', 'youtube',
-            'bio', 'whatsapp_number', 'bank_upi', 'upi_id',
-            'account_holder_name', 'passbook_pic', 'ifsc_code', 'bank_name',
-            'account_number', 'adhaar_card_pic', 'pancard_pic',
-            'kyc_other_document', 'adhaar_card_number', 'pancard_number',
-            'kyc_status', 'kyc_verified', 'kyc_verified_at', 'kyc_rejected_reason',
-            'created_at', 'updated_at','completion_percentage'
-        ]
+        fields = "__all__"
         
     def get_created_at(self, obj):
         return obj.created_at.date() if obj.created_at else None
@@ -419,18 +407,7 @@ class CompanySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Company
-        fields = [
-            'id',
-            'user',
-            'company_name', 'company_email', 'company_phone', 'designation',
-            'business_type', 'business_category', 'business_description', 'joining_date',
-            'gst_number', 'pan_number', 'business_registration_number', 'food_license_number',
-            'gst_certificate', 'pan_card', 'business_registration_doc', 'food_license_doc',
-            'registered_address', 'operational_address',
-            'state', 'district', 'pincode',
-            'is_verified', 'verified_at', 'verification_notes',
-            'created_at', 'updated_at',
-        ]
+        fields = "__all__"
         read_only_fields = ['created_at', 'updated_at']
     
     def get_created_at(self, obj):

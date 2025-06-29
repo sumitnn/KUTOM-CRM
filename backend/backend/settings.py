@@ -86,23 +86,23 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 # Local DB Settings
 if DEBUG:
-    # DATABASES = {
-    #     'default': {
-    #         'ENGINE': 'django.db.backends.sqlite3',
-    #         'NAME': BASE_DIR / 'db.sqlite3',
-    #     }
-    # }
     DATABASES = {
         'default': {
-            'ENGINE': config('AWS_DATABASE_ENGINE', default='django.db.backends.mysql'),
-            'NAME': config('AWS_DATABASE_NAME'),
-            'USER': config('AWS_DATABASE_USER'),
-            'PASSWORD': config('AWS_DATABASE_PASSWORD'),
-            'HOST': config('AWS_DATABASE_HOST'),
-            'PORT': config('AWS_DATABASE_PORT'),
-            
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+    # DATABASES = {
+    #     'default': {
+    #         'ENGINE': config('AWS_DATABASE_ENGINE', default='django.db.backends.mysql'),
+    #         'NAME': config('AWS_DATABASE_NAME'),
+    #         'USER': config('AWS_DATABASE_USER'),
+    #         'PASSWORD': config('AWS_DATABASE_PASSWORD'),
+    #         'HOST': config('AWS_DATABASE_HOST'),
+    #         'PORT': config('AWS_DATABASE_PORT'),
+            
+    #     }
+    # }
 else:
     DATABASES = {
         'default': {
@@ -184,7 +184,7 @@ else:
 
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=35),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     'BLACKLIST_AFTER_ROTATION': True,
     'ROTATE_REFRESH_TOKENS': True,

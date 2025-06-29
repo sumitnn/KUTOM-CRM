@@ -201,7 +201,7 @@ const AdminRoutes = [
       element={
         <AdminMainLayout>
           <Suspense fallback={<Spinner />}>
-            <ChangePassword />
+            <ChangePassword role="admin"/>
           </Suspense>
         </AdminMainLayout>
       } 

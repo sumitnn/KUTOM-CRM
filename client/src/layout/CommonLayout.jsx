@@ -70,9 +70,10 @@ const CommonLayout = ({ children }) => {
         });
       }
     } catch (error) {
-      setSubmitMessage(
-        error.response?.data?.message || "An error occurred. Please try again later."
-      );
+      const message =error?.response?.data?.message || error?.response?.data?.errors?.[0] || "An error occurred. Please try again later.";
+      setSubmitMessage(message);
+       
+      
     } finally {
       setIsSubmitting(false);
     }
