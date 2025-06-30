@@ -3,12 +3,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { useDispatch } from 'react-redux';
 import { loginSuccess } from '../../features/auth/authSlice';
 import { useLoginMutation } from "../../features/auth/authApi";
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
-  
+
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -17,7 +18,6 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setErrorMsg('');
     try {
       const res = await login({ email, password }).unwrap();
   
@@ -44,11 +44,11 @@ const Login = () => {
             navigate('/');
         }
       } else {
-        setErrorMsg(res.message || 'Invalid credentials');
+        toast.error(res.message || 'Invalid credentials');
       }
     } catch (err) {
-      setErrorMsg(err?.data?.message || 'Login failed');
-      console.error(err);
+      toast.error(err?.data?.message || 'Login failed')
+      
     }
   };
   
@@ -95,7 +95,7 @@ const Login = () => {
             </Link>
           </div>
 
-          {errorMsg && <div className="text-red-600 text-sm">{errorMsg}</div>}
+         
 
           {isLoading ? (
             <span className="loading loading-spinner text-info loading-xl"></span>

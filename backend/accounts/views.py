@@ -64,6 +64,9 @@ class LoginView(APIView):
                 "message": "Email and password are required",
                 "success": False
             }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if NewAccountApplication.objects.filter(email=email, status="new").exists():
+            return Response({"message": "You can’t log in Now. Please wait for an admin to approve your application request."}, status=200)
 
         user = authenticate(request, email=email, password=password)
 
@@ -94,7 +97,7 @@ class LoginView(APIView):
             return Response({
                 "message": "Invalid email or password",
                 "success": False
-            }, status=status.HTTP_401_UNAUTHORIZED)
+            }, status=status.HTTP_404_NOT_FOUND)
         
 
 class GetUserView(APIView):
@@ -150,7 +153,7 @@ class UpdateUserStatusAPIView(APIView):
             user = User.objects.get(pk=pk)
         except User.DoesNotExist:
             return Response({"success": False, "message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
-        user.is_active=result
+        user.is_user_active=result
         user.save()
         return Response({
                 "success": True,
@@ -973,10 +976,12 @@ class ApproveApplicationView(APIView):
                 email=application.email,
                 password=default_password,
                 role=application.role, 
-                is_active=True
+                is_active=True,
+                is_user_active=True
             )
             if hasattr(user, 'profile'):
                 user.profile.full_name = application.full_name
+                user.profile.phone=application.phone
                 user.profile.save()
             # Optional: send welcome email with password info here
 

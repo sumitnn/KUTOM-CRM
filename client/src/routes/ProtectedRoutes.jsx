@@ -12,12 +12,18 @@ const ProtectedRoute = ({ allowedRoles, checkProfileCompletion = false }) => {
     return <Navigate to="/login" replace />;
   }
   
+
   // Only check profile completion if explicitly required AND user is vendor/reseller
-  if (checkProfileCompletion && 
-      ['vendor', 'reseller','stockist'].includes(user.role) && 
-      !user.completion_percentage) {
-    return <Navigate to={`${user.role}/settings/profile`} replace />;
+  if (
+    checkProfileCompletion &&
+    ['vendor', 'reseller', 'stockist'].includes(user.role) &&
+    (user.profile_completed === undefined || 
+     user.profile_completed === null || 
+     parseFloat(user.profile_completed) < 16.00)
+  ) {
+    return <Navigate to={`/${user.role}/settings/profile`} replace />;
   }
+
 
   return <Outlet />;
 };

@@ -38,12 +38,15 @@ const ITEMS_PER_PAGE = 10;
 
 const TopUpRequestsTable = () => {
   const {
-    data: requests = [],
+    data: response = { results: [] }, // Default to empty results array
     isLoading,
     refetch,
     error,
     isError,
-  } = useGetTopupRequestQuery() || {};
+  } = useGetTopupRequestQuery();
+
+  // Get the actual requests from the response
+  const requests = response.results || [];
 
   const [updateTopupRequest, { isLoading: updating }] = useUpdateTopupRequestMutation();
   const [modalImage, setModalImage] = useState(null);
@@ -56,7 +59,7 @@ const TopUpRequestsTable = () => {
 
   const defaultScreenshot = "https://via.placeholder.com/150?text=No+Image";
 
-  // Filter and search logic
+  // Filter and search logic (now client-side since API might not support search)
   const filteredRequests = requests.filter((req) => {
     const matchesSearch = req.user?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                          req.amount?.toString().includes(searchTerm) ||
@@ -143,6 +146,7 @@ const TopUpRequestsTable = () => {
             <h2 className="text-xl font-semibold text-gray-800">Top-up Requests</h2>
             <div className="text-sm text-gray-500">
               {filteredRequests.length} request{filteredRequests.length !== 1 ? 's' : ''} found
+              {response.count !== undefined && ` (${response.count} total)`}
             </div>
           </div>
           

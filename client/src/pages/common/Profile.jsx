@@ -912,7 +912,7 @@ export default function Profile() {
             icon: <FaPassport />,
             pattern: "[A-Z]{5}[0-9]{4}[A-Z]{1}",
             title: "ABCDE1234F format",
-            required: true
+            required: false
           },
           { 
             name: 'business_registration_number', 
@@ -948,7 +948,7 @@ export default function Profile() {
             icon: <FaAddressCard />,
             required: true,
             pattern: "[0-9]{6}",
-            title: "6 digit pincode"
+            title: "6 digit pincode",
           },
           { 
             name: 'state', 
@@ -978,7 +978,7 @@ export default function Profile() {
             type: 'file', 
             accept: 'image/*,.pdf', 
             icon: <FaPassport />,
-            required: true
+
           },
           { 
             name: 'business_registration_doc', 
