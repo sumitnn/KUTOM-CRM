@@ -40,26 +40,46 @@ const EditSectionModal = ({
   };
 
   const validateAadhaar = (value) => {
-    if (value && !/^\d{12}$/.test(value)) return 'Must be a 12-digit number';
+    if (!value) return 'This field is required';
+    if (!/^\d{12}$/.test(value)) return 'Must be a 12-digit number';
     return '';
   };
 
-  const validatePAN = (value) => {
-    if (value && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(value)) {
+  const validatePAN = (value, isRequired = true) => {
+    if (!value) return isRequired ? 'This field is required' : '';
+    if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(value)) {
       return 'Invalid PAN format (e.g., ABCDE1234F)';
     }
     return '';
   };
 
   const validateGST = (value) => {
-    if (value && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(value)) {
+    if (!value) return 'This field is required';
+    if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(value)) {
       return 'Invalid GST format (e.g., 22ABCDE1234F1Z5)';
     }
     return '';
   };
 
   const validatePostalCode = (value) => {
-    if (value && !/^\d{6}$/.test(value)) return 'Must be a 6-digit number';
+    if (!value) return 'This field is required';
+    if (!/^\d{6}$/.test(value)) return 'Must be a 6-digit number';
+    return '';
+  };
+
+  const validateIFSC = (value) => {
+    if (!value) return 'This field is required';
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(value)) {
+      return 'Invalid IFSC format (e.g., SBIN0000123)';
+    }
+    return '';
+  };
+
+  const validateEmail = (value) => {
+    if (!value) return 'This field is required';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      return 'Invalid email format';
+    }
     return '';
   };
 
@@ -87,13 +107,19 @@ const EditSectionModal = ({
       case 'adhaar_card_number':
         return validateAadhaar(value);
       case 'pancard_number':
+        return validatePAN(value, true); // Personal PAN is required
       case 'pan_number':
-        return validatePAN(value);
+        return validatePAN(value, false); // Company PAN is optional
       case 'gst_number':
         return validateGST(value);
       case 'postal_code':
       case 'pincode':
         return validatePostalCode(value);
+      case 'ifsc_code':
+        return validateIFSC(value);
+      case 'company_email':
+      case 'email':
+        return validateEmail(value);
       case 'date_of_birth':
         if (value) {
           const selectedDate = new Date(value);
@@ -121,25 +147,38 @@ const EditSectionModal = ({
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    
-    const error = validateField(name, value);
+    const { name, value, type } = e.target;
+    let processedValue = value;
+
+    // Auto-formatting based on field type
+    if (name === 'pancard_number' || name === 'pan_number' || name === 'ifsc_code' || name === 'gst_number') {
+      processedValue = value.toUpperCase();
+    }
+
+    // Limit input length based on field type
+    if (type === 'tel' || name === 'adhaar_card_number') {
+      processedValue = value.replace(/\D/g, '').slice(0, name === 'adhaar_card_number' ? 12 : 10);
+    } else if (name === 'postal_code' || name === 'pincode') {
+      processedValue = value.replace(/\D/g, '').slice(0, 6);
+    }
+
+    const error = validateField(name, processedValue);
     setErrors(prev => ({
       ...prev,
       [name]: error
     }));
 
     if (name === 'state') {
-      setSelectedState(value);
+      setSelectedState(processedValue);
       setFormData(prev => ({
         ...prev,
-        [name]: value,
+        [name]: processedValue,
         district: ''
       }));
     } else {
       setFormData(prev => ({
         ...prev,
-        [name]: value
+        [name]: processedValue
       }));
     }
   };
@@ -232,7 +271,8 @@ const EditSectionModal = ({
       'adhaar_card_number': 'off',
       'pancard_number': 'off',
       'pan_number': 'off',
-      'gst_number': 'off'
+      'gst_number': 'off',
+      'ifsc_code': 'off'
     };
     
     return mapping[fieldName] || 'on';
@@ -410,10 +450,18 @@ const EditSectionModal = ({
                       value={formData[field.name] || ''}
                       onChange={handleChange}
                       className={`input input-bordered w-full font-bold ${errors[field.name] ? 'border-red-500' : ''} ${field.disabled ? 'opacity-75 cursor-not-allowed' : ''}`}
-                      disabled={(field.name === 'date_of_birth' && formData['date_of_birth']) || field.disabled || isSaving}
+                      disabled={field.disabled || isSaving}
                       pattern={field.pattern}
                       title={field.title}
                       autoComplete={getAutocompleteValue(field.name)}
+                      maxLength={
+                        field.name === 'pancard_number' || field.name === 'pan_number' ? 10 :
+                        field.name === 'adhaar_card_number' ? 12 :
+                        field.name === 'postal_code' || field.name === 'pincode' ? 6 :
+                        field.name === 'ifsc_code' ? 11 :
+                        field.type === 'tel' ? 10 :
+                        undefined
+                      }
                     />
                     {errors[field.name] && (
                       <p className="text-red-500 text-xs mt-1">{errors[field.name]}</p>
