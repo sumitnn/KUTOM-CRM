@@ -17,7 +17,27 @@ import { GiCommercialAirplane, GiReceiveMoney } from 'react-icons/gi';
 import { RiContactsBookLine } from 'react-icons/ri';
 import { toast } from 'react-toastify';
 import EditSectionModal from './EditSectionModal';
-import { FaFileImage } from 'react-icons/fa';
+import { FaFileImage, FaFilePdf } from 'react-icons/fa';
+
+const DocumentPreviewButton = ({ value, label }) => {
+  if (!value) return <span className="text-gray-500">Not provided</span>;
+  
+  const fileExtension = value.split('.').pop().toLowerCase();
+  const isImage = ['jpg', 'jpeg', 'png', 'gif'].includes(fileExtension);
+  const isPDF = fileExtension === 'pdf';
+
+  return (
+    <a 
+      href={value} 
+      target="_blank" 
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1 text-primary hover:text-amber-600 font-bold text-sm"
+    >
+      {isPDF ? <FaFilePdf className="text-red-500" /> : <FaFileImage className="text-blue-500" />}
+      View {label} ({isPDF ? 'PDF' : 'Image'})
+    </a>
+  );
+};
 
 export default function Profile() {
   const [activeEditSection, setActiveEditSection] = useState(null);
@@ -217,14 +237,9 @@ export default function Profile() {
           )}
         </div>
         {docUrl && (
-          <a 
-            href={docUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-primary text-xs mt-1  font-bold inline-block hover:text-amber-600 hover:cursor-pointer"
-          >
-            View Document
-          </a>
+          <div className="mt-1">
+            <DocumentPreviewButton value={docUrl} label={label.split(' ')[0]} />
+          </div>
         )}
       </div>
     </div>
