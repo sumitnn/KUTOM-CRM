@@ -587,13 +587,6 @@ export default function Profile() {
                 <h2 className="card-title text-xl font-extrabold flex items-center gap-2">
                   <FaShieldAlt /> KYC Details
                 </h2>
-                <button 
-                  onClick={() => setActiveEditSection('personal')}
-                  className="btn btn-sm btn-primary gap-2"
-                  disabled={isUpdating}
-                >
-                  <FaEdit /> Edit
-                </button>
               </div>
               
               <div className="space-y-4">

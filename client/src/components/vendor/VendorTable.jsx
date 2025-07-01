@@ -1,16 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import VendorTableRow from './VendorTableRow';
-import ViewVendorModal from './ViewVendorModal';
-import ProfileReviewModal from '../ProfileReviewModal';
-import ProgressBar from '../ProgressBar';
-import { useUpdateUserAccountKycMutation } from "../../features/newapplication/newAccountApplicationApi";
+import { FaSync } from 'react-icons/fa';
+
+// Lazy load modals
+const ViewVendorModal = lazy(() => import('./ViewVendorModal'));
+const ProfileReviewModal = lazy(() => import('../ProfileReviewModal'));
 
 const statusTabs = [
   { id: 'new', label: 'New Request' },
-  { id: 'pending', label: 'Request Processing' },
-  { id: 'rejected', label: 'Rejected Request' },
-  { id: 'active', label: 'Active Users' },
-  { id: 'suspended', label: 'Inactive Users' },
+  { id: 'pending', label: 'Processing' },
+  { id: 'rejected', label: 'Rejected' },
+  { id: 'active', label: 'Active' },
+  { id: 'suspended', label: 'Inactive' },
 ];
 
 export default function VendorTable({ 
@@ -20,13 +21,15 @@ export default function VendorTable({
   onApprove, 
   onReject,
   onSearch,
-  isLoading 
+  onRefresh,
+  isLoading,
+  isLoadingAction,
+  currentActionId
 }) {
   const [viewVendor, setViewVendor] = useState(null);
   const [reviewVendor, setReviewVendor] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchType, setSearchType] = useState('email');
-  const [updateKyc] = useUpdateUserAccountKycMutation();
 
   const handleSearch = () => {
     onSearch(searchTerm, searchType);
@@ -37,14 +40,8 @@ export default function VendorTable({
     onSearch('', searchType);
   };
 
-  const handleMarkKycCompleted = async (userId) => {
-    try {
-      await updateKyc({ userId }).unwrap();
-      // Optionally add toast notification: toast.success('KYC marked as completed');
-    } catch (error) {
-      console.error('Failed to update KYC status:', error);
-      // Optionally add toast notification: toast.error('Failed to update KYC status');
-    }
+  const handleRefreshAll = () => {
+    onRefresh('all');
   };
 
   const getTableHeaders = () => {
@@ -64,28 +61,38 @@ export default function VendorTable({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm p-4">
+    <div className="bg-white rounded-xl shadow-sm p-2 md:p-4">
       {/* Tabs */}
-      <div className="tabs tabs-boxed bg-gray-100 p-1 rounded-lg mb-6 overflow-x-auto">
-        {statusTabs.map((tab) => (
-          <button
-            key={tab.id}
-            className={`tab flex-1 min-w-fit ${activeTab === tab.id ? 'tab-active bg-white shadow-sm' : ''}`}
-            onClick={() => {
-              setActiveTab(tab.id);
-              setSearchTerm(''); // Reset search when changing tabs
-            }}
-          >
-            <strong>{tab.label}</strong>
-          </button>
-        ))}
+      <div className="flex flex-col md:flex-row justify-between gap-4 mb-4">
+        <div className="tabs tabs-boxed bg-gray-100 p-1 rounded-lg overflow-x-auto">
+          {statusTabs.map((tab) => (
+            <button
+              key={tab.id}
+              className={`tab flex-1 min-w-fit ${activeTab === tab.id ? 'tab-active bg-white shadow-sm' : ''}`}
+              onClick={() => {
+                setActiveTab(tab.id);
+                setSearchTerm('');
+              }}
+            >
+              <strong>{tab.label}</strong>
+            </button>
+          ))}
+        </div>
+        
+        <button 
+          className="btn btn-ghost btn-sm md:btn-md"
+          onClick={handleRefreshAll}
+          disabled={isLoading}
+        >
+          <FaSync /> Refresh All
+        </button>
       </div>
 
       {/* Search */}
-      <div className="mb-6 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="join w-full md:w-auto gap-2">
+      <div className="mb-4 flex flex-col md:flex-row items-center justify-between gap-2">
+        <div className="join w-full">
           <select 
-            className="join-item select select-bordered"
+            className="join-item select select-bordered select-sm md:select-md"
             value={searchType}
             onChange={(e) => setSearchType(e.target.value)}
           >
@@ -96,21 +103,23 @@ export default function VendorTable({
           </select>
           <input
             type="text"
-            className="join-item input input-bordered w-full"
+            className="join-item input input-bordered w-full input-sm md:input-md"
             placeholder={`Search by ${searchType}`}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             onKeyUp={(e) => e.key === 'Enter' && handleSearch()}
           />
           <button 
-            className="join-item btn btn-primary"
+            className="join-item btn btn-primary btn-sm md:btn-md"
             onClick={handleSearch}
+            disabled={isLoading}
           >
             Search
           </button>
           <button 
-            className="join-item btn btn-ghost"
+            className="join-item btn btn-ghost btn-sm md:btn-md"
             onClick={handleClearSearch}
+            disabled={isLoading}
           >
             Clear
           </button>
@@ -120,11 +129,11 @@ export default function VendorTable({
       {/* Table */}
       <div className="overflow-x-auto rounded-xl border border-gray-200">
         <div className="max-h-[70vh] overflow-y-auto">
-          <table className="table table-zebra">
+          <table className="table table-zebra table-pin-rows">
             <thead className="bg-gray-50 sticky top-0 font-bold text-black">
               <tr>
                 {getTableHeaders().map(header => (
-                  <th key={header}>{header}</th>
+                  <th key={header} className="sticky top-0">{header}</th>
                 ))}
               </tr>
             </thead>
@@ -144,9 +153,14 @@ export default function VendorTable({
                     activeTab={activeTab}
                     onView={() => setViewVendor(item)}
                     onReview={() => setReviewVendor(item)}
-                    onApprove={() => onApprove(item.id)}
-                    onReject={() => onReject(item.id)}
-                    onMarkKycCompleted={handleMarkKycCompleted}
+                    onApprove={onApprove}
+                    onReject={onReject}
+                    onMarkKycCompleted={(id) => {
+                      onApprove(id, 'kyc');
+                    }}
+                    onRefresh={onRefresh}
+                    isLoadingAction={isLoadingAction}
+                    currentActionId={currentActionId}
                   />
                 ))
               ) : (
@@ -161,20 +175,24 @@ export default function VendorTable({
         </div>
       </div>
 
-      {/* Modals */}
-      {viewVendor && (
-        <ViewVendorModal 
-          user={viewVendor} 
-          onClose={() => setViewVendor(null)} 
-        />
-      )}
+      {/* Modals with Suspense */}
+      <Suspense fallback={<div className="loading loading-spinner loading-md"></div>}>
+        {viewVendor && (
+          <ViewVendorModal 
+            user={viewVendor} 
+            onClose={() => setViewVendor(null)} 
+          />
+        )}
+      </Suspense>
 
-      {reviewVendor && (
-        <ProfileReviewModal
-          vendor={reviewVendor}
-          onClose={() => setReviewVendor(null)}
-        />
-      )}
+      <Suspense fallback={<div className="loading loading-spinner loading-md"></div>}>
+        {reviewVendor && (
+          <ProfileReviewModal
+            vendor={reviewVendor}
+            onClose={() => setReviewVendor(null)}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }

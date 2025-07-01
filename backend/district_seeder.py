@@ -202,18 +202,30 @@ def run_district_seeder():
     }
 
     for state_name, districts in state_districts.items():
-        state = State.objects.filter(name=state_name).first()
-        if state:
-            for district_name in districts:
-                District.objects.get_or_create(
-                    state=state,
-                    name=district_name,
-                    defaults={'is_active': True}
-                )
-        else:
-            print(f"⚠️ State '{districts}' not found. Skipping its districts.")
+        try:
+            state = State.objects.get(name=state_name)
+        except State.DoesNotExist:
+            print(f"⚠️ State '{state_name}' not found. Skipping its districts.")
+            continue
 
-    print("✅ Districts seeded successfully.")
+        # Fetch existing district names for the state
+        existing_names = set(
+            District.objects.filter(state=state, name__in=districts)
+            .values_list('name', flat=True)
+        )
+
+        # Prepare only new districts
+        new_districts = [
+            District(state=state, name=name, is_active=True)
+            for name in districts if name not in existing_names
+        ]
+
+        # Bulk create new ones
+        if new_districts:
+            District.objects.bulk_create(new_districts)
+            print(f"✅ {len(new_districts)} new districts added for '{state_name}'.")
+
+    print("🎉 Districts seeding completed.")
 
 if __name__ == "__main__":
     run_district_seeder()
