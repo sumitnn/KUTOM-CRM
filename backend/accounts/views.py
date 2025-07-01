@@ -142,12 +142,12 @@ class UpdateUserStatusAPIView(APIView):
         if not status_type:
             return Response({"success": False, "message": "Invalid Action "}, status=status.HTTP_404_NOT_FOUND)
         
-        result=True
+        result="new_user"
         if status_type and status_type == "suspended":
-            result=False
+            result="inactive"
 
         if status_type and status_type =="active":
-            result=True
+            result="active"
             
         try:
             user = User.objects.get(pk=pk)
@@ -178,10 +178,10 @@ class ListUsersView(APIView):
         if role in ["vendor", "stockist", "reseller"]:
             users = users.filter(role=role)
         if status_type and status_type == "active":
-            users = users.filter(is_user_active=True)
+            users = users.filter(is_user_active="active")
 
         if status_type and status_type =="suspended":
-            users = users.filter(is_user_active=False)
+            users = users.filter(is_user_active="inactive")
 
         if search:
             if search_type == "email":
@@ -951,44 +951,50 @@ class NewAccountApplicationListView(APIView):
         return Response(serializer.data)
 
 class ApproveApplicationView(APIView):
-    permission_classes = [IsAdminRole] 
+    permission_classes = [IsAdminRole]
 
     def post(self, request, pk):
         application = get_object_or_404(NewAccountApplication, pk=pk)
 
-        # Set status
+        # Update application status
         application.status = 'pending'
         application.save()
 
-        # Check if user already exists for this application
-        if not User.objects.filter(email=application.email).exists():
+        default_passwords = {
+            "stockist": "KutomS@123",
+            "vendor": "KutomV@123",
+            "reseller": "KutomR@123"
+        }
+        default_password = default_passwords.get(application.role, "Kutom@123")
 
-            # Create user with default password
-            default_passwords = {
-                "stockist": "KutomS@123",
-                "vendor": "KutomV@123",
-                "reseller": "KutomR@123"
-            }
-            default_password = default_passwords.get(application.role, "Kutom@123")
+        try:
+            # User already exists
+            user = User.objects.get(email=application.email)
+            user.is_active = True
+            user.is_user_active = "new_user"
+            user.save()
+            return Response({'message': 'Application  Status Updated.'}, status=200)
 
+        except User.DoesNotExist:
+            # Create new user
             user = User.objects.create_user(
                 username=application.full_name,
                 email=application.email,
                 password=default_password,
-                role=application.role, 
+                role=application.role,
                 is_active=True,
-                is_user_active=True
+                is_user_active="new_user"
             )
+
+            # Set profile info only for new users
             if hasattr(user, 'profile'):
                 user.profile.full_name = application.full_name
-                user.profile.phone=application.phone
+                user.profile.phone = application.phone
                 user.profile.save()
-            # Optional: send welcome email with password info here
 
-        else:
-            return Response({'error': 'User already exists with this email.'}, status=400)
-
-        return Response({'message': 'Application approved and user account created.'}, status=200)
+            return Response({'message': 'Application approved and user account created.'}, status=200)
+        except Exception as e:
+            return Response({'message': str(e)}, status=400)
 
 class RejectApplicationView(APIView):
     permission_classes = [IsAdminRole]

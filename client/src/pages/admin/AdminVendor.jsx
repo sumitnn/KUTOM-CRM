@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import { toast } from 'react-toastify';
 import {
   useFetchVendorsQuery,
-  useCreateVendorMutation,
   useUpdateVendorStatusMutation,
 } from "../../features/vendor/VendorApi";
 import {
@@ -12,19 +11,20 @@ import {
 } from "../../features/newapplication/newAccountApplicationApi";
 
 import VendorTable from '../../components/vendor/VendorTable';
-import CreateVendorModal from '../../components/vendor/CreateVendorModal';
-import RejectReasonModal from '../../components/RejectReasonModal';
+
+// Lazy load RejectReasonModal
+const RejectReasonModal = lazy(() => import('../../components/RejectReasonModal'));
 
 const AdminVendor = () => {
   const [activeTab, setActiveTab] = useState('new');
-  const [modalOpen, setModalOpen] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState(null);
-  const [error, setError] = useState(null);
   const [searchParams, setSearchParams] = useState({
     searchTerm: '',
     searchType: 'email'
   });
+  const [isLoadingAction, setIsLoadingAction] = useState(false);
+  const [currentActionId, setCurrentActionId] = useState(null);
 
   // Application APIs (new, pending, rejected)
   const { 
@@ -36,9 +36,8 @@ const AdminVendor = () => {
       ? { 
           status: activeTab,
           search: searchParams.searchTerm,
-        search_type: searchParams.searchType,
-         role: 'vendor'
-          
+          search_type: searchParams.searchType,
+          role: 'vendor'
         } 
       : null,
     { skip: !['new', 'pending', 'rejected'].includes(activeTab) }
@@ -60,7 +59,6 @@ const AdminVendor = () => {
     { skip: !['active', 'suspended'].includes(activeTab) }
   );
 
-  const [createVendor] = useCreateVendorMutation();
   const [updateVendor] = useUpdateVendorStatusMutation();
   const [approveApplication] = useApproveAccountApplicationMutation();
   const [rejectApplication] = useRejectAccountApplicationMutation();
@@ -78,31 +76,41 @@ const AdminVendor = () => {
     setSearchParams({ searchTerm, searchType });
   };
 
-  const handleAddVendor = async (vendorData) => {
-    setError(null);
+  const handleRefresh = async (id) => {
     try {
-      await createVendor(vendorData).unwrap();
-      toast.success('Vendor created successfully!');
-      setModalOpen(false);
-      refetchVendors();
+      if (id === 'all') {
+        if (['new', 'pending', 'rejected'].includes(activeTab)) {
+          await refetchApplications();
+        } else {
+          await refetchVendors();
+        }
+        toast.success('Data refreshed successfully');
+      }
     } catch (err) {
-      const errorMessage = err?.data?.message || 'Failed to create vendor';
-      setError(errorMessage);
-      toast.error(errorMessage);
+      toast.error('Failed to refresh data');
     }
   };
 
-  const handleApproveApplication = async (id) => {
+  const handleApproveApplication = async (id, actionType = 'approve') => {
+    setIsLoadingAction(true);
+    setCurrentActionId(actionType);
     try {
       await approveApplication(id).unwrap();
-      toast.success('Application approved,User Account Created Successfully');
+      toast.success(actionType === 'kyc' 
+        ? 'KYC marked as completed successfully' 
+        : 'Application Status Updated');
       refetchApplications();
     } catch (err) {
-      toast.error(err?.error||"something went wrong");
+      toast.error(err?.data?.message || "Something went wrong");
+    } finally {
+      setIsLoadingAction(false);
+      setCurrentActionId(null);
     }
   };
 
   const handleRejectApplication = async (id, reason) => {
+    setIsLoadingAction(true);
+    setCurrentActionId('reject');
     try {
       await rejectApplication({ id, reason }).unwrap();
       toast.success('Application rejected!');
@@ -110,10 +118,15 @@ const AdminVendor = () => {
       refetchApplications();
     } catch (err) {
       toast.error(err?.data?.message || 'Failed to reject application');
+    } finally {
+      setIsLoadingAction(false);
+      setCurrentActionId(null);
     }
   };
 
   const handleToggleVendorStatus = async (id) => {
+    setIsLoadingAction(true);
+    setCurrentActionId('status');
     try {
       const newStatus = activeTab === 'active' ? 'suspended' : 'active';
       await updateVendor({ id, data: { status: newStatus } }).unwrap();
@@ -121,21 +134,16 @@ const AdminVendor = () => {
       refetchVendors();
     } catch (err) {
       toast.error('Failed to update vendor status');
+    } finally {
+      setIsLoadingAction(false);
+      setCurrentActionId(null);
     }
   };
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-4">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 gap-4">
-        <h1 className="text-2xl font-bold">Vendor Management</h1>
-        {activeTab === 'active' && (
-          <button 
-            className="btn btn-primary animate-bounce" 
-            onClick={() => setModalOpen(true)}
-          >
-            + Create New Vendor
-          </button>
-        )}
+        <h1 className="text-xl md:text-2xl font-bold">Vendor Management</h1>
       </div>
 
       <VendorTable 
@@ -152,26 +160,20 @@ const AdminVendor = () => {
           }
         }}
         onSearch={handleSearch}
+        onRefresh={handleRefresh}
         isLoading={isLoading}
+        isLoadingAction={isLoadingAction}
+        currentActionId={currentActionId}
       />
 
-      {modalOpen && (
-        <CreateVendorModal
-          onClose={() => {
-            setModalOpen(false);
-            setError(null);
-          }}
-          onAddVendor={handleAddVendor}
-          error={error}
-        />
-      )}
-
-      {rejectModalOpen && (
-        <RejectReasonModal
-          onClose={() => setRejectModalOpen(false)}
-          onSubmit={(reason) => handleRejectApplication(selectedApplication, reason)}
-        />
-      )}
+      <Suspense fallback={<div className="loading loading-spinner loading-md"></div>}>
+        {rejectModalOpen && (
+          <RejectReasonModal
+            onClose={() => setRejectModalOpen(false)}
+            onSubmit={(reason) => handleRejectApplication(selectedApplication, reason)}
+          />
+        )}
+      </Suspense>
     </div>
   );
 };

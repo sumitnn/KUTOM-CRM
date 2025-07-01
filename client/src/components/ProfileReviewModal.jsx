@@ -1,14 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import {
   useUpdateProfileApprovalStatusMutation,
   useGetProfileApprovalStatusQuery
 } from '../features/newapplication/newAccountApplicationApi';
 
+// Lazy loaded components
+const ErrorMessage = lazy(() => import('../components/common/ErrorMessage'));
+const Spinner = lazy(() => import('../components/common/Spinner'));
+
 const TAB_KEYS = ['userDetails', 'documents', 'companyDetails', 'companyDocuments', 'paymentDetails'];
+
+const FilePreviewButton = ({ value, label, onPreview }) => {
+  if (!value) return <span className="text-gray-500">Not provided</span>;
+  
+  const fileExtension = value.split('.').pop().toLowerCase();
+  const isImage = ['jpg', 'jpeg', 'png', 'gif'].includes(fileExtension);
+  const isPDF = fileExtension === 'pdf';
+
+  return (
+    <button 
+      className="btn btn-xs sm:btn-sm btn-outline font-bold cursor-pointer"
+      onClick={() => onPreview({ url: value, title: label, type: isImage ? 'image' : 'file' })}
+    >
+      View {label} ({isImage ? 'Image' : isPDF ? 'PDF' : 'File'})
+    </button>
+  );
+};
 
 export default function ProfileReviewModal({ vendor, onClose }) {
   const [activeTab, setActiveTab] = useState(TAB_KEYS[0]);
-  const [imagePreview, setImagePreview] = useState(null);
+  const [previewItem, setPreviewItem] = useState(null);
   
   const defaultApprovalStatus = {
     userDetails: 'pending',
@@ -26,7 +47,7 @@ export default function ProfileReviewModal({ vendor, onClose }) {
   const [approvalStatus, setApprovalStatus] = useState(defaultApprovalStatus);
   
   const [updateApprovalStatus] = useUpdateProfileApprovalStatusMutation();
-  const { data: existingStatus, isLoading, isError } = useGetProfileApprovalStatusQuery(vendor?.user?.id);
+  const { data: existingStatus, isLoading, isError, refetch } = useGetProfileApprovalStatusQuery(vendor?.user?.id);
 
   useEffect(() => {
     if (existingStatus) {
@@ -100,19 +121,6 @@ export default function ProfileReviewModal({ vendor, onClose }) {
     }
   };
 
-  const renderDocumentPreview = (value, label) => {
-    if (!value) return 'Not provided';
-    
-    return (
-      <button 
-        className="btn btn-sm btn-outline font-bold cursor-pointer"
-        onClick={() => setImagePreview({ url: value, title: label })}
-      >
-        View {label}
-      </button>
-    );
-  };
-
   const renderTabContent = (tab) => {
     const tabContentMap = {
       userDetails: {
@@ -125,16 +133,22 @@ export default function ProfileReviewModal({ vendor, onClose }) {
           { label: "Date of Birth", value: vendor.user.profile.date_of_birth || 'Not provided' },
           { label: "Gender", value: vendor.user.profile.gender || 'Not provided' },
           { label: "KYC Status", value: vendor.user.profile.kyc_status },
-          { 
-            label: "Address", 
-            value: vendor.user.address ? 
-              `${vendor.user.address.street_address}, ${vendor.user.address.city}, ${vendor.user.address.district_name}, ${vendor.user.address.state_name}, ${vendor.user.address.country} - ${vendor.user.address.postal_code}` : 
-              'Not provided'
+          {
+            label: "Address",
+            value: (
+              vendor.user.address &&
+              vendor.user.address.street_address &&
+              vendor.user.address.city &&
+              vendor.user.address.district_name &&
+              vendor.user.address.state_name &&
+              vendor.user.address.country &&
+              vendor.user.address.postal_code
+            ) ? `${vendor.user.address.street_address}, ${vendor.user.address.city}, ${vendor.user.address.district_name}, ${vendor.user.address.state_name}, ${vendor.user.address.country} - ${vendor.user.address.postal_code}` : 'Not provided'
           },
           { 
             label: "Social Media", 
             value: (
-              <div className="flex space-x-2">
+              <div className="flex flex-wrap gap-2">
                 {vendor.user.profile.facebook && <a href={vendor.user.profile.facebook} target="_blank" rel="noopener noreferrer" className="link link-primary">Facebook</a>}
                 {vendor.user.profile.instagram && <a href={vendor.user.profile.instagram} target="_blank" rel="noopener noreferrer" className="link link-primary">Instagram</a>}
                 {!vendor.user.profile.facebook && !vendor.user.profile.instagram && 'Not provided'}
@@ -148,19 +162,35 @@ export default function ProfileReviewModal({ vendor, onClose }) {
         fields: [
           { 
             label: "Aadhaar Card", 
-            value: renderDocumentPreview(vendor.user.profile.adhaar_card_pic, 'Aadhaar Card')
+            value: <FilePreviewButton 
+                     value={vendor.user.profile.adhaar_card_pic} 
+                     label="Aadhaar Card" 
+                     onPreview={setPreviewItem} 
+                   />
           },
           { 
             label: "PAN Card", 
-            value: renderDocumentPreview(vendor.user.profile.pancard_pic, 'PAN Card')
+            value: <FilePreviewButton 
+                     value={vendor.user.profile.pancard_pic} 
+                     label="PAN Card" 
+                     onPreview={setPreviewItem} 
+                   />
           },
           { 
             label: "Profile Picture", 
-            value: renderDocumentPreview(vendor.user.profile.profile_picture, 'Profile Picture')
+            value: <FilePreviewButton 
+                     value={vendor.user.profile.profile_picture} 
+                     label="Profile Picture" 
+                     onPreview={setPreviewItem} 
+                   />
           },
           { 
             label: "Other Documents", 
-            value: renderDocumentPreview(vendor.user.profile.kyc_other_document, 'Other Document')
+            value: <FilePreviewButton 
+                     value={vendor.user.profile.kyc_other_document} 
+                     label="Other Document" 
+                     onPreview={setPreviewItem} 
+                   />
           }
         ]
       },
@@ -190,19 +220,35 @@ export default function ProfileReviewModal({ vendor, onClose }) {
         fields: [
           { 
             label: "GST Certificate", 
-            value: renderDocumentPreview(vendor.user.company?.gst_certificate, 'GST Certificate')
+            value: <FilePreviewButton 
+                     value={vendor.user.company?.gst_certificate} 
+                     label="GST Certificate" 
+                     onPreview={setPreviewItem} 
+                   />
           },
           { 
             label: "PAN Card", 
-            value: renderDocumentPreview(vendor.user.company?.pan_card, 'Company PAN Card')
+            value: <FilePreviewButton 
+                     value={vendor.user.company?.pan_card} 
+                     label="Company PAN Card" 
+                     onPreview={setPreviewItem} 
+                   />
           },
           { 
             label: "Business Registration", 
-            value: renderDocumentPreview(vendor.user.company?.business_registration_doc, 'Business Registration')
+            value: <FilePreviewButton 
+                     value={vendor.user.company?.business_registration_doc} 
+                     label="Business Registration" 
+                     onPreview={setPreviewItem} 
+                   />
           },
           { 
             label: "Food License", 
-            value: renderDocumentPreview(vendor.user.company?.food_license_doc, 'Food License')
+            value: <FilePreviewButton 
+                     value={vendor.user.company?.food_license_doc} 
+                     label="Food License" 
+                     onPreview={setPreviewItem} 
+                   />
           }
         ]
       },
@@ -216,7 +262,11 @@ export default function ProfileReviewModal({ vendor, onClose }) {
           { label: "UPI ID", value: vendor.user.profile.upi_id || 'Not provided' },
           { 
             label: "Passbook/Cheque", 
-            value: renderDocumentPreview(vendor.user.profile.passbook_pic, 'Passbook/Cheque')
+            value: <FilePreviewButton 
+                     value={vendor.user.profile.passbook_pic} 
+                     label="Passbook/Cheque" 
+                     onPreview={setPreviewItem} 
+                   />
           }
         ]
       }
@@ -227,14 +277,14 @@ export default function ProfileReviewModal({ vendor, onClose }) {
     const reason = approvalStatus[`${tab}Reason`];
 
     return (
-      <div className="space-y-6">
-        <h4 className="text-xl font-bold text-primary">{currentTab.title}</h4>
+      <div className="space-y-4 md:space-y-6">
+        <h4 className="text-lg md:text-xl font-bold text-primary">{currentTab.title}</h4>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-6">
           {currentTab.fields.map((field, index) => (
-            <div key={index} className="bg-base-100 p-4 rounded-lg shadow-sm">
-              <p className="font-bold text-gray-700 mb-1">{field.label}</p>
-              <div className="text-gray-800">
+            <div key={index} className="bg-base-100 p-2 md:p-4 rounded-lg shadow-sm">
+              <p className="font-bold text-sm md:text-base text-gray-700 mb-1">{field.label}</p>
+              <div className="text-sm md:text-base text-gray-800">
                 {field.value}
               </div>
             </div>
@@ -243,14 +293,14 @@ export default function ProfileReviewModal({ vendor, onClose }) {
         
         <div className="divider"></div>
         
-        <div className="flex flex-col space-y-2 bg-base-200 p-4 rounded-lg">
-          <label className="label">
-            <span className="label-text font-bold">
+        <div className="flex flex-col space-y-2 bg-base-200 p-3 md:p-4 rounded-lg">
+          <label className="label p-0">
+            <span className="label-text font-bold text-sm md:text-base">
               {status === 'approved' ? 'Approval Note' : 'Rejection Reason'}
             </span>
           </label>
           <textarea 
-            className="textarea textarea-bordered h-24 focus:border-primary focus:ring-1 focus:ring-primary" 
+            className="textarea textarea-bordered h-20 md:h-24 focus:border-primary focus:ring-1 focus:ring-primary text-sm md:text-base" 
             placeholder={
               status === 'approved' ? 'Approval notes (optional)...' : 'Enter reason for rejection...'
             }
@@ -260,15 +310,15 @@ export default function ProfileReviewModal({ vendor, onClose }) {
           />
         </div>
         
-        <div className="flex justify-center space-x-6 mt-6">
+        <div className="flex flex-wrap justify-center gap-3 md:gap-6 mt-4 md:mt-6">
           <button 
-            className={`btn ${status === 'rejected' ? 'btn-error' : 'btn-outline btn-error'} font-bold`}
+            className={`btn btn-sm md:btn-md ${status === 'rejected' ? 'btn-error' : 'btn-outline btn-error'} font-bold`}
             onClick={() => handleReject(tab)}
           >
             {status === 'rejected' ? 'Rejected' : 'Reject'}
           </button>
           <button 
-            className={`btn ${status === 'approved' ? 'btn-success' : 'btn-outline btn-success'} font-bold`}
+            className={`btn btn-sm md:btn-md ${status === 'approved' ? 'btn-success' : 'btn-outline btn-success'} font-bold`}
             onClick={() => handleApprove(tab)}
           >
             {status === 'approved' ? 'Approved' : 'Approve'}
@@ -282,8 +332,9 @@ export default function ProfileReviewModal({ vendor, onClose }) {
     return (
       <div className="modal modal-open">
         <div className="modal-box flex flex-col items-center justify-center">
-          <span className="loading loading-spinner loading-lg text-primary"></span>
-          <p className="mt-4 font-bold">Loading approval status...</p>
+          <Suspense fallback={<div>Loading...</div>}>
+            <Spinner fullScreen={false} />
+          </Suspense>
         </div>
       </div>
     );
@@ -293,14 +344,16 @@ export default function ProfileReviewModal({ vendor, onClose }) {
     return (
       <div className="modal modal-open">
         <div className="modal-box">
-          <div className="alert alert-error shadow-lg">
-            <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span className="font-bold">Failed to load approval status. Please try again.</span>
-          </div>
+          <Suspense fallback={<div>Loading error component...</div>}>
+            <ErrorMessage 
+              message="Failed to load approval status. Please try again."
+              onRetry={refetch}
+            />
+          </Suspense>
           <div className="modal-action">
-            <button className="btn btn-primary" onClick={onClose}>Close</button>
+            <button className="btn btn-primary" onClick={onClose}>
+              Close
+            </button>
           </div>
         </div>
       </div>
@@ -310,9 +363,9 @@ export default function ProfileReviewModal({ vendor, onClose }) {
   return (
     <>
       <div className="modal modal-open">
-        <div className="modal-box max-w-6xl max-h-[90vh] flex flex-col">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="font-bold text-2xl text-primary">Vendor Profile Review</h3>
+        <div className="modal-box w-11/12 max-w-5xl max-h-[90vh] flex flex-col p-2 md:p-6">
+          <div className="flex justify-between items-center mb-4 md:mb-6">
+            <h3 className="font-bold text-lg md:text-2xl text-primary">Vendor Profile Review</h3>
             <button 
               className="btn btn-sm btn-circle btn-ghost hover:bg-error hover:text-white" 
               onClick={onClose}
@@ -322,40 +375,44 @@ export default function ProfileReviewModal({ vendor, onClose }) {
           </div>
           
           {/* Tabs */}
-          <div className="tabs tabs-boxed bg-base-200 mb-6 overflow-x-auto">
-            {TAB_KEYS.map((tab) => {
-              const status = approvalStatus[tab];
-              return (
-                <button 
-                  key={tab}
-                  className={`tab font-bold ${activeTab === tab ? 'tab-active' : ''} ${
-                    status === 'approved' ? '!bg-green-100 !text-green-800 border-green-300' : 
-                    status === 'rejected' ? '!bg-red-100 !text-red-800 border-red-300' : ''
-                  }`}
-                  onClick={() => setActiveTab(tab)}
-                >
-                  {tab.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                  {status !== 'pending' && (
-                    <span className="ml-1">
-                      {status === 'approved' ? '✓' : '✗'}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+          <div className="flex flex-nowrap overflow-x-auto pb-2 mb-4 md:mb-6">
+            <div className="tabs tabs-boxed bg-base-200 flex-nowrap whitespace-nowrap">
+              {TAB_KEYS.map((tab) => {
+                const status = approvalStatus[tab];
+                return (
+                  <button 
+                    key={tab}
+                    className={`tab text-xs md:text-sm font-bold flex-shrink-0 ${
+                      activeTab === tab ? 'tab-active' : ''
+                    } ${
+                      status === 'approved' ? '!bg-green-100 !text-green-800 border-green-300' : 
+                      status === 'rejected' ? '!bg-red-100 !text-red-800 border-red-300' : ''
+                    }`}
+                    onClick={() => setActiveTab(tab)}
+                  >
+                    {tab.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                    {status !== 'pending' && (
+                      <span className="ml-1">
+                        {status === 'approved' ? '✓' : '✗'}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
           
           {/* Tab Content */}
-          <div className="flex-grow overflow-y-auto p-4">
+          <div className="flex-grow overflow-y-auto p-1 md:p-4">
             {renderTabContent(activeTab)}
           </div>
           
           {/* Navigation and Submit */}
-          <div className="modal-action mt-6">
+          <div className="modal-action mt-4 md:mt-6">
             <div className="flex justify-between w-full">
               {activeTab !== TAB_KEYS[0] && (
                 <button 
-                  className="btn btn-outline font-bold"
+                  className="btn btn-sm md:btn-md btn-outline font-bold"
                   onClick={() => {
                     const currentIndex = TAB_KEYS.indexOf(activeTab);
                     setActiveTab(TAB_KEYS[currentIndex - 1]);
@@ -367,7 +424,7 @@ export default function ProfileReviewModal({ vendor, onClose }) {
               
               {activeTab !== TAB_KEYS[TAB_KEYS.length - 1] ? (
                 <button 
-                  className="btn btn-primary font-bold ml-auto"
+                  className="btn btn-sm md:btn-md btn-primary font-bold ml-auto"
                   onClick={() => {
                     const currentIndex = TAB_KEYS.indexOf(activeTab);
                     setActiveTab(TAB_KEYS[currentIndex + 1]);
@@ -377,7 +434,7 @@ export default function ProfileReviewModal({ vendor, onClose }) {
                 </button>
               ) : (
                 <button 
-                  className={`btn btn-success font-bold ml-auto ${!isSubmitEnabled() ? 'btn-disabled' : ''}`}
+                  className={`btn btn-sm md:btn-md btn-success font-bold ml-auto ${!isSubmitEnabled() ? 'btn-disabled' : ''}`}
                   onClick={handleSubmit}
                   disabled={!isSubmitEnabled()}
                 >
@@ -389,30 +446,50 @@ export default function ProfileReviewModal({ vendor, onClose }) {
         </div>
       </div>
 
-      {/* Image Preview Modal */}
-      {imagePreview && (
+      {/* File Preview Modal */}
+      {previewItem && (
         <div className="modal modal-open">
-          <div className="modal-box max-w-6xl max-h-screen">
+          <div className="modal-box w-11/12 max-w-5xl max-h-screen">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold text-xl">{imagePreview.title}</h3>
+              <h3 className="font-bold text-lg md:text-xl">{previewItem.title}</h3>
               <button 
                 className="btn btn-sm btn-circle btn-ghost hover:bg-error hover:text-white" 
-                onClick={() => setImagePreview(null)}
+                onClick={() => setPreviewItem(null)}
               >
                 ✕
               </button>
             </div>
-            <div className="flex justify-center">
-              <img 
-                src={imagePreview.url} 
-                alt={imagePreview.title} 
-                className="max-h-[80vh] object-contain"
-              />
+            <div className="flex justify-center items-center h-full min-h-[50vh]">
+              {previewItem.type === 'image' ? (
+                <img 
+                  src={previewItem.url} 
+                  alt={previewItem.title} 
+                  className="max-h-[70vh] md:max-h-[80vh] object-contain"
+                />
+              ) : (
+                <div className="w-full h-full">
+                  <iframe 
+                    src={previewItem.url} 
+                    title={previewItem.title}
+                    className="w-full h-[70vh] md:h-[80vh] border rounded-lg"
+                  />
+                  <div className="mt-4 text-center">
+                    <a 
+                      href={previewItem.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="btn btn-primary"
+                    >
+                      Open in New Tab
+                    </a>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="modal-action">
               <button 
-                className="btn btn-primary"
-                onClick={() => setImagePreview(null)}
+                className="btn btn-sm md:btn-md btn-primary"
+                onClick={() => setPreviewItem(null)}
               >
                 Close
               </button>

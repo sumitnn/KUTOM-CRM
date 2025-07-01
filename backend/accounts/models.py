@@ -8,13 +8,22 @@ import uuid
 # Create your models here.
 
 class User(AbstractBaseUser, PermissionsMixin):
+    USER_ACTIVE_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('new_user', 'New User'),
+    ]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
     username = models.CharField(max_length=50,blank=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_default_user = models.BooleanField(default=False)
-    is_user_active=models.BooleanField(default=False)
+    is_user_active = models.CharField(
+        max_length=10,
+        choices=USER_ACTIVE_CHOICES,
+        default='new_user'
+    )
     vendor_id = models.CharField(max_length=20, null=True, blank=True, unique=True)
     stockist_id = models.CharField(max_length=20, null=True, blank=True, unique=True)
     reseller_id = models.CharField(max_length=20, null=True, blank=True, unique=True)
