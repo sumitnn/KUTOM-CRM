@@ -45,28 +45,28 @@ def create_initial_data():
     # print("✅ Created 4 users (admin, vendor, reseller, stockist)")
 
     # Create 4 brands
-    brands = [
-        Brand.objects.create(
-            name="Nike",
-            is_active=True
-        ),
-        Brand.objects.create(
-            name="Adidas",
-            is_active=True
-        ),
-        Brand.objects.create(
-            name="Puma",
-            is_active=True
-        ),
-        Brand.objects.create(
-            name="Reebok",
-            is_active=True
-        )
-    ]
-    print("✅ Created 4 brands")
+    # brands = [
+    #     Brand.objects.create(
+    #         name="Nike",
+    #         is_active=True
+    #     ),
+    #     Brand.objects.create(
+    #         name="Adidas",
+    #         is_active=True
+    #     ),
+    #     Brand.objects.create(
+    #         name="Puma",
+    #         is_active=True
+    #     ),
+    #     Brand.objects.create(
+    #         name="Reebok",
+    #         is_active=True
+    #     )
+    # ]
+    # print("✅ Created 4 brands")
 
 
-    print("🎉 Initial data seeding complete!")
+    # print("🎉 Initial data seeding complete!")
 
 if __name__ == "__main__":
     create_initial_data()

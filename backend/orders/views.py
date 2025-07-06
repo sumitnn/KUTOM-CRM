@@ -74,18 +74,6 @@ class MyOrdersView(ListAPIView):
         return queryset
 
 
-
-
-# # When creating the order
-# OrderHistory.objects.create(order=order, actor=request.user, action='created', notes='Order placed.')
-
-# # When stockist accepts
-# OrderHistory.objects.create(order=order, actor=request.user, action='accepted', notes='Stockist accepted the order.')
-
-# # When cancelled
-# OrderHistory.objects.create(order=order, actor=request.user, action='cancelled', notes='Cancelled by stockist. Amount refunded to reseller.')
-
-
 class BulkOrderCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 

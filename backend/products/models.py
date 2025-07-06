@@ -210,12 +210,15 @@ class ProductPriceTier(models.Model):
 class Stock(models.Model):
     STATUS_CHOICES = [
         ('in_stock', 'In Stock'),
-        ('in_transit', 'In Transit'),
-        ('delivered', 'Delivered'),
+        ('out_of_stock', 'Out of Stock')
     ]
     
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='stocks')
     size = models.ForeignKey(ProductSize, on_delete=models.SET_NULL, null=True, blank=True)
+
+    old_quantity = models.PositiveIntegerField(default=0)
+    new_quantity = models.PositiveIntegerField(default=0)
+
     quantity = models.PositiveIntegerField(default=0)
     rate = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     total_price = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
@@ -227,10 +230,26 @@ class Stock(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        unique_together = ('product', 'size')
 
     def __str__(self):
         return f"{self.product.name} - {self.quantity} units"
-
+    
     def save(self, *args, **kwargs):
-        self.total_price = self.quantity * self.rate
+        if self.pk:  # Only apply logic on update
+            try:
+                previous = Stock.objects.get(pk=self.pk)
+                self.old_quantity = previous.quantity
+            except Stock.DoesNotExist:
+                self.old_quantity = 0
+            print("stock update model ")
+
+            # Update quantity based on previous and new
+            self.quantity = self.old_quantity + self.new_quantity
+            self.total_price = self.quantity * self.rate
+            self.status = 'out_of_stock' if self.quantity <= 10 else 'in_stock'
+
         super().save(*args, **kwargs)
+
+
+

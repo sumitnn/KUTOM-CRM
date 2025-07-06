@@ -4,12 +4,12 @@ import axiosBaseQuery from '../../utils/axiosBaseQuery';
 export const categoryApi = createApi({
     reducerPath: 'categoryApi',
     baseQuery: axiosBaseQuery({ baseUrl: import.meta.env.VITE_BACKEND_API_URL }),
-    tagTypes: ['MainCategory','Category', 'Subcategory'],
+    tagTypes: ['MainCategory', 'Category', 'Subcategory'],
     endpoints: (builder) => ({
         //maincategory
         getMainCategories: builder.query({
-            query: () => ({
-                url: '/main-categories/',
+            query: (search = '') => ({
+                url: `/main-categories/?search=${search}`,
                 method: 'GET',
             }),
             providesTags: ['MainCategory'],
@@ -40,12 +40,12 @@ export const categoryApi = createApi({
 
         // Categories
         getCategories: builder.query({
-            query: () => ({
-                url: '/categories/',
+            query: (search = '') => ({
+                url: `/categories/?search=${search}`,
                 method: 'GET',
             }),
             providesTags: ['Category'],
-          }),
+        }),
         addCategory: builder.mutation({
             query: (newCategory) => ({
                 url: '/categories/',
@@ -61,7 +61,7 @@ export const categoryApi = createApi({
                 data: data,
             }),
             invalidatesTags: ['Category'],
-          }),
+        }),
         deleteCategory: builder.mutation({
             query: (id) => ({
                 url: `/categories/${id}/`,
@@ -79,8 +79,8 @@ export const categoryApi = createApi({
             providesTags: ['Subcategory'],
         }),
         getSubcategories: builder.query({
-            query: () => ({
-                url: '/subcategories/',
+            query: (search = '') => ({
+                url: `/subcategories/?search=${search}`,
                 method: 'GET',
             }),
             providesTags: ['Subcategory'],
@@ -125,5 +125,4 @@ export const {
     useDeleteMainCategoryMutation,
     useGetMainCategoriesQuery,
     useUpdateMainCategoryMutation
-
 } = categoryApi;

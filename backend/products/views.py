@@ -13,20 +13,27 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.generics import ListAPIView
 from rest_framework import generics
+from rest_framework.pagination import PageNumberPagination
+from datetime import datetime
+
 
 
 class BrandListCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        search_query = request.query_params.get('search', '').strip().lower()
+
         brands = Brand.objects.all()
+        if search_query:
+            brands = brands.filter(Q(name__icontains=search_query))
+
         serializer = BrandSerializer(brands, many=True, context={'request': request})
         return Response(serializer.data)
 
     def post(self, request):
         user_role = getattr(request.user, 'role', None)
 
-        # Only allow 'admin' or 'vendor' to create a brand
         if user_role not in ['admin', 'vendor']:
             return Response(
                 {"message": "You do not have permission to create a brand.", "status": False},
@@ -35,7 +42,6 @@ class BrandListCreateAPIView(APIView):
 
         brand_name = request.data.get('name', '').strip().lower()
 
-        # Check for case-insensitive duplicate brand name
         if Brand.objects.filter(name__iexact=brand_name).exists():
             return Response(
                 {"message": "A brand with this name already exists.", "status": False},
@@ -43,7 +49,7 @@ class BrandListCreateAPIView(APIView):
             )
 
         data = request.data.copy()
-        data['name'] = brand_name  
+        data['name'] = brand_name
 
         serializer = BrandSerializer(data=data, context={'request': request})
         if serializer.is_valid():
@@ -115,8 +121,12 @@ class MainCategoryAPIView(APIView):
             serializer = MainCategorySerializer(category, context={'request': request})
             return Response(serializer.data)
         else:
-            categories = MainCategory.objects.all()
-            serializer = MainCategorySerializer(categories, many=True, context={'request': request})
+            search_query = request.query_params.get('search', '').strip()
+            queryset = MainCategory.objects.all()
+                
+            if search_query:
+                queryset = queryset.filter(name__icontains=search_query)
+            serializer = MainCategorySerializer(queryset, many=True, context={'request': request})
             return Response(serializer.data)
 
     def post(self, request):
@@ -172,8 +182,13 @@ class CategoryAPIView(APIView):
             serializer = CategorySerializer(category, context={'request': request})
             return Response(serializer.data)
         else:
-            categories = Category.objects.all()
-            serializer = CategorySerializer(categories, many=True, context={'request': request})
+            search_query = request.query_params.get('search', '').strip()
+            queryset = Category.objects.all()
+                
+            if search_query:
+                queryset = queryset.filter(name__icontains=search_query)
+
+            serializer = CategorySerializer(queryset, many=True, context={'request': request})
             return Response(serializer.data)
 
     def post(self, request):
@@ -258,8 +273,11 @@ class SubcategoryAPIView(APIView):
             serializer = SubCategorySerializer(subcategories, many=True, context={'request': request})
             return Response(serializer.data)
         else:
-            subcategories = SubCategory.objects.all().order_by('name')
-            serializer = SubCategorySerializer(subcategories, many=True, context={'request': request})
+            search_query = request.query_params.get('search', '').strip()
+            queryset = SubCategory.objects.all()  
+            if search_query:
+                queryset = queryset.filter(name__icontains=search_query)
+            serializer = SubCategorySerializer(queryset, many=True, context={'request': request})
             return Response(serializer.data)
 
     def post(self, request):
@@ -624,18 +642,87 @@ class ProductDetailAPIView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class ProductStatusUpdateView(APIView):
+    permission_classes = [IsVendorRole]
+
+    def get_object(self, pk):
+        return get_object_or_404(Product, pk=pk)
+
+    def put(self, request, pk):
+        product = self.get_object(pk)
+        self.check_object_permissions(request, product)
+        
+        # Get status from request data
+        new_status = request.data.get('status')
+
+        if new_status not in ['active', 'inactive']:
+            return Response(
+                {'message': 'Status must be either "active" or "inactive"', "status": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Update is_featured based on status
+        product.is_featured = (new_status == 'active')
+        product.save()
+
+        return Response(
+            {
+                'message': 'Product feature status updated successfully.',
+                "status": True
+            },
+            status=status.HTTP_200_OK
+        )
+
 class ProductByStatusAPIView(APIView):
     permission_classes = [IsAuthenticated]
-
+    
     def get(self, request):
         status_param = request.query_params.get('status')
+        page = request.query_params.get('page', 1)
+        page_size = request.query_params.get('page_size', 10)
 
         if not status_param:
-            return Response({'message': 'Status query parameter is required.',"status":False}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'message': 'Status query parameter is required.', "status": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        products = Product.objects.filter(status=status_param)
-        serializer = ProductSerializer(products, many=True, context={'request': request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        try:
+            page = int(page)
+            page_size = int(page_size)
+        except ValueError:
+            return Response(
+                {'message': 'Invalid page or page_size parameter.', "status": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Define queryset based on status
+        if status_param == 'draft':
+            products = Product.objects.filter(status='draft')
+        elif status_param == 'published':
+            products = Product.objects.filter(status='published')
+        elif status_param == 'active':
+            products = Product.objects.filter(status='published', is_featured=True)
+        elif status_param == 'inactive':
+            products = Product.objects.filter(status='published', is_featured=False)
+        else:
+            return Response(
+                {'message': 'Invalid status parameter.', "status": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Pagination
+        paginator = PageNumberPagination()
+        paginator.page_size = page_size
+        paginated_products = paginator.paginate_queryset(products, request)
+        
+        serializer = ProductSerializer(
+            paginated_products,
+            many=True,
+            context={'request': request}
+        )
+        
+        return paginator.get_paginated_response(serializer.data)
 
 class MyProductListAPIView(APIView):
     permission_classes = [IsAdminOrVendorRole]
@@ -670,38 +757,6 @@ class ProductStatsView(APIView):
         })
     
 
-class StockListCreateAPIView(generics.ListCreateAPIView):
-    serializer_class = StockSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        user = self.request.user
-        if user.is_staff:
-            return Stock.objects.all()
-        return Stock.objects.filter(owner=user)
-
-    def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
-
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = {
-        'product': ['exact'],
-        'status': ['exact'],
-        'created_at': ['gte', 'lte'],
-    }
-    search_fields = ['product__name', 'product__brand__name', 'notes']
-    ordering_fields = ['created_at', 'updated_at', 'quantity']
-    ordering = ['-created_at']
-
-    def get_permissions(self):
-        if self.request.method == 'POST':
-            return [IsVendorRole()]
-        return super().get_permissions()
-    
-class StockRetrieveUpdateAPIView(generics.RetrieveUpdateAPIView):
-    queryset = Stock.objects.all()
-    serializer_class = StockSerializer
-    permission_classes = [IsVendorRole]
 
 
 class VendorActiveProductListView(generics.ListAPIView):
@@ -710,7 +765,7 @@ class VendorActiveProductListView(generics.ListAPIView):
     pagination_class=None
 
     def get_queryset(self):
-        return Product.objects.filter(status='published', owner=self.request.user)
+        return Product.objects.filter(is_featured=True, owner=self.request.user)
 
 # View to fetch all sizes for a selected product
 class ProductSizeListByProductView(generics.ListAPIView):
@@ -721,3 +776,49 @@ class ProductSizeListByProductView(generics.ListAPIView):
     def get_queryset(self):
         product_id = self.kwargs['product_id']
         return ProductSize.objects.filter(product_id=product_id, is_active=True)
+    
+
+class StockListCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsVendorRole()]
+        return super().get_permissions()
+
+    def get(self, request):
+        user = request.user
+        queryset = Stock.objects.filter(owner=user)
+
+        product = request.query_params.get('product')
+        status_param = request.query_params.get('status')
+
+        if product:
+            queryset = queryset.filter(product=product)
+
+        if status_param:
+            today = datetime.now().date()
+            if status_param == "new_stock":
+                queryset = queryset.filter(created_at__date=today)
+            elif status_param == "in_stock":
+                queryset = queryset.filter(status='in_stock').exclude(created_at__date=today)
+            elif status_param == "out_of_stock":
+                queryset = queryset.filter(status='out_of_stock')
+
+
+        serializer = StockSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = StockSerializer(data=request.data, context={'request': request})
+        
+        if serializer.is_valid():
+            serializer.save(owner=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class StockRetrieveUpdateAPIView(generics.RetrieveUpdateAPIView):
+    queryset = Stock.objects.all()
+    serializer_class = StockSerializer
+    permission_classes = [IsVendorRole]

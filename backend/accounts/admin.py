@@ -136,5 +136,5 @@ class CompanyAdmin(admin.ModelAdmin):
 
 @admin.register(ProfileApprovalStatus)
 class ProfileApprovalStatusAdmin(admin.ModelAdmin):
-    list_display = ('user', 'user_details', 'bank_details', 'business_details', 'documents', 'address', 'contact', 'last_updated')
+    list_display = ('user', 'user_details', 'bank_details', 'business_details', 'documents',  'last_updated')
     search_fields = ('user__email', )

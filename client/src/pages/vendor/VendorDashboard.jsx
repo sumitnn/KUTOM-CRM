@@ -76,28 +76,28 @@ const VendorDashboard = () => {
       navlink: "/vendor/products"
     },
     {
-      title: "Requested Products",
+      title: "In-Active Products",
+      value: data.products.inactive,
+      bgColor: "bg-red-50",
+      textColor: "text-red-600",
+      borderColor: "border-red-100",
+      navlink: "/vendor/products"
+    },
+    {
+      title: "Published Products",
+      value: data.products.published,
+      bgColor: "bg-yellow-50",
+      textColor: "text-yellow-600",
+      borderColor: "border-yellow-100",
+      navlink: "/vendor/products"
+    },
+    {
+      title: "Requested Products(Draft)",
       value: data.products.draft,
       bgColor: "bg-green-50",
       textColor: "text-green-600",
       borderColor: "border-green-100",
       navlink: "/vendor/products"
-    },
-    {
-      title: "Total Sales",
-      value: `$${data.wallet.total_sales}`,
-      bgColor: "bg-red-50",
-      textColor: "text-red-600",
-      borderColor: "border-red-100",
-      navlink: "/vendor/my-sales"
-    },
-    {
-      title: "Dispatch",
-      value: data.products.active,
-      bgColor: "bg-yellow-50",
-      textColor: "text-yellow-600",
-      borderColor: "border-yellow-100",
-      navlink: "/vendor/my-sales"
     },
     {
       title: "Wallet Balance",
@@ -116,15 +116,15 @@ const VendorDashboard = () => {
       navlink: "/vendor/my-topup"
     },
     {
-      title: "Last Tranaction",
-      value: `$${data.wallet.last_transaction}`,
+      title: "Total Sales",
+      value: `$${data.wallet.total_sales}`,
       bgColor: "bg-indigo-50",
       textColor: "text-indigo-600",
       borderColor: "border-indigo-100",
       navlink: "/vendor/wallet"
     },
     {
-      title: "Withdrawals (request)",
+      title: "Bank Transfer Requests",
       value: `$${data.wallet.total_withdrawals}`,
       bgColor: "bg-cyan-50",
       textColor: "text-cyan-600",

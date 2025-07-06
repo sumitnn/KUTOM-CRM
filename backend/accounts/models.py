@@ -396,7 +396,8 @@ class Company(models.Model):
 
 
 
-APPROVAL_SECTIONS = ['user_details', 'bank_details', 'business_details', 'documents', 'address', 'contact']
+APPROVAL_SECTIONS = ['user_details', 'documents', 'business_details', 'company_documents', 'bank_details']
+
 class ProfileApprovalStatus(models.Model):
     APPROVAL_CHOICES = [
         ('approved', 'Approved'),
@@ -404,27 +405,23 @@ class ProfileApprovalStatus(models.Model):
         ('pending', 'Pending'),
     ]
 
-
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile_approval_status')
 
     # Status and reason fields
     user_details = models.CharField(max_length=20, choices=APPROVAL_CHOICES, default='pending')
     user_details_reason = models.TextField(blank=True)
 
-    bank_details = models.CharField(max_length=20, choices=APPROVAL_CHOICES, default='pending')
-    bank_details_reason = models.TextField(blank=True)
+    documents = models.CharField(max_length=20, choices=APPROVAL_CHOICES, default='pending')
+    documents_reason = models.TextField(blank=True)
 
     business_details = models.CharField(max_length=20, choices=APPROVAL_CHOICES, default='pending')
     business_details_reason = models.TextField(blank=True)
 
-    documents = models.CharField(max_length=20, choices=APPROVAL_CHOICES, default='pending')
-    documents_reason = models.TextField(blank=True)
+    company_documents = models.CharField(max_length=20, choices=APPROVAL_CHOICES, default='pending')
+    company_documents_reason = models.TextField(blank=True)
 
-    address = models.CharField(max_length=20, choices=APPROVAL_CHOICES, default='pending')
-    address_reason = models.TextField(blank=True)
-
-    contact = models.CharField(max_length=20, choices=APPROVAL_CHOICES, default='pending')
-    contact_reason = models.TextField(blank=True)
+    bank_details = models.CharField(max_length=20, choices=APPROVAL_CHOICES, default='pending')
+    bank_details_reason = models.TextField(blank=True)
 
     last_updated = models.DateTimeField(auto_now=True)
 

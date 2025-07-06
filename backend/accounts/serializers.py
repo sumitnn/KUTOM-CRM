@@ -467,9 +467,8 @@ class ProfileApprovalStatusUpdateSerializer(serializers.ModelSerializer):
         model = ProfileApprovalStatus
         fields = [
             'user_details', 'user_details_reason',
-            'bank_details', 'bank_details_reason',
-            'business_details', 'business_details_reason',
             'documents', 'documents_reason',
-            'address', 'address_reason',
-            'contact', 'contact_reason',
+            'business_details', 'business_details_reason',
+            'company_documents', 'company_documents_reason',
+            'bank_details', 'bank_details_reason',
         ]

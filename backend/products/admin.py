@@ -76,3 +76,5 @@ class ProductImageAdmin(admin.ModelAdmin):
 class ProductPriceTierAdmin(admin.ModelAdmin):
     list_display = ('product', 'size', 'min_quantity', 'price')
     list_filter = ('min_quantity',)
+
+

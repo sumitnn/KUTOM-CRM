@@ -25,7 +25,7 @@ from rest_framework.pagination import PageNumberPagination
 from products.models import Product
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.db import transaction
-
+from django.utils.timezone import make_aware
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -799,15 +799,19 @@ class UserPaymentDetailsView(generics.RetrieveUpdateAPIView):
 class DashboardAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self,request):
+    def get(self, request):
         user = request.user
-
-
         days = int(request.query_params.get('days', 0))
-        date_from = datetime.now() - timedelta(days=days)
 
-        # Wallet
+        if days == 0:
+            # Get only today's data: from midnight to now
+            now = datetime.now()
+            date_from = make_aware(datetime.combine(now.date(), datetime.min.time()))
+        else:
+            date_from = datetime.now() - timedelta(days=days)
+
         wallet = Wallet.objects.filter(user=user).first()
+
         wallet_data = {
             'balance': wallet.balance if wallet else 0,
             'total_sales': self.get_total_sales(user),
@@ -815,36 +819,26 @@ class DashboardAPIView(APIView):
             'last_transaction': self.get_last_transaction_amount(wallet)
         }
 
-        # Product stats
         product_qs = Product.objects.filter(owner=user)
         product_stats = {
             'total': product_qs.count(),
-            'active': product_qs.filter(status='published').count(),
+            'published': product_qs.filter(status='published').count(),
             'draft': product_qs.filter(status='draft').count(),
             'inactive': product_qs.filter(is_featured=False).count(),
+            'active': product_qs.filter(is_featured=True).count(),
         }
-
-
-        # order_ids = OrderItem.objects.filter(product_size__product__owner=user).values_list('order_id', flat=True).distinct()
-        # order_qs = Order.objects.filter(id__in=order_ids, created_at__gte=date_from)
-        # order_stats = {
-        #     'total': order_qs.count(),
-        #     'pending': order_qs.filter(status='pending').count(),
-        #     'approved': order_qs.filter(status='approved').count(),
-        #     'rejected': order_qs.filter(status='rejected').count(),
-        #     'monthly': self.get_monthly_stats(order_qs)
-        # }
 
         return Response({
             'wallet': wallet_data,
             'products': product_stats,
-            'orders': 0,
-            'topups': self.get_topups(user, date_from),
-            'withdrawal_requests': self.get_withdrawals(user, date_from)
+            'orders': 0,  # Placeholder, you can hook in real order logic here
+            'topups': list(self.get_topups(user, date_from)),
+            'withdrawal_requests': list(self.get_withdrawals(user, date_from)),
         })
 
     def get_total_sales(self, user):
-        return  0
+        # Hook in real logic
+        return 0
 
     def get_total_withdrawals(self, user):
         return WithdrawalRequest.objects.filter(user=user, status='approved').aggregate(
@@ -855,11 +849,6 @@ class DashboardAPIView(APIView):
         if wallet and wallet.transactions.exists():
             return wallet.transactions.last().amount
         return 0
-
-    def get_monthly_stats(self, queryset):
-        return queryset.extra({'month': "strftime('%%Y-%%m', created_at)"}).values('month').annotate(
-            count=Count('id')
-        )
 
     def get_topups(self, user, date_from):
         return TopupRequest.objects.filter(user=user, created_at__gte=date_from).values(
@@ -1015,29 +1004,16 @@ class UpdateApprovalStatusView(APIView):
 
     def put(self, request, user_id):
         approval = get_object_or_404(ProfileApprovalStatus, user__id=user_id)
-        frontend_data = request.data
-
-        # Mapping camelCase keys from frontend to snake_case keys expected by serializer
-        key_map = {
-            'userDetails': 'user_details',
-            'bankDetails': 'bank_details',
-            'businessDetails': 'business_details',
-            'documents': 'documents',
-            'address': 'address',
-            'contact': 'contact',
-        }
-
-        transformed_data = {}
-        for frontend_key, section in key_map.items():
-            if frontend_key in frontend_data:
-                transformed_data[section] = frontend_data[frontend_key].get('status')
-                transformed_data[f"{section}_reason"] = frontend_data[frontend_key].get('reason', '')
-
-        serializer = ProfileApprovalStatusUpdateSerializer(approval, data=transformed_data, partial=True)
+        serializer = ProfileApprovalStatusUpdateSerializer(
+            approval,
+            data=request.data,
+            partial=True
+        )
 
         if serializer.is_valid():
             serializer.save()
             return Response({'message': 'Approval status updated successfully'}, status=status.HTTP_200_OK)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 class GetProfileApprovalStatusView(APIView):
@@ -1054,51 +1030,18 @@ class VerifyUserKYCView(APIView):
 
     def post(self, request, user_id):
         try:
-            with transaction.atomic():
-                profile = Profile.objects.select_related("user").get(user__id=user_id)
-                user = profile.user
+            profile = Profile.objects.select_related("user").get(user__id=user_id)
 
-                if profile.kyc_verified:
-                    return Response({"detail": "KYC already verified."}, status=status.HTTP_400_BAD_REQUEST)
+            if profile.kyc_verified:
+                return Response({"message": "KYC already verified."}, status=status.HTTP_400_BAD_REQUEST)
 
-                profile.kyc_verified = True
-                profile.kyc_status = "APPROVED"
-                profile.kyc_verified_at = datetime.now()
-
-                role = getattr(user, "role", None)
-                if not role:
-                    return Response({"detail": "User role is not set."}, status=status.HTTP_400_BAD_REQUEST)
-
-                if role == "vendor" and not user.vendor_id:
-                    user.vendor_id = self._generate_next_id(User, "vendor_id", "VID")
-                elif role == "stockist" and not user.stockist_id:
-                    user.stockist_id = self._generate_next_id(User, "stockist_id", "SID")
-                elif role == "reseller" and not user.reseller_id:
-                    user.reseller_id = self._generate_next_id(User, "reseller_id", "RID")
-                else:
-                    return Response({"detail": "Unsupported or already assigned role ID."}, status=status.HTTP_400_BAD_REQUEST)
-
-                user.save()
-                profile.save()
-                return Response({"detail": f"KYC verified. {role.title()} ID assigned."}, status=status.HTTP_200_OK)
+            profile.kyc_verified = True
+            profile.kyc_status = "APPROVED"
+            profile.kyc_verified_at = datetime.now()
+            profile.save()
+            return Response({"message": f"KYC verified."}, status=status.HTTP_200_OK)
 
         except Profile.DoesNotExist:
-            return Response({"detail": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
 
-    def _generate_next_id(self, model, field_name, prefix):
-        latest = (
-            model.objects
-            .exclude(**{field_name: None})
-            .order_by(f"-{field_name}")
-            .first()
-        )
-        if latest:
-            latest_id = getattr(latest, field_name)
-            try:
-                number = int(latest_id.replace(prefix, ""))
-            except (ValueError, TypeError):
-                number = 0
-        else:
-            number = 0
-
-        return f"{prefix}{number + 1:05d}"
+    

@@ -148,30 +148,6 @@ class ProductSerializer(serializers.ModelSerializer):
 
 
 
-class StockSerializer(serializers.ModelSerializer):
-    product_name = serializers.CharField(source='product.name', read_only=True)
-    brand_name = serializers.CharField(source='product.brand.name', read_only=True)
-    category_name = serializers.CharField(source='product.category.name', read_only=True)
-    subcategory_name = serializers.CharField(source='product.subcategory.name', read_only=True)
-    size_display = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = Stock
-        fields = [
-            'id', 'product', 'product_name', 'size', 'size_display', 'quantity', 
-            'rate', 'total_price', 'status', 'notes',
-            'brand_name', 'category_name', 'subcategory_name', 'created_at', 'updated_at'
-        ]
-        read_only_fields = ['total_price', 'created_at', 'updated_at']
-    
-    def get_size_display(self, obj):
-        if obj.size:
-            return f"{obj.size.size}"
-        return None
-    
-    def create(self, validated_data):
-        validated_data['total_price'] = validated_data['quantity'] * validated_data['rate']
-        return super().create(validated_data)
 
 
 class ProductSizeDetailSerializer(serializers.ModelSerializer):
@@ -183,3 +159,58 @@ class ProductDropdownSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ['id', 'name', 'sku']
+
+class StockSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    brand_name = serializers.CharField(source='product.brand.name', read_only=True)
+    category_name = serializers.CharField(source='product.category.name', read_only=True)
+    subcategory_name = serializers.CharField(source='product.subcategory.name', read_only=True)
+    size_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Stock
+        fields = [
+            'id', 'product', 'product_name', 'size', 'size_display',
+            'quantity', 'old_quantity', 'new_quantity', 'rate', 'total_price', 'status', 'notes',
+            'brand_name', 'category_name', 'subcategory_name', 'created_at', 'updated_at'
+        ]
+        read_only_fields = [
+            'old_quantity', 'total_price', 'status',
+            'created_at', 'updated_at'
+        ]
+
+    def get_size_display(self, obj):
+        return str(obj.size.size) if obj.size else None
+
+    def create(self, validated_data):
+        import pdb;pdb.set_trace()
+        product = validated_data['product']
+        size = validated_data.get('size')
+        new_quantity = int(validated_data.get('quantity', 0))
+        rate = validated_data.get('rate', 0)
+
+        # Prevent duplicate stock
+        if Stock.objects.filter(product=product, size=size).exists():
+            raise serializers.ValidationError("Stock already exists for this product-size combination. Please update instead.")
+
+        # Compute derived fields
+        validated_data['old_quantity'] = 0
+        validated_data['quantity'] = new_quantity
+        validated_data['total_price'] = new_quantity * rate
+        validated_data['status'] = 'out_of_stock' if new_quantity <= 10 else 'in_stock'
+        validated_data['notes'] = validated_data.get('notes', '')
+
+
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            validated_data['owner'] = request.user
+
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        instance.new_quantity = validated_data.get('quantity', 0)
+        instance.rate = validated_data.get('rate', instance.rate)
+        instance.notes = validated_data.get('notes', instance.notes)
+
+        instance.save()
+        return instance

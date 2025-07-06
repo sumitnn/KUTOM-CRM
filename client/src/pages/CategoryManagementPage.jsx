@@ -12,11 +12,16 @@ import {
 } from "../features/category/categoryApi";
 import { useGetBrandsQuery } from "../features/brand/brandApi";
 import { toast } from "react-toastify";
-import { FiEdit2, FiPlus, FiX, FiTrash2 } from "react-icons/fi";
+import { FiEdit2, FiPlus, FiX, FiTrash2, FiSearch } from "react-icons/fi";
 import { format } from "date-fns";
 
 const CategoryManagementPage = () => {
   const [activeTab, setActiveTab] = useState("main-categories");
+  
+  // Search states
+  const [mainCategorySearch, setMainCategorySearch] = useState("");
+  const [categorySearch, setCategorySearch] = useState("");
+  const [subcategorySearch, setSubcategorySearch] = useState("");
   
   // Main Category states
   const [mainCategoryForm, setMainCategoryForm] = useState({
@@ -49,18 +54,18 @@ const CategoryManagementPage = () => {
   const [editCategory, setEditCategory] = useState(null);
   const [editSubcategory, setEditSubcategory] = useState(null);
 
-  // Data fetching
+  // Data fetching with search queries
   const { 
     data: mainCategories = [], 
     isLoading: isMainCategoriesLoading,
     refetch: refetchMainCategories 
-  } = useGetMainCategoriesQuery();
+  } = useGetMainCategoriesQuery(mainCategorySearch);
   
   const { 
     data: categories = [], 
     isLoading: isCategoriesLoading,
     refetch: refetchCategories 
-  } = useGetCategoriesQuery();
+  } = useGetCategoriesQuery(categorySearch);
   
   const {
     data: brands = [],
@@ -71,7 +76,7 @@ const CategoryManagementPage = () => {
     data: subcategories = [], 
     isLoading: isSubcategoriesLoading,
     refetch: refetchSubcategories 
-  } = useGetSubcategoriesQuery(undefined, {
+  } = useGetSubcategoriesQuery(subcategorySearch, {
     skip: activeTab !== "subcategories"
   });
 
@@ -91,6 +96,9 @@ const CategoryManagementPage = () => {
     setEditMainCategory(null);
     setEditCategory(null);
     setEditSubcategory(null);
+    setMainCategorySearch("");
+    setCategorySearch("");
+    setSubcategorySearch("");
   }, [activeTab]);
 
   // Handle main category creation/update
@@ -105,7 +113,6 @@ const CategoryManagementPage = () => {
         formData.append('image', mainCategoryForm.image);
       }
 
-      
       if (editMainCategory) {
         await updateMainCategory({
           id: editMainCategory.id,
@@ -256,6 +263,17 @@ const CategoryManagementPage = () => {
     setIsSubcategoryFormOpen(true);
   };
 
+  // Handle search clear
+  const handleClearSearch = (type) => {
+    if (type === 'main') {
+      setMainCategorySearch("");
+    } else if (type === 'category') {
+      setCategorySearch("");
+    } else if (type === 'subcategory') {
+      setSubcategorySearch("");
+    }
+  };
+
   if (isMainCategoriesLoading || isCategoriesLoading || isBrandsLoading || (activeTab === "subcategories" && isSubcategoriesLoading)) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -315,22 +333,42 @@ const CategoryManagementPage = () => {
             <div>
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-extrabold text-gray-800">Main Categories</h2>
-                <button
-                  onClick={() => {
-                    setIsMainCategoryFormOpen(true);
-                    setEditMainCategory(null);
-                    setMainCategoryForm({
-                      name: "",
-                      image: null,
-                      is_active: true,
-                      imagePreview: null
-                    });
-                  }}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 hover:cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  <FiPlus className="mr-2" />
-                  New Main Category
-                </button>
+                <div className="flex items-center space-x-4">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search main categories..."
+                      className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      value={mainCategorySearch}
+                      onChange={(e) => setMainCategorySearch(e.target.value)}
+                    />
+                    <FiSearch className="absolute left-3 top-3 text-gray-400" />
+                    {mainCategorySearch && (
+                      <button
+                        onClick={() => handleClearSearch('main')}
+                        className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                      >
+                        <FiX />
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setIsMainCategoryFormOpen(true);
+                      setEditMainCategory(null);
+                      setMainCategoryForm({
+                        name: "",
+                        image: null,
+                        is_active: true,
+                        imagePreview: null
+                      });
+                    }}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 hover:cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    <FiPlus className="mr-2" />
+                    New Main Category
+                  </button>
+                </div>
               </div>
               
               {/* Main Category Form */}
@@ -493,21 +531,41 @@ const CategoryManagementPage = () => {
             <div>
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-extrabold text-gray-800">Categories</h2>
-                <button
-                  onClick={() => {
-                    setIsCategoryFormOpen(true);
-                    setEditCategory(null);
-                    setCategoryForm({ 
-                      name: "", 
-                      main_category: "", 
-                      is_active: true 
-                    });
-                  }}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 hover:cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  <FiPlus className="mr-2" />
-                  New Category
-                </button>
+                <div className="flex items-center space-x-4">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search categories..."
+                      className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      value={categorySearch}
+                      onChange={(e) => setCategorySearch(e.target.value)}
+                    />
+                    <FiSearch className="absolute left-3 top-3 text-gray-400" />
+                    {categorySearch && (
+                      <button
+                        onClick={() => handleClearSearch('category')}
+                        className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                      >
+                        <FiX />
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setIsCategoryFormOpen(true);
+                      setEditCategory(null);
+                      setCategoryForm({ 
+                        name: "", 
+                        main_category: "", 
+                        is_active: true 
+                      });
+                    }}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 hover:cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    <FiPlus className="mr-2" />
+                    New Category
+                  </button>
+                </div>
               </div>
               
               {/* Category Form */}
@@ -661,22 +719,42 @@ const CategoryManagementPage = () => {
             <div>
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-extrabold text-gray-800">Subcategories</h2>
-                <button
-                  onClick={() => {
-                    setIsSubcategoryFormOpen(true);
-                    setEditSubcategory(null);
-                    setSubcategoryForm({ 
-                      name: "", 
-                      category: "", 
-                      brand: "", 
-                      is_active: true 
-                    });
-                  }}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md hover:cursor-pointer shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  <FiPlus className="mr-2" />
-                  New Subcategory
-                </button>
+                <div className="flex items-center space-x-4">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search subcategories..."
+                      className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      value={subcategorySearch}
+                      onChange={(e) => setSubcategorySearch(e.target.value)}
+                    />
+                    <FiSearch className="absolute left-3 top-3 text-gray-400" />
+                    {subcategorySearch && (
+                      <button
+                        onClick={() => handleClearSearch('subcategory')}
+                        className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                      >
+                        <FiX />
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setIsSubcategoryFormOpen(true);
+                      setEditSubcategory(null);
+                      setSubcategoryForm({ 
+                        name: "", 
+                        category: "", 
+                        brand: "", 
+                        is_active: true 
+                      });
+                    }}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md hover:cursor-pointer shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    <FiPlus className="mr-2" />
+                    New Subcategory
+                  </button>
+                </div>
               </div>
               
               {/* Subcategory Form */}
