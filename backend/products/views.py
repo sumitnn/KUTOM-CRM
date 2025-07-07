@@ -497,6 +497,7 @@ class ProductDetailAPIView(APIView):
         ), pk=pk)
 
     def get(self, request, pk):
+        
         product = self.get_object(pk)
         self.check_object_permissions(request, product)
         serializer = ProductSerializer(product, context={'request': request})

@@ -2,7 +2,7 @@ from decimal import Decimal
 from django.db import transaction
 from django.db.models import F
 from .models import  Order, OrderItem, OrderHistory
-from products.models import Product
+from products.models import Product,ProductSize
 from accounts.models import Wallet,StockistAssignment
 
 from rest_framework.exceptions import ValidationError
@@ -10,67 +10,86 @@ from rest_framework.exceptions import ValidationError
 class OrderService:
 
     @staticmethod
-    def create_bulk_order(reseller, items_data):
+    def create_bulk_order(user, items_data):
         """
-        This function processes the bulk order, checks wallet balance, and deducts balance from the reseller's wallet.
+        Processes a bulk order by validating product/size, checking wallet balance, and creating the order.
         """
-        # Start the transaction block to make sure select_for_update works properly
-        with transaction.atomic():  
+        with transaction.atomic():
             try:
-                # Lock the wallet record for the reseller
-                wallet = Wallet.objects.select_for_update().get(user=reseller)
+                wallet = Wallet.objects.select_for_update().get(user=user)
             except Wallet.DoesNotExist:
-                raise ValidationError("Reseller wallet not found.")
+                raise ValidationError("Wallet not found for the user.")
+            
+            if wallet.balance < 10:
+                print("Insufficient wallet balance.")
+                raise ValidationError("Insufficient wallet balance.")
+            
+            # import pdb; pdb.set_trace()
+            total_price = Decimal('0.00')
+            validated_items = []
 
-            total_price = Decimal(0)
-
-            # Calculate total price for the order
             for item in items_data:
                 product_id = item.get("product_id")
+                size_id = item.get("size")["id"]
                 quantity = item.get("quantity", 1)
 
-                if not product_id:
-                    raise ValueError("Missing product_id.")
+                if not product_id or not size_id:
+                    raise ValidationError("Missing product_id or product_size_id.")
 
-                # Fetch the product (validate active status)
-                product = Product.objects.get(id=product_id, active=True)
-                total_price += product.selling_price * quantity
+                try:
+                    product = Product.objects.get(id=product_id, is_featured=True)
+                    product_size = ProductSize.objects.get(id=size_id)
+                except (Product.DoesNotExist, ProductSize.DoesNotExist):
+                    raise ValidationError("Invalid product or product size.")
 
-            # Check if the wallet has sufficient balance
+                line_total = product_size.price * quantity
+                total_price += line_total
+
+                validated_items.append({
+                    "product": product,
+                    "product_size": product_size,
+                    "quantity": quantity,
+                    "price":product_size.price,
+                })
+
             if wallet.balance < total_price:
                 raise ValidationError("Insufficient wallet balance.")
 
-            # Deduct the wallet balance inside the transaction
+            # Deduct the balance
             wallet.balance = F('balance') - total_price
             wallet.save()
+            if user.role =="reseller":
+                # Get stockist assignment
+                stockist_assignment = StockistAssignment.objects.filter(reseller=user).last()
+                created_for = stockist_assignment.stockist if stockist_assignment else None
+            else:
+                created_for = product.owner
 
-            stokist_Assign=StockistAssignment.objects.filter(reseller=reseller).last()
-
-            # Create the Order
+            # Create order
             order = Order.objects.create(
-                reseller=reseller,
-                stockist=stokist_Assign.stockist if stokist_Assign else None,  
+                created_by=user,
+                created_for=created_for,
                 total_price=total_price,
-                status='pending',  # waiting for stockist approval
+                status='new',
                 description="Bulk order placed"
             )
 
-            # Create Order History entry
+            # Create history
             OrderHistory.objects.create(
                 order=order,
-                actor=reseller,
-                action='created',
+                actor=user,
+                action='new',
                 notes="Bulk order placed."
             )
 
-            # Create OrderItems for each product in the bulk order
-            for item in items_data:
-                product = Product.objects.get(id=item["product_id"], active=True)
+            # Create order items
+            for item in validated_items:
                 OrderItem.objects.create(
                     order=order,
-                    product=product,
+                    product=item["product"],
+                    product_size=item["product_size"],
                     quantity=item["quantity"],
-                    price=product.selling_price
+                    price=item["price"],
                 )
 
             return order, total_price

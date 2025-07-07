@@ -103,6 +103,8 @@ class OrderItem(models.Model):
 
     @property
     def total(self):
+        if self.price is None or self.discount is None or self.quantity is None:
+            return 0
         discounted_price = self.price * (1 - self.discount / 100)
         return round(self.quantity * discounted_price, 2)
 

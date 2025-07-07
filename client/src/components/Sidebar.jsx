@@ -67,6 +67,8 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
           { label: "Topup Request & History", path: "/admin/topup" },
         ],
       },
+      
+      { icon: <MdProductionQuantityLimits />, label: "My Cart", path: "/admin/my-cart" },
       { icon: <CiWallet />, label: "Wallet", path: "/admin/wallet" },
     ],
     stockist: [
