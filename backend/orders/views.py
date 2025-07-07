@@ -55,7 +55,7 @@ class ForwardOrderAPIView(APIView):
 
 
 class MyOrdersPagination(PageNumberPagination):
-    page_size = 5  # or any number you prefer
+    page_size = 10  # or any number you prefer
 
 class MyOrdersView(ListAPIView):
     serializer_class = OrderSerializer
@@ -64,26 +64,15 @@ class MyOrdersView(ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        status_param = self.request.GET.get('status', 'all')
-        if self.request.user.role =="stockist":
-            queryset = Order.objects.filter(stockist=user).order_by('-created_at')
-        else:
-            queryset = Order.objects.filter(reseller=user).order_by('-created_at')
-        if status_param != 'all':
-            queryset = queryset.filter(status=status_param)
+        import pdb; pdb.set_trace()
+        queryset = Order.objects.filter(created_by=user)
+
+        # Optional: Filter by status from query params
+        status = self.request.query_params.get('status')
+        if status:
+            queryset = queryset.filter(status=status)
+
         return queryset
-
-
-
-
-# # When creating the order
-# OrderHistory.objects.create(order=order, actor=request.user, action='created', notes='Order placed.')
-
-# # When stockist accepts
-# OrderHistory.objects.create(order=order, actor=request.user, action='accepted', notes='Stockist accepted the order.')
-
-# # When cancelled
-# OrderHistory.objects.create(order=order, actor=request.user, action='cancelled', notes='Cancelled by stockist. Amount refunded to reseller.')
 
 
 class BulkOrderCreateView(APIView):
@@ -92,20 +81,44 @@ class BulkOrderCreateView(APIView):
     def post(self, request):
         data = request.data
         items_data = data.get("items")
+        
+        if request.user.role == 'vendor':
+            return Response({"message": "You don’t have access to order items."}, status=400)
 
         if not isinstance(items_data, list) or not items_data:
-            return Response({"error": "Invalid or empty 'items' list."}, status=400)
+            return Response({"message": "Invalid or empty 'items' list."}, status=400)
 
         try:
             order, total_price = OrderService.create_bulk_order(request.user, items_data)
             return Response(
-                {"message": "Order created", "order_id": order.id, "total_deducted": total_price},
+                {
+                    "message": "Order created successfully.",
+                    "order_id": order.id,
+                    "total_deducted": total_price
+                },
                 status=status.HTTP_201_CREATED
             )
+
         except ValidationError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            # Handles DRF ValidationError which might have a dictionary or string inside
+            error_detail = e.detail if hasattr(e, 'detail') else str(e)
+
+            if isinstance(error_detail, dict):
+                # For structured error responses (field-level errors)
+                flat_errors = [str(msg) for messages in error_detail.values() for msg in messages]
+                error_message = flat_errors[0] if flat_errors else "Invalid input."
+            else:
+                # For plain string messages
+                error_message = str(error_detail)
+
+            # Normalize specific known messages
+            if "Insufficient wallet balance" in error_message:
+                error_message = "Insufficient balance"
+
+            return Response({"message": error_message}, status=status.HTTP_400_BAD_REQUEST)
+
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)        
+            return Response({"message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class StockistAcceptOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -234,7 +247,7 @@ class OrderDetailAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
 
-class StockistUpdateOrderStatusView(APIView):
+class UpdateOrderStatusView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def patch(self, request, pk):

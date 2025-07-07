@@ -8,10 +8,17 @@ export const brandApi = createApi({
     tagTypes: ['Brand'],
     endpoints: (builder) => ({
         getBrands: builder.query({
-            query: () => ({
-                url: '/brands/',
-                method: 'GET',
-            }),
+            query: (search) => {
+                const params = {};
+                if (search) {
+                    params.search = search;
+                }
+                return {
+                    url: '/brands/',
+                    method: 'GET',
+                    params: params
+                };
+            },
             providesTags: ['Brand'],
         }),
         getBrandById: builder.query({

@@ -4,7 +4,10 @@ import ProtectedRoute from "../ProtectedRoutes";
 import AdminMainLayout from "../../layout/admin/AdminMainLayout";
 import Spinner from "../../components/common/Spinner";
 
+
+
 // Lazy-loaded components
+const AdminOrderManagementPage=lazy(()=> import("../../pages/admin/AdminOrderManagementPage"))
 const AdminDashboard = lazy(() => import("../../pages/admin/AdminDashboard"));
 const WalletManagementPage = lazy(() => import("../../pages/admin/WalletManagementPage"));
 const AdminVendor = lazy(() => import("../../pages/admin/AdminVendor"));
@@ -27,6 +30,7 @@ const AdminReseller = lazy(() => import("../../pages/admin/AdminReseller"));
 const OrdersManagement = lazy(() => import("../../pages/OrdersManagement"));
 const AdminTopupPage = lazy(() => import("../../pages/admin/AdminTopupPage"));
 const AdminProductApprovalPage = lazy(() => import("../../pages/admin/AdminProductApprovalPage"));
+const MyCart = lazy(() => import("../../pages/MyCart"));
 
 const AdminRoutes = [
   <Route key="admin" element={<ProtectedRoute allowedRoles={["admin"]} />}>
@@ -109,6 +113,16 @@ const AdminRoutes = [
       }
     />
     <Route 
+      path="/admin/orders" 
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <AdminOrderManagementPage/>
+          </Suspense>
+        </AdminMainLayout>
+      }
+    />
+    <Route 
       path="/admin/products/:id" 
       element={
         <AdminMainLayout>
@@ -180,6 +194,18 @@ const AdminRoutes = [
         <AdminMainLayout>
           <Suspense fallback={<Spinner />}>
             <AdminTopupPage />
+          </Suspense>
+        </AdminMainLayout>
+      } 
+    />
+
+    <Route 
+      path="/admin/my-cart" 
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            
+            <MyCart role="admin"/>
           </Suspense>
         </AdminMainLayout>
       } 

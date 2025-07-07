@@ -3,6 +3,8 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import User, Profile,Wallet,Company,ProfileApprovalStatus,Address
 import datetime
+from .utils import generate_unique_role_id
+
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
@@ -39,3 +41,16 @@ def update_profile_completion(sender, instance, **kwargs):
         profile = instance.user.profile
         profile.completion_percentage = completion
         profile.save()
+
+        user = instance.user
+
+        if completion > 15:
+            if user.role == 'vendor' and not user.vendor_id:
+                user.vendor_id = generate_unique_role_id('vendor')
+                user.save(update_fields=['vendor_id'])
+            elif user.role == 'stockist' and not user.stockist_id:
+                user.stockist_id = generate_unique_role_id('stockist')
+                user.save(update_fields=['stockist_id'])
+            elif user.role == 'reseller' and not user.reseller_id:
+                user.reseller_id = generate_unique_role_id('reseller')
+                user.save(update_fields=['reseller_id'])

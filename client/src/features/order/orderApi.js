@@ -48,9 +48,9 @@ export const orderApi = createApi({
                 method: 'GET',
             }),
         }),
-        updateOrderStatusByStockist: builder.mutation({
+        updateOrderStatus: builder.mutation({
             query: ({ orderId, status,note }) => ({
-                url: `/orders/${orderId}/stockist-update-status/`,
+                url: `/orders-update-status/${orderId}/`,
                 method: 'PATCH',
                 data: { status,note },
             }),
@@ -97,7 +97,7 @@ export const {
     useCreateBulkOrdersMutation,
     useGetOrderSummaryQuery,
     useGetOrderByIdQuery,
-    useUpdateOrderStatusByStockistMutation,
+    useUpdateOrderStatusMutation,
     useGetOrderHistoryQuery,
     useLazyExportOrderHistoryQuery,
 } = orderApi;

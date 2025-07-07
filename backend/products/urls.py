@@ -20,6 +20,7 @@ urlpatterns = [
 
     path('products/', ProductListCreateAPIView.as_view(), name='product-list-create'),
     path('products/<int:pk>/', ProductDetailAPIView.as_view(), name='product-detail'),
+    path('products/<int:pk>/status/', ProductStatusUpdateView.as_view(), name='product-status-update'),
     path("products/my-products/", MyProductListAPIView.as_view(), name="my-products"),
     path('products/stats/', ProductStatsView.as_view(), name='product-stats'),
     path('products/by-status/', ProductByStatusAPIView.as_view(), name='product-by-status'),
@@ -31,4 +32,7 @@ urlpatterns = [
     # stocks 
     path('stocks/', StockListCreateAPIView.as_view(), name='stock-list-create'),
     path('stocks/<int:pk>/', StockRetrieveUpdateAPIView.as_view(), name='stock-detail'),
+
+
+
 ]

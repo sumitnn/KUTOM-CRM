@@ -1,41 +1,64 @@
-import { useState, useMemo } from "react";
-import { 
-  FiEdit2, 
-  FiSearch, 
-  FiX, 
-  FiPlus, 
-  FiImage, 
+import { useState, lazy, Suspense } from 'react';
+import {
+  FiEdit2,
+  FiSearch,
+  FiX,
+  FiPlus,
+  FiImage,
   FiStar,
   FiCheckCircle,
   FiUpload
-} from "react-icons/fi";
-
-import { useEffect } from "react";
-import { toast } from "react-toastify";
+} from 'react-icons/fi';
+import { toast } from 'react-toastify';
 import {
   useGetBrandsQuery,
   useUpdateBrandMutation,
   useCreateBrandMutation
-} from "../features/brand/brandApi";
+} from '../features/brand/brandApi';
 
-function useDebounce(value, delay) {
-  const [debouncedValue, setDebouncedValue] = useState(value);
+// Lazy-loaded components
+const Spinner = lazy(() => import('../components/common/Spinner'));
+const ErrorMessage = lazy(() => import('../components/common/ErrorMessage'));
 
-  useEffect(() => {
-    const handler = setTimeout(() => setDebouncedValue(value), delay);
-    return () => clearTimeout(handler);
-  }, [value, delay]);
+const ImageLoader = ({ src, alt, className }) => {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
 
-  return debouncedValue;
-}
+  return (
+    <div className={`relative ${className}`}>
+      {!loaded && !error && (
+        <div className="absolute inset-0 bg-gray-100 animate-pulse rounded-full"></div>
+      )}
+      <img
+        src={error ? "/placeholder-brand.png" : src}
+        alt={alt}
+        className={`${className} ${!loaded ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200`}
+        onLoad={() => setLoaded(true)}
+        onError={() => {
+          setError(true);
+          setLoaded(true);
+        }}
+        loading="lazy"
+      />
+    </div>
+  );
+};
 
 const ViewBrandsPage = () => {
-  const [search, setSearch] = useState("");
-  const debouncedSearch = useDebounce(search, 500);
+  const [searchInput, setSearchInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
-  const { data: brands = [], isLoading, isError, refetch } = useGetBrandsQuery({
-    search: debouncedSearch,
+  const {
+    data: brands = [],
+    isLoading,
+    isError,
+    refetch,
+    isFetching
+  } = useGetBrandsQuery(searchQuery, {
+    skip: isSearching,
   });
+
   const [updateBrand] = useUpdateBrandMutation();
   const [createBrand, { isLoading: isCreating }] = useCreateBrandMutation();
 
@@ -43,86 +66,77 @@ const ViewBrandsPage = () => {
   const [logoPreview, setLogoPreview] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newBrand, setNewBrand] = useState({
-    name: "",
-    description: "",
+    name: '',
+    description: '',
     is_active: false,
     logoFile: null
   });
 
-  const memoizedBrands = useMemo(() => brands, [brands]);
+  const handleSearch = () => {
+    const trimmedSearch = searchInput.trim();
+    if (trimmedSearch === searchQuery) {
+      refetch();
+      return;
+    }
+    setIsSearching(true);
+    setSearchQuery(trimmedSearch);
+    refetch().finally(() => setIsSearching(false));
+  };
 
-  const ImageLoader = ({ src, alt, className }) => {
-    const [loaded, setLoaded] = useState(false);
-    const [error, setError] = useState(false);
-
-    return (
-      <div className={`relative ${className}`}>
-        {!loaded && !error && (
-          <div className="absolute inset-0 bg-gray-100 animate-pulse rounded-full"></div>
-        )}
-        <img
-          src={error ? "/placeholder-brand.png" : src}
-          alt={alt}
-          className={`${className} ${!loaded ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200`}
-          onLoad={() => setLoaded(true)}
-          onError={() => {
-            setError(true);
-            setLoaded(true);
-          }}
-          loading="lazy"
-        />
-      </div>
-    );
+  const handleClearSearch = () => {
+    setSearchInput('');
+    setSearchQuery('');
+    refetch();
   };
 
   const handleUpdate = async () => {
     if (!selectedBrand) return;
-  
+
     try {
       const formData = new FormData();
-      formData.append("name", selectedBrand.name);
-      formData.append("description", selectedBrand.description || "");
-      formData.append("is_active", selectedBrand.is_active ? "true" : "false");
-  
+      formData.append('name', selectedBrand.name);
+      formData.append('description', selectedBrand.description || '');
+      formData.append('is_active', selectedBrand.is_active ? 'true' : 'false');
+
       if (selectedBrand.logoFile) {
-        formData.append("logo", selectedBrand.logoFile);
+        formData.append('logo', selectedBrand.logoFile);
       }
-  
+
       await updateBrand({ id: selectedBrand.id, data: formData }).unwrap();
       refetch();
-      toast.success("Brand updated successfully");
+      toast.success('Brand updated successfully');
       setSelectedBrand(null);
       setLogoPreview(null);
     } catch (err) {
-      console.error("Update failed:", err);
-      toast.error(err.data?.message || "Failed to update brand");
+      console.error('Update failed:', err);
+      toast.error(err.data?.message || 'Failed to update brand');
     }
   };
 
   const handleCreate = async () => {
     try {
       const formData = new FormData();
-      formData.append("name", newBrand.name);
-      formData.append("description", newBrand.description || "");
-      formData.append("is_active", newBrand.is_active ? "true" : "false");
-  
+      formData.append('name', newBrand.name);
+      formData.append('description', newBrand.description || '');
+      formData.append('is_active', newBrand.is_active ? 'true' : 'false');
+
       if (newBrand.logoFile) {
-        formData.append("logo", newBrand.logoFile);
+        formData.append('logo', newBrand.logoFile);
       }
-  
+
       await createBrand(formData).unwrap();
       refetch();
-      toast.success("Brand created successfully");
+      toast.success('Brand created successfully');
       setIsCreateModalOpen(false);
       setNewBrand({
-        name: "",
-        description: "",
+        name: '',
+        description: '',
         is_active: false,
         logoFile: null
       });
     } catch (err) {
-      console.error("Create failed:", err);
-      toast.error(err.data?.message || "Failed to create brand");
+      console.error('Create failed:', err);
+      toast.error(err.data?.message || 'Failed to create brand');
     }
   };
 
@@ -139,21 +153,15 @@ const ViewBrandsPage = () => {
   };
 
   if (isLoading) return (
-    <div className="flex items-center justify-center h-[60vh]">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-    </div>
+    <Suspense fallback={<div>Loading...</div>}>
+      <Spinner />
+    </Suspense>
   );
 
   if (isError) return (
-    <div className="text-center py-12">
-      <div className="text-red-500 text-lg font-medium mb-4">Error loading brands</div>
-      <button 
-        onClick={refetch}
-        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-gray-700"
-      >
-        Retry
-      </button>
-    </div>
+    <Suspense fallback={<div>Loading error message...</div>}>
+      <ErrorMessage onRetry={refetch} />
+    </Suspense>
   );
 
   return (
@@ -163,24 +171,49 @@ const ViewBrandsPage = () => {
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Brand Management</h1>
             <p className="text-gray-500 font-bold mt-1">
-              {memoizedBrands.length} {memoizedBrands.length === 1 ? 'brand' : 'brands'} found
+              {brands.length} {brands.length === 1 ? 'brand' : 'brands'} found
             </p>
           </div>
           
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <div className="relative w-full sm:w-64">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FiSearch className="h-5 w-5 text-gray-400" />
+            <div className="relative flex items-center">
+              <div className="relative w-full sm:w-64 flex">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <FiSearch className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="searchbrand"
+                  name="searchbrand"
+                  type="text"
+                  placeholder="Search brands..."
+                  className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                />
+                <button
+                  onClick={handleSearch}
+                  disabled={isFetching || isSearching || !searchInput.trim()}
+                  className={`px-4 py-2 border-t border-b border-gray-300 ${
+                    isFetching || isSearching
+                      ? 'bg-gray-300 cursor-not-allowed'
+                      : searchInput.trim()
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                        : 'bg-gray-200 cursor-not-allowed text-gray-500'
+                  }`}
+                >
+                  {isFetching || isSearching ? 'Searching...' : 'Search'}
+                </button>
+                {searchQuery && (
+                  <button
+                    onClick={handleClearSearch}
+                    className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-r-lg transition"
+                    title="Clear search"
+                  >
+                    <FiX className="h-4 w-4" />
+                  </button>
+                )}
               </div>
-              <input
-                id="searchbrand"
-                name="searchbrand"
-                type="text"
-                placeholder="Search brands..."
-                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
             </div>
             <button
               onClick={() => setIsCreateModalOpen(true)}
@@ -191,14 +224,14 @@ const ViewBrandsPage = () => {
           </div>
         </div>
 
-        {memoizedBrands.length === 0 ? (
+        {brands.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm p-8 text-center">
             <div className="mx-auto flex items-center justify-center h-24 w-24 bg-gray-100 rounded-full mb-4">
               <FiImage className="w-12 h-12 text-gray-300" />
             </div>
             <h3 className="text-lg font-medium text-gray-900">No brands found</h3>
             <p className="mt-1 text-gray-500">
-              {search ? 'Try a different search term' : 'Click "New Brand" to create one'}
+              {searchQuery ? 'Try a different search term' : 'Click "New Brand" to create one'}
             </p>
           </div>
         ) : (
@@ -218,7 +251,7 @@ const ViewBrandsPage = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {memoizedBrands.map((brand, index) => (
+                  {brands.map((brand, index) => (
                     <tr key={brand.id} className="hover:bg-gray-50">
                       <td className="px-4 py-4 whitespace-nowrap text-sm font-extrabold text-gray-900">
                         {index + 1}
@@ -348,35 +381,34 @@ const ViewBrandsPage = () => {
               </div>
 
               <div className="flex items-center">
-  <label htmlFor="isactive" className="flex items-center cursor-pointer select-none">
-    <div className="relative">
-      <input
-        id="isactive"
-        type="checkbox"
-        className="sr-only"
-        checked={selectedBrand.is_active}
-        onChange={(e) =>
-          setSelectedBrand((prev) => ({
-            ...prev,
-            is_active: e.target.checked,
-          }))
-        }
-      />
-      <div
-        className={`w-10 h-6 sm:w-12 sm:h-7 rounded-full transition-colors duration-300 ${
-          selectedBrand.is_active ? "bg-blue-600" : "bg-gray-300"
-        }`}
-      ></div>
-      <div
-        className={`absolute top-0.5 left-0.5 w-5 h-5 sm:w-6 sm:h-6 bg-white rounded-full shadow-md transform transition-transform duration-300 ${
-          selectedBrand.is_active ? "translate-x-4 sm:translate-x-5" : ""
-        }`}
-      ></div>
-    </div>
-    <span className="ml-3 text-sm sm:text-base text-gray-700 font-bold">Is Active</span>
-  </label>
-</div>
-
+                <label htmlFor="isactive" className="flex items-center cursor-pointer select-none">
+                  <div className="relative">
+                    <input
+                      id="isactive"
+                      type="checkbox"
+                      className="sr-only"
+                      checked={selectedBrand.is_active}
+                      onChange={(e) =>
+                        setSelectedBrand((prev) => ({
+                          ...prev,
+                          is_active: e.target.checked,
+                        }))
+                      }
+                    />
+                    <div
+                      className={`w-10 h-6 sm:w-12 sm:h-7 rounded-full transition-colors duration-300 ${
+                        selectedBrand.is_active ? "bg-blue-600" : "bg-gray-300"
+                      }`}
+                    ></div>
+                    <div
+                      className={`absolute top-0.5 left-0.5 w-5 h-5 sm:w-6 sm:h-6 bg-white rounded-full shadow-md transform transition-transform duration-300 ${
+                        selectedBrand.is_active ? "translate-x-4 sm:translate-x-5" : ""
+                      }`}
+                    ></div>
+                  </div>
+                  <span className="ml-3 text-sm sm:text-base text-gray-700 font-bold">Is Active</span>
+                </label>
+              </div>
             </div>
 
             <div className="mt-8 flex justify-end gap-3">
@@ -395,10 +427,10 @@ const ViewBrandsPage = () => {
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  <>
-                    <span className="loading loading-spinner loading-sm"></span>
+                  <Suspense fallback={<div>Loading...</div>}>
+                    <Spinner size="sm" />
                     Updating...
-                  </>
+                  </Suspense>
                 ) : (
                   <>
                     <FiCheckCircle /> Update
@@ -482,32 +514,31 @@ const ViewBrandsPage = () => {
               </div>
 
               <div className="flex items-center">
-  <label htmlFor="isactive" className="flex items-center cursor-pointer">
-    <div className="relative">
-      <input
-        id="isactive"
-        type="checkbox"
-        className="sr-only"
-        checked={newBrand.is_active}
-        onChange={(e) =>
-          setNewBrand((prev) => ({ ...prev, is_active: e.target.checked }))
-        }
-      />
-      <div
-        className={`block w-14 h-8 rounded-full ${
-          newBrand.is_active ? "bg-blue-600" : "bg-gray-300"
-        }`}
-      ></div>
-      <div
-        className={`dot absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition ${
-          newBrand.is_active ? "translate-x-6" : ""
-        }`}
-      ></div>
-    </div>
-    <span className="ml-3 text-sm text-gray-700 font-bold">Is Active</span>
-  </label>
-</div>
-
+                <label htmlFor="isactive" className="flex items-center cursor-pointer">
+                  <div className="relative">
+                    <input
+                      id="isactive"
+                      type="checkbox"
+                      className="sr-only"
+                      checked={newBrand.is_active}
+                      onChange={(e) =>
+                        setNewBrand((prev) => ({ ...prev, is_active: e.target.checked }))
+                      }
+                    />
+                    <div
+                      className={`block w-14 h-8 rounded-full ${
+                        newBrand.is_active ? "bg-blue-600" : "bg-gray-300"
+                      }`}
+                    ></div>
+                    <div
+                      className={`dot absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition ${
+                        newBrand.is_active ? "translate-x-6" : ""
+                      }`}
+                    ></div>
+                  </div>
+                  <span className="ml-3 text-sm text-gray-700 font-bold">Is Active</span>
+                </label>
+              </div>
             </div>
 
             <div className="mt-8 flex justify-end gap-3">
@@ -532,10 +563,10 @@ const ViewBrandsPage = () => {
                 disabled={isCreating || !newBrand.name}
               >
                 {isCreating ? (
-                  <>
-                    <span className="loading loading-spinner loading-sm"></span>
+                  <Suspense fallback={<div>Loading...</div>}>
+                    <Spinner size="sm" />
                     Creating...
-                  </>
+                  </Suspense>
                 ) : (
                   <>
                     <FiCheckCircle /> Create Brand

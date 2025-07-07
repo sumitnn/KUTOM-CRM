@@ -46,21 +46,17 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
       { icon: <FaTachometerAlt />, label: "Dashboard", path: "/admin/dashboard" },
       {
         icon: <FaUsersGear />,
-        label: "Network Mangement",
+        label: "Vendor",
         children: [
-          { label: "Vendor", path: "/admin/vendor" },
-          { label: "Stockist", path: "/admin/stockist" },
-          { label: "Reseller", path: "/admin/reseller" },
-        ],
-      },
-      {
-        icon: <RxDashboard />,
-        label: "Products Management",
-        children: [
-          { label: "All Products", path: "/admin/products" },
+          { label: "Registration", path: "/admin/vendor" },
+          { label: "Products", path: "/admin/products" },
           { label: "Product Request", path: "/admin/product-requests" },
+          { label: "Orders", path: "/admin/orders" },
+
         ],
       },
+      { icon: <RxDashboard />, label: "Stockist", path: "/admin/stockist" },
+      { icon: <RxDashboard />, label: "Reseller", path: "/admin/reseller" },
       { icon: <SiBrandfolder />, label: "Brands", path: "/admin/brand" },
       { icon: <TbCategoryPlus />, label: "Category", path: "/admin/categories" },
       { icon: <TbCategoryMinus />, label: "Sub-Category", path: "/admin/subcategories" },
@@ -71,6 +67,8 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
           { label: "Topup Request & History", path: "/admin/topup" },
         ],
       },
+      
+      { icon: <MdProductionQuantityLimits />, label: "My Cart", path: "/admin/my-cart" },
       { icon: <CiWallet />, label: "Wallet", path: "/admin/wallet" },
     ],
     stockist: [
@@ -148,8 +146,8 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         icon: <TbCategoryPlus />,
         label: "Production",
         children: [
-          { label: "All Products", path: "/vendor/products" },
-          { label: "Create New Product", path: "/vendor/create-product" },
+          { label: "Products", path: "/vendor/products" },
+          { label: "Stock", path: "/vendor/my-stocks" },
           { label: "Product Requests", path: "/vendor/requested-products" },
           
         
@@ -160,9 +158,9 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         label: "Business",
         children: [
     
-          { label: "Stock", path: "/vendor/my-stocks" },
+          
           { label: "Orders", path: "/vendor/my-sales" },
-          { label: "Dispatch", path: "/vendor/my-sales" },
+          
         ],
       },
       {

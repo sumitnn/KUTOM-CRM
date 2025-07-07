@@ -12,7 +12,7 @@ urlpatterns = [
     path('orders/<int:order_id>/', OrderDetailAPIView.as_view(), name='order-detail'),
 
     path('orders/summary/', OrderSummaryView.as_view(), name='order-summary'),
-     path('orders/<int:pk>/stockist-update-status/', StockistUpdateOrderStatusView.as_view(), name='stockist-update-order-status'),
+     path('orders-update-status/<int:pk>/', UpdateOrderStatusView.as_view(), name='update-order-status'),
 
       path('order-history/', OrderHistoryListAPIView.as_view(), name='order-history-list'),
     path('order-history/export/', ExportOrderHistoryExcelAPIView.as_view(), name='order-history-export'),

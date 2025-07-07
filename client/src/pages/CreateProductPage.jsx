@@ -61,6 +61,24 @@ const CreateProductPage = () => {
 
   const subcategories = Array.isArray(subcategoriesData) ? subcategoriesData : [];
 
+  // Add form validation state
+  const [formErrors, setFormErrors] = useState({
+    sizes: false,
+    image: false
+  });
+
+  // Validate form whenever sizes or image changes
+  useEffect(() => {
+    const hasEmptySizes = sizes.some(size => 
+      !size.size || !size.price || isNaN(size.price) || parseFloat(size.price) <= 0
+    );
+    
+    setFormErrors({
+      sizes: sizes.length === 0 || hasEmptySizes,
+      image: !product.image
+    });
+  }, [sizes, product.image]);
+
   const currencyOptions = [
     { value: "USD", label: "US Dollar (USD)" },
     { value: "EUR", label: "Euro (EUR)" },
@@ -182,12 +200,16 @@ const CreateProductPage = () => {
   };
 
   const removeSize = (index) => {
-    setSizes(prev => prev.filter((_, i) => i !== index));
-    // Adjust sizeIndex for price tiers
-    setPriceTiers(prev => prev.map(tier => ({
-      ...tier,
-      sizeIndex: tier.sizeIndex > index ? tier.sizeIndex - 1 : tier.sizeIndex
-    })).filter(tier => tier.sizeIndex !== index));
+    if (sizes.length > 1) {
+      setSizes(prev => prev.filter((_, i) => i !== index));
+      // Adjust sizeIndex for price tiers
+      setPriceTiers(prev => prev.map(tier => ({
+        ...tier,
+        sizeIndex: tier.sizeIndex > index ? tier.sizeIndex - 1 : tier.sizeIndex
+      })).filter(tier => tier.sizeIndex !== index));
+    } else {
+      toast.warning("At least one size is required");
+    }
   };
 
   const addPriceTier = (sizeIndex) => {
@@ -204,6 +226,22 @@ const CreateProductPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate form before submission
+    const hasEmptySizes = sizes.some(size => 
+      !size.size || !size.price || isNaN(size.price) || parseFloat(size.price) <= 0
+    );
+    
+    if (hasEmptySizes || sizes.length === 0) {
+      toast.error("Please fill all required size fields");
+      return;
+    }
+    
+    if (!product.image) {
+      toast.error("Main image is required");
+      return;
+    }
+
     try {
       const formData = new FormData();
       
@@ -242,6 +280,11 @@ const CreateProductPage = () => {
       console.error("Product creation error:", err);
     }
   };
+
+  // Check if form is valid
+  const isFormValid = !formErrors.sizes && !formErrors.image && 
+    product.name && product.description && product.short_description && 
+    product.brand && product.category;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
@@ -544,7 +587,7 @@ const CreateProductPage = () => {
           {/* Product Sizes & Pricing Section */}
           <div className="bg-gray-50 p-4 md:p-6 rounded-lg border border-gray-200">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-2">
-              <h3 className="text-lg font-bold text-gray-800">Product Sizes & Pricing</h3>
+              <h3 className="text-lg font-bold text-gray-800">Product Sizes & Pricing*</h3>
               <button
                 type="button"
                 onClick={addSize}
@@ -553,6 +596,12 @@ const CreateProductPage = () => {
                 + Add Size
               </button>
             </div>
+            
+            {formErrors.sizes && (
+              <div className="mb-4 p-2 bg-red-50 text-red-600 text-sm rounded">
+                Please fill all required size fields (size name and price)
+              </div>
+            )}
             
             <div className="space-y-4">
               {sizes.map((size, index) => (
@@ -590,7 +639,7 @@ const CreateProductPage = () => {
                       <label className="block text-xs md:text-sm font-bold text-gray-700">Price (₹)*</label>
                       <input
                         type="number"
-                        min="0"
+                        min="0.01"
                         step="0.01"
                         className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                         value={size.price}
@@ -637,7 +686,7 @@ const CreateProductPage = () => {
                             <label className="block text-md font-bold text-gray-500">Price (₹)*</label>
                             <input
                               type="number"
-                              min="0"
+                              min="0.01"
                               step="0.01"
                               className="w-full h-10 px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-xs"
                               value={tier.price}
@@ -685,6 +734,12 @@ const CreateProductPage = () => {
           {/* Images Section */}
           <div className="bg-gray-50 p-4 md:p-6 rounded-lg border border-gray-200">
             <h3 className="text-lg font-bold text-gray-800 mb-4">Product Images</h3>
+            
+            {formErrors.image && (
+              <div className="mb-4 p-2 bg-red-50 text-red-600 text-sm rounded">
+                Main image is required
+              </div>
+            )}
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               {/* Main Image */}
@@ -775,7 +830,7 @@ const CreateProductPage = () => {
             </button>
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || !isFormValid}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm text-sm font-bold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
             >
               {isLoading ? (

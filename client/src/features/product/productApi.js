@@ -1,5 +1,5 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
-import axiosBaseQuery from '../../utils/axiosBaseQuery'; // adjust path if needed
+import axiosBaseQuery from '../../utils/axiosBaseQuery';
 
 export const productApi = createApi({
     reducerPath: 'productApi',
@@ -14,15 +14,21 @@ export const productApi = createApi({
                     ...(params.search && { search: params.search }),
                     ...(params.category && { category: params.category }),
                     ...(params.subCategory && { sub_category: params.subCategory }),
+                    ...(params.page && { page: params.page }),
+                    ...(params.pageSize && { page_size: params.pageSize }),
                 },
             }),
             providesTags: ["Product"],
-          }),
+        }),
 
         getMyProducts: builder.query({
-            query: () => ({
+            query: (params = {}) => ({
                 url: '/products/my-products/',
                 method: 'GET',
+                params: {
+                    ...(params.page && { page: params.page }),
+                    ...(params.pageSize && { page_size: params.pageSize }),
+                },
             }),
             providesTags: ['Product'],
         }),
@@ -52,6 +58,18 @@ export const productApi = createApi({
             invalidatesTags: ['Product'],
         }),
 
+        updateProductStatus: builder.mutation({
+            query: ({ id, status }) => ({
+                url: `/products/${id}/status/`,
+                method: 'PUT',
+                data: { status }, 
+            }),
+            invalidatesTags: (result, error, { id }) => [
+                { type: 'Product', id },
+                { type: 'Product', id: 'LIST' }
+            ],
+        }),
+
         deleteProduct: builder.mutation({
             query: (id) => ({
                 url: `/products/${id}/`,
@@ -59,24 +77,35 @@ export const productApi = createApi({
             }),
             invalidatesTags: ['Product'],
         }),
+
         getProductStats: builder.query({
             query: () => ({
                 url: '/products/stats/',
                 method: 'GET',
             }),
         }),
+
         getProductsByStatus: builder.query({
-            query: (status) => ({
+            query: ({ status, page = 1, pageSize = 10 }) => ({
                 url: `/products/by-status/`,
                 method: 'GET',
-                params: { status }, 
+                params: {
+                    status,
+                    page,
+                    page_size: pageSize
+                },
             }),
             providesTags: ['Product'],
         }),
+
         getVendorActiveProducts: builder.query({
-            query: () => ({
+            query: (params = {}) => ({
                 url: 'vendor/products/',
                 method: 'GET',
+                params: {
+                    ...(params.page && { page: params.page }),
+                    ...(params.pageSize && { page_size: params.pageSize }),
+                },
             }),
             providesTags: ['Product'],
         }),
@@ -93,13 +122,21 @@ export const productApi = createApi({
 
 export const {
     useGetAllProductsQuery,
-    useGetMyProductsQuery,        
+    useLazyGetAllProductsQuery,
+    useGetMyProductsQuery,
+    useLazyGetMyProductsQuery,
     useGetProductByIdQuery,
+    useLazyGetProductByIdQuery,
     useCreateProductMutation,
     useUpdateProductMutation,
+    useUpdateProductStatusMutation,
     useDeleteProductMutation,
     useGetProductStatsQuery,
+    useLazyGetProductStatsQuery,
     useGetProductsByStatusQuery,
+    useLazyGetProductsByStatusQuery,
     useGetVendorActiveProductsQuery,
+    useLazyGetVendorActiveProductsQuery,
     useGetProductSizesQuery,
+    useLazyGetProductSizesQuery,
 } = productApi;

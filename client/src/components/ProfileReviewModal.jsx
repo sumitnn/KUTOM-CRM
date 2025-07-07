@@ -51,17 +51,18 @@ export default function ProfileReviewModal({ vendor, onClose }) {
 
   useEffect(() => {
     if (existingStatus) {
-      const transformedStatus = { ...defaultApprovalStatus };
-      
-      Object.keys(existingStatus).forEach(key => {
-        const camelCaseKey = key.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
-        if (TAB_KEYS.includes(camelCaseKey)) {
-          transformedStatus[camelCaseKey] = existingStatus[key];
-          transformedStatus[`${camelCaseKey}Reason`] = existingStatus[`${key}_reason`] || "";
-        }
+      setApprovalStatus({
+        userDetails: existingStatus.user_details || 'pending',
+        userDetailsReason: existingStatus.user_details_reason || "",
+        documents: existingStatus.documents || 'pending',
+        documentsReason: existingStatus.documents_reason || "",
+        companyDetails: existingStatus.business_details || 'pending',
+        companyDetailsReason: existingStatus.business_details_reason || "",
+        companyDocuments: existingStatus.company_documents || 'pending',
+        companyDocumentsReason: existingStatus.company_documents_reason || "",
+        paymentDetails: existingStatus.bank_details || 'pending',
+        paymentDetailsReason: existingStatus.bank_details_reason || ""
       });
-      
-      setApprovalStatus(transformedStatus);
     }
   }, [existingStatus]);
 
@@ -99,15 +100,18 @@ export default function ProfileReviewModal({ vendor, onClose }) {
 
   const handleSubmit = async () => {
     try {
-      const submissionData = {};
-      TAB_KEYS.forEach(key => {
-        if (approvalStatus[key] !== 'pending') {
-          submissionData[key] = {
-            status: approvalStatus[key],
-            reason: approvalStatus[`${key}Reason`] || ""
-          };
-        }
-      });
+      const submissionData = {
+        user_details: approvalStatus.userDetails,
+        user_details_reason: approvalStatus.userDetailsReason,
+        documents: approvalStatus.documents,
+        documents_reason: approvalStatus.documentsReason,
+        business_details: approvalStatus.companyDetails,
+        business_details_reason: approvalStatus.companyDetailsReason,
+        company_documents: approvalStatus.companyDocuments,
+        company_documents_reason: approvalStatus.companyDocumentsReason,
+        bank_details: approvalStatus.paymentDetails,
+        bank_details_reason: approvalStatus.paymentDetailsReason
+      };
 
       await updateApprovalStatus({
         userId: vendor?.user?.id,
