@@ -147,7 +147,6 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         label: "Production",
         children: [
           { label: "Products", path: "/vendor/products" },
-          { label: "Stock", path: "/vendor/my-stocks" },
           { label: "Product Requests", path: "/vendor/requested-products" },
           
         
@@ -161,15 +160,16 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
           
           { label: "Orders", path: "/vendor/my-sales" },
           
+          
         ],
       },
       {
         icon: <MdInventory />,
         label: "Accounts",
         children: [
-          { label: "Sales", path: "/vendor/my-sales" },
+          { label: "Sales & Reports", path: "/vendor/sales-report" },
           { label: "Stock", path: "/vendor/my-stocks" },
-          { label: "Report", path: "" },
+          
        
         ],
       },
@@ -203,13 +203,13 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setShowLogoutConfirm(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none"
+                className="px-4 py-2 border border-gray-300 rounded-md cursor-pointer text-gray-700 hover:bg-gray-50 focus:outline-none"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmLogout}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none"
+                className="px-4 py-2 bg-red-600 text-white cursor-pointer rounded-md hover:bg-red-700 focus:outline-none"
               >
                 Logout
               </button>

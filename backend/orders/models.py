@@ -4,6 +4,11 @@ import uuid
 from django.conf import settings
 from products.models import Product ,ProductSize 
 from django.core.exceptions import ValidationError
+from django.db import transaction as db_transaction
+from django.core.exceptions import ObjectDoesNotExist
+from accounts.models import Wallet, WalletTransaction
+
+
 
 
 ORDER_STATUS_CHOICES = (
@@ -11,7 +16,7 @@ ORDER_STATUS_CHOICES = (
     ('accepted', 'Accepted'),            # Approved by admin
     ('rejected', 'Rejected'),            # Rejected by admin
     ('ready_for_dispatch', 'Ready For Dispatch'),          # Ready for dispatch
-    ('shipped', 'Shipped(Inprogress)'),        # Shipped
+    ('dispatched', 'dispatched(Inprogress)'),        # Shipped
     ('delivered', 'Delivered'),          # Received by destination
     ('cancelled', 'Cancelled'),          # Cancelled
 )
@@ -148,3 +153,72 @@ class OrderHistory(models.Model):
                 self.previous_status = self.order.status
         self.current_status = self.action
         super().save(*args, **kwargs)
+
+
+class Sale(models.Model):
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name='sales'
+    )
+    seller = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='sales'
+    )
+    buyer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='purchases'
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='sales'
+    )
+    product_size = models.ForeignKey(
+        ProductSize,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    quantity = models.PositiveIntegerField()
+    price = models.DecimalField(max_digits=10, decimal_places=2)  
+    discount = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    total_price = models.DecimalField(max_digits=12, decimal_places=2)  
+    sale_date = models.DateField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-sale_date']
+
+    def __str__(self):
+        return f"{self.quantity} x {self.product} (₹{self.total_price})"
+    
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None 
+        super().save(*args, **kwargs)
+
+        if is_new and not self.transaction_created:
+            try:
+                with db_transaction.atomic():
+                    wallet, _ = Wallet.objects.get_or_create(user=self.seller)
+                    wallet.balance += self.total_price
+                    wallet.save()
+
+                    WalletTransaction.objects.create(
+                        wallet=wallet,
+                        transaction_type='CREDIT',
+                        amount=self.total_price,
+                        description=f"Sale of {self.product.name}",
+                        transaction_status='SUCCESS'
+                    )
+
+                    self.transaction_created = True
+                    super().save(update_fields=['transaction_created'])  
+            except Exception as e:
+                print(e)
+
+                pass

@@ -15,7 +15,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework import generics
 from rest_framework.pagination import PageNumberPagination
 from datetime import datetime
-
+from accounts.utils import create_notification
 
 
 class BrandListCreateAPIView(APIView):
@@ -54,6 +54,13 @@ class BrandListCreateAPIView(APIView):
         serializer = BrandSerializer(data=data, context={'request': request})
         if serializer.is_valid():
             serializer.save(owner=request.user)
+            create_notification(
+                user=request.user,
+                title="New Brand Created",
+                message=f"A new brand '{serializer.data['name']}' has been created.",
+                notification_type="brand",
+                related_url=f"/brands/{serializer.data['id']}/"
+            )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -141,6 +148,7 @@ class MainCategoryAPIView(APIView):
         serializer = MainCategorySerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save(owner=request.user)
+            
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -477,6 +485,13 @@ class ProductListCreateAPIView(APIView):
                         )
                     else:
                         return Response(tier_serializer.errors, status=400)
+            create_notification(
+                user=request.user,
+                title="New Product Created",
+                message=f"A new product '{product.name}' has been created.",
+                notification_type="product",
+                related_url=f"/products/{product.id}/"
+            )
 
             return Response(
                 ProductSerializer(product, context={'request': request}).data,

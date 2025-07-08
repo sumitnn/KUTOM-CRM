@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Order, OrderItem, OrderHistory
+from .models import *
 
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
@@ -30,3 +30,10 @@ class OrderHistoryAdmin(admin.ModelAdmin):
     list_display = ('order', 'actor', 'action', 'previous_status', 'current_status', 'timestamp')
     list_filter = ('action', 'timestamp')
     search_fields = ('order__id', 'actor__username', )
+
+
+@admin.register(Sale)
+class SaleAdmin(admin.ModelAdmin):
+    list_display = ('id', 'order', 'seller', 'product', 'quantity', 'total_price', 'sale_date')
+    list_filter = ('sale_date', 'seller', 'product')
+    search_fields = ('order__id', 'product__name', 'seller__username')

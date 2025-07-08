@@ -26,7 +26,7 @@ from products.models import Product
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.db import transaction
 from django.utils.timezone import make_aware
-
+from orders.models import Sale
 
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 10
@@ -351,23 +351,28 @@ class WalletSummaryView(generics.GenericAPIView):
     def get(self, request):
         user = request.user
 
-        # Get current balance
-        wallet = Wallet.objects.get(user=user)
-        
-        # Calculate totals
-        deposits =  1000
+        # Get user's wallet
+        try:
+            wallet = Wallet.objects.get(user=user)
+        except Wallet.DoesNotExist:
+            return Response({'error': 'Wallet not found.'}, status=404)
 
-        withdrawals = WithdrawalRequest.objects.filter(
+        # ✅ Calculate total sales from Sale model
+        total_sales = Sale.objects.filter(seller=user).aggregate(
+            total=Sum('total_price')
+        )['total'] or 0
+
+        # ✅ Total withdrawals from WithdrawalRequest
+        total_withdrawals = WithdrawalRequest.objects.filter(
             user=user,
             status='completed'
         ).aggregate(total=Sum('amount'))['total'] or 0
 
-
-
+        # ✅ Prepare response
         data = {
             'current_balance': wallet.balance,
-            'total_sales': deposits,
-            'total_withdrawals': withdrawals
+            'total_sales': total_sales,
+            'total_withdrawals': total_withdrawals
         }
 
         return Response(data)
@@ -803,22 +808,22 @@ class DashboardAPIView(APIView):
         user = request.user
         days = int(request.query_params.get('days', 0))
 
+        # Determine the date range
         if days == 0:
-            # Get only today's data: from midnight to now
             now = datetime.now()
             date_from = make_aware(datetime.combine(now.date(), datetime.min.time()))
         else:
-            date_from = datetime.now() - timedelta(days=days)
+            date_from = make_aware(datetime.now() - timedelta(days=days))
 
+        # Fetch wallet
         wallet = Wallet.objects.filter(user=user).first()
-
         wallet_data = {
             'balance': wallet.balance if wallet else 0,
-            'total_sales': self.get_total_sales(user),
-            'total_withdrawals': self.get_total_withdrawals(user),
-            'last_transaction': self.get_last_transaction_amount(wallet)
+            'total_sales': self.get_total_sales(user, date_from),
+            'total_withdrawals': self.get_total_withdrawals(user,date_from),
         }
 
+        # Product stats
         product_qs = Product.objects.filter(owner=user)
         product_stats = {
             'total': product_qs.count(),
@@ -831,34 +836,37 @@ class DashboardAPIView(APIView):
         return Response({
             'wallet': wallet_data,
             'products': product_stats,
-            'orders': 0,  # Placeholder, you can hook in real order logic here
+            'orders': 0,  # You can implement this if needed
             'topups': list(self.get_topups(user, date_from)),
             'withdrawal_requests': list(self.get_withdrawals(user, date_from)),
         })
 
-    def get_total_sales(self, user):
-        # Hook in real logic
-        return 0
+    def get_total_sales(self, user, date_from):
+        return Sale.objects.filter(
+            seller=user,
+            sale_date__gte=date_from.date()  # Only use date since sale_date is a DateField
+        ).aggregate(total=Sum('total_price'))['total'] or 0
 
-    def get_total_withdrawals(self, user):
-        return WithdrawalRequest.objects.filter(user=user, status='approved').aggregate(
-            total=Sum('amount')
-        )['total'] or 0
+    def get_total_withdrawals(self, user,date_from):
+        return WithdrawalRequest.objects.filter(
+            user=user,
+            status='approved',
+            created_at__gte=date_from  
+        ).aggregate(total=Sum('amount'))['total'] or 0
 
-    def get_last_transaction_amount(self, wallet):
-        if wallet and wallet.transactions.exists():
-            return wallet.transactions.last().amount
-        return 0
+
 
     def get_topups(self, user, date_from):
-        return TopupRequest.objects.filter(user=user, created_at__gte=date_from).values(
-            'id', 'amount', 'status', 'payment_method', 'created_at'
-        )
+        return TopupRequest.objects.filter(
+            user=user,
+            created_at__gte=date_from
+        ).values('id', 'amount', 'status', 'payment_method', 'created_at')
 
     def get_withdrawals(self, user, date_from):
-        return WithdrawalRequest.objects.filter(user=user, created_at__gte=date_from).values(
-            'id', 'amount', 'status', 'payment_method', 'created_at'
-        )
+        return WithdrawalRequest.objects.filter(
+            user=user,
+            created_at__gte=date_from
+        ).values('id', 'amount', 'status', 'payment_method', 'created_at')
     
 
 class TodayNotificationListAPIView(APIView):

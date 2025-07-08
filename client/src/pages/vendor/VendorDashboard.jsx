@@ -101,7 +101,7 @@ const VendorDashboard = () => {
     },
     {
       title: "Wallet Balance",
-      value: `$${data.wallet.balance}`,
+      value: `₹${data.wallet.balance}`,
       bgColor: "bg-blue-50",
       textColor: "text-blue-600",
       borderColor: "border-blue-100",
@@ -117,7 +117,7 @@ const VendorDashboard = () => {
     },
     {
       title: "Total Sales",
-      value: `$${data.wallet.total_sales}`,
+      value: `₹${data.wallet.total_sales}`,
       bgColor: "bg-indigo-50",
       textColor: "text-indigo-600",
       borderColor: "border-indigo-100",
@@ -125,7 +125,7 @@ const VendorDashboard = () => {
     },
     {
       title: "Bank Transfer Requests",
-      value: `$${data.wallet.total_withdrawals}`,
+      value: `₹${data.wallet.total_withdrawals}`,
       bgColor: "bg-cyan-50",
       textColor: "text-cyan-600",
       borderColor: "border-cyan-100",

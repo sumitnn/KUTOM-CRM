@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect } from "react";
+import { lazy, Suspense, useState } from "react";
 import { toast } from "react-toastify";
 import {
   FiCheck,
@@ -7,88 +7,39 @@ import {
   FiPackage,
   FiFileText,
   FiRotateCw,
-  FiExternalLink,
-  FiEdit2
+  FiUser,
+  FiShoppingCart,
+  FiMapPin,
+  FiClipboard
 } from "react-icons/fi";
 import {
   useGetMyOrdersQuery,
   useUpdateOrderStatusMutation,
 } from "../../features/order/orderApi";
 
-const OrderEntryModal = lazy(() => import("./OrderEntryModal"));
+// Modals (lazy loaded)
+const AddressModal = lazy(() => import("../../components/modals/AddressModal"));
+const ReceivedProductModal = lazy(() => import("../../components/modals/ReceivedProductModal"));
+const OrderBillModal = lazy(() => import("../../components/modals/OrderBillModal"));
 
 const AdminOrderManagementPage = () => {
   const [activeTab, setActiveTab] = useState("new");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [modalType, setModalType] = useState(null); // 'address', 'received', 'bill'
 
-  // API calls with pagination - only called when tab is active
+  // API call for orders
   const {
-    data: newOrdersData,
-    isLoading: isNewLoading,
-    isFetching: isNewFetching,
-    refetch: refetchNew,
+    data: ordersData,
+    isLoading,
+    isFetching,
+    refetch,
   } = useGetMyOrdersQuery({
-    status: "new",
+    status: activeTab,
     page: currentPage,
     pageSize,
-  }, { skip: activeTab !== "new" });
-
-  const {
-    data: acceptedData,
-    isLoading: isAcceptedLoading,
-    isFetching: isAcceptedFetching,
-    refetch: refetchAccepted,
-  } = useGetMyOrdersQuery({
-    status: "accepted",
-    page: currentPage,
-    pageSize,
-  }, { skip: activeTab !== "accepted" });
-
-  const {
-    data: rejectedData,
-    isLoading: isRejectedLoading,
-    isFetching: isRejectedFetching,
-    refetch: refetchRejected,
-  } = useGetMyOrdersQuery({
-    status: "rejected",
-    page: currentPage,
-    pageSize,
-  }, { skip: activeTab !== "rejected" });
-
-  const {
-    data: cancelledData,
-    isLoading: isCancelledLoading,
-    isFetching: isCancelledFetching,
-    refetch: refetchCancelled,
-  } = useGetMyOrdersQuery({
-    status: "cancelled",
-    page: currentPage,
-    pageSize,
-  }, { skip: activeTab !== "cancelled" });
-
-  const {
-    data: dispatchedData,
-    isLoading: isDispatchedLoading,
-    isFetching: isDispatchedFetching,
-    refetch: refetchDispatched,
-  } = useGetMyOrdersQuery({
-    status: "dispatched",
-    page: currentPage,
-    pageSize,
-  }, { skip: activeTab !== "dispatched" });
-
-  const {
-    data: receivedData,
-    isLoading: isReceivedLoading,
-    isFetching: isReceivedFetching,
-    refetch: refetchReceived,
-  } = useGetMyOrdersQuery({
-    status: "received",
-    page: currentPage,
-    pageSize,
-  }, { skip: activeTab !== "received" });
+  });
 
   const [updateOrderStatus] = useUpdateOrderStatusMutation();
 
@@ -97,73 +48,36 @@ const AdminOrderManagementPage = () => {
     return orders?.map((order) => ({
       id: order.id,
       date: order.created_at,
-      vendorId: order.vendor?.id || "N/A",
-      brand: order.product?.brand_name || "N/A",
-      productId: order.product?.id || "N/A",
-      productName: order.product?.name || "N/A",
-      type: order.product?.product_type || "N/A",
-      quantity: order.quantity,
-      size: order.size || "N/A",
-      amount: order.total_amount,
-      status: order.status,
-      items: order.items || []
+      createdFor: {
+        name: order.created_for?.username || "N/A",
+        roleId: order.created_for?.role_based_id || "N/A"
+      },
+      items: order.items.map(item => ({
+        productId: item.product?.id || "N/A",
+        productName: item.product?.name || "N/A",
+        quantity: item.quantity,
+        price: item.price,
+        size: item.product_size
+      })),
+      totalAmount: order.total_price,
+      status: order.status
     }));
   };
 
   const orderData = {
-    new: {
-      data: transformOrderData(newOrdersData?.results),
-      count: newOrdersData?.count || 0,
-    },
-    accepted: {
-      data: transformOrderData(acceptedData?.results),
-      count: acceptedData?.count || 0,
-    },
-    rejected: {
-      data: transformOrderData(rejectedData?.results),
-      count: rejectedData?.count || 0,
-    },
-    cancelled: {
-      data: transformOrderData(cancelledData?.results),
-      count: cancelledData?.count || 0,
-    },
-    dispatched: {
-      data: transformOrderData(dispatchedData?.results),
-      count: dispatchedData?.count || 0,
-    },
-    received: {
-      data: transformOrderData(receivedData?.results),
-      count: receivedData?.count || 0,
-    },
+    count: ordersData?.count || 0,
+    results: transformOrderData(ordersData?.results) || []
   };
 
   const handleRefresh = () => {
-    switch(activeTab) {
-      case "new":
-        refetchNew();
-        break;
-      case "accepted":
-        refetchAccepted();
-        break;
-      case "rejected":
-        refetchRejected();
-        break;
-      case "cancelled":
-        refetchCancelled();
-        break;
-      case "dispatched":
-        refetchDispatched();
-        break;
-      case "received":
-        refetchReceived();
-        break;
-    }
+    refetch();
   };
 
   const handleStatusUpdate = async (orderId, newStatus) => {
+    
     try {
       await updateOrderStatus({
-        id: orderId,
+        orderId: orderId,
         status: newStatus,  
       }).unwrap();
       toast.success(`Order status updated to ${newStatus}`);
@@ -178,45 +92,13 @@ const AdminOrderManagementPage = () => {
     setCurrentPage(page);
   };
 
-  const openEntryModal = (order) => {
-    setSelectedOrder(order);
-  };
-
-  const closeModal = () => {
-    setSelectedOrder(null);
-  };
-
-  const saveEntryDetails = () => {
-    toast.success("Order details updated successfully");
-    handleRefresh();
-    closeModal();
-  };
-
-  const viewBill = (orderId) => {
-    toast.info(`Opening bill PDF for order ${orderId}`);
-  };
-
-  const isLoading = 
-    (activeTab === "new" && isNewLoading) ||
-    (activeTab === "accepted" && isAcceptedLoading) ||
-    (activeTab === "rejected" && isRejectedLoading) ||
-    (activeTab === "cancelled" && isCancelledLoading) ||
-    (activeTab === "dispatched" && isDispatchedLoading) ||
-    (activeTab === "received" && isReceivedLoading);
-
-  const isFetching = 
-    (activeTab === "new" && isNewFetching) ||
-    (activeTab === "accepted" && isAcceptedFetching) ||
-    (activeTab === "rejected" && isRejectedFetching) ||
-    (activeTab === "cancelled" && isCancelledFetching) ||
-    (activeTab === "dispatched" && isDispatchedFetching) ||
-    (activeTab === "received" && isReceivedFetching);
-
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
-      day: "numeric"
+      day: "numeric",
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
@@ -227,6 +109,81 @@ const AdminOrderManagementPage = () => {
     }).format(amount);
   };
 
+  const openModal = (order, type) => {
+    setSelectedOrder(order);
+    setModalType(type);
+  };
+
+  const closeModal = () => {
+    setSelectedOrder(null);
+    setModalType(null);
+  };
+
+  const getStatusActions = (status, order) => {
+    switch (status) {
+      case 'new':
+        return (
+          <div className="flex items-center space-x-2">
+  <button
+    onClick={() => handleStatusUpdate(order.id, 'cancelled')}
+    className="inline-flex items-center gap-2 px-4 py-2 cursor-pointer rounded-lg border border-red-600 text-red-600 hover:bg-red-50 hover:text-red-700 transition duration-200"
+    title="Cancel Order"
+  >
+    <FiX className="h-4 w-4" />
+    <span>Cancel</span>
+  </button>
+</div>
+
+        );
+      case 'accepted':
+        return (
+          <div className="flex space-x-2">
+            <button
+              onClick={() => handleStatusUpdate(order.id, 'dispatched')}
+              className="text-yellow-600 hover:text-yellow-900 cursor-pointer"
+              title="Dispatch Order"
+            >
+              <FiTruck className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => openModal(order, 'address')}
+              className="text-blue-600 hover:text-blue-900 cursor-pointer"
+              title="Add Address"
+            >
+              <FiMapPin className="h-5 w-5" />
+            </button>
+          </div>
+        );
+      case 'dispatched':
+        return (
+          <button
+            onClick={() => openModal(order, 'received')}
+            className="text-purple-600 hover:text-purple-900 cursor-pointer"
+            title="Mark as Received"
+          >
+            <FiPackage className="h-5 w-5" />
+          </button>
+        );
+      case 'received':
+        return (
+          <button
+            onClick={() => openModal(order, 'bill')}
+            className="text-indigo-600 hover:text-indigo-900 cursor-pointer"
+            title="View Bill"
+          >
+            <FiFileText className="h-5 w-5" />
+          </button>
+        );
+      case 'rejected':
+      case 'cancelled':
+        return (
+          <span className="text-gray-400">No actions</span>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-4 px-2 sm:px-4 lg:px-6">
       <div className="max-w-7xl mx-auto">
@@ -234,7 +191,7 @@ const AdminOrderManagementPage = () => {
         <div className="mb-6 px-2">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Order Management</h1>
           <p className="mt-1 text-sm text-gray-600">
-            Manage your orders and track their status
+            Manage orders across all statuses
           </p>
         </div>
 
@@ -245,7 +202,7 @@ const AdminOrderManagementPage = () => {
               <label htmlFor="tabs" className="sr-only">Select a tab</label>
               <select
                 id="tabs"
-                className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="block w-full  pl-3 pr-10 py-2 text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 value={activeTab}
                 onChange={(e) => {
                   setActiveTab(e.target.value);
@@ -254,68 +211,68 @@ const AdminOrderManagementPage = () => {
               >
                 <option value="new">New Orders</option>
                 <option value="accepted">Accepted Orders</option>
-                <option value="rejected">Rejected Orders</option>
-                <option value="cancelled">Cancelled Orders</option>
                 <option value="dispatched">Dispatched Orders</option>
                 <option value="received">Received Orders</option>
+                <option value="rejected">Rejected Orders</option>
+                <option value="cancelled">Cancelled Orders</option>
               </select>
             </div>
             <div className="hidden sm:block">
               <div className="border-b border-gray-200">
-                <nav className="-mb-px flex space-x-2 md:space-x-4">
+                <nav className="-mb-px flex space-x-2 md:space-x-4 overflow-x-auto">
                   <button
                     onClick={() => {
                       setActiveTab('new');
                       setCurrentPage(1);
                     }}
-                    className={`whitespace-nowrap py-3 px-2 border-b-2 font-medium text-xs sm:text-sm ${activeTab === 'new' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                    className={`whitespace-nowrap py-3 px-2 border-b-2 cursor-pointer font-bold text-xs sm:text-sm ${activeTab === 'new' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
                   >
-                    New ({orderData.new.count || 0})
+                    New ({activeTab === 'new' ? orderData.count : 0})
                   </button>
                   <button
                     onClick={() => {
                       setActiveTab('accepted');
                       setCurrentPage(1);
                     }}
-                    className={`whitespace-nowrap py-3 px-2 border-b-2 font-medium text-xs sm:text-sm ${activeTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                    className={`whitespace-nowrap py-3 px-2 border-b-2 font-bold cursor-pointer text-xs sm:text-sm ${activeTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
                   >
-                    Accepted ({orderData.accepted.count || 0})
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActiveTab('rejected');
-                      setCurrentPage(1);
-                    }}
-                    className={`whitespace-nowrap py-3 px-2 border-b-2 font-medium text-xs sm:text-sm ${activeTab === 'rejected' ? 'border-red-500 text-red-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-                  >
-                    Rejected ({orderData.rejected.count || 0})
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActiveTab('cancelled');
-                      setCurrentPage(1);
-                    }}
-                    className={`whitespace-nowrap py-3 px-2 border-b-2 font-medium text-xs sm:text-sm ${activeTab === 'cancelled' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-                  >
-                    Cancelled ({orderData.cancelled.count || 0})
+                    Accepted ({activeTab === 'accepted' ? orderData.count : 0})
                   </button>
                   <button
                     onClick={() => {
                       setActiveTab('dispatched');
                       setCurrentPage(1);
                     }}
-                    className={`whitespace-nowrap py-3 px-2 border-b-2 font-medium text-xs sm:text-sm ${activeTab === 'dispatched' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                    className={`whitespace-nowrap py-3 px-2 border-b-2 font-bold cursor-pointer text-xs sm:text-sm ${activeTab === 'dispatched' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
                   >
-                    Dispatched ({orderData.dispatched.count || 0})
+                    Dispatched ({activeTab === 'dispatched' ? orderData.count : 0})
                   </button>
                   <button
                     onClick={() => {
                       setActiveTab('received');
                       setCurrentPage(1);
                     }}
-                    className={`whitespace-nowrap py-3 px-2 border-b-2 font-medium text-xs sm:text-sm ${activeTab === 'received' ? 'border-purple-500 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                    className={`whitespace-nowrap py-3 px-2 border-b-2 font-bold cursor-pointer text-xs sm:text-sm ${activeTab === 'received' ? 'border-purple-500 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
                   >
-                    Received ({orderData.received.count || 0})
+                    Received ({activeTab === 'received' ? orderData.count : 0})
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveTab('rejected');
+                      setCurrentPage(1);
+                    }}
+                    className={`whitespace-nowrap py-3 px-2 border-b-2 font-bold cursor-pointer text-xs sm:text-sm ${activeTab === 'rejected' ? 'border-red-500 text-red-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                  >
+                    Rejected ({activeTab === 'rejected' ? orderData.count : 0})
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveTab('cancelled');
+                      setCurrentPage(1);
+                    }}
+                    className={`whitespace-nowrap py-3 px-2 border-b-2 font-bold cursor-pointer text-xs sm:text-sm ${activeTab === 'cancelled' ? 'border-red-500 text-red-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                  >
+                    Cancelled ({activeTab === 'cancelled' ? orderData.count : 0})
                   </button>
                 </nav>
               </div>
@@ -325,7 +282,7 @@ const AdminOrderManagementPage = () => {
           <button
             onClick={handleRefresh}
             disabled={isFetching}
-            className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-bold cursor-pointer text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
           >
             <FiRotateCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
             Refresh
@@ -346,59 +303,59 @@ const AdminOrderManagementPage = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th scope="col" className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                      No.
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      Order Date
                     </th>
-                    <th scope="col" className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                      Date
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      Order ID
                     </th>
-                    <th scope="col" className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                      Vendor ID
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      Customer
                     </th>
-                    <th scope="col" className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                      Brand
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      Role ID
                     </th>
-                    <th scope="col" className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
                       Product ID
                     </th>
-                    <th scope="col" className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
                       Product Name
                     </th>
-                    <th scope="col" className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                      Type
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      Size
                     </th>
-                    <th scope="col" className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
                       Qty
                     </th>
-                    {activeTab === 'received' && (
-                      <th scope="col" className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                        Size
-                      </th>
-                    )}
-                    <th scope="col" className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                      Amount
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      Price
                     </th>
-                    <th scope="col" className="px-3 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">
-                      Actions
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      Total
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      Action
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {orderData[activeTab]?.data?.length === 0 ? (
+                  {orderData.results?.length === 0 ? (
                     <tr>
-                      <td colSpan={activeTab === 'received' ? 11 : 10} className="px-3 py-4 whitespace-nowrap text-center">
+                      <td colSpan={11} className="px-4 py-6 whitespace-nowrap text-center">
                         <div className="text-center py-8">
                           <div className="mx-auto h-20 w-20 text-gray-400 mb-3">
                             {activeTab === "new" ? (
-                              <FiFileText className="w-full h-full" />
+                              <FiShoppingCart className="w-full h-full" />
                             ) : activeTab === "accepted" ? (
                               <FiCheck className="w-full h-full" />
-                            ) : activeTab === "rejected" || activeTab === "cancelled" ? (
-                              <FiX className="w-full h-full" />
                             ) : activeTab === "dispatched" ? (
                               <FiTruck className="w-full h-full" />
-                            ) : (
+                            ) : activeTab === "received" ? (
                               <FiPackage className="w-full h-full" />
+                            ) : ["rejected", "cancelled"].includes(activeTab) ? (
+                              <FiX className="w-full h-full" />
+                            ) : (
+                              <FiClipboard className="w-full h-full" />
                             )}
                           </div>
                           <h3 className="text-md font-semibold text-gray-700">
@@ -406,114 +363,63 @@ const AdminOrderManagementPage = () => {
                               ? "No new orders" 
                               : activeTab === "accepted" 
                                 ? "No accepted orders" 
-                                : activeTab === "rejected"
-                                  ? "No rejected orders"
-                                  : activeTab === "cancelled" 
-                                    ? "No cancelled orders" 
-                                    : activeTab === "dispatched" 
-                                      ? "No dispatched orders" 
-                                      : "No received orders"}
+                                : activeTab === "dispatched" 
+                                  ? "No dispatched orders" 
+                                  : activeTab === "received"
+                                    ? "No received orders"
+                                    : activeTab === "rejected"
+                                      ? "No rejected orders"
+                                      : "No cancelled orders"}
                           </h3>
                         </div>
                       </td>
                     </tr>
                   ) : (
-                    orderData[activeTab].data.map((order, index) => (
-                      <tr key={order.id} className="hover:bg-gray-50">
-                        <td className="px-3 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {(currentPage - 1) * pageSize + index + 1}
-                        </td>
-                        <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">
-                          {formatDate(order.date)}
-                        </td>
-                        <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">
-                          {order.vendorId}
-                        </td>
-                        <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">
-                          {order.brand}
-                        </td>
-                        <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">
-                          {order.productId}
-                        </td>
-                        <td className="px-3 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">
-                          {order.productName}
-                        </td>
-                        <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600 capitalize">
-                          {order.type}
-                        </td>
-                        <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">
-                          {order.quantity}
-                        </td>
-                        {activeTab === 'received' && (
-                          <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">
-                            {order.size}
+                    orderData.results.map((order) => (
+                      order.items.map((item, index) => (
+                        <tr key={`${order.id}-${index}`} className="hover:bg-gray-50">
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {formatDate(order.date)}
                           </td>
-                        )}
-                        <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">
-                          {formatCurrency(order.amount)}
-                        </td>
-                        <td className="px-3 py-3 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex justify-end space-x-2">
-                            {activeTab === 'new' && (
-                              <>
-                                <button
-                                  onClick={() => handleStatusUpdate(order.id, 'accepted')}
-                                  className="text-green-600 hover:text-green-900 cursor-pointer"
-                                  title="Accept Order"
-                                >
-                                  <FiCheck className="h-5 w-5" />
-                                </button>
-                                <button
-                                  onClick={() => handleStatusUpdate(order.id, 'rejected')}
-                                  className="text-red-600 hover:text-red-900 cursor-pointer"
-                                  title="Reject Order"
-                                >
-                                  <FiX className="h-5 w-5" />
-                                </button>
-                              </>
-                            )}
-                            
-                            {activeTab === 'accepted' && (
-                              <button
-                                onClick={() => handleStatusUpdate(order.id, 'dispatched')}
-                                className="text-yellow-600 hover:text-yellow-900 cursor-pointer"
-                                title="Dispatch Order"
-                              >
-                                <FiTruck className="h-5 w-5" />
-                              </button>
-                            )}
-                            
-                            {activeTab === 'dispatched' && (
-                              <button
-                                onClick={() => handleStatusUpdate(order.id, 'received')}
-                                className="text-purple-600 hover:text-purple-900 cursor-pointer"
-                                title="Mark as Received"
-                              >
-                                <FiPackage className="h-5 w-5" />
-                              </button>
-                            )}
-                            
-                            {activeTab === 'received' && (
-                              <>
-                                <button
-                                  onClick={() => openEntryModal(order)}
-                                  className="text-blue-600 hover:text-blue-900 cursor-pointer"
-                                  title="Entry Details"
-                                >
-                                  <FiEdit2 className="h-5 w-5" />
-                                </button>
-                                <button
-                                  onClick={() => viewBill(order.id)}
-                                  className="text-indigo-600 hover:text-indigo-900 cursor-pointer"
-                                  title="View Bill"
-                                >
-                                  <FiFileText className="h-5 w-5" />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            #{order.id}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                <FiUser className="h-4 w-4 text-blue-600" />
+                              </div>
+                              <div className="ml-2">
+                                <div className="text-sm font-medium text-gray-900">{order.createdFor.name}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {order.createdFor.roleId}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {item.productId}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {item.productName}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {item.size}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {item.quantity}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {formatCurrency(item.price)}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                            {formatCurrency(order.totalAmount)}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            {getStatusActions(order.status, order)}
+                          </td>
+                        </tr>
+                      ))
                     ))
                   )}
                 </tbody>
@@ -521,14 +427,14 @@ const AdminOrderManagementPage = () => {
             </div>
 
             {/* Pagination */}
-            {orderData[activeTab]?.count > 0 && (
-              <div className="px-3 py-3 flex flex-col sm:flex-row justify-between items-center border-t border-gray-200 bg-gray-50">
+            {orderData.count > 0 && (
+              <div className="px-4 py-3 flex flex-col sm:flex-row justify-between items-center border-t border-gray-200 bg-gray-50">
                 <div className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-0">
                   Showing <span className="font-semibold">{(currentPage - 1) * pageSize + 1}</span> to{' '}
                   <span className="font-semibold">
-                    {Math.min(currentPage * pageSize, orderData[activeTab].count)}
+                    {Math.min(currentPage * pageSize, orderData.count)}
                   </span>{' '}
-                  of <span className="font-semibold">{orderData[activeTab].count}</span> results
+                  of <span className="font-semibold">{orderData.count}</span> results
                 </div>
                 <div className="flex space-x-2">
                   <button
@@ -540,7 +446,7 @@ const AdminOrderManagementPage = () => {
                   </button>
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage * pageSize >= orderData[activeTab].count}
+                    disabled={currentPage * pageSize >= orderData.count}
                     className="px-3 py-1 border border-gray-300 rounded-md text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Next
@@ -552,18 +458,37 @@ const AdminOrderManagementPage = () => {
         )}
       </div>
 
-      {/* Order Entry Modal */}
-      {selectedOrder && (
-        <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <FiRotateCw className="w-8 h-8 text-white animate-spin" />
-        </div>}>
-          <OrderEntryModal
-            order={selectedOrder}
-            onClose={closeModal}
-            onSave={saveEntryDetails}
+      {/* Modals */}
+      <Suspense fallback={null}>
+        {modalType === 'address' && (
+          <AddressModal 
+            order={selectedOrder} 
+            onClose={closeModal} 
+            onSave={(address) => {
+              // Handle address save logic here
+              toast.success("Address saved successfully");
+              closeModal();
+            }}
           />
-        </Suspense>
-      )}
+        )}
+        {modalType === 'received' && (
+          <ReceivedProductModal 
+            order={selectedOrder} 
+            onClose={closeModal} 
+            onConfirm={(receivedData) => {
+              // Handle product received confirmation
+              handleStatusUpdate(selectedOrder.id, 'received');
+              closeModal();
+            }}
+          />
+        )}
+        {modalType === 'bill' && (
+          <OrderBillModal 
+            order={selectedOrder} 
+            onClose={closeModal}
+          />
+        )}
+      </Suspense>
     </div>
   );
 };
