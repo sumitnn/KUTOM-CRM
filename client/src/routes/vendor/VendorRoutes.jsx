@@ -112,7 +112,19 @@ const VendorRoutes = [
     
     {/* Report */}
     <Route
-      path="/vendor/report"
+      path="/vendor/sales-report"
+      element={
+        <VendorMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <Report role="vendor" />
+          </Suspense>
+        </VendorMainLayout>
+      }
+    />
+
+    {/* sales  */}
+    <Route
+      path="/vendor/sales-report"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>

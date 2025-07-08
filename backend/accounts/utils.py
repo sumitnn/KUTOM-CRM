@@ -27,3 +27,14 @@ def generate_unique_role_id(role):
     ]
     next_number = max(nums, default=0) + 1
     return f"{prefix}{str(next_number).zfill(5)}"
+
+def create_notification(user, title, message, notification_type='system', related_url=''):
+
+    if user:
+        Notification.objects.create(
+            user=user,
+            title=title,
+            message=message,
+            notification_type=notification_type,
+            related_url=related_url or ''
+        )

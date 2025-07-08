@@ -20,6 +20,14 @@ import csv
 from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter
+from django.db.models import Sum, Count
+import pandas as pd
+from datetime import timedelta, datetime
+from io import StringIO
+from django.utils.text import get_valid_filename
+
+
+
 
 
 # Reseller can create
@@ -64,8 +72,28 @@ class MyOrdersView(ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        import pdb; pdb.set_trace()
+ 
         queryset = Order.objects.filter(created_by=user)
+
+        # Optional: Filter by status from query params
+        status = self.request.query_params.get('status')
+        if status:
+            if status =="received":
+                queryset = queryset.filter(status__in=['delivered', 'received'])
+            else:
+                queryset = queryset.filter(status=status)
+
+        return queryset
+
+class VendorOrdersView(ListAPIView):
+    serializer_class = OrderSerializer
+    permission_classes = [IsVendorRole]
+    pagination_class = MyOrdersPagination
+
+    def get_queryset(self):
+        user = self.request.user
+ 
+        queryset = Order.objects.filter(created_for=user)
 
         # Optional: Filter by status from query params
         status = self.request.query_params.get('status')
@@ -254,10 +282,10 @@ class UpdateOrderStatusView(APIView):
         try:
             order = Order.objects.get(pk=pk)
         except Order.DoesNotExist:
-            return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        if order.stockist != request.user:
-            return Response({"detail": "You are not authorized to update this order."}, status=status.HTTP_403_FORBIDDEN)
+        if request.user != order.created_by and request.user != order.created_for:
+            return Response({"message": "You are not authorized to update this order."}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = OrderStatusUpdateSerializer(order, data=request.data, partial=True)
         if serializer.is_valid():
@@ -313,3 +341,159 @@ class ExportOrderHistoryExcelAPIView(generics.ListAPIView):
             ])
 
         return response
+    
+
+class VendorSalesReportView(APIView):
+    permission_classes = [IsVendorRole]
+    pagination_class = MyOrdersPagination
+
+    def get(self, request):
+        user = request.user
+        range_filter = request.query_params.get('range', 'today')
+        search_term = request.query_params.get('search', '')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+
+        # Date filtering
+        today = now().date()
+        if start_date and end_date:
+            try:
+                start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+                end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+            except ValueError:
+                return Response({'error': 'Invalid date format'}, status=400)
+        else:
+            if range_filter == 'last_month':
+                start_date = today - timedelta(days=30)
+            elif range_filter == 'this_week':
+                start_date = today - timedelta(days=7)
+            else:  # 'today'
+                start_date = today
+            end_date = today
+
+        # Base query - use __range for date filtering
+        sales = Sale.objects.filter(
+            seller=user, 
+            sale_date__range=(start_date, end_date)
+        )
+
+        # Search filtering
+        if search_term:
+            sales = sales.filter(product__name__icontains=search_term)
+
+        # Search filtering
+        if search_term:
+            sales = sales.filter(product__name__icontains=search_term)
+
+        # Get summary stats for charts
+        summary_stats = sales.aggregate(
+            total_sales=Sum('total_price'),
+            total_quantity=Sum('quantity'),
+            total_orders=Count('order', distinct=True)
+        )
+
+        # Get daily sales data for line chart
+        daily_sales = sales.values('sale_date').annotate(
+            daily_total=Sum('total_price'),
+            daily_quantity=Sum('quantity')
+        ).order_by('sale_date')
+
+        # Get top products for bar chart
+        top_products = sales.values('product__name').annotate(
+            product_total=Sum('total_price'),
+            product_quantity=Sum('quantity')
+        ).order_by('-product_total')[:5]
+
+        # Serialize data
+        serializer = SaleSerializer(
+            sales, 
+            many=True, 
+            context={'request': request}
+        )
+
+        response_data = {
+            'sales': serializer.data,
+            'summary': summary_stats,
+            'charts': {
+                'daily_sales': list(daily_sales),
+                'top_products': list(top_products)
+            }
+        }
+
+        return Response(response_data)
+
+class VendorSalesExportCSVView(APIView):
+    permission_classes = [IsVendorRole]
+
+    EXPORT_COLUMNS = [
+        ('order_date', 'Order Date'),
+        ('product_name', 'Product'),
+        ('product_size', 'Variant'),
+        ('quantity', 'Quantity'),
+        ('price', 'Unit Price'),
+        ('discount', 'Discount'),
+        ('total_price', 'Total Price'),
+    ]
+
+    def get_date_range(self, range_filter, start_date, end_date):
+        today = now().date()
+
+        if start_date and end_date:
+            try:
+                return (
+                    datetime.strptime(start_date, '%Y-%m-%d').date(),
+                    datetime.strptime(end_date, '%Y-%m-%d').date()
+                )
+            except ValueError:
+                raise ValueError("Invalid date format")
+
+        if range_filter == 'last_month':
+            return (today - timedelta(days=30), today)
+        elif range_filter == 'this_week':
+            return (today - timedelta(days=7), today)
+
+        return today, today  # default: today only
+
+    def get(self, request):
+        try:
+            user = request.user
+            range_filter = request.query_params.get('range', 'today')
+            search_term = request.query_params.get('search', '')
+            start_date = request.query_params.get('start_date')
+            end_date = request.query_params.get('end_date')
+
+            start_date, end_date = self.get_date_range(range_filter, start_date, end_date)
+
+            sales_query = Sale.objects.filter(
+                seller=user,
+                sale_date__range=(start_date, end_date)
+            )
+
+            if search_term:
+                sales_query = sales_query.filter(product__name__icontains=search_term)
+
+            serializer = SaleSerializer(sales_query, many=True, context={'request': request})
+            data = serializer.data
+
+            output = StringIO()
+            writer = csv.writer(output)
+
+            # Write header
+            writer.writerow([col[1] for col in self.EXPORT_COLUMNS])
+
+            # Write each sale row
+            for sale in data:
+                row = [sale.get(col[0], '') for col in self.EXPORT_COLUMNS]
+                writer.writerow(row)
+
+            output.seek(0)
+
+            filename = get_valid_filename(f"sales_report_{start_date}_to_{end_date}.csv")
+            response = HttpResponse(output.getvalue(), content_type='text/csv')
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+
+        except ValueError as e:
+            return Response({'error': str(e)}, status=400)
+        except Exception as e:
+            return Response({'error': f'Failed to generate report: {str(e)}'}, status=500)

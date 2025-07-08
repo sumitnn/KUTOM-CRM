@@ -3,8 +3,8 @@ from django.db import transaction
 from django.db.models import F
 from .models import  Order, OrderItem, OrderHistory
 from products.models import Product,ProductSize
-from accounts.models import Wallet,StockistAssignment
-
+from accounts.models import Wallet,StockistAssignment,WalletTransaction
+from accounts.utils import create_notification
 from rest_framework.exceptions import ValidationError
 
 class OrderService:
@@ -21,10 +21,8 @@ class OrderService:
                 raise ValidationError("Wallet not found for the user.")
             
             if wallet.balance < 10:
-                print("Insufficient wallet balance.")
                 raise ValidationError("Insufficient wallet balance.")
             
-            # import pdb; pdb.set_trace()
             total_price = Decimal('0.00')
             validated_items = []
 
@@ -49,21 +47,32 @@ class OrderService:
                     "product": product,
                     "product_size": product_size,
                     "quantity": quantity,
-                    "price":product_size.price,
+                    "price": product_size.price,
                 })
 
             if wallet.balance < total_price:
                 raise ValidationError("Insufficient wallet balance.")
 
-            # Deduct the balance
+            # Deduct balance
             wallet.balance = F('balance') - total_price
             wallet.save()
-            if user.role =="reseller":
-                # Get stockist assignment
+
+            # Record wallet transaction
+            WalletTransaction.objects.create(
+                wallet=wallet,
+                transaction_type='DEBIT',
+                amount=total_price,
+                description="Payment for bulk order",
+                transaction_status='SUCCESS'
+            )
+            
+
+            # Assign order target
+            if user.role == "reseller":
                 stockist_assignment = StockistAssignment.objects.filter(reseller=user).last()
                 created_for = stockist_assignment.stockist if stockist_assignment else None
             else:
-                created_for = product.owner
+                created_for = validated_items[0]["product"].owner
 
             # Create order
             order = Order.objects.create(
@@ -73,8 +82,15 @@ class OrderService:
                 status='new',
                 description="Bulk order placed"
             )
+            create_notification(
+                user=user,
+                title="Order Placed Successfully",
+                message=f"Your order #{order.id} has been placed successfully!",
+                notification_type="order",
+                related_url=f"/orders/{order.id}/"
+            )
 
-            # Create history
+            # Create order history
             OrderHistory.objects.create(
                 order=order,
                 actor=user,

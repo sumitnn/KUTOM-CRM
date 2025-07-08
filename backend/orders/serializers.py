@@ -1,20 +1,40 @@
 from rest_framework import serializers
-from .models import Order, OrderItem, OrderHistory
+from .models import Order, OrderItem, OrderHistory,Sale
 from accounts.models import User, Address
 from products.models import Product, ProductImage, ProductSize
 from decimal import Decimal
 
 
 class UserBasicSerializer(serializers.ModelSerializer):
+    role_based_id = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role']
+        fields = ['username', 'email', 'role_based_id']
+
+    def get_role_based_id(self, obj):
+        if obj.role == 'vendor':
+            return obj.vendor_id
+        elif obj.role == 'stockist':
+            return obj.stockist_id
+        elif obj.role == 'reseller':
+            return obj.reseller_id
+        return None
 
 
 class ProductSerializer(serializers.ModelSerializer):
+    category_id = serializers.IntegerField(source='category.id', read_only=True)
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    brand_id = serializers.IntegerField(source='brand.id', read_only=True)
+    brand_name = serializers.CharField(source='brand.name', read_only=True)
+
     class Meta:
         model = Product
-        fields = ['id', 'name', 'description', 'price', 'category']
+        fields = [
+            'id', 'name', 'slug', 'sku',
+            'category_id', 'category_name',
+            'brand_id', 'brand_name'
+        ]
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -129,3 +149,32 @@ class OrderHistorySerializer(serializers.ModelSerializer):
             'action', 'action_display', 'notes',
             'order_id'
         ]
+
+class SaleSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    product_size = serializers.CharField(source='product_size.name', read_only=True)
+    product_image = serializers.SerializerMethodField()
+    order_date = serializers.SerializerMethodField() 
+
+    class Meta:
+        model = Sale
+        fields = [
+            'id', 'order', 'seller', 'buyer', 'product', 'product_name',
+            'product_size', 'product_image', 'quantity', 'price', 
+            'discount', 'total_price', 'order_date'
+        ]
+
+    def get_product_image(self, obj):
+        if obj.product:
+            image = obj.product.images.filter(is_default=True).first()
+            if not image:
+                image = obj.product.images.filter(is_featured=True).first()
+            if image:
+                return image.image.url
+        return None
+    def get_order_date(self, obj):
+        # Handle both date and datetime objects
+        sale_date = obj.sale_date
+        if hasattr(sale_date, 'date'):  # If it's a datetime
+            return sale_date.date().isoformat()
+        return sale_date.isoformat()

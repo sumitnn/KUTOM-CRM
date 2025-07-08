@@ -1,7 +1,7 @@
 // src/components/ProductListPage.jsx
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FiEdit, FiTrash2, FiEye, FiSearch, FiX, FiFilter } from "react-icons/fi";
+import { FiEdit, FiTrash2, FiEye, FiSearch, FiX, FiFilter, FiCopy } from "react-icons/fi";
 import {
   useGetAllProductsQuery,
   useDeleteProductMutation,
@@ -23,6 +23,17 @@ const getProductImage = (prod) => {
     return defaultImg?.image || featuredImg?.image || prod.images[0].image;
   }
   return "/placeholder.png";
+};
+
+const getDefaultPrice = (sizes) => {
+  if (!sizes || sizes.length === 0) return '0.00';
+  const defaultSize = sizes.find(size => size.is_default) || sizes[0];
+  return defaultSize.price || '0.00';
+};
+
+const copyToClipboard = (text) => {
+  navigator.clipboard.writeText(text);
+  toast.success('Copied to clipboard!');
 };
 
 const ProductListPage = ({ role }) => {
@@ -85,7 +96,6 @@ const ProductListPage = ({ role }) => {
   };
 
   const handleAddToCart = (prod) => {
-    
     const isAlreadyInCart = cartItems.some((item) => item.id === prod.id);
   
     if (isAlreadyInCart) {
@@ -98,7 +108,7 @@ const ProductListPage = ({ role }) => {
         addItem({
           id: prod.id,
           name: prod.name,
-          price: Number(prod.price) || 0,
+          price: Number(defaultSize?.price || 0),
           quantity: 1,
           image: getProductImage(prod),
           size: defaultSize, 
@@ -349,35 +359,80 @@ const ProductListPage = ({ role }) => {
                   </figure>
                   <div className="card-body p-4">
                     <div className="flex justify-between items-start">
-                      <h2 className="card-title text-lg font-semibold line-clamp-2">
+                      <h2 className="card-title text-lg font-extrabold text-gray-800 line-clamp-2">
                         {prod.name}
                       </h2>
-                      <span className="badge badge-outline">
-                        {prod.sku}
-                      </span>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyToClipboard(prod.sku);
+                        }}
+                        className="badge badge-outline cursor-pointer hover:bg-gray-100 flex items-center gap-1"
+                        title="Click to copy SKU"
+                      >
+                        <span className="text-xs">{prod.sku}</span>
+                        <FiCopy size={10} />
+                      </button>
                     </div>
                     
-                    <div className="text-sm text-gray-500 mt-1">
+                    <div className="text-sm text-gray-600 font-medium mt-1">
                       <p className="line-clamp-1">
                         {prod.brand_name || 'No brand'} • {prod.category_name || 'Uncategorized'}
                       </p>
                       {prod.subcategory_name && (
-                        <p className="text-xs mt-1">{prod.subcategory_name}</p>
+                        <p className="text-xs mt-1 font-normal">{prod.subcategory_name}</p>
                       )}
                     </div>
 
+                    {/* Short Description */}
+                    {prod.short_description && (
+                      <p className="text-sm text-gray-700 font-medium mt-2 line-clamp-2">
+                        {prod.short_description}
+                      </p>
+                    )}
+
+                    {/* Features */}
+                    {prod.features && prod.features.length > 0 && (
+                      <div className="mt-2">
+                        <div className="text-xs font-bold text-gray-600 mb-1">Features:</div>
+                        <div className="flex flex-wrap gap-1">
+                          {prod.features.slice(0, 3).map((feature, index) => (
+                            <span 
+                              key={index} 
+                              className="badge badge-sm badge-outline text-gray-600 font-medium"
+                            >
+                              {feature}
+                            </span>
+                          ))}
+                          {prod.features.length > 3 && (
+                            <span className="badge badge-sm badge-ghost text-gray-400">
+                              +{prod.features.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="mt-3 flex justify-between items-center">
                       <div>
-                        <p className="text-sm font-medium text-gray-700">
+                        <p className="text-sm font-bold text-gray-700">
                           {prod.weight} {prod.weight_unit}
                         </p>
-                        <p className="text-xs text-gray-500">
-                          {prod.dimensions}
+                        <p className="text-xs text-gray-500 font-medium">
+                          Dimensions: {prod.dimensions || 'N/A'}
                         </p>
+                        <p className="text-xs text-gray-500 font-medium">
+                          Shipping: {prod.shipping_info || 'N/A'}
+                        </p>
+                        {prod.warranty && (
+                          <p className="text-xs text-gray-500 font-medium">
+                            Warranty: {prod.warranty} {prod.warranty === '1' ? 'year' : 'years'}
+                          </p>
+                        )}
                       </div>
                       <div className="text-right">
-                        <p className="font-medium text-green-600">
-                          ₹{Number(prod.price).toFixed(2)}
+                        <p className="font-extrabold text-green-600">
+                          ₹{getDefaultPrice(prod.sizes)}
                         </p>
                         {prod.rating && (
                           <div className="badge badge-sm badge-success gap-1">
@@ -386,6 +441,25 @@ const ProductListPage = ({ role }) => {
                         )}
                       </div>
                     </div>
+
+                    {/* Sizes */}
+                    {prod.sizes && prod.sizes.length > 0 && (
+                      <div className="mt-2">
+                        <div className="text-xs font-bold text-gray-600">Sizes:</div>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {prod.sizes.slice(0, 3).map((size) => (
+                            <span key={size.id} className="badge badge-outline badge-sm font-medium">
+                              {size.size} {size.unit} (₹{size.price})
+                            </span>
+                          ))}
+                          {prod.sizes.length > 3 && (
+                            <span className="badge badge-outline badge-sm">
+                              +{prod.sizes.length - 3} more
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="card-actions justify-end mt-4">
                       <div className="flex gap-2">

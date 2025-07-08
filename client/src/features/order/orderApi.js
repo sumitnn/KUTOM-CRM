@@ -20,6 +20,12 @@ export const orderApi = createApi({
                 method: 'GET',
             }),
         }),
+        getVendorOrders: builder.query({
+            query: ({ status = 'new', page = 1 }) => ({
+                url: `/orders/vendor/my-orders/?status=${status}&page=${page}`,
+                method: 'GET',
+            }),
+        }),
 
         // Create order (already done)
         createOrder: builder.mutation({
@@ -100,4 +106,5 @@ export const {
     useUpdateOrderStatusMutation,
     useGetOrderHistoryQuery,
     useLazyExportOrderHistoryQuery,
+    useGetVendorOrdersQuery
 } = orderApi;
