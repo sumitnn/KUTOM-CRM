@@ -27,6 +27,9 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.db import transaction
 from django.utils.timezone import make_aware
 from orders.models import Sale
+from .utils import create_notification
+
+
 
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 10
@@ -58,6 +61,7 @@ class LoginView(APIView):
     def post(self, request):
         email = request.data.get('email')
         password = request.data.get('password')
+        
 
         if not email or not password:
             return Response({
@@ -78,8 +82,10 @@ class LoginView(APIView):
 
             # Safely fetch profile completion
             profile_completion = 0
+            profile_pic = None
             if hasattr(user, 'profile'):
                 profile_completion = getattr(user.profile, 'completion_percentage', 0)
+                profile_pic=getattr(user.profile, 'profile_picture', None)
 
             return Response({
                 "message": "Login successful",
@@ -89,7 +95,8 @@ class LoginView(APIView):
                     "username": username,
                     "email": email,
                     "role": role,
-                    "profile_completed": profile_completion
+                    "profile_completed": profile_completion,
+                    "profile_pic": profile_pic.url if profile_pic else None
                 }
             }, status=status.HTTP_200_OK)
 
@@ -874,12 +881,13 @@ class TodayNotificationListAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        today = datetime.today().date()
+        today = datetime.now().date()
         notifications = Notification.objects.filter(
             user=request.user,
             created_at__date=today
-        )
-        serializer = NotificationSerializer(notifications, many=True)
+        )[:10]  
+
+        serializer = self.serializer_class(notifications, many=True)
         return Response(serializer.data)
 
 
@@ -890,33 +898,40 @@ class NewAccountApplicationCreateView(APIView):
 
     def post(self, request):
         serializer = NewAccountApplicationSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({
-                'message': 'Application submitted successfully',
-                'status': True
-            }, status=status.HTTP_201_CREATED)
+        
+        if not serializer.is_valid():
+            errors = serializer.errors
+            # Check for prioritized field errors
+            for field in ['email', 'phone']:
+                if field in errors:
+                    return Response({
+                        'message': errors[field][0],
+                        'status': False
+                    }, status=status.HTTP_400_BAD_REQUEST)
 
-        error_messages = serializer.errors
-
-        if 'email' in error_messages:
             return Response({
-                'message': error_messages['email'][0],
+                'message': 'Invalid data',
+                'errors': errors,
                 'status': False
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        if 'phone' in error_messages:
-            return Response({
-                'message': error_messages['phone'][0],
-                'status': False
-            }, status=status.HTTP_400_BAD_REQUEST)
+        # Save application and notify admin
+        serializer.save()
+        admin_user = User.objects.filter(role="admin").first()
+        if admin_user:
+            create_notification(
+                user=admin_user,
+                title="New Account Application",
+                message=f"New account application received from {serializer.validated_data['full_name']} ({serializer.validated_data['email']})",
+                notification_type='New Application',
+                related_url=''
+            )
 
-        # Fallback for any other error
         return Response({
-            'message': 'Invalid data',
-            'errors': error_messages,
-            'status': False
-        }, status=status.HTTP_400_BAD_REQUEST)
+            'message': 'Application submitted successfully',
+            'status': True
+        }, status=status.HTTP_201_CREATED)
+
 
 class NewAccountApplicationListView(APIView):
     permission_classes = [IsAdminRole]
