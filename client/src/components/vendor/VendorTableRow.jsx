@@ -131,7 +131,7 @@ export default function VendorTableRow({
                     <span className="loading loading-spinner loading-xs"></span>
                   ) : (
                     <FaIdCard />
-                  )} Mark KYC
+                  )} Mark Full KYC Approved
                 </button>
                 <button 
                   className="btn btn-sm btn-error font-bold"

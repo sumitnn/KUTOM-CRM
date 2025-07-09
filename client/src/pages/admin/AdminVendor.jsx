@@ -130,7 +130,7 @@ const AdminVendor = () => {
     try {
       const newStatus = activeTab === 'active' ? 'suspended' : 'active';
       await updateVendor({ id, data: { status: newStatus } }).unwrap();
-      toast.success(`Vendor ${newStatus === 'active' ? 'activated' : 'suspended'}!`);
+      toast.success(" User Profile Status Updated");
       refetchVendors();
     } catch (err) {
       toast.error('Failed to update vendor status');

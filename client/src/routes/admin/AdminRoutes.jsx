@@ -18,13 +18,11 @@ const Logout = lazy(() => import("../../pages/Logout"));
 const ViewBrandsPage = lazy(() => import("../../pages/ViewBrandsPage"));
 const CreateBrandPage = lazy(() => import("../../pages/CreateBrandPage"));
 const ViewCategoriesPage = lazy(() => import("../../pages/ViewCategoriesPage"));
-const CreateCategoryPage = lazy(() => import("../../pages/CreateCategoryPage"));
-const CreateSubcategoryPage = lazy(() => import("../../pages/CreateSubcategoryPage"));
+
 const ViewSubcategoriesPage = lazy(() => import("../../pages/ViewSubcategoriesPage"));
 const ProductListPage = lazy(() => import("../../pages/ProductListPage"));
 const ProductDetailsPage = lazy(() => import("../../pages/ProductDetailPage"));
-const CreateProductPage = lazy(() => import("../../pages/CreateProductPage"));
-const MyProductsPage = lazy(() => import("../../pages/MyProductsPage"));
+
 const EditProductPage = lazy(() => import("../../pages/EditProductPage"));
 const AdminReseller = lazy(() => import("../../pages/admin/AdminReseller"));
 const OrdersManagement = lazy(() => import("../../pages/OrdersManagement"));

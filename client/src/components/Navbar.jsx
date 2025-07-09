@@ -168,7 +168,7 @@ const Navbar = ({ role }) => {
                     notifications.map((notification) => (
                       <Link
                         key={notification.id}
-                        to={notification.related_url || `/${role}/dashboard`}
+                        to=""
                         className={`block px-4 py-3 cursor-pointer text-sm ${notification.is_read ? 'text-gray-600' : 'text-gray-900 bg-amber-50'}`}
                         onClick={() => setNotificationOpen(false)}
                       >

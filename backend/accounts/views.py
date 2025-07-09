@@ -1028,14 +1028,25 @@ class UpdateApprovalStatusView(APIView):
     def put(self, request, user_id):
         approval = get_object_or_404(ProfileApprovalStatus, user__id=user_id)
         serializer = ProfileApprovalStatusUpdateSerializer(
-            approval,
-            data=request.data,
-            partial=True
+            approval, data=request.data, partial=True
         )
 
         if serializer.is_valid():
             serializer.save()
-            return Response({'message': 'Approval status updated successfully'}, status=status.HTTP_200_OK)
+
+        
+            create_notification(
+                user=approval.user,
+                title="Profile Approval Status Updated",
+                message=f"Your profile has been reviewed by Admin.",
+                notification_type='Profile Approval',
+                related_url=''
+            )
+
+            return Response({
+                'message': 'Approval status updated successfully',
+                'completion': approval.calculate_completion()
+            }, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
