@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useParams, Link, Navigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { useGetOrderByIdQuery, useUpdateOrderStatusByStockistMutation } from "../features/order/orderApi";
+import { useGetOrderByIdQuery} from "../features/order/orderApi";
 import {
   FiPackage,
   FiCalendar,
@@ -14,7 +14,7 @@ import {
 const OrderDetailPage = ({ role }) => {
   const { id } = useParams();
   const { data: order, isLoading, isError } = useGetOrderByIdQuery(id);
-  const [updateStatus] = useUpdateOrderStatusByStockistMutation();
+  const [updateStatus] = useGetOrderByIdQuery(Id);
   const navigate = Navigate();
   
   const [isModalOpen, setIsModalOpen] = useState(false);

@@ -121,7 +121,7 @@ class BulkOrderCreateView(APIView):
             create_notification(
                     user=order.created_for,
                     title="New Order Received",
-                    message=f"New Order Request Received from {order.created_by.get_full_name()}",
+                    message=f"New Order Request Received from {order.created_by.username}",
                     notification_type="order received",
                     related_url=f""
                 )
@@ -336,7 +336,7 @@ class ExportOrderHistoryExcelAPIView(generics.ListAPIView):
             writer.writerow([
                 idx,
                 history.timestamp.strftime("%Y-%m-%d %H:%M"),
-                history.actor.get_full_name() if history.actor else "",
+                history.actor.username if history.actor else "",
                 getattr(history.order.product.brand, 'name', ''),
                 getattr(history.order.product.category, 'name', ''),
                 getattr(history.order.product.subcategory, 'name', ''),

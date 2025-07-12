@@ -176,19 +176,34 @@ const ProductDetailsPage = ({ role }) => {
 
           {/* Action Buttons */}
           {["admin", "reseller"].includes(role) && (
-            <div className="flex gap-4 mt-4">
-              <button
-                onClick={handleAddToCart}
-                className="btn btn-primary"
-                disabled={!selectedSize || selectedSize.quantity === 0}
-              >
-                {selectedSize?.quantity === 0 ? "Out of Stock" : "Add to Cart"}
-              </button>
-              <button className="btn btn-secondary" disabled={!selectedSize}>
-                Buy Now
-              </button>
-            </div>
-          )}
+  <div className="flex gap-4 mt-4">
+    <button
+      onClick={handleAddToCart}
+      className="btn btn-primary"
+      disabled={
+        !selectedSize ||
+        selectedSize.quantity === 0 ||
+        product.status === "draft" ||
+        !product.is_featured
+      }
+    >
+      {selectedSize?.quantity === 0
+        ? "Out of Stock"
+        : product.status === "draft" || !product.is_featured
+        ? "Unavailable"
+        : "Add to Cart"}
+    </button>
+    <button
+      className="btn btn-secondary"
+      disabled={
+        !selectedSize || product.status === "draft" || !product.is_featured
+      }
+    >
+      Buy Now
+    </button>
+  </div>
+)}
+
 
           {/* Description */}
           <div className="mt-6">

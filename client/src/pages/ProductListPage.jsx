@@ -346,16 +346,29 @@ const ProductListPage = ({ role }) => {
                         }
                       }}
                     />
-                    {prod.is_featured && (
-                      <div className="absolute top-2 left-2 badge badge-primary">
-                        Featured
-                      </div>
-                    )}
-                    {prod.status === 'draft' && (
-                      <div className="absolute top-2 left-2 badge badge-warning">
-                        Draft
-                      </div>
-                    )}
+                    {prod.status === 'draft' && !prod.is_featured && (
+  <div className="absolute top-2 left-2 badge badge-warning">
+    Draft (Inactive)
+  </div>
+)}
+
+{prod.status === 'draft' && prod.is_featured && (
+  <div className="absolute top-2 left-2 badge badge-warning">
+    Draft
+  </div>
+)}
+
+{prod.status === 'published' && prod.is_featured && (
+  <div className="absolute top-2 left-2 badge badge-primary">
+    Live
+  </div>
+)}
+
+{prod.status === 'published' && !prod.is_featured && (
+  <div className="absolute top-2 left-2 badge badge-secondary">
+    Inactive Product
+  </div>
+)}
                   </figure>
                   <div className="card-body p-4">
                     <div className="flex justify-between items-start">
@@ -475,16 +488,17 @@ const ProductListPage = ({ role }) => {
                         </button>
 
                         {["reseller", "admin"].includes(role) && (
-                          <button
-                            className="btn btn-sm btn-success"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleAddToCart(prod);
-                            }}
-                          >
-                            Add to Cart
-                          </button>
-                        )}
+  <button
+    className="btn btn-sm btn-success"
+    onClick={(e) => {
+      e.stopPropagation();
+      handleAddToCart(prod);
+    }}
+    disabled={prod.status === 'draft' || prod.is_featured === false}
+  >
+    Add to Cart
+  </button>
+)}
 
                         {(role === "admin" || role === "vendor") && (
                           <>

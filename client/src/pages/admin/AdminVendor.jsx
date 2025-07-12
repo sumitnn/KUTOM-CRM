@@ -8,6 +8,7 @@ import {
   useGetAllAccountApplicationsQuery,
   useApproveAccountApplicationMutation,
   useRejectAccountApplicationMutation,
+  useUpdateUserAccountKycMutation
 } from "../../features/newapplication/newAccountApplicationApi";
 import VendorTable from '../../components/vendor/VendorTable';
 import RejectReasonModal from '../../components/RejectReasonModal';
@@ -67,6 +68,7 @@ export default function AdminVendor() {
   const [updateVendor] = useUpdateVendorStatusMutation();
   const [approveApplication] = useApproveAccountApplicationMutation();
   const [rejectApplication] = useRejectAccountApplicationMutation();
+  const [UpdateKyc] = useUpdateUserAccountKycMutation();
 
   const isLoading = isLoadingApplications || isLoadingVendors;
 
@@ -95,6 +97,23 @@ export default function AdminVendor() {
       toast.error('Failed to refresh data');
     }
   };
+
+  const handleMarkKycCompleted = async (userId) => {
+  setIsLoadingAction(true);
+    
+
+  try {
+    await UpdateKyc({ userId }).unwrap();
+    toast.success('KYC marked as completed successfully');
+    refetchApplications();
+  } catch (err) {
+    toast.error(err?.data?.message || "Something went wrong while verifying KYC");
+  } finally {
+    setIsLoadingAction(false);
+   
+  }
+};
+
 
   const handleApproveApplication = async (id, actionType = 'approve') => {
     setIsLoadingAction(true);
@@ -156,6 +175,7 @@ export default function AdminVendor() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onApprove={handleApproveApplication}
+        MarkFullKyc={handleMarkKycCompleted}
         onReject={(id) => {
           if (['new', 'pending', 'rejected'].includes(activeTab)) {
             setSelectedApplication(id);
