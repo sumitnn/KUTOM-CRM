@@ -9,10 +9,11 @@ from collections import defaultdict
 class BrandSerializer(serializers.ModelSerializer):
     created_at = serializers.SerializerMethodField()
     updated_at = serializers.SerializerMethodField()
+    owner = serializers.PrimaryKeyRelatedField(read_only=True)
     class Meta:
         model = Brand
-        fields = ["id", "name", "logo", "is_active","description", "created_at", "updated_at"]
-        read_only_fields = ["created_at", "updated_at"]
+        fields = ["id", "name", "logo", "is_active","description", "created_at", "updated_at","owner"]
+        read_only_fields = ["created_at", "updated_at","owner"]
 
 
     def get_created_at(self, obj):
@@ -43,11 +44,12 @@ class MainCategorySerializer(serializers.ModelSerializer):
 class CategorySerializer(serializers.ModelSerializer):
     created_at = serializers.DateTimeField(format="%Y-%m-%d", read_only=True)
     updated_at = serializers.DateTimeField(format="%Y-%m-%d", read_only=True)
+    owner = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = Category
-        fields = ['id', 'name', 'main_category', 'is_active', 'created_at', 'updated_at']
-        read_only_fields = ['created_at', 'updated_at']
+        fields = ['id', 'name', 'main_category', 'is_active', 'created_at', 'updated_at',"owner"]
+        read_only_fields = ['created_at', 'updated_at', 'owner']
 
     def update(self, instance, validated_data):
         for attr in ['name', 'is_active', 'main_category']:
@@ -61,6 +63,7 @@ class SubCategorySerializer(serializers.ModelSerializer):
     brand_name = serializers.CharField(source='brand.name', read_only=True)
     created_at = serializers.DateTimeField(format="%Y-%m-%d", read_only=True)
     updated_at = serializers.DateTimeField(format="%Y-%m-%d", read_only=True)
+    owner = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = SubCategory
@@ -68,9 +71,9 @@ class SubCategorySerializer(serializers.ModelSerializer):
             'id', 'name',
             'category', 'category_name',
             'brand', 'brand_name',
-            'is_active', 'created_at', 'updated_at'
+            'is_active', 'created_at', 'updated_at',"owner"
         ]
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at', 'owner']
 
     def update(self, instance, validated_data):
         for attr in ['name', 'category', 'brand', 'is_active']:
@@ -110,7 +113,7 @@ class ProductPriceTierSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductPriceTier
         fields = "__all__"
-        read_only_fields = ['id']
+        read_only_fields = ['id','product', 'size']
 
 
 class ProductSizeSerializer(serializers.ModelSerializer):
@@ -133,6 +136,7 @@ class ProductSerializer(serializers.ModelSerializer):
     brand_name = serializers.CharField(source='brand.name', read_only=True)
     category_name = serializers.CharField(source='category.name', read_only=True)
     subcategory_name = serializers.CharField(source='subcategory.name', read_only=True)
+    vendor_id = serializers.CharField(source='owner.vendor_id', read_only=True)
 
     class Meta:
         model = Product
@@ -142,7 +146,7 @@ class ProductSerializer(serializers.ModelSerializer):
             'subcategory_name', 'tags', 'status', 'is_featured', 'rating',
             'images', 'sizes', 'created_at', 'updated_at',
             'currency', 'weight', 'weight_unit', 'dimensions', 'product_type',
-            'shipping_info', 'video_url', 'warranty', 'content_embeds', 'features'
+            'shipping_info', 'video_url', 'warranty', 'content_embeds', 'features','vendor_id'
         ]
         read_only_fields = ['sku', 'slug', 'created_at', 'updated_at']
 
@@ -183,7 +187,7 @@ class StockSerializer(serializers.ModelSerializer):
         return str(obj.size.size) if obj.size else None
 
     def create(self, validated_data):
-        import pdb;pdb.set_trace()
+        
         product = validated_data['product']
         size = validated_data.get('size')
         new_quantity = int(validated_data.get('quantity', 0))

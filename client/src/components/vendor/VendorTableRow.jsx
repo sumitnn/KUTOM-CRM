@@ -1,4 +1,4 @@
-import React, { useState, lazy, Suspense } from 'react';
+import React, { useState } from 'react';
 import { 
   FaEye, 
   FaCheck, 
@@ -9,9 +9,7 @@ import {
   FaSync
 } from 'react-icons/fa';
 import { format } from 'date-fns';
-
-// Lazy load ProgressBar
-const ProgressBar = lazy(() => import('../ProgressBar'));
+import ProgressBar from '../ProgressBar';
 
 export default function VendorTableRow({ 
   vendor, 
@@ -27,6 +25,13 @@ export default function VendorTableRow({
   currentActionId
 }) {
   const [showKycConfirm, setShowKycConfirm] = useState(false);
+  const [localLoading, setLocalLoading] = useState({
+    approve: false,
+    reject: false,
+    kyc: false,
+    status: false
+  });
+
   const formattedDate = vendor.created_at 
     ? format(new Date(vendor.created_at), 'MMM dd, yyyy HH:mm') 
     : 'N/A';
@@ -41,13 +46,50 @@ export default function VendorTableRow({
   const postalCode = vendor.address?.postal_code || 'N/A';
   const city = vendor.address?.city || 'N/A';
 
-  const handleConfirmKyc = () => {
+  const handleConfirmKyc = async () => {
     setShowKycConfirm(false);
-    onMarkKycCompleted(vendor.id);
+    setLocalLoading(prev => ({...prev, kyc: true}));
+    await onMarkKycCompleted(vendor.id);
+    setLocalLoading(prev => ({...prev, kyc: false}));
   };
 
-  const isActionLoading = (actionType) => {
-    return isLoadingAction && currentActionId === vendor.id && currentActionId === actionType;
+  const handleAction = async (action, actionFn) => {
+    setLocalLoading(prev => ({...prev, [action]: true}));
+    try {
+      await actionFn(vendor.id);
+    } finally {
+      setLocalLoading(prev => ({...prev, [action]: false}));
+    }
+  };
+
+  const getButtonState = (actionType) => {
+    const isLoading = isLoadingAction && currentActionId === vendor.id && currentActionId === actionType;
+    const isLocallyLoading = localLoading[actionType];
+    return {
+      loading: isLoading || isLocallyLoading,
+      disabled: isLoading || isLocallyLoading
+    };
+  };
+
+  const renderActionButton = (action, icon, text, variant = 'primary') => {
+    const { loading, disabled } = getButtonState(action);
+    return (
+      <button 
+        className={`btn btn-sm btn-${variant} font-bold`}
+        onClick={() => handleAction(action, action === 'approve' ? onApprove : 
+                                         action === 'reject' ? onReject : 
+                                         action === 'kyc' ? onMarkKycCompleted : null)}
+        disabled={disabled}
+      >
+        {loading ? (
+          <span className="loading loading-spinner loading-xs"></span>
+        ) : (
+          <>
+            {icon} {text}
+          </>
+        )}
+      </button>
+    );
   };
 
   const getRowContent = () => {
@@ -62,35 +104,8 @@ export default function VendorTableRow({
             <td className="px-2 py-3">{phone}</td>
             <td className="px-2 py-3">
               <div className="flex flex-wrap gap-2">
-                <button 
-                  className="btn btn-sm btn-success"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onApprove(vendor.id);
-                  }}
-                  disabled={isActionLoading('approve')}
-                >
-                  {isActionLoading('approve') ? (
-                    <span className="loading loading-spinner loading-xs"></span>
-                  ) : (
-                    <FaCheck />
-                  )} Approve
-                </button>
-                <button 
-                  className="btn btn-sm btn-error"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onReject(vendor.id);
-                  }}
-                  disabled={isActionLoading('reject')}
-                >
-                  {isActionLoading('reject') ? (
-                    <span className="loading loading-spinner loading-xs"></span>
-                  ) : (
-                    <FaTimes />
-                  )} Reject
-                </button>
-               
+                {renderActionButton('approve', <FaCheck />, 'Approve', 'success')}
+                {renderActionButton('reject', <FaTimes />, 'Reject', 'error')}
               </div>
             </td>
           </>
@@ -104,9 +119,7 @@ export default function VendorTableRow({
             <td className="px-2 py-3">{vendor.email}</td>
             <td className="px-2 py-3">{phone}</td>
             <td className="px-2 py-3">
-              <Suspense fallback={<div className="h-2 w-full bg-gray-200 rounded-full"></div>}>
-                <ProgressBar percentage={vendor?.user?.profile?.completion_percentage || 0} />
-              </Suspense>
+              <ProgressBar percentage={vendor?.user?.profile?.completion_percentage || 0} />
             </td>
             <td className="px-2 py-3">
               <div className="flex flex-wrap gap-2">
@@ -119,35 +132,8 @@ export default function VendorTableRow({
                 >
                   <FaEye /> Review
                 </button>
-                <button 
-                  className="btn btn-sm btn-primary"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowKycConfirm(true);
-                  }}
-                  disabled={isActionLoading('kyc')}
-                >
-                  {isActionLoading('kyc') ? (
-                    <span className="loading loading-spinner loading-xs"></span>
-                  ) : (
-                    <FaIdCard />
-                  )} Mark KYC
-                </button>
-                <button 
-                  className="btn btn-sm btn-error font-bold"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onReject(vendor.id);
-                  }}
-                  disabled={isActionLoading('reject')}
-                >
-                  {isActionLoading('reject') ? (
-                    <span className="loading loading-spinner loading-xs"></span>
-                  ) : (
-                    <FaTimes />
-                  )} Reject
-                </button>
-               
+                {renderActionButton('kyc', <FaIdCard />, 'Mark Full KYC Approved')}
+                {renderActionButton('reject', <FaTimes />, 'Reject', 'error')}
               </div>
             </td>
           </>
@@ -162,21 +148,7 @@ export default function VendorTableRow({
             <td className="px-2 py-3">{phone}</td>
             <td className="px-2 py-3">
               <div className="flex flex-wrap gap-2">
-                <button 
-                  className="btn btn-sm btn-success font-bold"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onApprove(vendor.id);
-                  }}
-                  disabled={isActionLoading('approve')}
-                >
-                  {isActionLoading('approve') ? (
-                    <span className="loading loading-spinner loading-xs"></span>
-                  ) : (
-                    <FaThumbsUp />
-                  )} Re-Activate
-                </button>
-                
+                {renderActionButton('approve', <FaThumbsUp />, 'Re-Activate', 'success')}
               </div>
             </td>
           </>
@@ -210,23 +182,12 @@ export default function VendorTableRow({
                 >
                   <FaEye /> View
                 </button>
-                <button 
-                  className={`btn btn-sm font-bold ${activeTab === 'active' ? 'btn-warning' : 'btn-success'}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onReject(vendor.id);
-                  }}
-                  disabled={isActionLoading('status')}
-                >
-                  {isActionLoading('status') ? (
-                    <span className="loading loading-spinner loading-xs"></span>
-                  ) : activeTab === 'active' ? (
-                    <><FaThumbsDown /> Deactivate</>
-                  ) : (
-                    <><FaThumbsUp /> Activate</>
-                  )}
-                </button>
-               
+                {renderActionButton(
+                  'status', 
+                  activeTab === 'active' ? <FaThumbsDown /> : <FaThumbsUp />,
+                  activeTab === 'active' ? 'Deactivate' : 'Activate',
+                  activeTab === 'active' ? 'warning' : 'success'
+                )}
               </div>
             </td>
           </>
@@ -252,14 +213,20 @@ export default function VendorTableRow({
               <button 
                 className="btn btn-ghost"
                 onClick={() => setShowKycConfirm(false)}
+                disabled={localLoading.kyc}
               >
                 Cancel
               </button>
               <button 
                 className="btn btn-primary"
                 onClick={handleConfirmKyc}
+                disabled={localLoading.kyc}
               >
-                Yes, Mark as Completed
+                {localLoading.kyc ? (
+                  <span className="loading loading-spinner loading-xs"></span>
+                ) : (
+                  'Yes, Mark as Completed'
+                )}
               </button>
             </div>
           </div>

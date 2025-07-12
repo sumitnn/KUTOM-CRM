@@ -1,4 +1,4 @@
-import React, { useState, lazy, Suspense } from 'react';
+import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import {
   useFetchVendorsQuery,
@@ -9,13 +9,18 @@ import {
   useApproveAccountApplicationMutation,
   useRejectAccountApplicationMutation,
 } from "../../features/newapplication/newAccountApplicationApi";
-
 import VendorTable from '../../components/vendor/VendorTable';
+import RejectReasonModal from '../../components/RejectReasonModal';
 
-// Lazy load RejectReasonModal
-const RejectReasonModal = lazy(() => import('../../components/RejectReasonModal'));
+const statusTabs = [
+  { id: 'new', label: 'New Request' },
+  { id: 'pending', label: 'Processing' },
+  { id: 'rejected', label: 'Rejected' },
+  { id: 'active', label: 'Active' },
+  { id: 'suspended', label: 'Inactive' },
+];
 
-const AdminVendor = () => {
+export default function AdminVendor() {
   const [activeTab, setActiveTab] = useState('new');
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState(null);
@@ -130,7 +135,7 @@ const AdminVendor = () => {
     try {
       const newStatus = activeTab === 'active' ? 'suspended' : 'active';
       await updateVendor({ id, data: { status: newStatus } }).unwrap();
-      toast.success(`Vendor ${newStatus === 'active' ? 'activated' : 'suspended'}!`);
+      toast.success("User Profile Status Updated");
       refetchVendors();
     } catch (err) {
       toast.error('Failed to update vendor status');
@@ -166,16 +171,13 @@ const AdminVendor = () => {
         currentActionId={currentActionId}
       />
 
-      <Suspense fallback={<div className="loading loading-spinner loading-md"></div>}>
-        {rejectModalOpen && (
-          <RejectReasonModal
-            onClose={() => setRejectModalOpen(false)}
-            onSubmit={(reason) => handleRejectApplication(selectedApplication, reason)}
-          />
-        )}
-      </Suspense>
+      {rejectModalOpen && (
+        <RejectReasonModal
+          onClose={() => setRejectModalOpen(false)}
+          onSubmit={(reason) => handleRejectApplication(selectedApplication, reason)}
+          isLoading={isLoadingAction && currentActionId === 'reject'}
+        />
+      )}
     </div>
   );
-};
-
-export default AdminVendor;
+}

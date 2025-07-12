@@ -87,7 +87,7 @@ const Login = () => {
 
           <div className="flex justify-between items-center w-full text-sm text-gray-600">
             <label className="flex items-center gap-2">
-              <input type="checkbox" name="checkbox" id="checkbox" className="w-4 h-4" />
+              <input type="checkbox" name="checkbox" id="checkbox" className="w-4 h-4 cursor-pointer" />
               Remember me
             </label>
             <Link to="/forget-password" className="text-indigo-600 hover:underline">
@@ -102,7 +102,7 @@ const Login = () => {
           ) : (
             <button
               type="submit"
-              className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-medium"
+              className="w-full h-12 cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-bold"
             >
               Login
             </button>

@@ -156,22 +156,23 @@ const ProductDetailsPage = ({ role }) => {
           )}
 
           {/* Quantity */}
-          <div className="flex items-center gap-3">
-            <span className="font-semibold">Qty:</span>
-            <button
-              onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              className="btn btn-sm btn-outline"
-            >
-              <FiMinus />
-            </button>
-            <span>{quantity}</span>
-            <button
-              onClick={() => setQuantity(quantity + 1)}
-              className="btn btn-sm btn-outline"
-            >
-              <FiPlus />
-            </button>
-          </div>
+          {["admin","reseller"].includes(role) && (
+            <div className="flex items-center gap-3">
+              <span className="font-semibold">Qty:</span>
+              <button
+                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                className="btn btn-sm btn-outline"
+              >
+                <FiMinus />
+              </button>
+              <span>{quantity}</span>
+              <button
+                onClick={() => setQuantity(quantity + 1)}
+                className="btn btn-sm btn-outline"
+              >
+                <FiPlus />
+              </button>
+            </div>)}
 
           {/* Action Buttons */}
           {["admin", "reseller"].includes(role) && (

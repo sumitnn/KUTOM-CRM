@@ -528,21 +528,7 @@ const MyStockPage = ({ role }) => {
                   />
                 </div>
                 
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-bold">Status</span>
-                  </label>
-                  <select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleInputChange}
-                    className="select select-bordered"
-                    required
-                  >
-                    <option value="in_stock">In Stock</option>
-                    <option value="out_of_stock">Out of Stock</option>
-                  </select>
-                </div>
+              
                 
                 <div className="form-control md:col-span-2">
                   <label className="label">

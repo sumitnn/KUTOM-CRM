@@ -99,8 +99,8 @@ const TabledProductListPage = ({ role }) => {
       {/* Header and Filters */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Product Inventory</h1>
-          <p className="text-sm text-gray-500">Manage your products and inventory</p>
+          <h1 className="text-2xl font-extrabold text-gray-800">Product Inventory</h1>
+          <p className="text-sm text-gray-500 font-bold">see all available products  </p>
         </div>
 
         <div className="flex flex-wrap gap-3 w-full lg:w-auto">
@@ -159,7 +159,7 @@ const TabledProductListPage = ({ role }) => {
           </div>
 
           {/* Admin/Vendor Actions */}
-          {(role === "admin" || role === "vendor") && (
+          {(role === "vendor") && (
             <div className="flex gap-2 ml-auto">
               <button
                 className="btn btn-primary gap-2"
@@ -167,9 +167,7 @@ const TabledProductListPage = ({ role }) => {
               >
                 <FiPlus /> Create
               </button>
-              <button className="btn btn-outline gap-2" disabled>
-                <FiUpload /> Import
-              </button>
+              
             </div>
           )}
         </div>
@@ -239,7 +237,7 @@ const TabledProductListPage = ({ role }) => {
                             </div>
                             <div>
                               <div className="font-medium">{prod.name}</div>
-                              <div className="text-xs text-gray-500">SKU: {prod.sku}</div>
+                              <div className="text-xs text-gray-500">SKU: <strong>{prod.sku}</strong></div>
                             </div>
                           </div>
                         </td>
@@ -295,7 +293,7 @@ const TabledProductListPage = ({ role }) => {
                         <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                         </svg>
-                        <h3 className="text-lg font-medium text-gray-700">No products found</h3>
+                        <h3 className="text-lg font-bold text-gray-700">No products found</h3>
                         <p className="text-gray-500">Try adjusting your search or filters</p>
                       </div>
                     </td>

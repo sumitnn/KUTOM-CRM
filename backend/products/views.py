@@ -16,7 +16,7 @@ from rest_framework import generics
 from rest_framework.pagination import PageNumberPagination
 from datetime import datetime
 from accounts.utils import create_notification
-
+from django.db import transaction
 
 class BrandListCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -27,7 +27,7 @@ class BrandListCreateAPIView(APIView):
         brands = Brand.objects.all()
         if search_query:
             brands = brands.filter(Q(name__icontains=search_query))
-
+        brands = brands.select_related('owner')
         serializer = BrandSerializer(brands, many=True, context={'request': request})
         return Response(serializer.data)
 
@@ -54,13 +54,15 @@ class BrandListCreateAPIView(APIView):
         serializer = BrandSerializer(data=data, context={'request': request})
         if serializer.is_valid():
             serializer.save(owner=request.user)
-            create_notification(
-                user=request.user,
-                title="New Brand Created",
-                message=f"A new brand '{serializer.data['name']}' has been created.",
-                notification_type="brand",
-                related_url=f"/brands/{serializer.data['id']}/"
-            )
+            admin_user=User.objects.filter(role='admin').first()
+            if admin_user:
+                create_notification(
+                    user=admin_user,
+                    title="New Brand Created",
+                    message=f"A new brand '{serializer.data['name']}' has been created By {request.user.username}.",
+                    notification_type="brand",
+                    related_url=f"/brands/{serializer.data['id']}/"
+                )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -99,6 +101,15 @@ class BrandDetailAPIView(APIView):
         )
         if serializer.is_valid():
             serializer.save()
+            admin_user=User.objects.filter(role='admin').first()
+            if admin_user:
+                create_notification(
+                    user=admin_user,
+                    title="Brand Details Updated",
+                    message=f"brand '{serializer.data['name']}' has been updated by {request.user.username}.",
+                    notification_type="brand update",
+                    related_url=f"/brands/{serializer.data['id']}/"
+                )
             return Response(serializer.data)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -148,6 +159,15 @@ class MainCategoryAPIView(APIView):
         serializer = MainCategorySerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save(owner=request.user)
+            admin_user=User.objects.filter(role='admin').first()
+            if admin_user:
+                create_notification(
+                    user=admin_user,
+                    title="New Main Category Created",
+                    message=f"A new main category '{serializer.data['name']}' has been created By {request.user.username}.",
+                    notification_type="main category",
+                    related_url=f""
+                )
             
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -164,6 +184,7 @@ class MainCategoryAPIView(APIView):
         serializer = MainCategorySerializer(category, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
             serializer.save()
+            
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -216,6 +237,15 @@ class CategoryAPIView(APIView):
         serializer = CategorySerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save(owner=request.user)
+            admin_user=User.objects.filter(role='admin').first()
+            if admin_user:
+                create_notification(
+                    user=admin_user,
+                    title="New Category Created",
+                    message=f"A new category '{serializer.data['name']}' has been created By {request.user.username}.",
+                    notification_type="category",
+                    related_url=f""
+                )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -308,6 +338,15 @@ class SubcategoryAPIView(APIView):
         serializer = SubCategorySerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save(owner=request.user)
+            admin_user=User.objects.filter(role='admin').first()
+            if admin_user:
+                create_notification(
+                    user=admin_user,
+                    title="New Sub-Category Created",
+                    message=f"A new Sub-category '{serializer.data['name']}' has been created By {request.user.username}.",
+                    notification_type="subcategory",
+                    related_url=f""
+                )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -402,10 +441,9 @@ class ProductListCreateAPIView(APIView):
 
     def post(self, request):
         data = request.data.copy()
-
         # Truncate short_description if too long
-        if 'short_description' in data and len(data['short_description']) > 160:
-            data['short_description'] = data['short_description'][:160]
+        if 'short_description' in data and len(data['short_description']) > 450:
+            data['short_description'] = data['short_description'][:450]
 
 
         # Safely load JSON fields
@@ -439,10 +477,11 @@ class ProductListCreateAPIView(APIView):
 
             # Save main images
             if 'image' in request.FILES:
-                for img in request.FILES.getlist('image'):
+                image_list = request.FILES.getlist('image')
+                if image_list:
                     ProductImage.objects.create(
                         product=product,
-                        image=img,
+                        image=image_list[0], 
                         is_featured=True,
                         is_default=True
                     )
@@ -456,14 +495,15 @@ class ProductListCreateAPIView(APIView):
                         is_featured=True,
                         is_default=False
                     )
+         
             
             # Save sizes and track them by index
             saved_sizes = []
             if 'sizes' in data and isinstance(data['sizes'], list):
                 for size_data in data['sizes']:
-                    size_serializer = ProductSizeSerializer(data=size_data)
+                    size_serializer = ProductSizeSerializer(data={**size_data, "product": product.id})
                     if size_serializer.is_valid():
-                        size_instance = size_serializer.save(product=product)
+                        size_instance = size_serializer.save()
                         saved_sizes.append(size_instance)
                     else:
                         return Response(size_serializer.errors, status=400)
@@ -477,6 +517,7 @@ class ProductListCreateAPIView(APIView):
                             {"price_tiers": f"Invalid sizeIndex: {size_index}"},
                             status=400
                         )
+
                     tier_serializer = ProductPriceTierSerializer(data=tier_data)
                     if tier_serializer.is_valid():
                         tier_serializer.save(
@@ -485,13 +526,16 @@ class ProductListCreateAPIView(APIView):
                         )
                     else:
                         return Response(tier_serializer.errors, status=400)
-            create_notification(
-                user=request.user,
-                title="New Product Created",
-                message=f"A new product '{product.name}' has been created.",
-                notification_type="product",
-                related_url=f"/products/{product.id}/"
-            )
+                    
+            admin_user=User.objects.filter(role='admin').first()
+            if admin_user:
+                create_notification(
+                    user=admin_user,
+                    title="New Product Created",
+                    message=f"A new product '{product.name}' has been created. by {request.user.username}.",
+                    notification_type="product",
+                    related_url=f"/products/{product.id}/"
+                )
 
             return Response(
                 ProductSerializer(product, context={'request': request}).data,
@@ -521,12 +565,12 @@ class ProductDetailAPIView(APIView):
     def put(self, request, pk):
         product = self.get_object(pk)
         data = request.data.copy()
-        
+
         self.check_object_permissions(request, product)
-        
+
         # Truncate short_description if too long
-        if 'short_description' in data and len(data['short_description']) > 160:
-            data['short_description'] = data['short_description'][:160]
+        if 'short_description' in data and len(data['short_description']) > 450:
+            data['short_description'] = data['short_description'][:450]
 
         # Safely load JSON fields
         for field in ['tags', 'features', 'sizes', 'price_tiers']:
@@ -544,113 +588,130 @@ class ProductDetailAPIView(APIView):
                             status=status.HTTP_400_BAD_REQUEST
                         )
 
-        serializer = ProductSerializer(
-            product, 
-            data=data, 
-            partial=True,
-            context={'request': request}
-        )
         
-        if serializer.is_valid():
-            product = serializer.save()
-            
-            # Handle tags update
-            if 'tags' in data and isinstance(data['tags'], list):
-                tag_ids = []
-                for tag_name in data['tags']:
-                    tag_obj, _ = Tag.objects.get_or_create(name=tag_name, defaults={'owner': request.user})
-                    tag_ids.append(tag_obj.id)
-                product.tags.set(tag_ids)
-            
-            # Handle image updates
-            if 'image' in request.FILES:
-                old_images = product.images.filter(is_default=True)
-                for img in old_images:
-                    img.image.delete(save=False)
-                old_images.delete()
-                for img in request.FILES.getlist('image'):
-                    ProductImage.objects.create(
-                        product=product,
-                        image=img,
-                        is_featured=True,
-                        is_default=True
-                    )
-            
-            # Handle additional images
-            if 'additional_images' in request.FILES:
-                old_additional_images = product.images.filter(is_default=False)
-                for img in old_additional_images:
-                    img.image.delete(save=False)
-                old_additional_images.delete()
-                for img in request.FILES.getlist('additional_images'):
-                    ProductImage.objects.create(
-                        product=product,
-                        image=img,
-                        is_featured=True,
-                        is_default=False
-                    )
-            
-            # Handle sizes updates - FIRST PASS: Create all sizes
-            saved_sizes = []
-            if 'sizes' in data and isinstance(data['sizes'], list):
-                # First pass: Create all sizes without setting defaults
-                temp_sizes = []
-                for size_data in data['sizes']:
-                    size_data = size_data.copy()
-                    # Include the product ID in the data
-                    size_data['product'] = product.id
-                    # Temporarily set is_default to False during creation
-                    original_default = size_data.pop('is_default', False)
-                    size_serializer = ProductSizeSerializer(data=size_data)
-                    if size_serializer.is_valid():
-                        size_instance = size_serializer.save()
-                        temp_sizes.append((size_instance, original_default))
-                    else:
-                        return Response(
-                            {'sizes': size_serializer.errors},
-                            status=status.HTTP_400_BAD_REQUEST
-                        )
-                
-                # Second pass: Now that all sizes have PKs, set the correct defaults
-                for size_instance, original_default in temp_sizes:
-                    if original_default:
-                        size_instance.is_default = True
-                        size_instance.save()
-                    saved_sizes.append(size_instance)
-            
-            # Handle price tiers updates (only after all sizes have been created)
-            if 'price_tiers' in data and isinstance(data['price_tiers'], list):
-                product.price_tiers.all().delete()
-                for tier_data in data['price_tiers']:
-                    size_index = tier_data.get('sizeIndex')
-                    if size_index is None or size_index >= len(saved_sizes):
-                        return Response(
-                            {"price_tiers": f"Invalid sizeIndex: {size_index}"},
-                            status=400
-                        )
-                    
-                    # Create a copy of tier_data to modify
-                    tier_data = tier_data.copy()
-                    # Include required fields
-                    tier_data['product'] = product.id
-                    tier_data['size'] = saved_sizes[size_index].id
-                    
-                    tier_serializer = ProductPriceTierSerializer(data=tier_data)
-                    if tier_serializer.is_valid():
-                        tier_serializer.save()
-                    else:
-                        return Response(
-                            {'price_tiers': tier_serializer.errors},
-                            status=status.HTTP_400_BAD_REQUEST
-                        )
-
-            return Response(
-                ProductSerializer(product, context={'request': request}).data,
-                status=status.HTTP_200_OK
+        with transaction.atomic():  # Ensure full update or rollback
+            serializer = ProductSerializer(
+                product,
+                data=data,
+                partial=True,
+                context={'request': request}
             )
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+            if serializer.is_valid():
+                product = serializer.save()
+                product.status = "draft"
+                product.save()
+
+                # Handle tags update
+                if 'tags' in data and isinstance(data['tags'], list):
+                    tag_ids = []
+                    for tag_name in data['tags']:
+                        tag_obj, _ = Tag.objects.get_or_create(
+                            name=tag_name, defaults={'owner': request.user}
+                        )
+                        tag_ids.append(tag_obj.id)
+                    product.tags.set(tag_ids)
+
+                # Handle featured image update
+                if 'image' in request.FILES:
+                    old_images = product.images.filter(is_default=True)
+                    for img in old_images:
+                        img.image.delete(save=False)
+                    old_images.delete()
+
+                    image_list = request.FILES.getlist('image')
+                    if image_list:
+                        ProductImage.objects.create(
+                            product=product,
+                            image=image_list[0],
+                            is_featured=True,
+                            is_default=True
+                        )
+
+                # Handle additional images
+                if 'additional_images' in request.FILES:
+                    old_additional_images = product.images.filter(is_default=False)
+                    for img in old_additional_images:
+                        img.image.delete(save=False)
+                    old_additional_images.delete()
+
+                    for img in request.FILES.getlist('additional_images'):
+                        ProductImage.objects.create(
+                            product=product,
+                            image=img,
+                            is_featured=True,
+                            is_default=False
+                        )
+
+                # Delete old sizes
+                product.sizes.all().delete()
+
+                # Handle sizes
+                saved_sizes = []
+                if 'sizes' in data and isinstance(data['sizes'], list):
+                    temp_sizes = []
+                    for size_data in data['sizes']:
+                        size_data = size_data.copy()
+                        size_data['product'] = product.id
+                        original_default = size_data.pop('is_default', False)
+
+                        size_serializer = ProductSizeSerializer(data=size_data)
+                        if size_serializer.is_valid():
+                            size_instance = size_serializer.save()
+                            temp_sizes.append((size_instance, original_default))
+                        else:
+                            return Response(
+                                {'sizes': size_serializer.errors},
+                                status=status.HTTP_400_BAD_REQUEST
+                            )
+
+                    for size_instance, original_default in temp_sizes:
+                        if original_default:
+                            size_instance.is_default = True
+                            size_instance.save()
+                        saved_sizes.append(size_instance)
+                
+                # Handle price tiers
+                if 'price_tiers' in data and isinstance(data['price_tiers'], list):
+                    product.price_tiers.all().delete()
+                    for tier_data in data['price_tiers']:
+                        size_index = tier_data.get('sizeIndex')
+                        if size_index is None or size_index >= len(saved_sizes):
+                            return Response(
+                                {"price_tiers": f"Invalid sizeIndex: {size_index}"},
+                                status=400
+                            )
+
+                        tier_data = tier_data.copy()
+                        tier_serializer = ProductPriceTierSerializer(data=tier_data)
+                        if tier_serializer.is_valid():
+                            tier_serializer.save(
+                                product=product,
+                                size=saved_sizes[size_index]
+                            )
+                        else:
+                            return Response(
+                                {'price_tiers': tier_serializer.errors},
+                                status=status.HTTP_400_BAD_REQUEST
+                            )
+
+                # Optional: Admin notification
+                admin_user = User.objects.filter(role='admin').first()
+                if admin_user:
+                    create_notification(
+                        user=admin_user,
+                        title="Product Updated",
+                        message=f"Product '{product.name}' was updated by {request.user.username}.",
+                        notification_type="product",
+                        related_url=f"/products/{product.id}/"
+                    )
+
+                return Response(
+                    ProductSerializer(product, context={'request': request}).data,
+                    status=status.HTTP_200_OK
+                )
+
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     def delete(self, request, pk):
         product = self.get_object(pk)
         self.check_object_permissions(request, product)
@@ -659,7 +720,7 @@ class ProductDetailAPIView(APIView):
 
 
 class ProductStatusUpdateView(APIView):
-    permission_classes = [IsVendorRole]
+    permission_classes = [IsAdminOrVendorRole]
 
     def get_object(self, pk):
         return get_object_or_404(Product, pk=pk)
@@ -670,6 +731,30 @@ class ProductStatusUpdateView(APIView):
         
         # Get status from request data
         new_status = request.data.get('status')
+        if request.user.role=='admin':
+            if new_status not in ['draft', 'published']:
+                return Response(
+                    {'message': 'Status must be either "draft" or "published"', "status": False},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            product.status = new_status
+            product.save()
+            create_notification(
+                    user=product.owner,
+                    title="Product Request Status Updated by Admin",
+                    message=f"Product '{product.name}' status was updated to {new_status} by Admin.",
+                    notification_type="product request",
+                    related_url=f"/products/{product.id}/"
+                )
+                
+            return Response(
+                {
+                    'message': 'Product status updated successfully.',
+                    "status": True
+                },
+                status=status.HTTP_200_OK
+            )
+
 
         if new_status not in ['active', 'inactive']:
             return Response(
