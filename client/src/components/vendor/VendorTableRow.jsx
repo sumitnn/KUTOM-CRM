@@ -5,8 +5,7 @@ import {
   FaTimes, 
   FaThumbsUp,
   FaThumbsDown,
-  FaIdCard,
-  FaSync
+  FaIdCard
 } from 'react-icons/fa';
 import { format } from 'date-fns';
 import ProgressBar from '../ProgressBar';
@@ -20,15 +19,14 @@ export default function VendorTableRow({
   onApprove,
   onReject,
   onMarkKycCompleted,
-  onRefresh,
   isLoadingAction,
-  currentActionId
+  currentActionId,
+  setShowKycModal,
+  setSelectedVendor
 }) {
-  const [showKycConfirm, setShowKycConfirm] = useState(false);
   const [localLoading, setLocalLoading] = useState({
     approve: false,
     reject: false,
-    kyc: false,
     status: false
   });
 
@@ -36,34 +34,31 @@ export default function VendorTableRow({
     ? format(new Date(vendor.created_at), 'MMM dd, yyyy HH:mm') 
     : 'N/A';
 
-  // Access profile data safely
   const fullName = vendor.profile?.full_name || vendor?.full_name;
   const phone = vendor.profile?.phone || vendor?.phone;
   const created_at = vendor.profile?.created_at || 'N/A';
-  
-  // Access address data safely
   const state = vendor.address?.state_name || 'N/A';
   const postalCode = vendor.address?.postal_code || 'N/A';
   const city = vendor.address?.city || 'N/A';
-
-  const handleConfirmKyc = async () => {
-    setShowKycConfirm(false);
-    setLocalLoading(prev => ({...prev, kyc: true}));
-    await onMarkKycCompleted(vendor.id);
-    setLocalLoading(prev => ({...prev, kyc: false}));
-  };
+  const userId = vendor.user?.id; // Get user ID from vendor object
 
   const handleAction = async (action, actionFn) => {
+    if (action === 'kyc') {
+      setSelectedVendor(vendor);
+      setShowKycModal(true);
+      return;
+    }
+    
     setLocalLoading(prev => ({...prev, [action]: true}));
     try {
-      await actionFn(vendor.id);
+      await actionFn(userId); // Pass user ID to action function
     } finally {
       setLocalLoading(prev => ({...prev, [action]: false}));
     }
   };
 
   const getButtonState = (actionType) => {
-    const isLoading = isLoadingAction && currentActionId === vendor.id && currentActionId === actionType;
+    const isLoading = isLoadingAction && currentActionId === userId;
     const isLocallyLoading = localLoading[actionType];
     return {
       loading: isLoading || isLocallyLoading,
@@ -76,9 +71,10 @@ export default function VendorTableRow({
     return (
       <button 
         className={`btn btn-sm btn-${variant} font-bold`}
-        onClick={() => handleAction(action, action === 'approve' ? onApprove : 
-                                         action === 'reject' ? onReject : 
-                                         action === 'kyc' ? onMarkKycCompleted : null)}
+        onClick={() => handleAction(action, 
+          action === 'approve' ? onApprove : 
+          action === 'reject' ? onReject : 
+          onMarkKycCompleted)}
         disabled={disabled}
       >
         {loading ? (
@@ -92,7 +88,7 @@ export default function VendorTableRow({
     );
   };
 
-  const getRowContent = () => {
+  const rowContent = (() => {
     switch (activeTab) {
       case 'new':
         return (
@@ -132,7 +128,7 @@ export default function VendorTableRow({
                 >
                   <FaEye /> Review
                 </button>
-                {renderActionButton('kyc', <FaIdCard />, 'Mark Full KYC Approved')}
+                {renderActionButton('kyc', <FaIdCard />, 'Full KYC Approved')}
                 {renderActionButton('reject', <FaTimes />, 'Reject', 'error')}
               </div>
             </td>
@@ -195,43 +191,11 @@ export default function VendorTableRow({
       default:
         return null;
     }
-  };
- 
+  })();
+
   return (
-    <>
-      <tr className="hover:bg-gray-50 cursor-pointer transition-colors">
-        {getRowContent()}
-      </tr>
-      
-      {/* KYC Confirmation Modal */}
-      {showKycConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-            <h3 className="text-lg font-bold mb-4">Confirm KYC Completion</h3>
-            <p className="mb-6">Are you sure you want to mark this vendor's KYC as completed?</p>
-            <div className="flex justify-end gap-3">
-              <button 
-                className="btn btn-ghost"
-                onClick={() => setShowKycConfirm(false)}
-                disabled={localLoading.kyc}
-              >
-                Cancel
-              </button>
-              <button 
-                className="btn btn-primary"
-                onClick={handleConfirmKyc}
-                disabled={localLoading.kyc}
-              >
-                {localLoading.kyc ? (
-                  <span className="loading loading-spinner loading-xs"></span>
-                ) : (
-                  'Yes, Mark as Completed'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    <tr className="hover:bg-gray-50 cursor-pointer transition-colors">
+      {rowContent}
+    </tr>
   );
 }

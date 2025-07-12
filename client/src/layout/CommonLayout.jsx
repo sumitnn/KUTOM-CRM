@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, memo } from "react";
 import logo from "../assets/icons/fev.png";
 import { 
   MdEmail, 
@@ -11,139 +11,19 @@ import {
 import { FaSpinner } from "react-icons/fa";
 import axios from "axios";
 
-const CommonLayout = ({ children }) => {
-  // State management
-  const [showModal, setShowModal] = useState(false);
-  const [showApplyModal, setShowApplyModal] = useState(false);
-  const [formData, setFormData] = useState({
-    role: "",
-    full_name: "",
-    email: "",
-    phone: "",
-  });
-  const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitMessage, setSubmitMessage] = useState("");
-
-  // Constants
-  const ADMIN_DETAILS = {
-    email: "stocktn.com@gmail.com",
-    phone: "+91 9270301020"
-  };
-
-  const ROLES = [
-    { value: "", label: "Select a role", disabled: true },
-    { value: "vendor", label: "Vendor" },
-    { value: "reseller", label: "Reseller" },
-    { value: "stockist", label: "Stockist" },
-  ];
-
-  // Validation
-  const validateForm = () => {
-    const newErrors = {};
-    if (!formData.role) newErrors.role = "Please select a role";
-    if (!formData.full_name.trim()) newErrors.full_name = "Full name is required";
-    if (!formData.email.trim()) {
-      newErrors.email = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = "Please enter a valid email";
-    }
-    if (!formData.phone.trim()) {
-      newErrors.phone = "Phone number is required";
-    } else if (!/^\d{10}$/.test(formData.phone)) {
-      newErrors.phone = "Please enter a valid 10-digit phone number";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  // Handlers
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handlePhoneChange = (e) => {
-    const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-    setFormData(prev => ({
-      ...prev,
-      phone: value
-    }));
-  };
-
-  const submitNewAccountApplication = async () => {
-    try {
-      setIsSubmitting(true);
-      const response = await axios.post(
-        `${import.meta.env.VITE_BACKEND_API_URL}/apply/`, 
-        formData
-      );
-      
-      if (response.status === 201) {
-        setSubmitMessage(
-          "Thank you for joining our team! Our executive will call you within 24 hours. For more details, call +91 9270301020."
-        );
-        setFormData({
-          role: "",
-          full_name: "",
-          email: "",
-          phone: "",
-        });
-      }
-    } catch (error) {
-      const message = error?.response?.data?.message || 
-                     error?.response?.data?.errors?.[0] || 
-                     "An error occurred. Please try again later.";
-      setSubmitMessage(message);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (validateForm()) {
-      submitNewAccountApplication();
-    }
-  };
-
-  const closeApplyModal = () => {
-    setShowApplyModal(false);
-    setSubmitMessage("");
-    setErrors({});
-  };
-
-  // Reusable components
-  const ModalWrapper = ({ children, onClose }) => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 bg-opacity-40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl p-6 w-[90%] max-w-md relative animate-fade-in">
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 text-gray-500 hover:text-red-600 text-3xl cursor-pointer"
-          aria-label="Close modal"
-        >
-          <MdClose />
-        </button>
-        {children}
-      </div>
-    </div>
-  );
-
-  const InputField = ({ 
-    id, 
-    name, 
-    value, 
-    onChange, 
-    placeholder, 
-    error, 
-    icon: Icon, 
-    type = "text",
-    ...props 
-  }) => (
+// Memoized InputField component to prevent unnecessary re-renders
+const InputField = memo(({ 
+  id, 
+  name, 
+  value, 
+  onChange, 
+  placeholder, 
+  error, 
+  icon: Icon, 
+  type = "text",
+  ...props 
+}) => {
+  return (
     <div>
       <label
         htmlFor={id}
@@ -177,6 +57,129 @@ const CommonLayout = ({ children }) => {
       )}
     </div>
   );
+});
+
+// Memoized ModalWrapper component
+const ModalWrapper = memo(({ children, onClose }) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 bg-opacity-40 backdrop-blur-sm">
+    <div className="bg-white rounded-2xl shadow-2xl p-6 w-[90%] max-w-md relative animate-fade-in">
+      <button
+        onClick={onClose}
+        className="absolute top-3 right-3 text-gray-500 hover:text-red-600 text-3xl cursor-pointer"
+        aria-label="Close modal"
+      >
+        <MdClose />
+      </button>
+      {children}
+    </div>
+  </div>
+));
+
+const CommonLayout = ({ children }) => {
+  // State management
+  const [showModal, setShowModal] = useState(false);
+  const [showApplyModal, setShowApplyModal] = useState(false);
+  const [formData, setFormData] = useState({
+    role: "",
+    full_name: "",
+    email: "",
+    phone: "",
+  });
+  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState("");
+
+  // Constants
+  const ADMIN_DETAILS = {
+    email: "stocktn.com@gmail.com",
+    phone: "+91 9270301020"
+  };
+
+  const ROLES = [
+    { value: "", label: "Select a role", disabled: true },
+    { value: "vendor", label: "Vendor" },
+    { value: "reseller", label: "Reseller" },
+    { value: "stockist", label: "Stockist" },
+  ];
+
+  // Validation
+  const validateForm = useCallback(() => {
+    const newErrors = {};
+    if (!formData.role) newErrors.role = "Please select a role";
+    if (!formData.full_name.trim()) newErrors.full_name = "Full name is required";
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email";
+    }
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Phone number is required";
+    } else if (!/^\d{10}$/.test(formData.phone)) {
+      newErrors.phone = "Please enter a valid 10-digit phone number";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }, [formData]);
+
+  // Handlers
+  const handleChange = useCallback((e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }));
+  }, []);
+
+  const handlePhoneChange = useCallback((e) => {
+    const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+    setFormData(prev => ({
+      ...prev,
+      phone: value
+    }));
+  }, []);
+
+  const submitNewAccountApplication = useCallback(async () => {
+    try {
+      setIsSubmitting(true);
+      const response = await axios.post(
+        `${import.meta.env.VITE_BACKEND_API_URL}/apply/`, 
+        formData
+      );
+      
+      if (response.status === 201) {
+        setSubmitMessage(
+          "Thank you for joining our team! Our executive will call you within 24 hours. For more details, call +91 9270301020."
+        );
+        setFormData({
+          role: "",
+          full_name: "",
+          email: "",
+          phone: "",
+        });
+      }
+    } catch (error) {
+      const message = error?.response?.data?.message || 
+                     error?.response?.data?.errors?.[0] || 
+                     "An error occurred. Please try again later.";
+      setSubmitMessage(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [formData]);
+
+  const handleSubmit = useCallback((e) => {
+    e.preventDefault();
+    if (validateForm()) {
+      submitNewAccountApplication();
+    }
+  }, [validateForm, submitNewAccountApplication]);
+
+  const closeApplyModal = useCallback(() => {
+    setShowApplyModal(false);
+    setSubmitMessage("");
+    setErrors({});
+  }, []);
 
   return (
     <>
@@ -219,7 +222,7 @@ const CommonLayout = ({ children }) => {
 
       {/* Contact Modal */}
       {showModal && (
-        <ModalWrapper onClose={() => setShowModal(false)}>
+        <ModalWrapper key="contact-modal" onClose={() => setShowModal(false)}>
           <h2 className="text-2xl font-bold text-center text-gray-900 mb-6">
             Contact Admin Details
           </h2>
@@ -261,7 +264,7 @@ const CommonLayout = ({ children }) => {
 
       {/* Apply Modal */}
       {showApplyModal && (
-        <ModalWrapper onClose={closeApplyModal}>
+        <ModalWrapper key="apply-modal" onClose={closeApplyModal}>
           <h2 className="text-2xl font-extrabold text-center text-gray-900 mb-6">
             Join Our Team
           </h2>
@@ -321,8 +324,7 @@ const CommonLayout = ({ children }) => {
                 onChange={handleChange}
                 placeholder="Full Name"
                 error={errors.full_name}
-                  icon={MdPerson}
-                 
+                icon={MdPerson}
               />
 
               <InputField

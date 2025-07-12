@@ -2,9 +2,9 @@ import React, { useState, lazy, Suspense } from 'react';
 import VendorTableRow from './VendorTableRow';
 import { FaSync } from 'react-icons/fa';
 
-// Lazy load modals
 const ViewVendorModal = lazy(() => import('./ViewVendorModal'));
 const ProfileReviewModal = lazy(() => import('../ProfileReviewModal'));
+const KycConfirmationModal = lazy(() => import('../KycConfirmationModal'));
 
 const statusTabs = [
   { id: 'new', label: 'New Request' },
@@ -24,10 +24,13 @@ export default function VendorTable({
   onRefresh,
   isLoading,
   isLoadingAction,
-  currentActionId
+  currentActionId,
+  MarkFullKyc
 }) {
   const [viewVendor, setViewVendor] = useState(null);
   const [reviewVendor, setReviewVendor] = useState(null);
+  const [showKycModal, setShowKycModal] = useState(false);
+  const [selectedVendor, setSelectedVendor] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchType, setSearchType] = useState('email');
 
@@ -42,6 +45,13 @@ export default function VendorTable({
 
   const handleRefreshAll = () => {
     onRefresh('all');
+  };
+
+ const handleConfirmKyc = async () => {
+    if (selectedVendor) {
+      await MarkFullKyc(selectedVendor.user?.id); 
+      setShowKycModal(false);
+    }
   };
 
   const getTableHeaders = () => {
@@ -145,7 +155,8 @@ export default function VendorTable({
                   </td>
                 </tr>
               ) : data.length > 0 ? (
-                data.map((item, index) => (
+                  data.map((item, index) => (
+                  
                   <VendorTableRow
                     key={item.id}
                     vendor={item}
@@ -155,12 +166,15 @@ export default function VendorTable({
                     onReview={() => setReviewVendor(item)}
                     onApprove={onApprove}
                     onReject={onReject}
-                    onMarkKycCompleted={(id) => {
-                      onApprove(id, 'kyc');
-                    }}
+                        onMarkKycCompleted={() => {
+              setSelectedVendor(item);
+              setShowKycModal(true);
+            }}
                     onRefresh={onRefresh}
                     isLoadingAction={isLoadingAction}
                     currentActionId={currentActionId}
+                    setShowKycModal={setShowKycModal}
+                    setSelectedVendor={setSelectedVendor}
                   />
                 ))
               ) : (
@@ -175,7 +189,7 @@ export default function VendorTable({
         </div>
       </div>
 
-      {/* Modals with Suspense */}
+      {/* Modals */}
       <Suspense fallback={<div className="loading loading-spinner loading-md"></div>}>
         {viewVendor && (
           <ViewVendorModal 
@@ -183,15 +197,19 @@ export default function VendorTable({
             onClose={() => setViewVendor(null)} 
           />
         )}
-      </Suspense>
-
-      <Suspense fallback={<div className="loading loading-spinner loading-md"></div>}>
         {reviewVendor && (
           <ProfileReviewModal
             vendor={reviewVendor}
             onClose={() => setReviewVendor(null)}
           />
         )}
+        {showKycModal && (
+        <KycConfirmationModal
+          onConfirm={handleConfirmKyc}
+          onCancel={() => setShowKycModal(false)}
+          isLoading={isLoadingAction && currentActionId === selectedVendor?.user?.id}
+        />
+      )}
       </Suspense>
     </div>
   );

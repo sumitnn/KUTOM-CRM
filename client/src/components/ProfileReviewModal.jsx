@@ -377,7 +377,7 @@ export default function ProfileReviewModal({ vendor, onClose }) {
       <div className="modal modal-open">
         <div className="modal-box w-11/12 max-w-5xl max-h-[90vh] flex flex-col p-2 md:p-6">
           <div className="flex justify-between items-center mb-4 md:mb-6">
-            <h3 className="font-bold text-lg md:text-2xl text-primary">Vendor Profile Review</h3>
+            <h3 className="font-bold text-lg md:text-2xl text-primary">Vendor Profile</h3>
             <button 
               className="btn btn-sm btn-circle btn-ghost hover:bg-error hover:text-white" 
               onClick={onClose}
@@ -387,33 +387,39 @@ export default function ProfileReviewModal({ vendor, onClose }) {
           </div>
           
           {/* Tabs */}
-          <div className="flex flex-nowrap overflow-x-auto pb-2 mb-4 md:mb-6">
-            <div className="tabs tabs-boxed bg-base-200 flex-nowrap whitespace-nowrap">
-              {TAB_KEYS.map((tab) => {
-                const status = approvalStatus[tab];
-                return (
-                  <button 
-                    key={tab}
-                    className={`tab text-xs md:text-sm font-bold flex-shrink-0 ${
-                      activeTab === tab ? 'tab-active' : ''
-                    } ${
-                      status === 'approved' ? '!bg-green-100 !text-green-800 border-green-300' : 
-                      status === 'rejected' ? '!bg-red-100 !text-red-800 border-red-300' : ''
-                    }`}
-                    onClick={() => setActiveTab(tab)}
-                    disabled={isSubmitting}
-                  >
-                    {tab.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                    {status !== 'pending' && (
-                      <span className="ml-1">
-                        {status === 'approved' ? '✓' : '✗'}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+        <div className="flex flex-nowrap overflow-x-auto pb-2 mb-4 md:mb-6">
+  <div
+    className="tabs tabs-boxed bg-base-200 flex-nowrap whitespace-nowrap"
+    style={{ minHeight: '5rem' }} // ⬅️ fixed tab height (~48px)
+  >
+    {TAB_KEYS.map((tab) => {
+      const status = approvalStatus[tab];
+      return (
+        <button 
+          key={tab}
+          className={`tab text-xs md:text-sm font-semibold h-10 px-4 flex-shrink-0 ${
+            activeTab === tab ? 'tab-active' : ''
+          } ${
+            status === 'approved'
+              ? '!bg-green-100 !text-green-800 border-green-300'
+              : status === 'rejected'
+              ? '!bg-red-100 !text-red-800 border-red-300'
+              : ''
+          }`}
+          onClick={() => setActiveTab(tab)}
+          disabled={isSubmitting}
+        >
+          {tab.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}
+          {status !== 'pending' && (
+            <span className="ml-1">
+              {status === 'approved' ? '✓' : '✗'}
+            </span>
+          )}
+        </button>
+      );
+    })}
+  </div>
+</div>
           
           {/* Tab Content */}
           <div className="flex-grow overflow-y-auto p-1 md:p-4">

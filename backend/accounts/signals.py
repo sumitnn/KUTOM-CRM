@@ -54,3 +54,6 @@ def update_profile_completion(sender, instance, **kwargs):
             elif user.role == 'reseller' and not user.reseller_id:
                 user.reseller_id = generate_unique_role_id('reseller')
                 user.save(update_fields=['reseller_id'])
+        if completion>=70:
+            user.is_user_active="active"
+            user.save(update_fields=['is_user_active'])
