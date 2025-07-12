@@ -3,7 +3,7 @@ import {
   useUpdateProfileApprovalStatusMutation,
   useGetProfileApprovalStatusQuery
 } from '../features/newapplication/newAccountApplicationApi';
-
+import { toast } from 'react-toastify';
 // Lazy loaded components
 const ErrorMessage = lazy(() => import('../components/common/ErrorMessage'));
 const Spinner = lazy(() => import('../components/common/Spinner'));
@@ -30,6 +30,7 @@ const FilePreviewButton = ({ value, label, onPreview }) => {
 export default function ProfileReviewModal({ vendor, onClose }) {
   const [activeTab, setActiveTab] = useState(TAB_KEYS[0]);
   const [previewItem, setPreviewItem] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const defaultApprovalStatus = {
     userDetails: 'pending',
@@ -81,7 +82,7 @@ export default function ProfileReviewModal({ vendor, onClose }) {
   const handleReject = (section) => {
     const reason = approvalStatus[`${section}Reason`];
     if (!reason && approvalStatus[section] !== 'rejected') {
-      alert('Please provide a rejection reason');
+      toast.error('Please provide a rejection reason');
       return;
     }
     handleDecision(section, 'rejected', reason);
@@ -100,6 +101,8 @@ export default function ProfileReviewModal({ vendor, onClose }) {
 
   const handleSubmit = async () => {
     try {
+      setIsSubmitting(true);
+      
       const submissionData = {
         user_details: approvalStatus.userDetails,
         user_details_reason: approvalStatus.userDetailsReason,
@@ -119,9 +122,12 @@ export default function ProfileReviewModal({ vendor, onClose }) {
       }).unwrap();
 
       onClose();
+      toast.success("Profile Status Updated");
     } catch (error) {
       console.error("Failed to update approval status:", error);
-      alert("Failed to submit approval. Please try again.");
+      toast.error("Failed to submit approval. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -318,12 +324,14 @@ export default function ProfileReviewModal({ vendor, onClose }) {
           <button 
             className={`btn btn-sm md:btn-md ${status === 'rejected' ? 'btn-error' : 'btn-outline btn-error'} font-bold`}
             onClick={() => handleReject(tab)}
+            disabled={isSubmitting}
           >
             {status === 'rejected' ? 'Rejected' : 'Reject'}
           </button>
           <button 
             className={`btn btn-sm md:btn-md ${status === 'approved' ? 'btn-success' : 'btn-outline btn-success'} font-bold`}
             onClick={() => handleApprove(tab)}
+            disabled={isSubmitting}
           >
             {status === 'approved' ? 'Approved' : 'Approve'}
           </button>
@@ -393,6 +401,7 @@ export default function ProfileReviewModal({ vendor, onClose }) {
                       status === 'rejected' ? '!bg-red-100 !text-red-800 border-red-300' : ''
                     }`}
                     onClick={() => setActiveTab(tab)}
+                    disabled={isSubmitting}
                   >
                     {tab.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
                     {status !== 'pending' && (
@@ -421,6 +430,7 @@ export default function ProfileReviewModal({ vendor, onClose }) {
                     const currentIndex = TAB_KEYS.indexOf(activeTab);
                     setActiveTab(TAB_KEYS[currentIndex - 1]);
                   }}
+                  disabled={isSubmitting}
                 >
                   ← Previous
                 </button>
@@ -433,16 +443,26 @@ export default function ProfileReviewModal({ vendor, onClose }) {
                     const currentIndex = TAB_KEYS.indexOf(activeTab);
                     setActiveTab(TAB_KEYS[currentIndex + 1]);
                   }}
+                  disabled={isSubmitting}
                 >
                   Next →
                 </button>
               ) : (
                 <button 
-                  className={`btn btn-sm md:btn-md btn-success font-bold ml-auto ${!isSubmitEnabled() ? 'btn-disabled' : ''}`}
+                  className={`btn btn-sm md:btn-md btn-success font-bold ml-auto ${
+                    !isSubmitEnabled() || isSubmitting ? 'btn-disabled' : ''
+                  }`}
                   onClick={handleSubmit}
-                  disabled={!isSubmitEnabled()}
+                  disabled={!isSubmitEnabled() || isSubmitting}
                 >
-                  Submit Review
+                  {isSubmitting ? (
+                    <>
+                      <span className="loading loading-spinner"></span>
+                      Submitting...
+                    </>
+                  ) : (
+                    'Submit Review'
+                  )}
                 </button>
               )}
             </div>

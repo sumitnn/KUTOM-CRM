@@ -1079,3 +1079,9 @@ class VerifyUserKYCView(APIView):
             return Response({"message": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
 
     
+class CurrentUserView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = CurrentUserSerializer(request.user)
+        return Response(serializer.data)

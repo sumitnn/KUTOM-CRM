@@ -64,5 +64,8 @@ urlpatterns = [
     # kyc verified 
     path('admin/user-kyc-verify/<uuid:user_id>/', VerifyUserKYCView.as_view(), name='user-verify-kyc'),
 
+    # me 
+      path('me/', CurrentUserView.as_view(), name='current-user'),
+
 
 ]

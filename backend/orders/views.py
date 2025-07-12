@@ -25,7 +25,7 @@ import pandas as pd
 from datetime import timedelta, datetime
 from io import StringIO
 from django.utils.text import get_valid_filename
-
+from accounts.utils import create_notification
 
 
 
@@ -118,6 +118,13 @@ class BulkOrderCreateView(APIView):
 
         try:
             order, total_price = OrderService.create_bulk_order(request.user, items_data)
+            create_notification(
+                    user=order.created_for,
+                    title="New Order Received",
+                    message=f"New Order Request Received from {order.created_by.get_full_name()}",
+                    notification_type="order received",
+                    related_url=f""
+                )
             return Response(
                 {
                     "message": "Order created successfully.",

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
@@ -18,17 +18,14 @@ import {
   useUpdateProductStatusMutation,
 } from "../../features/product/productApi";
 
-const ProductFormModal = lazy(() => import("./ProductFormModal"));
-
 const AdminProductApprovalPage = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("pending");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
-  const [editingProduct, setEditingProduct] = useState(null);
 
-  // API calls with pagination and search
+  // API calls with pagination and search - now using lazy queries
   const {
     data: pendingData,
     isLoading: isPendingLoading,
@@ -39,7 +36,7 @@ const AdminProductApprovalPage = () => {
     page: currentPage,
     pageSize,
     search: searchTerm,
-  });
+  }, { skip: activeTab !== 'pending' });
 
   const {
     data: publishedData,
@@ -51,7 +48,7 @@ const AdminProductApprovalPage = () => {
     page: currentPage,
     pageSize,
     search: searchTerm,
-  });
+  }, { skip: activeTab !== 'published' });
 
   const {
     data: activeData,
@@ -63,7 +60,7 @@ const AdminProductApprovalPage = () => {
     page: currentPage,
     pageSize,
     search: searchTerm,
-  });
+  }, { skip: activeTab !== 'active' });
 
   const {
     data: inactiveData,
@@ -75,7 +72,7 @@ const AdminProductApprovalPage = () => {
     page: currentPage,
     pageSize,
     search: searchTerm,
-  });
+  }, { skip: activeTab !== 'inactive' });
 
   const [updateStatus] = useUpdateProductStatusMutation();
 
@@ -85,7 +82,7 @@ const AdminProductApprovalPage = () => {
       id: product.id,
       sku: product.sku,
       name: product.name,
-      vendorId: product.vendor?.id || "N/A",
+      vendorId: product.vendor_id || "N/A",
       brand: product.brand_name,
       category: product.category_name,
       subcategory: product.subcategory_name,
@@ -143,7 +140,7 @@ const AdminProductApprovalPage = () => {
         id: productId,
         status: newStatus,  
       }).unwrap();
-      toast.success(`Product status updated to ${newStatus}`);
+      toast.success(`Product status changed to ${newStatus}`);
       handleRefresh();
     } catch (error) {
       console.error("Failed to update status:", error);
@@ -155,26 +152,25 @@ const AdminProductApprovalPage = () => {
     setCurrentPage(page);
   };
 
-  const openEditModal = (product) => {
-    setEditingProduct(product);
-  };
-
-  const closeModal = () => {
-    setEditingProduct(null);
-  };
-
-  const saveEditedProduct = () => {
-    toast.success("Product updated successfully");
-    handleRefresh();
-    closeModal();
+  const editProduct = (productId) => {
+    navigate(`/admin/products/edit/${productId}`);
   };
 
   const viewProductDetails = (productId) => {
     navigate(`/admin/products/${productId}`);
   };
 
-  const isLoading = isPendingLoading || isPublishedLoading || isActiveLoading || isInactiveLoading;
-  const isFetching = isPendingFetching || isPublishedFetching || isActiveFetching || isInactiveFetching;
+  const isLoading = 
+    (activeTab === 'pending' && isPendingLoading) ||
+    (activeTab === 'published' && isPublishedLoading) ||
+    (activeTab === 'active' && isActiveLoading) ||
+    (activeTab === 'inactive' && isInactiveLoading);
+
+  const isFetching = 
+    (activeTab === 'pending' && isPendingFetching) ||
+    (activeTab === 'published' && isPublishedFetching) ||
+    (activeTab === 'active' && isActiveFetching) ||
+    (activeTab === 'inactive' && isInactiveFetching);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -188,13 +184,23 @@ const AdminProductApprovalPage = () => {
     <div className="min-h-screen bg-gray-50 py-4 px-2 sm:px-4 lg:px-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-6 px-2">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Product Approval</h1>
-          <p className="mt-1 text-sm font-bold text-gray-600">
-            Review and manage products submitted by vendors
-          </p>
+        <div className="mb-6 px-2 flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Products Request Management</h1>
+            <p className="mt-1 text-sm font-bold text-gray-600">
+              Review and manage products submitted by vendors
+            </p>
+          </div>
+          <button
+            onClick={handleRefresh}
+            className="flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            title="Refresh data"
+          >
+            <FiRotateCw className="mr-2" /> Refresh
+          </button>
         </div>
 
+        {/* Rest of your component remains the same */}
         {/* Status Tabs */}
         <div className="mb-4 px-2">
           <div className="sm:hidden">
@@ -297,36 +303,36 @@ const AdminProductApprovalPage = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50 ">
                   <tr className="font-bold">
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">
                       No.
                     </th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">
                       Date
                     </th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">
                       Vendor ID
                     </th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">
                       Brand
                     </th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">
                       Category
                     </th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">
                       Subcategory
                     </th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">
                       Product
                     </th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">
                       Type
                     </th>
                     {activeTab !== 'active' && activeTab !== 'inactive' && (
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">
                         Last Updated
                       </th>
                     )}
-                    <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-4 py-3 text-right text-xs font-extrabold text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -373,7 +379,7 @@ const AdminProductApprovalPage = () => {
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
                           {formatDate(product.createdAt)}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-600">
                           {product.vendorId}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
@@ -387,7 +393,7 @@ const AdminProductApprovalPage = () => {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">
                           {product.name}
-                          <div className="text-xs text-gray-500">{product.sku}</div>
+                          <div className="text-xs text-gray-500 font-bold">{product.sku}</div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 capitalize">
                           {product.productType}
@@ -397,42 +403,42 @@ const AdminProductApprovalPage = () => {
                             {formatDate(product.updatedAt)}
                           </td>
                         )}
-                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex justify-end space-x-2">
+                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium align-top">
+                          <div className="flex flex-col items-end gap-2">
                             <button
                               onClick={() => viewProductDetails(product.id)}
-                              className="text-blue-600 hover:text-blue-900 cursor-pointer"
-                              title="View Details"
+                              className="w-36 h-10 btn btn-outline-warning text-blue-600 hover:text-blue-900"
+                              title="View Product Details"
                             >
-                              <FiExternalLink className="h-5 w-5" />
+                              View Product
                             </button>
-                            
+
                             {activeTab === 'pending' && (
                               <>
                                 <button
-                                  onClick={() => openEditModal(product)}
-                                  className="text-indigo-600 hover:text-indigo-900 cursor-pointer"
-                                  title="Edit"
+                                  onClick={() => editProduct(product.id)}
+                                  className="w-36 h-10 btn text-indigo-600 hover:text-indigo-900"
+                                  title="Edit Product Details"
                                 >
-                                  <FiEdit2 className="h-5 w-5" />
+                                  Edit Product
                                 </button>
                                 <button
                                   onClick={() => handleStatusUpdate(product.id, 'published')}
-                                  className="text-green-600 hover:text-green-900 cursor-pointer"
-                                  title="Publish"
+                                  className="w-36 h-10 btn btn-outline-success text-green-600 hover:text-green-900"
+                                  title="Published Product"
                                 >
-                                  <FiUpload className="h-5 w-5" />
+                                  Published
                                 </button>
                               </>
                             )}
-                            
+
                             {activeTab === 'published' && (
                               <button
                                 onClick={() => handleStatusUpdate(product.id, 'draft')}
-                                className="text-yellow-600 hover:text-yellow-900 cursor-pointer"
+                                className="w-36 h-10 flex items-center justify-center rounded border border-red-600 text-red-600 hover:text-red-900 hover:border-red-900"
                                 title="Unpublish"
                               >
-                                <FiDownload className="h-5 w-5" />
+                                Not-Published
                               </button>
                             )}
                           </div>
@@ -475,20 +481,6 @@ const AdminProductApprovalPage = () => {
           </div>
         )}
       </div>
-
-      {/* Edit Product Modal */}
-      {editingProduct && (
-        <Suspense fallback={<div className="fixed inset-0 bg-black/50  flex items-center justify-center">
-          <FiRotateCw className="w-8 h-8 text-white animate-spin" />
-        </div>}>
-          <ProductFormModal
-            product={editingProduct}
-            onClose={closeModal}
-            onSave={saveEditedProduct}
-            mode="admin-edit"
-          />
-        </Suspense>
-      )}
     </div>
   );
 };

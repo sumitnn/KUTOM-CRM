@@ -80,11 +80,12 @@ const CreateProductPage = () => {
   }, [sizes, product.image]);
 
   const currencyOptions = [
-    { value: "USD", label: "US Dollar (USD)" },
-    { value: "EUR", label: "Euro (EUR)" },
-    { value: "GBP", label: "British Pound (GBP)" },
     { value: "INR", label: "Indian Rupee (INR)" },
-    { value: "JPY", label: "Japanese Yen (JPY)" },
+    { value: "USD", label: "US Dollar (USD)" },
+    // { value: "EUR", label: "Euro (EUR)" },
+    // { value: "GBP", label: "British Pound (GBP)" },
+    
+    // { value: "JPY", label: "Japanese Yen (JPY)" },
   ];
 
   const weightUnitOptions = [
@@ -290,7 +291,7 @@ const CreateProductPage = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
       <div className="bg-white rounded-xl shadow-sm p-4 md:p-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-          <h2 className="text-2xl font-bold text-gray-900">Create New Product</h2>
+          <h2 className="text-2xl font-extrabold text-gray-900">Create New Product</h2>
           <button
             onClick={() => navigate("/vendor/products")}
             className="px-4 py-2 border border-gray-300 rounded-md text-sm font-bold text-gray-700 hover:bg-gray-50 w-full md:w-auto cursor-pointer"
@@ -310,7 +311,7 @@ const CreateProductPage = () => {
                 <input
                   type="text"
                   name="name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base"
                   value={product.name}
                   onChange={handleChange}
                   required
@@ -321,7 +322,7 @@ const CreateProductPage = () => {
                 <label className="block text-sm font-bold text-gray-700">Brand*</label>
                 <select
                   name="brand"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base cursor-pointer"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base cursor-pointer"
                   value={product.brand}
                   onChange={handleChange}
                   required
@@ -337,7 +338,7 @@ const CreateProductPage = () => {
                 <label className="block text-sm font-bold text-gray-700">Currency*</label>
                 <select
                   name="currency"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base cursor-pointer"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base cursor-pointer"
                   value={product.currency}
                   onChange={handleChange}
                   required
@@ -352,7 +353,7 @@ const CreateProductPage = () => {
                 <label className="block text-sm font-bold text-gray-700">Product Type*</label>
                 <select
                   name="product_type"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base cursor-pointer"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base cursor-pointer"
                   value={product.product_type}
                   onChange={handleChange}
                   required
@@ -368,10 +369,11 @@ const CreateProductPage = () => {
                 <textarea
                   name="short_description"
                   rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base"
                   value={product.short_description}
                   onChange={handleChange}
                   required
+                  maxLength={450}
                 />
               </div>
               
@@ -380,10 +382,11 @@ const CreateProductPage = () => {
                 <textarea
                   name="description"
                   rows={5}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base"
                   value={product.description}
                   onChange={handleChange}
                   required
+                  maxLength={2000}
                 />
               </div>
 
@@ -411,7 +414,7 @@ const CreateProductPage = () => {
                     onChange={handleTagInputChange}
                     onKeyDown={addTag}
                     placeholder="Type a tag and press Enter"
-                    className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:outline-none focus:border-blue-500 text-sm"
                   />
                 </div>
                 <p className="mt-1 text-xs text-gray-500">Add tags to help customers find your product</p>
@@ -428,7 +431,7 @@ const CreateProductPage = () => {
                 <label className="block text-sm font-bold text-gray-700">Category*</label>
                 <select
                   name="category"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base cursor-pointer"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base cursor-pointer"
                   value={product.category}
                   onChange={(e) => {
                     handleChange(e);
@@ -448,7 +451,7 @@ const CreateProductPage = () => {
                 <label className="block text-sm font-bold text-gray-700">Subcategory</label>
                 <select
                   name="subcategory"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base cursor-pointer"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500  focus:outline-none text-sm md:text-base cursor-pointer"
                   value={product.subcategory}
                   onChange={handleChange}
                   disabled={!product.category}
@@ -475,14 +478,14 @@ const CreateProductPage = () => {
                     name="weight"
                     min="0"
                     step="0.01"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base"
                     value={product.weight}
                     onChange={handleChange}
                     placeholder="Product weight"
                   />
                   <select
                     name="weight_unit"
-                    className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base cursor-pointer"
+                    className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500  focus:outline-none text-sm md:text-base cursor-pointer"
                     value={product.weight_unit}
                     onChange={handleChange}
                   >
@@ -498,7 +501,7 @@ const CreateProductPage = () => {
                 <input
                   type="text"
                   name="dimensions"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:outline-none focus:border-blue-500 text-sm md:text-base"
                   value={product.dimensions}
                   onChange={handleChange}
                   placeholder="e.g., 10x5x2 cm"
@@ -510,7 +513,7 @@ const CreateProductPage = () => {
                 <input
                   type="text"
                   name="shipping_info"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:outline-none focus:border-blue-500 text-sm md:text-base"
                   value={product.shipping_info}
                   onChange={handleChange}
                   placeholder="e.g., Free shipping, Special handling"
@@ -522,7 +525,7 @@ const CreateProductPage = () => {
                 <input
                   type="text"
                   name="warranty"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:outline-none focus:border-blue-500 text-sm md:text-base"
                   value={product.warranty}
                   onChange={handleChange}
                   placeholder="e.g., 1 year manufacturer warranty"
@@ -534,7 +537,7 @@ const CreateProductPage = () => {
                 <input
                   type="url"
                   name="video_url"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:outline-none focus:border-blue-500 text-sm md:text-base"
                   value={product.video_url}
                   onChange={handleChange}
                   placeholder="https://youtube.com/embed/example"
@@ -546,7 +549,7 @@ const CreateProductPage = () => {
                 <textarea
                   name="content_embeds"
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:outline-none focus:border-blue-500 text-sm md:text-base"
                   value={product.content_embeds}
                   onChange={handleChange}
                   placeholder="HTML or iframe code for embedded content"
@@ -576,7 +579,7 @@ const CreateProductPage = () => {
                     onChange={handleFeatureInputChange}
                     onKeyDown={addFeature}
                     placeholder="Type a feature and press Enter"
-                    className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
                   />
                 </div>
                 <p className="mt-1 text-xs text-gray-500">Add key features or selling points of the product</p>
@@ -591,14 +594,14 @@ const CreateProductPage = () => {
               <button
                 type="button"
                 onClick={addSize}
-                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 w-full md:w-auto cursor-pointer"
+                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-bold  hover:bg-blue-700 w-full md:w-auto cursor-pointer"
               >
                 + Add Size
               </button>
             </div>
             
             {formErrors.sizes && (
-              <div className="mb-4 p-2 bg-red-50 text-red-600 text-sm rounded">
+              <div className="mb-4 p-2 bg-red-50 text-red-600 text-sm font-bold rounded">
                 Please fill all required size fields (size name and price)
               </div>
             )}
@@ -612,7 +615,7 @@ const CreateProductPage = () => {
                       <input
                         type="text"
                         placeholder="Medium"
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1  focus:ring-blue-500 text-sm"
                         value={size.size}
                         onChange={(e) => handleSizeChange(index, "size", e.target.value)}
                         required
@@ -622,7 +625,7 @@ const CreateProductPage = () => {
                     <div className="space-y-1">
                       <label className="block text-xs md:text-sm font-bold text-gray-700">Unit*</label>
                       <select
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm cursor-pointer"
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1  focus:outline-none focus:ring-blue-500 text-sm cursor-pointer"
                         value={size.unit}
                         onChange={(e) => handleSizeChange(index, "unit", e.target.value)}
                         required
@@ -641,7 +644,7 @@ const CreateProductPage = () => {
                         type="number"
                         min="0.01"
                         step="0.01"
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1  focus:outline-none focus:ring-blue-500 text-sm"
                         value={size.price}
                         onChange={(e) => handleSizeChange(index, "price", e.target.value)}
                         placeholder="Product price"
@@ -671,7 +674,7 @@ const CreateProductPage = () => {
                             <input
                               type="number"
                               min="1"
-                              className="w-full h-10 px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-xs"
+                              className="w-full h-10 px-2 py-1 border border-gray-300 rounded-md focus:ring-1  focus:outline-none focus:ring-blue-500 text-xs"
                               value={tier.min_quantity}
                               onChange={(e) => handlePriceTierChange(
                                 priceTiers.findIndex(t => t.sizeIndex === index && t.min_quantity === tier.min_quantity),
@@ -688,7 +691,7 @@ const CreateProductPage = () => {
                               type="number"
                               min="0.01"
                               step="0.01"
-                              className="w-full h-10 px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-xs"
+                              className="w-full h-10 px-2 py-1 border border-gray-300 rounded-md focus:ring-1  focus:outline-none focus:ring-blue-500 text-xs"
                               value={tier.price}
                               onChange={(e) => handlePriceTierChange(
                                 priceTiers.findIndex(t => t.sizeIndex === index && t.min_quantity === tier.min_quantity),
@@ -736,7 +739,7 @@ const CreateProductPage = () => {
             <h3 className="text-lg font-bold text-gray-800 mb-4">Product Images</h3>
             
             {formErrors.image && (
-              <div className="mb-4 p-2 bg-red-50 text-red-600 text-sm rounded">
+              <div className="mb-4 p-2 bg-red-50 text-red-600 font-bold text-sm rounded">
                 Main image is required
               </div>
             )}
@@ -747,7 +750,7 @@ const CreateProductPage = () => {
                 <label className="block text-sm font-bold text-gray-700">Main Image*</label>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                   <label className="cursor-pointer inline-flex">
-                    <span className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer">
+                    <span className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1  focus:ring-offset-2 focus:ring-blue-500 cursor-pointer">
                       Choose File
                     </span>
                     <input
@@ -778,7 +781,7 @@ const CreateProductPage = () => {
                 <label className="block text-sm font-bold text-gray-700">Additional Images (Max 5)</label>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                   <label className="cursor-pointer inline-flex">
-                    <span className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer">
+                    <span className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1  focus:ring-offset-2 focus:ring-blue-500 cursor-pointer">
                       Choose Files
                     </span>
                     <input
@@ -831,7 +834,7 @@ const CreateProductPage = () => {
             <button
               type="submit"
               disabled={isLoading || !isFormValid}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm text-sm font-bold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm text-sm font-bold hover:bg-blue-700 focus:outline-none focus:ring-1  focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
             >
               {isLoading ? (
                 <>

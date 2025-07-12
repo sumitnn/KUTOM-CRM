@@ -30,11 +30,8 @@ const EditProductPage = ({ role = "vendor" }) => {
   const subcategories = Array.isArray(subcategoriesData) ? subcategoriesData : [];
 
   const currencyOptions = [
-    { value: "USD", label: "US Dollar (USD)" },
-    { value: "EUR", label: "Euro (EUR)" },
-    { value: "GBP", label: "British Pound (GBP)" },
     { value: "INR", label: "Indian Rupee (INR)" },
-    { value: "JPY", label: "Japanese Yen (JPY)" },
+    { value: "USD", label: "US Dollar (USD)" },
   ];
 
   const weightUnitOptions = [
@@ -90,10 +87,13 @@ const EditProductPage = ({ role = "vendor" }) => {
   const [newImages, setNewImages] = useState([]);
   const [removedImageIds, setRemovedImageIds] = useState([]);
   const [preview, setPreview] = useState(null);
+  const [formErrors, setFormErrors] = useState({
+    sizes: false,
+    image: false
+  });
 
   useEffect(() => {
     if (product) {
-      // Set form data with product values
       setFormData({
         name: product.name || "",
         description: product.description || "",
@@ -114,10 +114,8 @@ const EditProductPage = ({ role = "vendor" }) => {
         features: product.features || []
       });
 
-      // Set selected category for subcategory dropdown
       setSelectedCategoryId(product.category?.id || product.category || "");
       
-      // Set sizes data
       if (product.sizes) {
         setSizes(product.sizes.map(size => ({
           id: size.id,
@@ -128,7 +126,6 @@ const EditProductPage = ({ role = "vendor" }) => {
           is_default: size.is_default,
         })));
 
-        // Extract price tiers
         const tiers = [];
         product.sizes.forEach((size, sizeIndex) => {
           if (size.price_tiers?.length > 0) {
@@ -146,10 +143,8 @@ const EditProductPage = ({ role = "vendor" }) => {
         setPriceTiers(tiers);
       }
 
-      // Set images data
       if (product.images) {
         setExistingImages(product.images);
-        // Set preview for featured image
         const featuredImage = product.images.find(img => img.is_featured);
         if (featuredImage) {
           setPreview(featuredImage.image);
@@ -157,6 +152,20 @@ const EditProductPage = ({ role = "vendor" }) => {
       }
     }
   }, [product]);
+
+  // Validate form
+  useEffect(() => {
+    const hasEmptySizes = sizes.length === 0 || sizes.some(size => 
+      !size.size || !size.price || isNaN(size.price) || parseFloat(size.price) <= 0
+    );
+    
+    const hasNoImage = !preview && existingImages.length === 0 && !formData.image;
+    
+    setFormErrors({
+      sizes: hasEmptySizes,
+      image: hasNoImage
+    });
+  }, [sizes, preview, existingImages, formData.image]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -201,7 +210,6 @@ const EditProductPage = ({ role = "vendor" }) => {
     setRemovedImageIds(prev => [...prev, imageId]);
     setExistingImages(prev => prev.filter(img => img.id !== imageId));
     
-    // If we're removing the featured image, clear the preview
     const removedImage = existingImages.find(img => img.id === imageId);
     if (removedImage?.is_featured) {
       setPreview(null);
@@ -283,11 +291,15 @@ const EditProductPage = ({ role = "vendor" }) => {
   };
 
   const removeSize = (index) => {
-    const sizeToRemove = sizes[index];
-    setPriceTiers(prev => prev.filter(tier => 
-      tier.sizeIndex !== index && tier.sizeId !== sizeToRemove?.id
-    ));
-    setSizes(prev => prev.filter((_, i) => i !== index));
+    if (sizes.length > 1) {
+      const sizeToRemove = sizes[index];
+      setPriceTiers(prev => prev.filter(tier => 
+        tier.sizeIndex !== index && tier.sizeId !== sizeToRemove?.id
+      ));
+      setSizes(prev => prev.filter((_, i) => i !== index));
+    } else {
+      toast.warning("At least one size is required");
+    }
   };
 
   const addPriceTier = (sizeIndex) => {
@@ -306,6 +318,27 @@ const EditProductPage = ({ role = "vendor" }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate form before submission
+    if (sizes.length === 0) {
+      toast.error("At least one product size is required");
+      return;
+    }
+
+    const hasInvalidSizes = sizes.some(size => 
+      !size.size || !size.price || isNaN(size.price) || parseFloat(size.price) <= 0
+    );
+    
+    if (hasInvalidSizes) {
+      toast.error("Please fill all required size fields (size name and price)");
+      return;
+    }
+    
+    if (!preview && existingImages.length === 0 && !formData.image) {
+      toast.error("Main image is required");
+      return;
+    }
+
     try {
       const formDataToSend = new FormData();
       
@@ -350,6 +383,11 @@ const EditProductPage = ({ role = "vendor" }) => {
     }
   };
 
+  // Check if form is valid
+  const isFormValid = !formErrors.sizes && !formErrors.image && 
+    formData.name && formData.description && formData.short_description && 
+    formData.brand && formData.category;
+
   if (isLoading) return (
     <div className="flex items-center justify-center h-[60vh]">
       <span className="loading loading-spinner text-error loading-lg"></span>
@@ -362,7 +400,7 @@ const EditProductPage = ({ role = "vendor" }) => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
       <div className="bg-white rounded-xl shadow-sm p-4 md:p-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-          <h2 className="text-2xl font-bold text-gray-900">Edit Product</h2>
+          <h2 className="text-2xl font-extrabold text-gray-900">Edit Product</h2>
           <button
             onClick={() => navigate(`/${role}/products`)}
             className="px-4 py-2 border border-gray-300 rounded-md text-sm font-bold text-gray-700 hover:bg-gray-50 w-full md:w-auto cursor-pointer"
@@ -382,7 +420,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                 <input
                   type="text"
                   name="name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base"
                   value={formData.name}
                   onChange={handleChange}
                   required
@@ -393,7 +431,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                 <label className="block text-sm font-bold text-gray-700">Brand*</label>
                 <select
                   name="brand"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base cursor-pointer"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base cursor-pointer"
                   value={formData.brand}
                   onChange={handleChange}
                   required
@@ -411,7 +449,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                 <label className="block text-sm font-bold text-gray-700">Currency*</label>
                 <select
                   name="currency"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base cursor-pointer"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base cursor-pointer"
                   value={formData.currency}
                   onChange={handleChange}
                   required
@@ -426,7 +464,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                 <label className="block text-sm font-bold text-gray-700">Product Type*</label>
                 <select
                   name="product_type"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base cursor-pointer"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base cursor-pointer"
                   value={formData.product_type}
                   onChange={handleChange}
                   required
@@ -442,11 +480,15 @@ const EditProductPage = ({ role = "vendor" }) => {
                 <textarea
                   name="short_description"
                   rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base"
                   value={formData.short_description}
                   onChange={handleChange}
                   required
+                  maxLength={450}
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  {formData.short_description.length}/450 characters
+                </p>
               </div>
               
               <div className="space-y-1 md:col-span-2">
@@ -454,11 +496,15 @@ const EditProductPage = ({ role = "vendor" }) => {
                 <textarea
                   name="description"
                   rows={5}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base"
                   value={formData.description}
                   onChange={handleChange}
                   required
+                  maxLength={2000}
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  {formData.description.length}/2000 characters
+                </p>
               </div>
 
               {/* Tags Field */}
@@ -485,7 +531,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                     onChange={handleTagInputChange}
                     onKeyDown={addTag}
                     placeholder="Type a tag and press Enter"
-                    className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm"
                   />
                 </div>
                 <p className="mt-1 text-xs text-gray-500">Add tags to help customers find your product</p>
@@ -502,7 +548,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                 <label className="block text-sm font-bold text-gray-700">Category*</label>
                 <select
                   name="category"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base cursor-pointer"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base cursor-pointer"
                   value={formData.category}
                   onChange={handleChange}
                   required
@@ -520,7 +566,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                 <label className="block text-sm font-bold text-gray-700">Subcategory</label>
                 <select
                   name="subcategory"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base cursor-pointer"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base cursor-pointer"
                   value={formData.subcategory}
                   onChange={handleChange}
                   disabled={!formData.category}
@@ -549,14 +595,14 @@ const EditProductPage = ({ role = "vendor" }) => {
                     name="weight"
                     min="0"
                     step="0.01"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base"
                     value={formData.weight}
                     onChange={handleChange}
                     placeholder="Product weight"
                   />
                   <select
                     name="weight_unit"
-                    className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base cursor-pointer"
+                    className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base cursor-pointer"
                     value={formData.weight_unit}
                     onChange={handleChange}
                   >
@@ -572,7 +618,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                 <input
                   type="text"
                   name="dimensions"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base"
                   value={formData.dimensions}
                   onChange={handleChange}
                   placeholder="e.g., 10x5x2 cm"
@@ -584,7 +630,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                 <input
                   type="text"
                   name="shipping_info"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base"
                   value={formData.shipping_info}
                   onChange={handleChange}
                   placeholder="e.g., Free shipping, Special handling"
@@ -596,7 +642,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                 <input
                   type="text"
                   name="warranty"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base"
                   value={formData.warranty}
                   onChange={handleChange}
                   placeholder="e.g., 1 year manufacturer warranty"
@@ -608,7 +654,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                 <input
                   type="url"
                   name="video_url"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base"
                   value={formData.video_url}
                   onChange={handleChange}
                   placeholder="https://youtube.com/embed/example"
@@ -620,7 +666,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                 <textarea
                   name="content_embeds"
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm md:text-base"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base"
                   value={formData.content_embeds}
                   onChange={handleChange}
                   placeholder="HTML or iframe code for embedded content"
@@ -650,7 +696,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                     onChange={handleFeatureInputChange}
                     onKeyDown={addFeature}
                     placeholder="Type a feature and press Enter"
-                    className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm"
                   />
                 </div>
                 <p className="mt-1 text-xs text-gray-500">Add key features or selling points of the product</p>
@@ -661,7 +707,7 @@ const EditProductPage = ({ role = "vendor" }) => {
           {/* Product Sizes & Pricing Section */}
           <div className="bg-gray-50 p-4 md:p-6 rounded-lg border border-gray-200">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-2">
-              <h3 className="text-lg font-bold text-gray-800">Product Sizes & Pricing</h3>
+              <h3 className="text-lg font-bold text-gray-800">Product Sizes & Pricing*</h3>
               <button
                 type="button"
                 onClick={addSize}
@@ -670,6 +716,14 @@ const EditProductPage = ({ role = "vendor" }) => {
                 + Add Size
               </button>
             </div>
+            
+            {formErrors.sizes && (
+              <div className="mb-4 p-2 bg-red-50 text-red-600 text-sm font-bold rounded">
+                {sizes.length === 0 
+                  ? "At least one product size is required" 
+                  : "Please fill all required size fields (size name and price)"}
+              </div>
+            )}
             
             <div className="space-y-4">
               {sizes.map((size, index) => (
@@ -680,7 +734,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                       <input
                         type="text"
                         placeholder="Medium"
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:outline-none text-sm"
                         value={size.size}
                         onChange={(e) => handleSizeChange(index, "size", e.target.value)}
                         required
@@ -690,7 +744,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                     <div className="space-y-1">
                       <label className="block text-xs md:text-sm font-bold text-gray-700">Unit*</label>
                       <select
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm cursor-pointer"
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:outline-none text-sm cursor-pointer"
                         value={size.unit}
                         onChange={(e) => handleSizeChange(index, "unit", e.target.value)}
                         required
@@ -707,9 +761,9 @@ const EditProductPage = ({ role = "vendor" }) => {
                       <label className="block text-xs md:text-sm font-bold text-gray-700">Price (₹)*</label>
                       <input
                         type="number"
-                        min="0"
+                        min="0.01"
                         step="0.01"
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:outline-none text-sm"
                         value={size.price}
                         onChange={(e) => handleSizeChange(index, "price", e.target.value)}
                         placeholder="Product price"
@@ -746,7 +800,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                               <input
                                 type="number"
                                 min="1"
-                                className="w-full h-10 px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-xs"
+                                className="w-full h-10 px-2 py-1 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:outline-none text-xs"
                                 value={tier.min_quantity}
                                 onChange={(e) => handlePriceTierChange(tierIdx, "min_quantity", e.target.value)}
                                 required
@@ -757,9 +811,9 @@ const EditProductPage = ({ role = "vendor" }) => {
                               <label className="block text-md font-bold text-gray-500">Price (₹)*</label>
                               <input
                                 type="number"
-                                min="0"
+                                min="0.01"
                                 step="0.01"
-                                className="w-full h-10 px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-xs"
+                                className="w-full h-10 px-2 py-1 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:outline-none text-xs"
                                 value={tier.price}
                                 onChange={(e) => handlePriceTierChange(tierIdx, "price", e.target.value)}
                                 required
@@ -801,13 +855,19 @@ const EditProductPage = ({ role = "vendor" }) => {
           <div className="bg-gray-50 p-4 md:p-6 rounded-lg border border-gray-200">
             <h3 className="text-lg font-bold text-gray-800 mb-4">Product Images</h3>
             
+            {formErrors.image && (
+              <div className="mb-4 p-2 bg-red-50 text-red-600 font-bold text-sm rounded">
+                Main image is required
+              </div>
+            )}
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               {/* Main Image */}
               <div className="space-y-3">
                 <label className="block text-sm font-bold text-gray-700">Main Image*</label>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                   <label className="cursor-pointer inline-flex">
-                    <span className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer">
+                    <span className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer">
                       Choose File
                     </span>
                     <input
@@ -837,7 +897,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                 <label className="block text-sm font-bold text-gray-700">Additional Images (Max 5)</label>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                   <label className="cursor-pointer inline-flex">
-                    <span className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer">
+                    <span className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer">
                       Choose Files
                     </span>
                     <input
@@ -910,8 +970,8 @@ const EditProductPage = ({ role = "vendor" }) => {
             </button>
             <button
               type="submit"
-              disabled={isUpdating}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm text-sm font-bold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
+              disabled={isUpdating || !isFormValid}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm text-sm font-bold hover:bg-blue-700 focus:outline-none focus:ring-1 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
             >
               {isUpdating ? (
                 <>

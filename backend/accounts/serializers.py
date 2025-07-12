@@ -472,3 +472,10 @@ class ProfileApprovalStatusUpdateSerializer(serializers.ModelSerializer):
             'company_documents', 'company_documents_reason',
             'bank_details', 'bank_details_reason',
         ]
+
+
+class CurrentUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'role']
+        read_only_fields = fields

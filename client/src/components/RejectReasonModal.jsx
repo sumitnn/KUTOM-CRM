@@ -3,11 +3,21 @@ import React, { useState } from 'react';
 
 export default function RejectReasonModal({ onClose, onSubmit }) {
   const [reason, setReason] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!reason.trim()) return;
-    onSubmit(reason);
+    if (!reason.trim() || isSubmitting) return;
+    
+    try {
+      setIsSubmitting(true);
+      await onSubmit(reason);
+      onClose();
+    } catch (error) {
+      console.error("Submission failed:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -21,13 +31,30 @@ export default function RejectReasonModal({ onClose, onSubmit }) {
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             required
+            disabled={isSubmitting}
           />
           <div className="modal-action">
-            <button type="button" className="btn" onClick={onClose}>
+            <button 
+              type="button" 
+              className="btn" 
+              onClick={onClose}
+              disabled={isSubmitting}
+            >
               Cancel
             </button>
-            <button type="submit" className="btn btn-error">
-              Submit Rejection
+            <button 
+              type="submit" 
+              className="btn btn-error"
+              disabled={!reason.trim() || isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <span className="loading loading-spinner loading-xs"></span>
+                  Submitting...
+                </>
+              ) : (
+                'Submit Rejection'
+              )}
             </button>
           </div>
         </form>

@@ -15,6 +15,7 @@ import {
   useUpdateBrandMutation,
   useCreateBrandMutation
 } from '../features/brand/brandApi';
+import { useGetCurrentUserQuery } from '../features/auth/authApi';
 
 // Lazy-loaded components
 const Spinner = lazy(() => import('../components/common/Spinner'));
@@ -49,6 +50,9 @@ const ViewBrandsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
 
+  // Get current user data
+  const { data: currentUser } = useGetCurrentUserQuery();
+  
   const {
     data: brands = [],
     isLoading,
@@ -61,6 +65,7 @@ const ViewBrandsPage = () => {
 
   const [updateBrand] = useUpdateBrandMutation();
   const [createBrand, { isLoading: isCreating }] = useCreateBrandMutation();
+  const [brandupdating, Setbrandupdating] = useState(false);
 
   const [selectedBrand, setSelectedBrand] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
@@ -71,6 +76,12 @@ const ViewBrandsPage = () => {
     is_active: false,
     logoFile: null
   });
+
+  // Check if user can edit a brand
+  const canEditBrand = (brand) => {
+    
+    return currentUser?.role === 'admin' || brand?.owner=== currentUser?.id;
+  };
 
   const handleSearch = () => {
     const trimmedSearch = searchInput.trim();
@@ -91,6 +102,7 @@ const ViewBrandsPage = () => {
 
   const handleUpdate = async () => {
     if (!selectedBrand) return;
+    Setbrandupdating(true);
 
     try {
       const formData = new FormData();
@@ -103,6 +115,7 @@ const ViewBrandsPage = () => {
       }
 
       await updateBrand({ id: selectedBrand.id, data: formData }).unwrap();
+      Setbrandupdating(false)
       refetch();
       toast.success('Brand updated successfully');
       setSelectedBrand(null);
@@ -169,7 +182,7 @@ const ViewBrandsPage = () => {
       <div className="max-w-8xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Brand Management</h1>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Brand Management</h1>
             <p className="text-gray-500 font-bold mt-1">
               {brands.length} {brands.length === 1 ? 'brand' : 'brands'} found
             </p>
@@ -182,19 +195,20 @@ const ViewBrandsPage = () => {
                   <FiSearch className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
-                  id="searchbrand"
-                  name="searchbrand"
-                  type="text"
-                  placeholder="Search brands..."
-                  className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                />
+  id="searchbrand"
+  name="searchbrand"
+  type="text"
+  placeholder="Search brands..."
+  className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+  value={searchInput}
+  onChange={(e) => setSearchInput(e.target.value)}
+  onKeyUp={(e) => e.key === 'Enter' && handleSearch()}
+/>
+
                 <button
                   onClick={handleSearch}
                   disabled={isFetching || isSearching || !searchInput.trim()}
-                  className={`px-4 py-2 border-t border-b border-gray-300 ${
+                  className={`px-4 py-2 border-t border-b cursor-pointer border-gray-300 ${
                     isFetching || isSearching
                       ? 'bg-gray-300 cursor-not-allowed'
                       : searchInput.trim()
@@ -217,7 +231,7 @@ const ViewBrandsPage = () => {
             </div>
             <button
               onClick={() => setIsCreateModalOpen(true)}
-              className="btn btn-primary gap-2 whitespace-nowrap"
+              className="btn btn-primary gap-2 whitespace-nowrap animate-bounce hover:animate-none"
             >
               <FiPlus /> Create New Brand
             </button>
@@ -240,14 +254,14 @@ const ViewBrandsPage = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">Sr No.</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">Created Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">Brand Name</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">Logo</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">Description</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">Active</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">Last Updated Date</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold text-black uppercase tracking-wider">Actions</th>
+                    <th className="px-4 py-3 text-left text-xs font-extrabold text-black uppercase tracking-wider">Sr No.</th>
+                    <th className="px-4 py-3 text-left text-xs font-extrabold text-black uppercase tracking-wider">Created Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-extrabold text-black uppercase tracking-wider">Brand Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-extrabold text-black uppercase tracking-wider">Logo</th>
+                    <th className="px-4 py-3 text-left text-xs font-extrabold text-black uppercase tracking-wider">Description</th>
+                    <th className="px-4 py-3 text-left text-xs font-extrabold text-black uppercase tracking-wider">Active</th>
+                    <th className="px-4 py-3 text-left text-xs font-extrabold text-black uppercase tracking-wider">Last Updated Date</th>
+                    <th className="px-4 py-3 text-right text-xs font-extrabold text-black uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -260,7 +274,7 @@ const ViewBrandsPage = () => {
                        {brand.created_at}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{brand.name}</div>
+                        <div className="text-sm font-bold text-gray-900">{brand.name}</div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <ImageLoader
@@ -288,22 +302,24 @@ const ViewBrandsPage = () => {
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-center text-sm font-medium">
                         <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() =>
-                              setSelectedBrand({
-                                id: brand.id,
-                                name: brand.name,
-                                description: brand.description || "",
-                                is_active: brand.is_active,
-                                logo: brand.logo,
-                              })
-                            }
-                            className="flex items-center gap-1 text-blue-600 hover:text-blue-900 p-2 rounded-md hover:bg-blue-50 transition"
-                            title="Edit"
-                          >
-                            <FiEdit2 className="h-4 w-4" />
-                            <span className="hidden sm:inline font-bold hover:cursor-pointer">Edit</span>
-                          </button>
+                          {canEditBrand(brand) && (
+                            <button
+                              onClick={() =>
+                                setSelectedBrand({
+                                  id: brand.id,
+                                  name: brand.name,
+                                  description: brand.description || "",
+                                  is_active: brand.is_active,
+                                  logo: brand.logo,
+                                })
+                              }
+                              className="flex items-center gap-1 text-blue-600 hover:text-blue-900 p-2 rounded-md hover:bg-blue-50 transition"
+                              title="Edit"
+                            >
+                              <FiEdit2 className="h-4 w-4" />
+                              <span className="hidden sm:inline font-bold hover:cursor-pointer">Edit</span>
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -412,32 +428,29 @@ const ViewBrandsPage = () => {
             </div>
 
             <div className="mt-8 flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  setSelectedBrand(null);
-                  setLogoPreview(null);
+  <button
+    onClick={() => {
+      setSelectedBrand(null);
+      setLogoPreview(null);
+      
                 }}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleUpdate}
-                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-500 transition flex items-center gap-2"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <Suspense fallback={<div>Loading...</div>}>
-                    <Spinner size="sm" />
-                    Updating...
-                  </Suspense>
-                ) : (
-                  <>
-                    <FiCheckCircle /> Update
-                  </>
-                )}
-              </button>
-            </div>
+                disabled = { brandupdating }
+    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition cursor-pointer"
+  >
+    Cancel
+  </button>
+  <button
+    onClick={handleUpdate}
+    className={`px-4 py-2 text-white font-bold rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 transition flex items-center justify-center gap-2 h-10 ${
+      brandupdating
+        ? 'bg-green-400 cursor-not-allowed'
+        : 'bg-green-600 hover:bg-green-700 cursor-pointer'
+    }`}
+    disabled={brandupdating}
+  >
+    {brandupdating ? "Updating..." : <><FiCheckCircle /> Update</>}
+  </button>
+</div>
           </div>
         </div>
       )}
@@ -558,21 +571,22 @@ const ViewBrandsPage = () => {
                 Cancel
               </button>
               <button
-                onClick={handleCreate}
-                className="px-4 py-2 bg-green-600 text-white font-bold hover:cursor-pointer rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition flex items-center gap-2"
-                disabled={isCreating || !newBrand.name}
-              >
-                {isCreating ? (
-                  <Suspense fallback={<div>Loading...</div>}>
-                    <Spinner size="sm" />
-                    Creating...
-                  </Suspense>
-                ) : (
-                  <>
-                    <FiCheckCircle /> Create Brand
-                  </>
-                )}
-              </button>
+  onClick={handleCreate}
+  className={`px-4 py-2 text-white font-bold rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 transition flex items-center justify-center gap-2 h-10 ${
+    isCreating || !newBrand.name
+      ? 'bg-green-400 cursor-not-allowed'
+      : 'bg-green-600 hover:bg-green-700 cursor-pointer'
+  }`}
+  disabled={isCreating || !newBrand.name}
+>
+  {isCreating ? (
+    "Creating..."
+  ) : (
+    <>
+      <FiCheckCircle /> Create Brand
+    </>
+  )}
+</button>
             </div>
           </div>
         </div>

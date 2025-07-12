@@ -11,6 +11,7 @@ import {
   useUpdateSubcategoryMutation,
 } from "../features/category/categoryApi";
 import { useGetBrandsQuery } from "../features/brand/brandApi";
+import { useGetCurrentUserQuery } from '../features/auth/authApi';
 import { toast } from "react-toastify";
 import { FiEdit2, FiPlus, FiX, FiTrash2, FiSearch } from "react-icons/fi";
 import { format } from "date-fns";
@@ -19,8 +20,11 @@ const CategoryManagementPage = () => {
   const [activeTab, setActiveTab] = useState("main-categories");
   
   // Search states
+  const [mainCategorySearchTerm, setMainCategorySearchTerm] = useState("");
   const [mainCategorySearch, setMainCategorySearch] = useState("");
+  const [categorySearchTerm, setCategorySearchTerm] = useState("");
   const [categorySearch, setCategorySearch] = useState("");
+  const [subcategorySearchTerm, setSubcategorySearchTerm] = useState("");
   const [subcategorySearch, setSubcategorySearch] = useState("");
   
   // Main Category states
@@ -53,6 +57,14 @@ const CategoryManagementPage = () => {
   const [editMainCategory, setEditMainCategory] = useState(null);
   const [editCategory, setEditCategory] = useState(null);
   const [editSubcategory, setEditSubcategory] = useState(null);
+
+  // Loading states for mutations
+  const [isMainCategoryLoading, setIsMainCategoryLoading] = useState(false);
+  const [isCategoryLoading, setIsCategoryLoading] = useState(false);
+  const [isSubcategoryLoading, setIsSubcategoryLoading] = useState(false);
+
+  // Current user
+  const { data: currentUser } = useGetCurrentUserQuery();
 
   // Data fetching with search queries
   const { 
@@ -96,14 +108,18 @@ const CategoryManagementPage = () => {
     setEditMainCategory(null);
     setEditCategory(null);
     setEditSubcategory(null);
+    setMainCategorySearchTerm("");
     setMainCategorySearch("");
+    setCategorySearchTerm("");
     setCategorySearch("");
+    setSubcategorySearchTerm("");
     setSubcategorySearch("");
   }, [activeTab]);
 
   // Handle main category creation/update
   const handleCreateMainCategory = async (e) => {
     e.preventDefault();
+    setIsMainCategoryLoading(true);
     try {
       const formData = new FormData();
       formData.append('name', mainCategoryForm.name);
@@ -122,6 +138,7 @@ const CategoryManagementPage = () => {
       } else {
         if (!mainCategoryForm.image) {
           toast.error("Image is required for new categories");
+          setIsMainCategoryLoading(false);
           return;
         }
         await addMainCategory(formData).unwrap();
@@ -139,12 +156,15 @@ const CategoryManagementPage = () => {
       refetchMainCategories();
     } catch (error) {
       toast.error(error.data?.message || "Failed to process main category");
+    } finally {
+      setIsMainCategoryLoading(false);
     }
   };
 
   // Handle category creation/update
   const handleCreateCategory = async (e) => {
     e.preventDefault();
+    setIsCategoryLoading(true);
     try {
       const data = {
         name: categoryForm.name,
@@ -173,12 +193,15 @@ const CategoryManagementPage = () => {
       refetchCategories();
     } catch (error) {
       toast.error(error.data?.message || "Failed to process category");
+    } finally {
+      setIsCategoryLoading(false);
     }
   };
 
   // Handle subcategory creation/update
   const handleCreateSubcategory = async (e) => {
     e.preventDefault();
+    setIsSubcategoryLoading(true);
     try {
       const data = {
         name: subcategoryForm.name,
@@ -209,6 +232,8 @@ const CategoryManagementPage = () => {
       refetchSubcategories();
     } catch (error) {
       toast.error(error.data?.message || "Failed to process subcategory");
+    } finally {
+      setIsSubcategoryLoading(false);
     }
   };
 
@@ -263,15 +288,42 @@ const CategoryManagementPage = () => {
     setIsSubcategoryFormOpen(true);
   };
 
+  // Handle search
+  const handleSearch = (type) => {
+    if (type === 'main') {
+      setMainCategorySearch(mainCategorySearchTerm);
+    } else if (type === 'category') {
+      setCategorySearch(categorySearchTerm);
+    } else if (type === 'subcategory') {
+      setSubcategorySearch(subcategorySearchTerm);
+    }
+  };
+
   // Handle search clear
   const handleClearSearch = (type) => {
     if (type === 'main') {
+      setMainCategorySearchTerm("");
       setMainCategorySearch("");
     } else if (type === 'category') {
+      setCategorySearchTerm("");
       setCategorySearch("");
     } else if (type === 'subcategory') {
+      setSubcategorySearchTerm("");
       setSubcategorySearch("");
     }
+  };
+
+  // Check edit permissions
+  const canEditMainCategory = (mainCategory) => {
+    return currentUser?.role === 'admin' || mainCategory?.owner === currentUser?.id;
+  };
+
+  const canEditCategory = (category) => {
+    return currentUser?.role === 'admin' || category?.owner === currentUser?.id;
+  };
+
+  const canEditSubcategory = (subcategory) => {
+    return currentUser?.role === 'admin' || subcategory?.owner === currentUser?.id;
   };
 
   if (isMainCategoriesLoading || isCategoriesLoading || isBrandsLoading || (activeTab === "subcategories" && isSubcategoriesLoading)) {
@@ -287,7 +339,7 @@ const CategoryManagementPage = () => {
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200">
-          <h1 className="text-2xl font-bold text-gray-800">Category Management</h1>
+          <h1 className="text-2xl font-extrabold text-gray-800">Category Management</h1>
         </div>
         
         {/* Tabs */}
@@ -295,7 +347,7 @@ const CategoryManagementPage = () => {
           <nav className="flex -mb-px">
             <button
               onClick={() => setActiveTab("main-categories")}
-              className={`py-4 px-6 text-center border-b-2 font-bold hover:cursor-pointer text-sm ${
+              className={`py-4 px-6 text-center border-b-4 font-bold hover:cursor-pointer text-sm ${
                 activeTab === "main-categories" 
                   ? "border-blue-900 text-blue-600" 
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -305,7 +357,7 @@ const CategoryManagementPage = () => {
             </button>
             <button
               onClick={() => setActiveTab("categories")}
-              className={`py-4 px-6 text-center border-b-2 font-bold hover:cursor-pointer text-sm ${
+              className={`py-4 px-6 text-center border-b-4 font-bold hover:cursor-pointer text-sm ${
                 activeTab === "categories" 
                   ? "border-blue-900 text-blue-600" 
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -315,7 +367,7 @@ const CategoryManagementPage = () => {
             </button>
             <button
               onClick={() => setActiveTab("subcategories")}
-              className={`py-4 px-6 text-center border-b-2 font-bold hover:cursor-pointer text-sm ${
+              className={`py-4 px-6 text-center border-b-4 font-bold hover:cursor-pointer text-sm ${
                 activeTab === "subcategories" 
                   ? "border-blue-900 text-blue-600" 
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -334,16 +386,16 @@ const CategoryManagementPage = () => {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-extrabold text-gray-800">Main Categories</h2>
                 <div className="flex items-center space-x-4">
-                  <div className="relative">
+                  <div className="relative flex items-center">
                     <input
                       type="text"
                       placeholder="Search main categories..."
                       className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      value={mainCategorySearch}
-                      onChange={(e) => setMainCategorySearch(e.target.value)}
+                      value={mainCategorySearchTerm}
+                      onChange={(e) => setMainCategorySearchTerm(e.target.value)}
                     />
                     <FiSearch className="absolute left-3 top-3 text-gray-400" />
-                    {mainCategorySearch && (
+                    {mainCategorySearchTerm && (
                       <button
                         onClick={() => handleClearSearch('main')}
                         className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
@@ -351,6 +403,12 @@ const CategoryManagementPage = () => {
                         <FiX />
                       </button>
                     )}
+                    <button
+                      onClick={() => handleSearch('main')}
+                      className="ml-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 hover:cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      Search
+                    </button>
                   </div>
                   <button
                     onClick={() => {
@@ -407,7 +465,7 @@ const CategoryManagementPage = () => {
                       <input
                         type="file"
                         accept="image/*"
-                        className="mt-1 block w-full text-sm text-gray-500
+                        className="mt-1 block w-full text-sm text-gray-500 cursor-pointer
                           file:mr-4 file:py-2 file:px-4
                           file:rounded-md file:border-0
                           file:text-sm file:font-semibold
@@ -450,9 +508,16 @@ const CategoryManagementPage = () => {
                       </button>
                       <button 
                         type="submit" 
-                        className="inline-flex items-center cursor-pointer px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        disabled={isMainCategoryLoading}
+                        className={`inline-flex items-center cursor-pointer px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                          isMainCategoryLoading ? 'opacity-70 cursor-not-allowed' : ''
+                        }`}
                       >
-                        {editMainCategory ? "Update" : "Create"} Main Category
+                        {isMainCategoryLoading ? (
+                          editMainCategory ? "Updating..." : "Creating..."
+                        ) : (
+                          editMainCategory ? "Update" : "Create"
+                        )} Main Category
                       </button>
                     </div>
                   </form>
@@ -464,22 +529,22 @@ const CategoryManagementPage = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-extrabold text-gray-700 uppercase tracking-wider">
                         Image
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-extrabold text-gray-700 uppercase tracking-wider">
                         Name
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-extrabold text-gray-700 uppercase tracking-wider">
                         Status
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-extrabold text-gray-700 uppercase tracking-wider">
                         Created At
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-extrabold text-gray-700 uppercase tracking-wider">
                         Updated At
                       </th>
-                      <th scope="col" className="px-6 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-extrabold text-gray-700 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
@@ -495,10 +560,10 @@ const CategoryManagementPage = () => {
                           />
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{mainCategory.name}</div>
+                          <div className="text-sm font-extrabold text-gray-900">{mainCategory.name}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          <span className={`px-2 inline-flex text-xs leading-5 font-bold rounded-full ${
                             mainCategory.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                           }`}>
                             {mainCategory.is_active ? 'Active' : 'Inactive'}
@@ -511,12 +576,14 @@ const CategoryManagementPage = () => {
                           {format(new Date(mainCategory.updated_at), 'dd MMM yyyy, HH:mm')}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <button
-                            onClick={() => handleEditMainCategory(mainCategory)}
-                            className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 hover:cursor-pointer"
-                          >
-                            <FiEdit2 className="h-5 w-5" />
-                          </button>
+                          {canEditMainCategory(mainCategory) && (
+                            <button
+                              onClick={() => handleEditMainCategory(mainCategory)}
+                              className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 hover:cursor-pointer"
+                            >
+                              <FiEdit2 className="h-5 w-5" />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -532,16 +599,16 @@ const CategoryManagementPage = () => {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-extrabold text-gray-800">Categories</h2>
                 <div className="flex items-center space-x-4">
-                  <div className="relative">
+                  <div className="relative flex items-center">
                     <input
                       type="text"
                       placeholder="Search categories..."
                       className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      value={categorySearch}
-                      onChange={(e) => setCategorySearch(e.target.value)}
+                      value={categorySearchTerm}
+                      onChange={(e) => setCategorySearchTerm(e.target.value)}
                     />
                     <FiSearch className="absolute left-3 top-3 text-gray-400" />
-                    {categorySearch && (
+                    {categorySearchTerm && (
                       <button
                         onClick={() => handleClearSearch('category')}
                         className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
@@ -549,6 +616,12 @@ const CategoryManagementPage = () => {
                         <FiX />
                       </button>
                     )}
+                    <button
+                      onClick={() => handleSearch('category')}
+                      className="ml-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 hover:cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      Search
+                    </button>
                   </div>
                   <button
                     onClick={() => {
@@ -637,9 +710,16 @@ const CategoryManagementPage = () => {
                       </button>
                       <button 
                         type="submit" 
-                        className="inline-flex items-center cursor-pointer px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        disabled={isCategoryLoading}
+                        className={`inline-flex items-center cursor-pointer px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                          isCategoryLoading ? 'opacity-70 cursor-not-allowed' : ''
+                        }`}
                       >
-                        {editCategory ? "Update" : "Create"} Category
+                        {isCategoryLoading ? (
+                          editCategory ? "Updating..." : "Creating..."
+                        ) : (
+                          editCategory ? "Update" : "Create"
+                        )} Category
                       </button>
                     </div>
                   </form>
@@ -651,22 +731,22 @@ const CategoryManagementPage = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-extrabold text-gray-700 uppercase tracking-wider">
                         Name
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-extrabold text-gray-700 uppercase tracking-wider">
                         Main Category
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-extrabold text-gray-700 uppercase tracking-wider">
                         Status
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-extrabold text-gray-700 uppercase tracking-wider">
                         Created At
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-extrabold text-gray-700 uppercase tracking-wider">
                         Updated At
                       </th>
-                      <th scope="col" className="px-6 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-extrabold text-gray-700 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
@@ -677,7 +757,7 @@ const CategoryManagementPage = () => {
                       return (
                         <tr key={category.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{category.name}</div>
+                            <div className="text-sm font-bold text-gray-900">{category.name}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-500">
@@ -685,7 +765,7 @@ const CategoryManagementPage = () => {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            <span className={`px-2 inline-flex text-xs leading-5 font-bold rounded-full ${
                               category.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                             }`}>
                               {category.is_active ? 'Active' : 'Inactive'}
@@ -698,12 +778,14 @@ const CategoryManagementPage = () => {
                             {format(new Date(category.updated_at), 'dd MMM yyyy, HH:mm')}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button
-                              onClick={() => handleEditCategory(category)}
-                              className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 hover:cursor-pointer"
-                            >
-                              <FiEdit2 className="h-5 w-5" />
-                            </button>
+                            {canEditCategory(category) && (
+                              <button
+                                onClick={() => handleEditCategory(category)}
+                                className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 hover:cursor-pointer"
+                              >
+                                <FiEdit2 className="h-5 w-5" />
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
@@ -720,16 +802,16 @@ const CategoryManagementPage = () => {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-extrabold text-gray-800">Subcategories</h2>
                 <div className="flex items-center space-x-4">
-                  <div className="relative">
+                  <div className="relative flex items-center">
                     <input
                       type="text"
                       placeholder="Search subcategories..."
                       className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      value={subcategorySearch}
-                      onChange={(e) => setSubcategorySearch(e.target.value)}
+                      value={subcategorySearchTerm}
+                      onChange={(e) => setSubcategorySearchTerm(e.target.value)}
                     />
                     <FiSearch className="absolute left-3 top-3 text-gray-400" />
-                    {subcategorySearch && (
+                    {subcategorySearchTerm && (
                       <button
                         onClick={() => handleClearSearch('subcategory')}
                         className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
@@ -737,6 +819,12 @@ const CategoryManagementPage = () => {
                         <FiX />
                       </button>
                     )}
+                    <button
+                      onClick={() => handleSearch('subcategory')}
+                      className="ml-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 hover:cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      Search
+                    </button>
                   </div>
                   <button
                     onClick={() => {
@@ -847,9 +935,16 @@ const CategoryManagementPage = () => {
                       </button>
                       <button 
                         type="submit" 
-                        className="inline-flex items-center px-4 py-2 cursor-pointer border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        disabled={isSubcategoryLoading}
+                        className={`inline-flex items-center px-4 py-2 cursor-pointer border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                          isSubcategoryLoading ? 'opacity-70 cursor-not-allowed' : ''
+                        }`}
                       >
-                        {editSubcategory ? "Update" : "Create"} Subcategory
+                        {isSubcategoryLoading ? (
+                          editSubcategory ? "Updating..." : "Creating..."
+                        ) : (
+                          editSubcategory ? "Update" : "Create"
+                        )} Subcategory
                       </button>
                     </div>
                   </form>
@@ -861,25 +956,25 @@ const CategoryManagementPage = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-extrabold text-gray-700 uppercase tracking-wider">
                         Name
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-extrabold text-gray-700 uppercase tracking-wider">
                         Parent Category
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-extrabold text-gray-700 uppercase tracking-wider">
                         Brand
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-extrabold text-gray-700 uppercase tracking-wider">
                         Status
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-extrabold text-gray-700 uppercase tracking-wider">
                         Created At
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-extrabold text-gray-700 uppercase tracking-wider">
                         Updated At
                       </th>
-                      <th scope="col" className="px-6 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-extrabold text-gray-700 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
@@ -891,7 +986,7 @@ const CategoryManagementPage = () => {
                       return (
                         <tr key={subcategory.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{subcategory.name}</div>
+                            <div className="text-sm font-bold text-gray-900">{subcategory.name}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-500">
@@ -904,7 +999,7 @@ const CategoryManagementPage = () => {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            <span className={`px-2 inline-flex text-xs leading-5 font-bold rounded-full ${
                               subcategory.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                             }`}>
                               {subcategory.is_active ? 'Active' : 'Inactive'}
@@ -917,12 +1012,14 @@ const CategoryManagementPage = () => {
                             {format(new Date(subcategory.updated_at), 'dd MMM yyyy, HH:mm')}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button
-                              onClick={() => handleEditSubcategory(subcategory)}
-                              className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 hover:cursor-pointer"
-                            >
-                              <FiEdit2 className="h-5 w-5" />
-                            </button>
+                            {canEditSubcategory(subcategory) && (
+                              <button
+                                onClick={() => handleEditSubcategory(subcategory)}
+                                className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 hover:cursor-pointer"
+                              >
+                                <FiEdit2 className="h-5 w-5" />
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
