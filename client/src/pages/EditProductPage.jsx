@@ -758,7 +758,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                     </div>
                     
                     <div className="space-y-1">
-                      <label className="block text-xs md:text-sm font-bold text-gray-700">Price (₹)*</label>
+                      <label className="block text-xs md:text-sm font-bold text-gray-700">Actual Price (₹)*</label>
                       <input
                         type="number"
                         min="0.01"

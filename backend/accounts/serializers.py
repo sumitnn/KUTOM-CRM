@@ -341,15 +341,41 @@ class NewAccountApplicationSerializer(serializers.ModelSerializer):
         email = data.get('email')
         phone = data.get('phone')
 
-        if NewAccountApplication.objects.filter(email=email, status='pending').exists():
-            raise serializers.ValidationError({
-                'email': "You already have a pending application with this email."
-            })
+        # Check email
+        if email:
+            existing_email_app = NewAccountApplication.objects.filter(email=email).first()
+            if existing_email_app:
+                status = existing_email_app.status
+                if status in ['new', 'pending']:
+                    raise serializers.ValidationError({
+                        'email': "An application with this email is already in progress and awaiting admin approval."
+                    })
+                elif status == 'approved':
+                    raise serializers.ValidationError({
+                        'email': "An application with this email has already been approved. Please use a different email."
+                    })
+                elif status == 'rejected':
+                    raise serializers.ValidationError({
+                        'email': "previous application with this email was rejected. Please contact support for assistance."
+                    })
 
-        if NewAccountApplication.objects.filter(phone=phone, status='pending').exists():
-            raise serializers.ValidationError({
-                'phone': "You already have a pending application with this phone number."
-            })
+        # Check phone
+        if phone:
+            existing_phone_app = NewAccountApplication.objects.filter(phone=phone).first()
+            if existing_phone_app:
+                status = existing_phone_app.status
+                if status in ['new', 'pending']:
+                    raise serializers.ValidationError({
+                        'phone': "An application with this phone number is already in progress and awaiting admin approval."
+                    })
+                elif status == 'approved':
+                    raise serializers.ValidationError({
+                        'phone': "An application with this phone number has already been approved. Please use a different phone number."
+                    })
+                elif status == 'rejected':
+                    raise serializers.ValidationError({
+                        'phone': "previous application with this phone number was rejected. Please contact support for assistance."
+                    })
 
         return data
     

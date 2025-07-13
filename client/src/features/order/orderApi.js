@@ -61,6 +61,15 @@ export const orderApi = createApi({
                 data: { status,note },
             }),
         }),
+        updateDispatchStatus: builder.mutation({
+            query: ({ orderId, data}) => ({
+                url: `orders/${orderId}/dispatch/`,
+                method: 'PATCH',
+                data  
+               
+            }),
+        }),
+
         getOrderHistory: builder.query({
             query: ({ status = 'all', startDate, endDate, page = 1 }) => {
                 const params = new URLSearchParams();
@@ -106,5 +115,6 @@ export const {
     useUpdateOrderStatusMutation,
     useGetOrderHistoryQuery,
     useLazyExportOrderHistoryQuery,
-    useGetVendorOrdersQuery
+    useGetVendorOrdersQuery,
+    useUpdateDispatchStatusMutation
 } = orderApi;

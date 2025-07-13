@@ -102,32 +102,12 @@ const CommonLayout = ({ children }) => {
     { value: "stockist", label: "Stockist" },
   ];
 
-  // Validation
-  const validateForm = useCallback(() => {
-    const newErrors = {};
-    if (!formData.role) newErrors.role = "Please select a role";
-    if (!formData.full_name.trim()) newErrors.full_name = "Full name is required";
-    if (!formData.email.trim()) {
-      newErrors.email = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = "Please enter a valid email";
-    }
-    if (!formData.phone.trim()) {
-      newErrors.phone = "Phone number is required";
-    } else if (!/^\d{10}$/.test(formData.phone)) {
-      newErrors.phone = "Please enter a valid 10-digit phone number";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  }, [formData]);
-
   // Handlers
-  const handleChange = useCallback((e) => {
-    const { name, value } = e.target;
+  const handleNameChange = useCallback((e) => {
+    const value = e.target.value.replace(/[^a-zA-Z\s]/g, '');
     setFormData(prev => ({
       ...prev,
-      [name]: value,
+      full_name: value
     }));
   }, []);
 
@@ -138,6 +118,46 @@ const CommonLayout = ({ children }) => {
       phone: value
     }));
   }, []);
+
+  const handleChange = useCallback((e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }));
+  }, []);
+
+  // Validation
+  const validateForm = useCallback(() => {
+    const newErrors = {};
+    
+    // Role validation
+    if (!formData.role) newErrors.role = "Please select a role";
+    
+    // Full name validation - only letters and spaces allowed
+    if (!formData.full_name.trim()) {
+      newErrors.full_name = "Full name is required";
+    } else if (!/^[a-zA-Z\s]{3,}$/.test(formData.full_name)) {
+      newErrors.full_name = "Name should only contain letters and spaces (min 3 characters)";
+    }
+    
+    // Enhanced email validation
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email (e.g., example@domain.com)";
+    }
+    
+    // Phone validation
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Phone number is required";
+    } else if (!/^\d{10}$/.test(formData.phone)) {
+      newErrors.phone = "Please enter a valid 10-digit phone number";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }, [formData]);
 
   const submitNewAccountApplication = useCallback(async () => {
     try {
@@ -321,7 +341,7 @@ const CommonLayout = ({ children }) => {
                 id="full_name"
                 name="full_name"
                 value={formData.full_name}
-                onChange={handleChange}
+                onChange={handleNameChange}
                 placeholder="Full Name"
                 error={errors.full_name}
                 icon={MdPerson}

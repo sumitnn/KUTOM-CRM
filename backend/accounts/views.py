@@ -1065,18 +1065,38 @@ class VerifyUserKYCView(APIView):
     def post(self, request, user_id):
         try:
             profile = Profile.objects.select_related("user").get(user__id=user_id)
-
-            if profile.kyc_verified:
-                return Response({"message": "KYC already verified."}, status=status.HTTP_400_BAD_REQUEST)
-
-            profile.kyc_verified = True
-            profile.kyc_status = "APPROVED"
-            profile.kyc_verified_at = datetime.now()
-            profile.save()
-            return Response({"message": f"KYC verified."}, status=status.HTTP_200_OK)
-
         except Profile.DoesNotExist:
             return Response({"message": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if profile.kyc_verified:
+            return Response({"message": "KYC is already verified."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update profile and user
+        profile.kyc_verified = True
+        profile.kyc_status = "APPROVED"
+        profile.kyc_verified_at = datetime.now()
+        profile.user.is_user_active = "active"
+
+        # Save both in one go
+        profile.save()
+        profile.user.save(update_fields=["is_user_active"])
+
+        # Update matching account application
+        NewAccountApplication.objects.filter(
+            email=profile.user.email,
+            status='pending'
+        ).update(status='approved')
+
+        # Send notification
+        create_notification(
+            user=profile.user,
+            title="KYC Verification",
+            message="Your KYC has been successfully verified.",
+            notification_type='KYC',
+            related_url=''
+        )
+
+        return Response({"message": "KYC verified successfully."}, status=status.HTTP_200_OK)
 
     
 class CurrentUserView(APIView):

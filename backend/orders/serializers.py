@@ -111,8 +111,18 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         return obj.transport_charges
 
 
+
+class UserWithAddressSerializer(serializers.ModelSerializer):
+    address = AddressSerializer(read_only=True)
+    phone= serializers.CharField(source='profile.phone', read_only=True)
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'address','phone']
+
+
 class OrderSerializer(serializers.ModelSerializer):
-    created_by = UserBasicSerializer()
+    created_by = UserWithAddressSerializer()
     created_for = UserBasicSerializer()
     items = OrderItemSerializer(many=True, read_only=True)
 
@@ -126,7 +136,14 @@ class OrderSerializer(serializers.ModelSerializer):
             'description',
             'total_price',
             'items',
-            'created_at'
+            'created_at',
+            'courier_name',
+            'tracking_number',
+            'transport_charges',
+            'expected_delivery_date',
+            'receipt',
+            'note',
+            'status',
         ]
 
 
@@ -178,3 +195,19 @@ class SaleSerializer(serializers.ModelSerializer):
         if hasattr(sale_date, 'date'):  # If it's a datetime
             return sale_date.date().isoformat()
         return sale_date.isoformat()
+    
+
+class OrderDispatchSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = [
+            'id',
+            'courier_name',
+            'tracking_number',
+            'transport_charges',
+            'expected_delivery_date',
+            'receipt',
+            'note',
+            'status',
+        ]
+        read_only_fields = ['id']

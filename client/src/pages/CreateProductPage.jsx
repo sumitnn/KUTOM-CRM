@@ -582,7 +582,7 @@ const CreateProductPage = () => {
                     className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
                   />
                 </div>
-                <p className="mt-1 text-xs text-gray-500">Add key features or selling points of the product</p>
+                <p className="mt-1 text-xs text-gray-500 font-bold">Add key features ,hit enter button To add more..</p>
               </div>
             </div>
           </div>
@@ -639,7 +639,7 @@ const CreateProductPage = () => {
                     </div>
                     
                     <div className="space-y-1">
-                      <label className="block text-xs md:text-sm font-bold text-gray-700">Price (₹)*</label>
+                      <label className="block text-xs md:text-sm font-bold text-gray-700"> Actual Price (₹)*</label>
                       <input
                         type="number"
                         min="0.01"
