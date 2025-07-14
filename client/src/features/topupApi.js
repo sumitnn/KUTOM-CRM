@@ -48,6 +48,29 @@ export const topupApi = createApi({
                 url: '/withdrawl-request/',
                 method: 'GET',
             }),
+        }),
+        getAdminWithdrawals: builder.query({
+            query: (params) => ({
+                url: '/admin/withdrawals/',
+                method: 'GET',
+                params,
+            }),
+            providesTags: ['Withdrawal'],
+        }),
+        getWithdrawalDetails: builder.query({
+            query: (id) => ({
+                url: `/admin/withdrawals/${id}/`,
+                method: 'GET',
+            }),
+            providesTags: ['Withdrawal'],
+        }),
+        updateWithdrawal: builder.mutation({
+            query: ({ id, data }) => ({
+                url: `/admin/withdrawals/${id}/`,
+                method: 'PATCH',
+                data,
+            }),
+            invalidatesTags: ['Withdrawal'],
         })
     }),
 });
@@ -58,5 +81,8 @@ export const {
     useCreateTopupRequestMutation,
     useGetMyTopupRequestQuery,
     useCreateWithdrawlRequestMutation,
-    useGetWithdrawlRequestQuery
+    useGetWithdrawlRequestQuery,
+    useGetAdminWithdrawalsQuery,
+    useGetWithdrawalDetailsQuery,
+    useUpdateWithdrawalMutation
 } = topupApi;

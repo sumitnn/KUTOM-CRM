@@ -27,6 +27,11 @@ const WithdrawlRequestsList = ({ role }) => {
     document.getElementById("screenshot_modal").showModal();
   };
 
+  const openInNewTab = (url) => {
+    if (!url) return;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -152,69 +157,97 @@ const WithdrawlRequestsList = ({ role }) => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">
                       ID
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">
                       Amount
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">
                       Method
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">
                       Status
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">
                       Created Date
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">
-                      Payment Details
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">
+                      Wallet Balance
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">
+                      Details
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {requests.map((request,index) => (
+                  {requests.map((request, index) => (
                     <tr key={request.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-md text-black">
-                        {index+1}
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {index + 1}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm font-bold text-gray-900">
                           ₹{request.amount}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-4 whitespace-nowrap">
                         <span className="px-2 inline-flex text-xs leading-5 font-bold rounded-full bg-blue-100 text-blue-800 capitalize">
                           {request.payment_method}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 inline-flex text-md leading-5 font-semibold rounded-full ${
-                            statusColors[request.status.toLowerCase()] ||
-                            "bg-gray-100 text-gray-800"
-                          } capitalize`}
-                        >
-                          {request.status}
-                        </span>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="flex flex-col gap-1">
+                          <span
+                            className={`px-2 inline-flex text-md leading-5 font-semibold rounded-full ${
+                              statusColors[request.status.toLowerCase()] ||
+                              "bg-gray-100 text-gray-800"
+                            } capitalize`}
+                          >
+                            {request.status}
+                          </span>
+                          {request.status.toLowerCase() === 'rejected' && request.rejected_reason && (
+                            <div className="text-xs text-red-600 mt-1">
+                              Reason: {request.rejected_reason}
+                            </div>
+                          )}
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-500">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                         {format(new Date(request.created_at), "MMM d, yyyy h:mm a")}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {request.payment_method === 'bank' ? (
-                          <div>
-                            <div className="font-bold"><strong className="text-red-600">Bank:</strong>&nbsp;&nbsp; {request.payment_details.bank_name}</div>
-                            <div className="font-bold"><strong className="text-red-600">Account:</strong>&nbsp;&nbsp; {request.payment_details.account_number}</div>
-                            <div className="font-bold"><strong className="text-red-600">IFSC:</strong>&nbsp;&nbsp; {request.payment_details.ifsc_code}</div>
-                            <div className="font-bold"><strong className="text-red-600">Name:</strong>&nbsp;&nbsp; {request.payment_details.account_holder_name}</div>
-                          </div>
-                        ) : (
-                          <div>
-                            <div className="font-bold"><strong className="text-blue-600">UPI ID:</strong>&nbsp;&nbsp; {request.payment_details.upi_id}</div>
-                            <div><strong className="text-blue-600">Bank UPI:</strong>&nbsp;&nbsp; {request.payment_details.bank_upi}</div>
-                          </div>
-                        )}
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                        ₹{request.wallet?.balance || '0.00'}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-gray-500">
+                        <div className="space-y-2">
+                          {request.payment_method === 'bank' ? (
+                            <>
+                              <div><strong className="text-gray-700">Bank:</strong> {request.payment_details.bank_name}</div>
+                              <div><strong className="text-gray-700">Account:</strong> {request.payment_details.account_number}</div>
+                              <div><strong className="text-gray-700">IFSC:</strong> {request.payment_details.ifsc_code}</div>
+                              <div><strong className="text-gray-700">Name:</strong> {request.payment_details.account_holder_name}</div>
+                            </>
+                          ) : (
+                            <>
+                              <div><strong className="text-gray-700">UPI ID:</strong> {request.payment_details.upi_id}</div>
+                              {request.payment_details.bank_upi && (
+                                <div><strong className="text-gray-700">Bank UPI:</strong> {request.payment_details.bank_upi}</div>
+                              )}
+                            </>
+                          )}
+                          {request.status.toLowerCase() === 'approved' && request.screenshot && (
+                            <button
+                              onClick={() => openInNewTab(request.screenshot)}
+                              className="mt-2 text-xs text-blue-600 hover:text-blue-800 flex items-center"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                              </svg>
+                              View Proof
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

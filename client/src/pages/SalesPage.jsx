@@ -331,10 +331,10 @@ const SalesPage = ({ role }) => {
                               {activeTab !== "accepted" && (
                                 <button 
                                   className="btn btn-xs btn-ghost hover:bg-blue-50 gap-1" 
-                                  onClick={() => navigate(`/vendor/orders/${order.id}`)}
+                                  onClick={() => navigate(`/vendor/my-sales/${order.id}`)}
                                 >
-                                  <FiFileText className="text-blue-600" size={14} />
-                                  View
+                                  <FiFileText className="text-blue-600 font-bold" size={14} />
+                                  View Order Details
                                 </button>
                               )}
                             </div>

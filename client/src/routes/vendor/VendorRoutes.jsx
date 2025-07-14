@@ -3,6 +3,7 @@ import { Route } from "react-router-dom";
 import ProtectedRoute from "../ProtectedRoutes";
 import VendorMainLayout from "../../layout/vendor/VendorMainLayout";
 import Spinner from "../../components/common/Spinner";
+const OrderDetailPage =lazy(()=>import("../../pages/OrderDetailPage")) ;
 
 // Lazy-loaded components
 const VendorDashboard = lazy(() => import("../../pages/vendor/VendorDashboard"));
@@ -93,6 +94,16 @@ const VendorRoutes = [
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
             <SalesPage role="vendor" />
+          </Suspense>
+        </VendorMainLayout>
+      }
+    />
+    <Route
+      path="/vendor/my-sales/:id"
+      element={
+        <VendorMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <OrderDetailPage role="vendor" />
           </Suspense>
         </VendorMainLayout>
       }

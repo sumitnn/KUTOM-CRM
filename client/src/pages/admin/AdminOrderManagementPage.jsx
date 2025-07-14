@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 import { toast } from "react-toastify";
+
 import {
   FiCheck,
   FiX,
@@ -44,6 +45,7 @@ const AdminOrderManagementPage = () => {
   });
 
   const [updateOrderStatus] = useUpdateOrderStatusMutation();
+
 
   // Helper function to transform order data
   const transformOrderData = (orders) => {
@@ -165,6 +167,19 @@ const AdminOrderManagementPage = () => {
           </button>
         );
       case 'rejected':
+  return (
+    <div className="flex space-x-2">
+      
+      <button
+        onClick={() => openModal(order, 'details')}
+        className="inline-flex items-center gap-2 px-4 py-2 cursor-pointer rounded-lg border border-gray-600 text-gray-600 hover:bg-gray-50 hover:text-gray-700 transition duration-200"
+        title="Order Details"
+      >
+        <FiInfo className="h-4 w-4" />
+        <span>Order Details</span>
+      </button>
+    </div>
+  );
       case 'cancelled':
         return (
           <span className="text-gray-400">No actions</span>
@@ -308,7 +323,7 @@ const AdminOrderManagementPage = () => {
                       Vendor Name
                     </th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                      Role ID
+                      Vendor ID
                     </th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
                       Product ID

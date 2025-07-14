@@ -175,11 +175,14 @@ class WithdrawalRequest(models.Model):
     ]
     
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='withdrawal_requests')
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='withdrawal_approved_by')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     wallet= models.ForeignKey(Wallet, on_delete=models.CASCADE, related_name='withdrawal_requests')
     payment_method = models.CharField(max_length=10, choices=PAYMENT_METHOD_CHOICES)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
     payment_details=models.JSONField(blank=True, null=True)
+    screenshot = models.ImageField(upload_to='withdrawal_screenshots/',null=True, blank=True)
+    rejected_reason = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

@@ -62,11 +62,13 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
       { icon: <TbCategoryMinus />, label: "Sub-Category", path: "/admin/subcategories" },
       {
         icon: <FaCodePullRequest />,
-        label: "TopUp Management",
+        label: "Requests Management",
         children: [
-          { label: "Topup Request & History", path: "/admin/topup" },
+          { label: "Topup Request ", path: "/admin/topup" },
+          { label: "Withdrawal Request ", path: "/admin/withdrawal-request" },
         ],
       },
+      
       
       { icon: <MdProductionQuantityLimits />, label: "My Cart", path: "/admin/my-cart" },
       { icon: <CiWallet />, label: "Wallet", path: "/admin/wallet" },
@@ -177,7 +179,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         icon: <CiWallet />,
         label: "Wallet",
         children: [
-          { label: "Balance", path: "/vendor/wallet" },
+          { label: "Balance & Transactions", path: "/vendor/wallet" },
           { label: "Withdrawal Request", path: "/vendor/withdrawl-request" },
           { label: "Withdrawal Request History", path: "/vendor/my-withdrawl" },
         ],

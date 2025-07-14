@@ -3,9 +3,11 @@ import { Route } from "react-router-dom";
 import ProtectedRoute from "../ProtectedRoutes";
 import AdminMainLayout from "../../layout/admin/AdminMainLayout";
 import Spinner from "../../components/common/Spinner";
+const AdminWithdrawalRequest =lazy(()=>import("../../pages/admin/AdminWithdrawalRequest")) ;
+const OrderDetailPage =lazy(()=>"../../pages/OrderDetailPage") ;
 
 
-
+ 
 // Lazy-loaded components
 const AdminOrderManagementPage=lazy(()=> import("../../pages/admin/AdminOrderManagementPage"))
 const AdminDashboard = lazy(() => import("../../pages/admin/AdminDashboard"));
@@ -120,6 +122,17 @@ const AdminRoutes = [
         </AdminMainLayout>
       }
     />
+
+    <Route 
+      path="/admin/orders/:id" 
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <OrderDetailPage role="admin"/>
+          </Suspense>
+        </AdminMainLayout>
+      }
+    />
     <Route 
       path="/admin/products/:id" 
       element={
@@ -193,6 +206,16 @@ const AdminRoutes = [
         <AdminMainLayout>
           <Suspense fallback={<Spinner />}>
             <AdminTopupPage />
+          </Suspense>
+        </AdminMainLayout>
+      } 
+    />
+    <Route 
+      path="/admin/withdrawal-request" 
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <AdminWithdrawalRequest />
           </Suspense>
         </AdminMainLayout>
       } 
