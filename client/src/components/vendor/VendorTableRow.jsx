@@ -70,21 +70,22 @@ export default function VendorTableRow({
     const { loading, disabled } = getButtonState(action);
     return (
       <button 
-        className={`btn btn-sm btn-${variant} font-bold`}
-        onClick={() => handleAction(action, 
-          action === 'approve' ? onApprove : 
-          action === 'reject' ? onReject : 
-          onMarkKycCompleted)}
-        disabled={disabled}
-      >
-        {loading ? (
-          <span className="loading loading-spinner loading-xs"></span>
-        ) : (
-          <>
-            {icon} {text}
-          </>
-        )}
-      </button>
+  className={`btn btn-sm btn-${variant} font-bold`}
+  onClick={() => {
+    if (action === 'approve') onApprove(vendor.id);
+    else if (action === 'reject') onReject(vendor.id);
+    else if (action === 'kyc') onMarkKycCompleted(vendor.id);
+  }}
+  disabled={disabled || isLoadingAction && currentActionId === action}
+>
+  {isLoadingAction && currentActionId === action ? (
+    <span className="loading loading-spinner loading-xs"></span>
+  ) : (
+    <>
+      {icon} {text}
+    </>
+  )}
+</button>
     );
   };
 
@@ -153,10 +154,10 @@ export default function VendorTableRow({
       case 'suspended':
         return (
           <>
-            <td className="px-2 py-3">{vendor.vendor_id || 'N/A'}</td>
+            <td className="px-2 py-3 font-bold">{vendor.vendor_id || 'N/A'}</td>
             <td className="px-2 py-3">{created_at}</td>
             <td className="px-2 py-3">{fullName}</td>
-            <td className="px-2 py-3">{vendor.email}</td>
+            <td className="px-2 py-3 font-bold">{vendor.email}</td>
             <td className="px-2 py-3">{phone}</td>
             <td className="px-2 py-3">
               <div className="flex flex-col">

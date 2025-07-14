@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 import { toast } from "react-toastify";
+
 import {
   FiCheck,
   FiX,
@@ -10,7 +11,8 @@ import {
   FiUser,
   FiShoppingCart,
   FiMapPin,
-  FiClipboard
+  FiClipboard,
+  FiInfo
 } from "react-icons/fi";
 import {
   useGetMyOrdersQuery,
@@ -21,13 +23,14 @@ import {
 const AddressModal = lazy(() => import("../../components/modals/AddressModal"));
 const ReceivedProductModal = lazy(() => import("../../components/modals/ReceivedProductModal"));
 const OrderBillModal = lazy(() => import("../../components/modals/OrderBillModal"));
+const OrderDetailsModal = lazy(() => import("../OrderDetailsModal"));
 
 const AdminOrderManagementPage = () => {
   const [activeTab, setActiveTab] = useState("new");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [modalType, setModalType] = useState(null); // 'address', 'received', 'bill'
+  const [modalType, setModalType] = useState(null); // 'address', 'received', 'bill', 'details'
 
   // API call for orders
   const {
@@ -43,6 +46,7 @@ const AdminOrderManagementPage = () => {
 
   const [updateOrderStatus] = useUpdateOrderStatusMutation();
 
+
   // Helper function to transform order data
   const transformOrderData = (orders) => {
     return orders?.map((order) => ({
@@ -50,17 +54,25 @@ const AdminOrderManagementPage = () => {
       date: order.created_at,
       createdFor: {
         name: order.created_for?.username || "N/A",
+        email: order.created_for?.email || "N/A",
         roleId: order.created_for?.role_based_id || "N/A"
       },
       items: order.items.map(item => ({
         productId: item.product?.id || "N/A",
         productName: item.product?.name || "N/A",
+        size: item.product_size || "N/A",
         quantity: item.quantity,
         price: item.price,
-        size: item.product_size
+        discount: item.discount || 0,
       })),
       totalAmount: order.total_price,
-      status: order.status
+      status: order.status,
+      courier_name: order.courier_name,
+      tracking_number: order.tracking_number,
+      transport_charges: order.transport_charges,
+      expected_delivery_date: order.expected_delivery_date,
+      receipt: order.receipt,
+      note: order.note
     }));
   };
 
@@ -74,7 +86,6 @@ const AdminOrderManagementPage = () => {
   };
 
   const handleStatusUpdate = async (orderId, newStatus) => {
-    
     try {
       await updateOrderStatus({
         orderId: orderId,
@@ -124,44 +135,25 @@ const AdminOrderManagementPage = () => {
       case 'new':
         return (
           <div className="flex items-center space-x-2">
-  <button
-    onClick={() => handleStatusUpdate(order.id, 'cancelled')}
-    className="inline-flex items-center gap-2 px-4 py-2 cursor-pointer rounded-lg border border-red-600 text-red-600 hover:bg-red-50 hover:text-red-700 transition duration-200"
-    title="Cancel Order"
-  >
-    <FiX className="h-4 w-4" />
-    <span>Cancel</span>
-  </button>
-</div>
-
-        );
-      case 'accepted':
-        return (
-          <div className="flex space-x-2">
             <button
-              onClick={() => handleStatusUpdate(order.id, 'dispatched')}
-              className="text-yellow-600 hover:text-yellow-900 cursor-pointer"
-              title="Dispatch Order"
+              onClick={() => handleStatusUpdate(order.id, 'cancelled')}
+              className="inline-flex items-center gap-2 px-4 py-2 cursor-pointer rounded-lg border border-red-600 text-red-600 hover:bg-red-50 hover:text-red-700 transition duration-200"
+              title="Cancel Order"
             >
-              <FiTruck className="h-5 w-5" />
-            </button>
-            <button
-              onClick={() => openModal(order, 'address')}
-              className="text-blue-600 hover:text-blue-900 cursor-pointer"
-              title="Add Address"
-            >
-              <FiMapPin className="h-5 w-5" />
+              <FiX className="h-4 w-4" />
+              <span>Cancel</span>
             </button>
           </div>
         );
       case 'dispatched':
         return (
           <button
-            onClick={() => openModal(order, 'received')}
-            className="text-purple-600 hover:text-purple-900 cursor-pointer"
-            title="Mark as Received"
+            onClick={() => openModal(order, 'details')}
+            className="inline-flex items-center gap-2 px-4 py-2 cursor-pointer rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition duration-200"
+            title="View Details"
           >
-            <FiPackage className="h-5 w-5" />
+            <FiInfo className="h-4 w-4" />
+            <span>View Details</span>
           </button>
         );
       case 'received':
@@ -175,6 +167,19 @@ const AdminOrderManagementPage = () => {
           </button>
         );
       case 'rejected':
+  return (
+    <div className="flex space-x-2">
+      
+      <button
+        onClick={() => openModal(order, 'details')}
+        className="inline-flex items-center gap-2 px-4 py-2 cursor-pointer rounded-lg border border-gray-600 text-gray-600 hover:bg-gray-50 hover:text-gray-700 transition duration-200"
+        title="Order Details"
+      >
+        <FiInfo className="h-4 w-4" />
+        <span>Order Details</span>
+      </button>
+    </div>
+  );
       case 'cancelled':
         return (
           <span className="text-gray-400">No actions</span>
@@ -182,6 +187,11 @@ const AdminOrderManagementPage = () => {
       default:
         return null;
     }
+  };
+
+  // Function to determine if we should show the action column
+  const shouldShowActionColumn = () => {
+    return ['new', 'dispatched', 'received', 'rejected', 'cancelled'].includes(activeTab);
   };
 
   return (
@@ -202,7 +212,7 @@ const AdminOrderManagementPage = () => {
               <label htmlFor="tabs" className="sr-only">Select a tab</label>
               <select
                 id="tabs"
-                className="block w-full  pl-3 pr-10 py-2 text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 value={activeTab}
                 onChange={(e) => {
                   setActiveTab(e.target.value);
@@ -310,10 +320,10 @@ const AdminOrderManagementPage = () => {
                       Order ID
                     </th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                      Customer
+                      Vendor Name
                     </th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                      Role ID
+                      Vendor ID
                     </th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
                       Product ID
@@ -333,15 +343,17 @@ const AdminOrderManagementPage = () => {
                     <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
                       Total
                     </th>
-                    <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">
-                      Action
-                    </th>
+                    {shouldShowActionColumn() && (
+                      <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        Action
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {orderData.results?.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className="px-4 py-6 whitespace-nowrap text-center">
+                      <td colSpan={shouldShowActionColumn() ? 11 : 10} className="px-4 py-6 whitespace-nowrap text-center">
                         <div className="text-center py-8">
                           <div className="mx-auto h-20 w-20 text-gray-400 mb-3">
                             {activeTab === "new" ? (
@@ -415,9 +427,11 @@ const AdminOrderManagementPage = () => {
                           <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                             {formatCurrency(order.totalAmount)}
                           </td>
-                          <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            {getStatusActions(order.status, order)}
-                          </td>
+                          {shouldShowActionColumn() && (
+                            <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              {getStatusActions(order.status, order)}
+                            </td>
+                          )}
                         </tr>
                       ))
                     ))
@@ -465,7 +479,6 @@ const AdminOrderManagementPage = () => {
             order={selectedOrder} 
             onClose={closeModal} 
             onSave={(address) => {
-              // Handle address save logic here
               toast.success("Address saved successfully");
               closeModal();
             }}
@@ -476,7 +489,6 @@ const AdminOrderManagementPage = () => {
             order={selectedOrder} 
             onClose={closeModal} 
             onConfirm={(receivedData) => {
-              // Handle product received confirmation
               handleStatusUpdate(selectedOrder.id, 'received');
               closeModal();
             }}
@@ -484,6 +496,12 @@ const AdminOrderManagementPage = () => {
         )}
         {modalType === 'bill' && (
           <OrderBillModal 
+            order={selectedOrder} 
+            onClose={closeModal}
+          />
+        )}
+        {modalType === 'details' && (
+          <OrderDetailsModal 
             order={selectedOrder} 
             onClose={closeModal}
           />

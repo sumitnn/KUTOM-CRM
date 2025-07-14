@@ -36,7 +36,7 @@ urlpatterns = [
     path('topup-request/', TopUpRequestListCreateView.as_view(), name='topup-request'),
 
     # withdrawal request
-    path('withdrawl-request/update/<int:pk>/', WithdrawlRequestUpdateView.as_view(), name='withdrawl-request-update'),
+    
     path('withdrawl-request/', WithdrawlRequestListCreateView.as_view(), name='withdrawl-request'),
 
     # State and District related APIs
@@ -63,6 +63,8 @@ urlpatterns = [
 
     # kyc verified 
     path('admin/user-kyc-verify/<uuid:user_id>/', VerifyUserKYCView.as_view(), name='user-verify-kyc'),
+    path('admin/withdrawals/', AdminWithdrawalRequestListAPIView.as_view(), name='admin-withdrawal-list'),
+    path('admin/withdrawals/<int:pk>/', AdminWithdrawalRequestDetailAPIView.as_view(), name='admin-withdrawal-detail'),
 
     # me 
       path('me/', CurrentUserView.as_view(), name='current-user'),

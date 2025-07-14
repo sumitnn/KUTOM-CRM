@@ -190,6 +190,10 @@ class Sale(models.Model):
     discount = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     total_price = models.DecimalField(max_digits=12, decimal_places=2)  
     sale_date = models.DateField(auto_now_add=True)
+    transaction_created = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-sale_date']
 
     class Meta:
         ordering = ['-sale_date']
@@ -197,28 +201,4 @@ class Sale(models.Model):
     def __str__(self):
         return f"{self.quantity} x {self.product} (₹{self.total_price})"
     
-    def save(self, *args, **kwargs):
-        is_new = self.pk is None 
-        super().save(*args, **kwargs)
-
-        if is_new and not self.transaction_created:
-            try:
-                with db_transaction.atomic():
-                    wallet, _ = Wallet.objects.get_or_create(user=self.seller)
-                    wallet.balance += self.total_price
-                    wallet.save()
-
-                    WalletTransaction.objects.create(
-                        wallet=wallet,
-                        transaction_type='CREDIT',
-                        amount=self.total_price,
-                        description=f"Sale of {self.product.name}",
-                        transaction_status='SUCCESS'
-                    )
-
-                    self.transaction_created = True
-                    super().save(update_fields=['transaction_created'])  
-            except Exception as e:
-                print(e)
-
-                pass
+    

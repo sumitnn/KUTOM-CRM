@@ -26,7 +26,7 @@ from datetime import timedelta, datetime
 from io import StringIO
 from django.utils.text import get_valid_filename
 from accounts.utils import create_notification
-
+from rest_framework.parsers import MultiPartParser, FormParser
 
 
 
@@ -293,12 +293,42 @@ class UpdateOrderStatusView(APIView):
 
         if request.user != order.created_by and request.user != order.created_for:
             return Response({"message": "You are not authorized to update this order."}, status=status.HTTP_403_FORBIDDEN)
-
+        print(request.data)
+       
         serializer = OrderStatusUpdateSerializer(order, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
 
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class UpdateOrderDispatchStatusView(APIView):
+    permission_classes = [IsVendorRole]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def patch(self, request, pk):
+        try:
+            order = Order.objects.get(id=pk)
+        except Order.DoesNotExist:
+            return Response({"error": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        dispatch_info = {
+            'courier_name': request.data.get('courier_name'),
+            'tracking_number': request.data.get('tracking_id'),
+            'transport_charges': request.data.get('transport_charges'),
+            'expected_delivery_date': request.data.get('delivery_date'),
+            'status': 'dispatched',
+            'note': request.data.get('note', '')
+        }
+        
+
+        if 'receipt' in request.FILES:
+            dispatch_info['receipt'] = request.FILES['receipt']
+
+        serializer = OrderDispatchSerializer(order, data=dispatch_info, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 

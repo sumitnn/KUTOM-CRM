@@ -1,4 +1,3 @@
-// src/components/ProductListPage.jsx
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiEdit, FiTrash2, FiEye, FiSearch, FiX, FiFilter, FiCopy } from "react-icons/fi";
@@ -96,28 +95,40 @@ const ProductListPage = ({ role }) => {
   };
 
   const handleAddToCart = (prod) => {
-    const isAlreadyInCart = cartItems.some((item) => item.id === prod.id);
-  
+    const defaultSize = prod.sizes && prod.sizes.length > 0 ? prod.sizes[0] : null;
+    
+    // Check if item with same size already exists in cart
+    const isAlreadyInCart = cartItems.some(item => 
+      item.id === prod.id && 
+      (!item.size || (item.size && item.size.id === defaultSize?.id))
+    );
+
     if (isAlreadyInCart) {
       toast.info("Item already in cart.");
-    } else {
-      // Select the first size (or set a fallback if no sizes exist)
-      const defaultSize = prod.sizes && prod.sizes.length > 0 ? prod.sizes[0] : null;
-  
-      dispatch(
-        addItem({
-          id: prod.id,
-          name: prod.name,
-          price: Number(defaultSize?.price || 0),
-          quantity: 1,
-          image: getProductImage(prod),
-          size: defaultSize, 
-          shipping_info: prod.shipping_info,
-        })
-      );
-  
-      toast.success("Item added to cart successfully!");
+      return;
     }
+
+    // Determine if there's a matching price tier for quantity 1
+    let priceTier = null;
+    if (defaultSize?.price_tiers?.length > 0) {
+      const sortedTiers = [...defaultSize.price_tiers].sort((a, b) => b.min_quantity - a.min_quantity);
+      priceTier = sortedTiers.find(tier => 1 >= tier.min_quantity) || null;
+    }
+
+    dispatch(
+      addItem({
+        id: prod.id,
+        name: prod.name,
+        price: priceTier ? priceTier.price : (defaultSize?.price || 0),
+        quantity: 1,
+        image: getProductImage(prod),
+        size: defaultSize,
+        shipping_info: prod.shipping_info,
+        price_tier: priceTier
+      })
+    );
+
+    toast.success("Item added to cart successfully!");
   };
 
   const hasFilters = activeSearch || selectedCategory || selectedSubCategory || selectedBrand;
@@ -347,28 +358,28 @@ const ProductListPage = ({ role }) => {
                       }}
                     />
                     {prod.status === 'draft' && !prod.is_featured && (
-  <div className="absolute top-2 left-2 badge badge-warning">
-    Draft (Inactive)
-  </div>
-)}
+                      <div className="absolute top-2 left-2 badge badge-warning">
+                        Draft (Inactive)
+                      </div>
+                    )}
 
-{prod.status === 'draft' && prod.is_featured && (
-  <div className="absolute top-2 left-2 badge badge-warning">
-    Draft
-  </div>
-)}
+                    {prod.status === 'draft' && prod.is_featured && (
+                      <div className="absolute top-2 left-2 badge badge-warning">
+                        Draft
+                      </div>
+                    )}
 
-{prod.status === 'published' && prod.is_featured && (
-  <div className="absolute top-2 left-2 badge badge-primary">
-    Live
-  </div>
-)}
+                    {prod.status === 'published' && prod.is_featured && (
+                      <div className="absolute top-2 left-2 badge badge-primary">
+                        Live
+                      </div>
+                    )}
 
-{prod.status === 'published' && !prod.is_featured && (
-  <div className="absolute top-2 left-2 badge badge-secondary">
-    Inactive Product
-  </div>
-)}
+                    {prod.status === 'published' && !prod.is_featured && (
+                      <div className="absolute top-2 left-2 badge badge-secondary">
+                        Inactive Product
+                      </div>
+                    )}
                   </figure>
                   <div className="card-body p-4">
                     <div className="flex justify-between items-start">
@@ -488,17 +499,17 @@ const ProductListPage = ({ role }) => {
                         </button>
 
                         {["reseller", "admin"].includes(role) && (
-  <button
-    className="btn btn-sm btn-success"
-    onClick={(e) => {
-      e.stopPropagation();
-      handleAddToCart(prod);
-    }}
-    disabled={prod.status === 'draft' || prod.is_featured === false}
-  >
-    Add to Cart
-  </button>
-)}
+                          <button
+                            className="btn btn-sm btn-success"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAddToCart(prod);
+                            }}
+                            disabled={prod.status === 'draft' || prod.is_featured === false}
+                          >
+                            Add to Cart
+                          </button>
+                        )}
 
                         {(role === "admin" || role === "vendor") && (
                           <>

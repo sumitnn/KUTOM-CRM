@@ -56,15 +56,11 @@ class OrderItemDetailSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source='product.name')
     images = ProductImageSerializer(source='product.images', many=True, read_only=True)
     product_size = serializers.StringRelatedField()
-    total = serializers.SerializerMethodField()
 
     class Meta:
         model = OrderItem
-        fields = ['id', 'name', 'price', 'quantity', 'product_size', 'images', 'total']
+        fields = ['id', 'name', 'price', 'quantity', 'product_size', 'discount','images', 'total']
 
-    def get_total(self, obj):
-        discounted_price = obj.price * (1 - obj.discount / 100)
-        return round(obj.quantity * discounted_price, 2)
 
 
 class AddressSerializer(serializers.ModelSerializer):
@@ -76,43 +72,29 @@ class AddressSerializer(serializers.ModelSerializer):
         fields = ['street_address', 'city', 'state', 'district', 'postal_code', 'country']
 
 
-class OrderDetailSerializer(serializers.ModelSerializer):
-    items = OrderItemDetailSerializer(many=True, read_only=True)
-    date = serializers.SerializerMethodField()
-    shippingAddress = serializers.SerializerMethodField()
-    subtotal = serializers.SerializerMethodField()
-    tax = serializers.SerializerMethodField()
-    shipping = serializers.SerializerMethodField()
+
+
+
+
+
+
+   
+        
+
+
+
+
+class UserWithAddressSerializer(serializers.ModelSerializer):
+    address = AddressSerializer(read_only=True)
+    phone= serializers.CharField(source='profile.phone', read_only=True)
 
     class Meta:
-        model = Order
-        fields = [
-            'id', 'date', 'status', 'description',
-            'items', 'subtotal', 'shipping', 'tax', 'total_price',
-            'shippingAddress', 'courier_name', 'tracking_number', 'expected_delivery_date'
-        ]
-
-    def get_date(self, obj):
-        return obj.created_at.date() if obj.created_at else None
-
-    def get_shippingAddress(self, obj):
-        address = getattr(obj.created_for, "address", None)
-        if address:
-            return AddressSerializer(address).data
-        return None
-
-    def get_subtotal(self, obj):
-        return sum(item.total for item in obj.items.all())
-
-    def get_tax(self, obj):
-        return self.get_subtotal(obj) * Decimal("0.10")
-
-    def get_shipping(self, obj):
-        return obj.transport_charges
+        model = User
+        fields = ['id', 'username', 'email', 'address','phone']
 
 
 class OrderSerializer(serializers.ModelSerializer):
-    created_by = UserBasicSerializer()
+    created_by = UserWithAddressSerializer()
     created_for = UserBasicSerializer()
     items = OrderItemSerializer(many=True, read_only=True)
 
@@ -126,7 +108,14 @@ class OrderSerializer(serializers.ModelSerializer):
             'description',
             'total_price',
             'items',
-            'created_at'
+            'created_at',
+            'courier_name',
+            'tracking_number',
+            'transport_charges',
+            'expected_delivery_date',
+            'receipt',
+            'note',
+            'status',
         ]
 
 
@@ -178,3 +167,36 @@ class SaleSerializer(serializers.ModelSerializer):
         if hasattr(sale_date, 'date'):  # If it's a datetime
             return sale_date.date().isoformat()
         return sale_date.isoformat()
+    
+
+class OrderDispatchSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = [
+            'id',
+            'courier_name',
+            'tracking_number',
+            'transport_charges',
+            'expected_delivery_date',
+            'receipt',
+            'note',
+            'status',
+        ]
+        read_only_fields = ['id']
+
+
+class OrderDetailSerializer(serializers.ModelSerializer):
+    created_by = UserWithAddressSerializer(read_only=True)
+    created_for = UserBasicSerializer(read_only=True)
+    items = OrderItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Order
+        fields = [
+            'id', 'status', 'description', 'note',
+            'items', 'total_price',
+            'courier_name', 'tracking_number', 
+            'expected_delivery_date', 'created_by', 'created_for',
+            'transport_charges', 'created_at', 'updated_at', 'receipt'
+        ]
+        read_only_fields = ['created_at', 'updated_at']

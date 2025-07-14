@@ -36,36 +36,50 @@ class TopupRequestSerializer(serializers.ModelSerializer):
         return "Not Approved Yet"
 
 class WithdrawalRequestSerializer(serializers.ModelSerializer):
-    wallet = WalletSerializer(read_only=True)  
+    wallet = WalletSerializer(read_only=True)
 
     class Meta:
         model = WithdrawalRequest
-        fields = ['id', 'amount', 'payment_method', 'status', 'payment_details', 'wallet', 'created_at']
+        fields = ['id', 'amount', 'payment_method', 'status', 'payment_details', 'wallet', 'created_at','screenshot', 'rejected_reason']
         read_only_fields = ['id', 'status', 'created_at', 'wallet']
 
     def create(self, validated_data):
         user = self.context['request'].user
         amount = validated_data['amount']
 
-        # Check amount validity
         if amount <= 0:
             raise ValidationError({
                 "status": False,
                 "message": "Amount must be greater than zero"
             })
 
-        # Check wallet balance
         if user.wallet.balance < amount:
             raise ValidationError({
                 "status": False,
                 "message": "Insufficient wallet balance"
             })
 
-        # Assign user's wallet automatically
-        validated_data['wallet'] = user.wallet
+        # Deduct from wallet
+        wallet = user.wallet
+        wallet.balance -= amount
+        wallet.save()
+
+        # Attach wallet and user to the withdrawal request
+        validated_data['wallet'] = wallet
         validated_data['user'] = user
 
-        return super().create(validated_data)
+        withdrawal = super().create(validated_data)
+
+        # Create transaction for withdrawal
+        WalletTransaction.objects.create(
+            wallet=wallet,
+            transaction_type='DEBIT',
+            amount=amount,
+            description=f"Withdrawal request #{withdrawal.id}",
+            transaction_status='PENDING'
+        )
+
+        return withdrawal
 
 
 class StateSerializer(serializers.ModelSerializer):
@@ -341,15 +355,41 @@ class NewAccountApplicationSerializer(serializers.ModelSerializer):
         email = data.get('email')
         phone = data.get('phone')
 
-        if NewAccountApplication.objects.filter(email=email, status='pending').exists():
-            raise serializers.ValidationError({
-                'email': "You already have a pending application with this email."
-            })
+        # Check email
+        if email:
+            existing_email_app = NewAccountApplication.objects.filter(email=email).first()
+            if existing_email_app:
+                status = existing_email_app.status
+                if status in ['new', 'pending']:
+                    raise serializers.ValidationError({
+                        'email': "An application with this email is already in progress and awaiting admin approval."
+                    })
+                elif status == 'approved':
+                    raise serializers.ValidationError({
+                        'email': "An application with this email has already been approved. Please use a different email."
+                    })
+                elif status == 'rejected':
+                    raise serializers.ValidationError({
+                        'email': "previous application with this email was rejected. Please contact support for assistance."
+                    })
 
-        if NewAccountApplication.objects.filter(phone=phone, status='pending').exists():
-            raise serializers.ValidationError({
-                'phone': "You already have a pending application with this phone number."
-            })
+        # Check phone
+        if phone:
+            existing_phone_app = NewAccountApplication.objects.filter(phone=phone).first()
+            if existing_phone_app:
+                status = existing_phone_app.status
+                if status in ['new', 'pending']:
+                    raise serializers.ValidationError({
+                        'phone': "An application with this phone number is already in progress and awaiting admin approval."
+                    })
+                elif status == 'approved':
+                    raise serializers.ValidationError({
+                        'phone': "An application with this phone number has already been approved. Please use a different phone number."
+                    })
+                elif status == 'rejected':
+                    raise serializers.ValidationError({
+                        'phone': "previous application with this phone number was rejected. Please contact support for assistance."
+                    })
 
         return data
     
@@ -479,3 +519,26 @@ class CurrentUserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'email', 'role']
         read_only_fields = fields
+
+
+class AdminWithdrawalRequestSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    wallet = WalletSerializer(read_only=True)
+    approved_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = WithdrawalRequest
+        fields = [
+            'id', 'user', 'amount', 'payment_method', 'status',
+            'payment_details', 'wallet', 'approved_by', 'created_at',
+            'updated_at', 'screenshot'
+        ]
+        read_only_fields = [
+            'id', 'user', 'wallet', 'approved_by', 'created_at',
+            'updated_at'
+        ]
+
+    def validate_status(self, value):
+        if value not in ['pending', 'approved', 'rejected']:
+            raise serializers.ValidationError("Invalid status")
+        return value

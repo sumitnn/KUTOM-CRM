@@ -14,6 +14,7 @@ urlpatterns = [
 
     path('orders/summary/', OrderSummaryView.as_view(), name='order-summary'),
      path('orders-update-status/<int:pk>/', UpdateOrderStatusView.as_view(), name='update-order-status'),
+     path('orders/<int:pk>/dispatch/', UpdateOrderDispatchStatusView.as_view(), name='update-order-dispatch-status'),
 
       path('order-history/', OrderHistoryListAPIView.as_view(), name='order-history-list'),
     path('order-history/export/', ExportOrderHistoryExcelAPIView.as_view(), name='order-history-export'),

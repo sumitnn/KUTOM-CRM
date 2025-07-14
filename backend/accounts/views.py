@@ -29,7 +29,8 @@ from django.utils.timezone import make_aware
 from orders.models import Sale
 from .utils import create_notification
 
-
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters
 
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 10
@@ -749,42 +750,13 @@ class WithdrawlRequestListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        if user.role == "admin":
-            return WithdrawalRequest.objects.filter(status="pending").order_by('-created_at')
         return WithdrawalRequest.objects.filter(user=user).order_by('-created_at')
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
 
-class WithdrawlRequestUpdateView(generics.UpdateAPIView):
-    """
-    Admin-only: Updates top-up request status.
-    """
-    queryset = WithdrawalRequest.objects.all()
-    serializer_class = WithdrawalRequestSerializer
-    permission_classes = [IsAdminRole]
 
-    def update(self, request, *args, **kwargs):
-        topup = self.get_object()
-        status_action = request.data.get("status")
-        reason = request.data.get("rejected_reason", "")
-
-        if status_action not in ["approved", "rejected", "completed", "pending"]:
-            return Response(
-                {"message": "Invalid status action.", "status": False},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        topup.status = status_action
-        topup.updated_at = datetime.now()
-
-        # Optional: You can track who approved it by adding `approved_by = models.ForeignKey(...)`
-        if status_action == "rejected" and reason:
-            topup.note = f"{topup.note or ''}\n[REJECTION REASON] {reason}"
-
-        topup.save()
-        return Response({"message": "Top-up status updated successfully."}, status=status.HTTP_200_OK)
     
 
 class UserPaymentDetailsView(generics.RetrieveUpdateAPIView):
@@ -1065,18 +1037,38 @@ class VerifyUserKYCView(APIView):
     def post(self, request, user_id):
         try:
             profile = Profile.objects.select_related("user").get(user__id=user_id)
-
-            if profile.kyc_verified:
-                return Response({"message": "KYC already verified."}, status=status.HTTP_400_BAD_REQUEST)
-
-            profile.kyc_verified = True
-            profile.kyc_status = "APPROVED"
-            profile.kyc_verified_at = datetime.now()
-            profile.save()
-            return Response({"message": f"KYC verified."}, status=status.HTTP_200_OK)
-
         except Profile.DoesNotExist:
             return Response({"message": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if profile.kyc_verified:
+            return Response({"message": "KYC is already verified."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update profile and user
+        profile.kyc_verified = True
+        profile.kyc_status = "APPROVED"
+        profile.kyc_verified_at = datetime.now()
+        profile.user.is_user_active = "active"
+
+        # Save both in one go
+        profile.save()
+        profile.user.save(update_fields=["is_user_active"])
+
+        # Update matching account application
+        NewAccountApplication.objects.filter(
+            email=profile.user.email,
+            status='pending'
+        ).update(status='approved')
+
+        # Send notification
+        create_notification(
+            user=profile.user,
+            title="KYC Verification",
+            message="Your KYC has been successfully verified.",
+            notification_type='KYC',
+            related_url=''
+        )
+
+        return Response({"message": "KYC verified successfully."}, status=status.HTTP_200_OK)
 
     
 class CurrentUserView(APIView):
@@ -1085,3 +1077,132 @@ class CurrentUserView(APIView):
     def get(self, request):
         serializer = CurrentUserSerializer(request.user)
         return Response(serializer.data)
+    
+
+
+class AdminWithdrawalRequestListAPIView(APIView):
+    permission_classes = [IsAdminRole]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['status', 'payment_method']
+    search_fields = ['user__email', 'user__username', 'payment_details']
+
+    def get(self, request):
+        queryset = WithdrawalRequest.objects.all().order_by('-created_at')
+        
+        # Apply filters
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+            
+        payment_method = request.query_params.get('payment_method')
+        if payment_method:
+            queryset = queryset.filter(payment_method=payment_method)
+            
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
+        if date_from and date_to:
+            try:
+                date_from = datetime.strptime(date_from, '%Y-%m-%d').date()
+                date_to = datetime.strptime(date_to, '%Y-%m-%d').date()
+                queryset = queryset.filter(created_at__date__range=[date_from, date_to])
+            except ValueError:
+                pass
+                
+        search_term = request.query_params.get('search')
+        if search_term:
+            queryset = queryset.filter(
+                models.Q(user__email__icontains=search_term) |
+                models.Q(user__username__icontains=search_term) |
+                models.Q(payment_details__icontains=search_term))
+            
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = AdminWithdrawalRequestSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+            
+        serializer = AdminWithdrawalRequestSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @property
+    def paginator(self):
+        if not hasattr(self, '_paginator'):
+            from rest_framework.pagination import PageNumberPagination
+            self._paginator = PageNumberPagination()
+            self._paginator.page_size = 10
+        return self._paginator
+
+    def paginate_queryset(self, queryset):
+        if self.paginator is None:
+            return None
+        return self.paginator.paginate_queryset(queryset, self.request, view=self)
+
+    def get_paginated_response(self, data):
+        assert self.paginator is not None
+        return self.paginator.get_paginated_response(data)
+
+
+class AdminWithdrawalRequestDetailAPIView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def get_object(self, pk):
+        try:
+            return WithdrawalRequest.objects.get(pk=pk)
+        except WithdrawalRequest.DoesNotExist:
+            return None
+
+    def get(self, request, pk):
+        withdrawal = self.get_object(pk)
+        if not withdrawal:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = AdminWithdrawalRequestSerializer(withdrawal)
+        return Response(serializer.data)
+
+    def patch(self, request, pk):
+        withdrawal = self.get_object(pk)
+        if not withdrawal:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = AdminWithdrawalRequestSerializer(withdrawal, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            if 'status' in request.data:
+                new_status = request.data['status']
+
+                if new_status in ['approved', 'rejected']:
+                    serializer.save(approved_by=request.user)
+
+                    wallet = withdrawal.wallet
+
+                    if new_status == 'rejected':
+                        # Refund to user wallet
+                        wallet.balance += withdrawal.amount
+                        wallet.save()
+
+                        WalletTransaction.objects.create(
+                            wallet=wallet,
+                            transaction_type='CREDIT',
+                            amount=withdrawal.amount,
+                            description=f"Refund for rejected withdrawal request #{withdrawal.id}",
+                            transaction_status='REFUND'
+                        )
+
+                    elif new_status == 'approved':
+                        # Credit to admin wallet
+                        admin_wallet, _ = Wallet.objects.get_or_create(user=request.user)
+                        admin_wallet.balance += withdrawal.amount
+                        admin_wallet.save()
+
+                        WalletTransaction.objects.create(
+                            wallet=admin_wallet,
+                            transaction_type='CREDIT',
+                            amount=withdrawal.amount,
+                            description=f"Received withdrawal amount from user {withdrawal.wallet.user.username}",
+                            transaction_status='RECEIVED'
+                        )
+            else:
+                serializer.save()
+
+            return Response(serializer.data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
