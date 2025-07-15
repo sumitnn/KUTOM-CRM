@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import *
 from rest_framework.exceptions import ValidationError
-
+from .utils import create_notification
 
 class WalletTransactionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -78,6 +78,15 @@ class WithdrawalRequestSerializer(serializers.ModelSerializer):
             description=f"Withdrawal request #{withdrawal.id}",
             transaction_status='PENDING'
         )
+        admin_user = User.objects.filter(role="admin").first()
+        if admin_user:
+            create_notification(
+                user=admin_user,
+                title="New Withdrawal Request",
+                message=f"A new withdrawal request of {amount} has been made by {user.username}.",
+                notification_type='withdrawal request',
+                related_url=''
+            )
 
         return withdrawal
 

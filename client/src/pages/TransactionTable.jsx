@@ -49,20 +49,20 @@ const TransactionTable = ({ transactions, isLoading, error }) => {
             transactions.map((tx) => (
               <tr key={tx.id}>
                 <td>{format(new Date(tx.created_at), "MMM dd, yyyy")}</td>
-                <td>{tx.transaction_type}</td>
+                <td className="font-bold">{tx.transaction_type}</td>
                 <td
                   className={
-                    tx.transaction_type === "Withdrawal"
-                      ? "text-error font-semibold"
-                      : "text-success font-semibold"
+                    tx.transaction_type === "DEBIT"
+                      ? "text-error font-bold"
+                      : "text-success font-bold"
                   }
                 >
-                  {formatCurrency(tx.amount)}
+                 ₹ {tx.amount}
                 </td>
                 <td>
                   <StatusBadge status={tx.transaction_status} />
                 </td>
-                <td className="truncate max-w-xs">{tx.description || "-"}</td>
+                <td className="truncate max-w-xs font-bold">{tx.description || "-"}</td>
               </tr>
             ))
           ) : (

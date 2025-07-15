@@ -53,7 +53,7 @@ const AdminWithdrawalRequest = () => {
     try {
       await updateWithdrawal({ 
         id, 
-        data: reason ? { status: newStatus, rejection_reason: reason } : { status: newStatus } 
+        data: reason ? { status: newStatus, rejected_reason: reason } : { status: newStatus } 
       }).unwrap();
     } catch (error) {
       console.error('Failed to update status:', error);
@@ -106,8 +106,8 @@ const AdminWithdrawalRequest = () => {
 
   return (
     <div className="p-4 md:p-6">
-      <h2 className="text-2xl font-bold text-gray-800 mb-2">Withdrawal Requests</h2>
-      <p className="text-sm text-gray-600 mb-6">Manage and review all withdrawal requests</p>
+      <h2 className="text-2xl font-extrabold text-gray-800 mb-2">Withdrawal Requests</h2>
+      <p className="text-sm text-gray-600 mb-6 font-bold">Manage and review all withdrawal requests</p>
       
       {/* Filters Section */}
       <div className="bg-white rounded-lg shadow p-4 mb-6">
@@ -115,7 +115,7 @@ const AdminWithdrawalRequest = () => {
           <div className="md:col-span-1">
             <input
               type="text"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 cursor-pointer border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Search..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -124,7 +124,7 @@ const AdminWithdrawalRequest = () => {
           
           <div className="md:col-span-1">
             <select
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 cursor-pointer border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -138,7 +138,7 @@ const AdminWithdrawalRequest = () => {
           
           <div className="md:col-span-1">
             <select
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border cursor-pointer border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={paymentMethodFilter}
               onChange={(e) => setPaymentMethodFilter(e.target.value)}
             >
@@ -153,7 +153,7 @@ const AdminWithdrawalRequest = () => {
           <div className="md:col-span-1">
             <input
               type="date"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 cursor-pointer border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={dateFrom ? format(dateFrom, 'yyyy-MM-dd') : ''}
               onChange={(e) => setDateFrom(e.target.value ? new Date(e.target.value) : null)}
             />
@@ -162,14 +162,14 @@ const AdminWithdrawalRequest = () => {
           <div className="md:col-span-1 flex space-x-2">
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 cursor-pointer bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               Search
             </button>
             <button
               type="button"
               onClick={handleResetFilters}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              className="px-4 py-2 bg-gray-200 cursor-pointer text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
             >
               Reset
             </button>
@@ -193,32 +193,32 @@ const AdminWithdrawalRequest = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Mode</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">ID</th>
+                    <th className="px-6 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">User</th>
+                    <th className="px-6 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">Payment Mode</th>
+                    <th className="px-6 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">Created Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {data?.results?.map((withdrawal) => (
+                  {data?.results?.map((withdrawal,index) => (
                     <tr key={withdrawal.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#{withdrawal.id}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#{index +1}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">
                               {withdrawal.user?.email || 'Unknown'}
                               <br/>
-                        Role {withdrawal.user?.role || 'Unknown'}
+                        <strong>Role</strong> ({withdrawal.user?.role || 'Unknown'})
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-bold">
                         ₹{withdrawal.amount}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-bold">
                         {withdrawal.payment_method === 'upi' ? 'UPI' : 'Bank Transfer'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[withdrawal.status]}`}>
+                        <span className={`px-2 inline-flex text-xs leading-5 font-bold rounded-full ${statusColors[withdrawal.status]}`}>
                           {withdrawal.status}
                         </span>
                       </td>
@@ -235,7 +235,7 @@ const AdminWithdrawalRequest = () => {
                                   setOpenApproveConfirm(true);
                                 }}
                                 disabled={isProcessing}
-                                className={`text-green-600 hover:text-green-900 ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                className={`text-green-600 btn hover:text-green-900 ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
                               >
                                 Approve
                               </button>
@@ -245,22 +245,25 @@ const AdminWithdrawalRequest = () => {
                                   setOpenRejectModal(true);
                                 }}
                                 disabled={isProcessing}
-                                className={`text-red-600 hover:text-red-900 ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                className={`text-red-600 btn hover:text-red-900 ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
                               >
                                 Reject
                               </button>
                             </>
                           )}
-                          <button
-                            onClick={() => {
-                              setSelectedWithdrawal(withdrawal);
-                              setOpenDialog(true);
-                            }}
-                            disabled={isProcessing}
-                            className={`text-blue-600 hover:text-blue-900 ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          >
-                            Upload Proof
-                          </button>
+                          {['approved', 'pending'].includes(withdrawal.status) && (
+  <button
+    onClick={() => {
+      setSelectedWithdrawal(withdrawal);
+      setOpenDialog(true);
+    }}
+    disabled={isProcessing}
+    className={`text-blue-600 btn hover:text-blue-900 ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+  >
+     {withdrawal?.screenshot?"Uploaded (Update)":"Upload Transaction File"}
+  </button>
+)}
+
                         </div>
                       </td>
                     </tr>
@@ -297,25 +300,25 @@ const AdminWithdrawalRequest = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div className="p-6">
-              <h3 className="text-lg font-medium text-gray-900">Upload Payment Proof</h3>
+              <h3 className="text-lg font-extrabold text-gray-900">Upload Payment Proof</h3>
               <div className="mt-4">
                 {selectedWithdrawal && (
                   <>
-                    <p className="text-sm text-gray-600">
-                      For withdrawal #{selectedWithdrawal.id}
+                    <p className="text-md text-gray-600">
+                      For withdrawal  <strong>#{selectedWithdrawal.id}</strong>
                     </p>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Amount: ₹{selectedWithdrawal.amount}
+                    <p className="text-md text-gray-600 mt-1">
+                      Amount:  <strong>₹{selectedWithdrawal.amount}</strong>
                     </p>
                     <div className="mt-4">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Upload Screenshot
+                        Upload Screenshot(Pdf/Image)
                       </label>
                       <input
                         type="file"
                         accept="image/*,.pdf"
                         onChange={(e) => setScreenshotFile(e.target.files[0])}
-                        className="block w-full text-sm text-gray-500
+                        className="block w-full text-sm text-gray-500 cursor-pointer
                           file:mr-4 file:py-2 file:px-4
                           file:rounded-md file:border-0
                           file:text-sm file:font-semibold
@@ -332,7 +335,7 @@ const AdminWithdrawalRequest = () => {
                 type="button"
                 onClick={handleUploadScreenshot}
                 disabled={!screenshotFile || isProcessing}
-                className={`w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white sm:ml-3 sm:w-auto sm:text-sm ${!screenshotFile || isProcessing ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+                className={`w-full inline-flex cursor-pointer justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white sm:ml-3 sm:w-auto sm:text-sm ${!screenshotFile || isProcessing ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
               >
                 {isProcessing ? 'Uploading...' : 'Upload'}
               </button>
@@ -340,7 +343,7 @@ const AdminWithdrawalRequest = () => {
                 type="button"
                 onClick={() => setOpenDialog(false)}
                 disabled={isProcessing}
-                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                className="mt-3 w-full inline-flex cursor-pointer justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
               >
                 Cancel
               </button>
@@ -358,10 +361,10 @@ const AdminWithdrawalRequest = () => {
               <div className="mt-4">
                 {selectedWithdrawal && (
                   <>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-md text-gray-600">
                       Are you sure you want to approve withdrawal #{selectedWithdrawal.id}?
                     </p>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="text-md text-gray-600 mt-1">
                       Amount: ₹{selectedWithdrawal.amount}
                     </p>
                   </>
@@ -373,7 +376,7 @@ const AdminWithdrawalRequest = () => {
                 type="button"
                 onClick={() => handleStatusChange(selectedWithdrawal.id, 'approved')}
                 disabled={isProcessing}
-                className={`w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white sm:ml-3 sm:w-auto sm:text-sm ${isProcessing ? 'bg-green-300 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+                className={`w-full inline-flex cursor-pointer justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white sm:ml-3 sm:w-auto sm:text-sm ${isProcessing ? 'bg-green-300 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
               >
                 {isProcessing ? 'Processing...' : 'Confirm Approve'}
               </button>
@@ -381,7 +384,7 @@ const AdminWithdrawalRequest = () => {
                 type="button"
                 onClick={() => setOpenApproveConfirm(false)}
                 disabled={isProcessing}
-                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                className="mt-3 w-full inline-flex cursor-pointer justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
               >
                 Cancel
               </button>
@@ -395,19 +398,19 @@ const AdminWithdrawalRequest = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div className="p-6">
-              <h3 className="text-lg font-medium text-gray-900">Reject Withdrawal</h3>
+              <h3 className="text-lg font-bold text-gray-900">Reject Withdrawal Request</h3>
               <div className="mt-4">
                 {selectedWithdrawal && (
                   <>
-                    <p className="text-sm text-gray-600">
-                      Withdrawal #{selectedWithdrawal.id}
+                    <p className="text-md text-gray-600">
+                      Withdrawal <strong>#{selectedWithdrawal.id}</strong>
                     </p>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Amount: ₹{selectedWithdrawal.amount}
+                    <p className="text-md text-gray-600 mt-1">
+                      Amount: <strong>₹{selectedWithdrawal.amount}</strong>
                     </p>
                     <div className="mt-4">
-                      <label htmlFor="rejectionReason" className="block text-sm font-medium text-gray-700 mb-1">
-                        Reason for rejection
+                      <label htmlFor="rejectionReason" className="block text-sm font-bold text-gray-700 mb-1">
+                        Reason for rejection*
                       </label>
                       <textarea
                         id="rejectionReason"
@@ -427,7 +430,7 @@ const AdminWithdrawalRequest = () => {
                 type="button"
                 onClick={() => handleStatusChange(selectedWithdrawal.id, 'rejected', rejectionReason)}
                 disabled={!rejectionReason || isProcessing}
-                className={`w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white sm:ml-3 sm:w-auto sm:text-sm ${!rejectionReason || isProcessing ? 'bg-red-300 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'}`}
+                className={`w-full inline-flex cursor-pointer justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white sm:ml-3 sm:w-auto sm:text-sm ${!rejectionReason || isProcessing ? 'bg-red-300 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'}`}
               >
                 {isProcessing ? 'Processing...' : 'Confirm Reject'}
               </button>
@@ -438,7 +441,7 @@ const AdminWithdrawalRequest = () => {
                   setRejectionReason('');
                 }}
                 disabled={isProcessing}
-                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                className="mt-3 w-full inline-flex cursor-pointer justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
               >
                 Cancel
               </button>

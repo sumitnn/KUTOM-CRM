@@ -319,7 +319,7 @@ const SalesPage = ({ role }) => {
                               )}
                               {activeTab === "dispatched" && (
                                 <button 
-                                  className="btn btn-xs btn-success gap-1"
+                                  className="btn btn-xs btn-success gap-1 font-bold cursor-pointer"
                                   onClick={() => {
                                     setSelectedOrder(order);
                                   }}
@@ -330,7 +330,7 @@ const SalesPage = ({ role }) => {
                               )}
                               {activeTab !== "accepted" && (
                                 <button 
-                                  className="btn btn-xs btn-ghost hover:bg-blue-50 gap-1" 
+                                  className="btn btn-xs btn-ghost hover:bg-blue-50 gap-1 font-bold cursor-pointer" 
                                   onClick={() => navigate(`/vendor/my-sales/${order.id}`)}
                                 >
                                   <FiFileText className="text-blue-600 font-bold" size={14} />

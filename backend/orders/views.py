@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from .models import *
 from .serializers import *
 from django.utils.timezone import now
-from accounts.permissions import IsAdminRole, IsStockistRole, IsVendorRole
+from accounts.permissions import IsAdminRole, IsStockistRole, IsVendorRole,IsAdminOrVendorRole
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import status
@@ -242,7 +242,7 @@ class OrderSummaryView(APIView):
 
     def get(self, request):
         user = request.user
-        orders = Order.objects.filter(reseller=user)
+        orders = Order.objects.filter(created_by=user)
 
         status_counts = orders.values('status').annotate(count=Count('id'))
         status_dict = {'All': orders.count(), 'Pending': 0, 'Approved': 0, 'Rejected': 0}
@@ -283,7 +283,7 @@ class OrderDetailAPIView(APIView):
     
 
 class UpdateOrderStatusView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAdminOrVendorRole]
 
     def patch(self, request, pk):
         try:
@@ -293,14 +293,67 @@ class UpdateOrderStatusView(APIView):
 
         if request.user != order.created_by and request.user != order.created_for:
             return Response({"message": "You are not authorized to update this order."}, status=status.HTTP_403_FORBIDDEN)
-        print(request.data)
-       
+
         serializer = OrderStatusUpdateSerializer(order, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
+
+            # Notify admin
+            admin_user = User.objects.filter(role='admin').first()
+            if admin_user:
+                create_notification(
+                    user=admin_user,
+                    title="Order Status Updated",
+                    message=f"Order #{order.id} status updated to {serializer.validated_data.get('status', order.status)}.",
+                    notification_type="order status update",
+                    related_url=f"/orders/{order.id}/"
+                )
+
+            # If order is delivered, process wallet changes
+            if serializer.validated_data.get('status') == 'delivered':
+                transport_charges = order.transport_charges or 0
+
+                if transport_charges > 0:
+                    try:
+                        admin_wallet = Wallet.objects.get(user=admin_user)
+                        user_wallet = Wallet.objects.get(user=order.created_for)
+
+                        # Deduct from admin wallet
+                        if admin_wallet.balance < transport_charges:
+                            return Response({"message": "Admin wallet has insufficient balance to process transport charges."},
+                                            status=status.HTTP_400_BAD_REQUEST)
+
+                        admin_wallet.balance -= transport_charges
+                        user_wallet.balance += transport_charges
+
+                        admin_wallet.save()
+                        user_wallet.save()
+
+                        # Create transaction for admin (DEBIT)
+                        WalletTransaction.objects.create(
+                            wallet=admin_wallet,
+                            transaction_type='DEBIT',
+                            amount=transport_charges,
+                            description=f"Transport charges for Order #{order.id}",
+                            transaction_status='SUCCESS'
+                        )
+
+                        # Create transaction for user (CREDIT)
+                        WalletTransaction.objects.create(
+                            wallet=user_wallet,
+                            transaction_type='CREDIT',
+                            amount=transport_charges,
+                            description=f"Received transport charges for Order #{order.id}",
+                            transaction_status='RECEIVED'
+                        )
+
+                    except Wallet.DoesNotExist:
+                        return Response({"message": "Admin or user wallet not found."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
             return Response(serializer.data)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class UpdateOrderDispatchStatusView(APIView):
     permission_classes = [IsVendorRole]
