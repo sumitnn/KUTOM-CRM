@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import WalletSummaryCard from "./WalletSummaryCard";
 import WalletTransactionTable from "./WalletTransactionTable";
 import AddWalletAmountModal from "./AddWalletAmountModal";
-import TopUpRequestsTable from "./TopUpRequestsTable";
+
 
 const WalletManagementPage = () => {
   const [showAddModal, setShowAddModal] = useState(false);
