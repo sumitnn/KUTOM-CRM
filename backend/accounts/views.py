@@ -373,7 +373,7 @@ class WalletSummaryView(generics.GenericAPIView):
         # ✅ Total withdrawals from WithdrawalRequest
         total_withdrawals = WithdrawalRequest.objects.filter(
             user=user,
-            status='completed'
+            status='approved'
         ).aggregate(total=Sum('amount'))['total'] or 0
 
         # ✅ Prepare response
@@ -1162,12 +1162,13 @@ class AdminWithdrawalRequestDetailAPIView(APIView):
         withdrawal = self.get_object(pk)
         if not withdrawal:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-
+        
         serializer = AdminWithdrawalRequestSerializer(withdrawal, data=request.data, partial=True)
 
         if serializer.is_valid():
             if 'status' in request.data:
                 new_status = request.data['status']
+                
 
                 if new_status in ['approved', 'rejected']:
                     serializer.save(approved_by=request.user)
@@ -1200,6 +1201,14 @@ class AdminWithdrawalRequestDetailAPIView(APIView):
                             description=f"Received withdrawal amount from user {withdrawal.wallet.user.username}",
                             transaction_status='RECEIVED'
                         )
+                    
+                    create_notification(
+                        user=withdrawal.wallet.user,
+                        title="Withdrawal Request Status Update",
+                        message=f"Your withdrawal request #{withdrawal.id} has been {new_status}.",
+                        notification_type='withdrawal request',
+                        related_url=''
+                    )
             else:
                 serializer.save()
 

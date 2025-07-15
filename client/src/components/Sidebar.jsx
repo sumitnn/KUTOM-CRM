@@ -55,8 +55,26 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
 
         ],
       },
-      { icon: <RxDashboard />, label: "Stockist", path: "/admin/stockist" },
-      { icon: <RxDashboard />, label: "Reseller", path: "/admin/reseller" },
+      {
+        icon: <FaUsersGear />,
+        label: "Stockist",
+        children: [
+          { label: "Registration", path: "/admin/stockist" },
+
+
+        ],
+      },
+       {
+        icon: <FaUsersGear />,
+        label: "Reseller",
+        children: [
+          { label: "Registration", path: "/admin/reseller" },
+
+
+        ],
+      },
+
+
       { icon: <SiBrandfolder />, label: "Brands", path: "/admin/brand" },
       { icon: <TbCategoryPlus />, label: "Category", path: "/admin/categories" },
       { icon: <TbCategoryMinus />, label: "Sub-Category", path: "/admin/subcategories" },
