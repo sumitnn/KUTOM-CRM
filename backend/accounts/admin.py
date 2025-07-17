@@ -25,8 +25,8 @@ class WalletTransactionAdmin(admin.ModelAdmin):
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
-    list_display = ('id', 'username', 'email', 'role', 'is_active','is_default_user')
-    list_editable = ('is_active', 'role')
+    list_display = ('id', 'username', 'email','reseller_id','stockist_id','vendor_id','is_user_active' ,'is_active','is_default_user')
+    list_editable = ('is_active', )
     search_fields = ['email', 'username']
 
 

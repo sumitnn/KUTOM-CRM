@@ -14,7 +14,7 @@ class Brand(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['name']
+        ordering = ['-created_at']
 
     def __str__(self):
         return self.name
@@ -35,7 +35,7 @@ class MainCategory(models.Model):
 
     class Meta:
         verbose_name_plural = "Main Categories"
-        ordering = ['name']
+        ordering = ['-created_at']
 
     def __str__(self):
         return self.name
@@ -50,7 +50,7 @@ class Category(models.Model):
 
     class Meta:
         verbose_name_plural = 'Categories'
-        ordering = ['name']
+        ordering = ['-created_at']
 
     def __str__(self):
         return self.name
@@ -68,11 +68,11 @@ class SubCategory(models.Model):
 
     class Meta:
         verbose_name_plural = 'Sub Categories'
-        ordering = ['name']
+        ordering = ['-created_at']
         unique_together = ['category', 'name']
 
     def __str__(self):
-        return f"{self.category.name} - {self.name}"
+        return f"- {self.name}"
 
 
 
