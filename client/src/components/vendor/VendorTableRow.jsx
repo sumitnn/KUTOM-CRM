@@ -5,7 +5,8 @@ import {
   FaTimes, 
   FaThumbsUp,
   FaThumbsDown,
-  FaIdCard
+  FaIdCard,
+  FaDotCircle 
 } from 'react-icons/fa';
 import { format } from 'date-fns';
 import ProgressBar from '../ProgressBar';
@@ -41,6 +42,7 @@ export default function VendorTableRow({
   const postalCode = vendor.address?.postal_code || 'N/A';
   const city = vendor.address?.city || 'N/A';
   const userId = vendor.user?.id; // Get user ID from vendor object
+  const FullKycApproved=vendor.profile?.kyc_verified
 
   const handleAction = async (action, actionFn) => {
     if (action === 'kyc') {
@@ -156,7 +158,13 @@ export default function VendorTableRow({
           <>
             <td className="px-2 py-3 font-bold">{vendor.vendor_id || 'N/A'}</td>
             <td className="px-2 py-3">{created_at}</td>
-            <td className="px-2 py-3">{fullName}</td>
+            <td className="px-2 py-3">
+  {fullName}
+  <div className={FullKycApproved ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
+    {FullKycApproved ? "KYC: Approved" : "KYC: Pending"}
+  </div>
+</td>
+
             <td className="px-2 py-3 font-bold">{vendor.email}</td>
             <td className="px-2 py-3">{phone}</td>
             <td className="px-2 py-3">
@@ -181,8 +189,8 @@ export default function VendorTableRow({
                 </button>
                 {renderActionButton(
                   'status', 
-                  activeTab === 'active' ? <FaThumbsDown /> : <FaThumbsUp />,
-                  activeTab === 'active' ? 'Deactivate' : 'Activate',
+                  activeTab === 'active' ? <FaDotCircle /> : <FaThumbsUp />,
+                  activeTab === 'active' ? 'In-Active' : 'Activate',
                   activeTab === 'active' ? 'warning' : 'success'
                 )}
               </div>

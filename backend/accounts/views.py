@@ -1042,6 +1042,13 @@ class VerifyUserKYCView(APIView):
 
         if profile.kyc_verified:
             return Response({"message": "KYC is already verified."}, status=status.HTTP_400_BAD_REQUEST)
+   
+        profile_status=ProfileApprovalStatus.objects.get(user=profile.user)
+        if profile_status.calculate_completion() < 100:
+            return Response({
+                "message": "100% profile completion is required for full KYC verification.",
+                "status": False
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         # Update profile and user
         profile.kyc_verified = True
