@@ -97,7 +97,6 @@ const ProductListPage = ({ role }) => {
   const handleAddToCart = (prod) => {
     const defaultSize = prod.sizes && prod.sizes.length > 0 ? prod.sizes[0] : null;
     
-    // Check if item with same size already exists in cart
     const isAlreadyInCart = cartItems.some(item => 
       item.id === prod.id && 
       (!item.size || (item.size && item.size.id === defaultSize?.id))
@@ -108,7 +107,6 @@ const ProductListPage = ({ role }) => {
       return;
     }
 
-    // Determine if there's a matching price tier for quantity 1
     let priceTier = null;
     if (defaultSize?.price_tiers?.length > 0) {
       const sortedTiers = [...defaultSize.price_tiers].sort((a, b) => b.min_quantity - a.min_quantity);
@@ -343,13 +341,14 @@ const ProductListPage = ({ role }) => {
               {products.map((prod) => (
                 <div
                   key={prod.id}
-                  className="card bg-white shadow-sm hover:shadow-md transition-shadow rounded-lg overflow-hidden border border-gray-100"
+                  className="card bg-white rounded-lg overflow-hidden border border-gray-200 hover:shadow-md transition-all duration-300"
                 >
-                  <figure className="relative h-48 bg-gray-50">
+                  {/* Product Image with Status Badge */}
+                  <figure className="relative aspect-square bg-gray-50">
                     <img
                       src={getProductImage(prod)}
                       alt={prod.name}
-                      className="h-full w-full object-contain p-4"
+                      className="w-full h-full object-contain p-4"
                       onError={(e) => {
                         if (!e.target.src.includes("/placeholder.png")) {
                           e.target.onerror = null;
@@ -357,127 +356,119 @@ const ProductListPage = ({ role }) => {
                         }
                       }}
                     />
-                    {prod.status === 'draft' && !prod.is_featured && (
-                      <div className="absolute top-2 left-2 badge badge-warning">
-                        Draft (Inactive)
-                      </div>
-                    )}
-
-                    {prod.status === 'draft' && prod.is_featured && (
-                      <div className="absolute top-2 left-2 badge badge-warning">
-                        Draft
-                      </div>
-                    )}
-
-                    {prod.status === 'published' && prod.is_featured && (
-                      <div className="absolute top-2 left-2 badge badge-primary">
-                        Live
-                      </div>
-                    )}
-
-                    {prod.status === 'published' && !prod.is_featured && (
-                      <div className="absolute top-2 left-2 badge badge-secondary">
-                        Inactive Product
-                      </div>
-                    )}
-                  </figure>
-                  <div className="card-body p-4">
-                    <div className="flex justify-between items-start">
-                      <h2 className="card-title text-lg font-extrabold text-gray-800 line-clamp-2">
-                        {prod.name}
-                      </h2>
+                    
+                    {/* Status Badge */}
+                    <div className="absolute top-2 left-2">
+                      {prod.status === 'draft' && !prod.is_featured && (
+                        <span className="badge badge-warning text-xs">Draft (Inactive)</span>
+                      )}
+                      {prod.status === 'draft' && prod.is_featured && (
+                        <span className="badge badge-warning text-xs">Draft</span>
+                      )}
+                      {prod.status === 'published' && prod.is_featured && (
+                        <span className="badge badge-primary text-xs">Live</span>
+                      )}
+                      {prod.status === 'published' && !prod.is_featured && (
+                        <span className="badge badge-secondary text-xs">Inactive</span>
+                      )}
+                    </div>
+                    
+                    {/* SKU Badge */}
+                    <div className="absolute top-2 right-2">
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
                           copyToClipboard(prod.sku);
                         }}
-                        className="badge badge-outline cursor-pointer hover:bg-gray-100 flex items-center gap-1"
+                        className="badge badge-ghost text-xs cursor-pointer font-semibold hover:bg-gray-100"
                         title="Click to copy SKU"
                       >
-                        <span className="text-xs">{prod.sku}</span>
-                        <FiCopy size={10} />
+                        {prod.sku}
                       </button>
                     </div>
-                    
-                    <div className="text-sm text-gray-600 font-medium mt-1">
-                      <p className="line-clamp-1">
-                        {prod.brand_name || 'No brand'} • {prod.category_name || 'Uncategorized'}
-                      </p>
-                      {prod.subcategory_name && (
-                        <p className="text-xs mt-1 font-normal">{prod.subcategory_name}</p>
-                      )}
+                  </figure>
+
+                  {/* Product Details */}
+                  <div className="p-4">
+                    {/* Brand and Category */}
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-xs font-semibold text-gray-700">
+                        {prod.brand_name || 'No brand'}
+                      </span>
+                      <span className="text-xs font-bold text-gray-600">
+                        {prod.category_name || 'Uncategorized'}
+                      </span>
                     </div>
+
+                    {/* Product Name */}
+                    <h2 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-2 h-[3rem]">
+                      {prod.name}
+                    </h2>
 
                     {/* Short Description */}
                     {prod.short_description && (
-                      <p className="text-sm text-gray-700 font-medium mt-2 line-clamp-2">
+                      <p className="text-sm text-gray-600 mb-3 line-clamp-2 h-[2.8rem]">
                         {prod.short_description}
                       </p>
                     )}
 
                     {/* Features */}
                     {prod.features && prod.features.length > 0 && (
-                      <div className="mt-2">
-                        <div className="text-xs font-bold text-gray-600 mb-1">Features:</div>
-                        <div className="flex flex-wrap gap-1">
-                          {prod.features.slice(0, 3).map((feature, index) => (
-                            <span 
-                              key={index} 
-                              className="badge badge-sm badge-outline text-gray-600 font-medium"
-                            >
+                      <div className="mb-3">
+                        <div className="text-md font-semibold text-black mb-1">Features:</div>
+                        <ul className="list-disc list-inside text-xs text-gray-600 space-y-1">
+                          {prod.features.slice(0, 2).map((feature, index) => (
+                            <li key={index} className="line-clamp-1">
                               {feature}
-                            </span>
+                            </li>
                           ))}
-                          {prod.features.length > 3 && (
-                            <span className="badge badge-sm badge-ghost text-gray-400">
-                              +{prod.features.length - 3}
-                            </span>
+                          {prod.features.length > 2 && (
+                            <li className="text-gray-400">+{prod.features.length - 2} more</li>
                           )}
-                        </div>
+                        </ul>
                       </div>
                     )}
 
-                    <div className="mt-3 flex justify-between items-center">
-                      <div>
-                        <p className="text-sm font-bold text-gray-700">
-                          {prod.weight} {prod.weight_unit}
-                        </p>
-                        <p className="text-xs text-gray-500 font-medium">
-                          Dimensions: {prod.dimensions || 'N/A'}
-                        </p>
-                        <p className="text-xs text-gray-500 font-medium">
-                          Shipping: {prod.shipping_info || 'N/A'}
-                        </p>
-                        {prod.warranty && (
-                          <p className="text-xs text-gray-500 font-medium">
-                            Warranty: {prod.warranty} {prod.warranty === '1' ? 'year' : 'years'}
-                          </p>
-                        )}
+                    {/* Price and Rating */}
+                    <div className="flex justify-between items-center mb-3">
+                      <div className="text-lg font-bold text-green-600">
+                       ₹{getDefaultPrice(prod.sizes)}
                       </div>
-                      <div className="text-right">
-                        <p className="font-extrabold text-green-600">
-                          ₹{getDefaultPrice(prod.sizes)}
-                        </p>
-                        {prod.rating && (
-                          <div className="badge badge-sm badge-success gap-1">
-                            {prod.rating} ★
-                          </div>
-                        )}
+                      {prod.rating && (
+                        <div className="badge badge-success gap-1 text-xs">
+                          {prod.rating} ★
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Product Specifications */}
+                    <div className="grid grid-cols-2 gap-2 text-xs mb-4">
+                      <div className="flex items-center gap-1">
+                        <span className="font-semibold text-gray-700">Weight:</span>
+                        <span>{prod.weight} {prod.weight_unit}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="font-semibold text-gray-700">Warranty:</span>
+                        <span>{prod.warranty || '0'} {prod.warranty === '1' ? 'year' : 'years'}</span>
+                      </div>
+                      <div className="flex items-center gap-1 col-span-2">
+                        <span className="font-semibold text-gray-700">Shipping:</span>
+                        <span>{prod.shipping_info || 'Calculated at checkout'}</span>
                       </div>
                     </div>
 
                     {/* Sizes */}
                     {prod.sizes && prod.sizes.length > 0 && (
-                      <div className="mt-2">
-                        <div className="text-xs font-bold text-gray-600">Sizes:</div>
-                        <div className="flex flex-wrap gap-1 mt-1">
+                      <div className="mb-4">
+                        <div className="text-xs font-semibold text-gray-900 mb-1">Available Sizes:</div>
+                        <div className="flex flex-wrap gap-1">
                           {prod.sizes.slice(0, 3).map((size) => (
-                            <span key={size.id} className="badge badge-outline badge-sm font-medium">
-                              {size.size} {size.unit} (₹{size.price})
+                            <span key={size.id} className="badge badge-outline text-xs">
+                              {size.size} {size.unit}
                             </span>
                           ))}
                           {prod.sizes.length > 3 && (
-                            <span className="badge badge-outline badge-sm">
+                            <span className="badge badge-ghost text-xs">
                               +{prod.sizes.length - 3} more
                             </span>
                           )}
@@ -485,22 +476,24 @@ const ProductListPage = ({ role }) => {
                       </div>
                     )}
 
-                    <div className="card-actions justify-end mt-4">
-                      <div className="flex gap-2">
-                        <button
-                          className="btn btn-sm btn-square btn-ghost hover:bg-gray-100"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/${role}/products/${prod.id}`);
-                          }}
-                          title="View details"
-                        >
-                          <FiEye />
-                        </button>
+                    {/* Action Buttons */}
+                    <div className="flex justify-between items-center">
+                      <button
+                        className="btn btn-sm btn-ghost hover:bg-gray-100"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/${role}/products/${prod.id}`);
+                        }}
+                        title="View details"
+                      >
+                        <FiEye className="mr-1" />
+                        <span className="text-xs">Details</span>
+                      </button>
 
+                      <div className="flex gap-2">
                         {["reseller", "admin"].includes(role) && (
                           <button
-                            className="btn btn-sm btn-success"
+                            className="btn btn-sm font-bold btn-success"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleAddToCart(prod);

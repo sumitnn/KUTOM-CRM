@@ -50,6 +50,16 @@ const ProductDetailsPage = ({ role }) => {
     }
   }, [quantity, selectedSize]);
 
+const getEmbedUrl = (url) => {
+  if (!url) return null;
+
+  const regex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{11})/;
+  const match = url.match(regex);
+
+  return match ? `https://www.youtube.com/embed/${match[1]}` : null;
+};
+
+
   const handleZoom = (e) => {
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
     const x = ((e.pageX - left) / width) * 100;
@@ -153,21 +163,24 @@ const ProductDetailsPage = ({ role }) => {
           </div>
           
           {/* Video Section */}
-          {product.video_url && (
-            <div className="mt-6">
-              <h3 className="text-lg font-bold mb-2">Product Video</h3>
-              <div className="aspect-w-16 aspect-h-9">
-                <iframe
-                  src={product.video_url}
-                  className="w-full h-64 rounded-md"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  title="Product video"
-                />
-              </div>
-            </div>
-          )}
+ 
+
+{product.video_url && getEmbedUrl(product.video_url) && (
+  <div className="mt-6">
+    <h3 className="text-lg font-bold mb-2">Product Video</h3>
+    <div className="aspect-w-16 aspect-h-9">
+      <iframe
+        src={getEmbedUrl(product.video_url)}
+        className="w-full h-64 rounded-md border-0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+        title="Product video"
+      />
+    </div>
+  </div>
+)}
+
+
         </div>
 
         {/* Product Details */}
