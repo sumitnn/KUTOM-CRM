@@ -12,7 +12,8 @@ import {
   FiShoppingCart,
   FiMapPin,
   FiClipboard,
-  FiInfo
+  FiInfo,
+  FiCheckCircle
 } from "react-icons/fi";
 import {
   useGetMyOrdersQuery,
@@ -24,13 +25,14 @@ const AddressModal = lazy(() => import("../../components/modals/AddressModal"));
 const ReceivedProductModal = lazy(() => import("../../components/modals/ReceivedProductModal"));
 const OrderBillModal = lazy(() => import("../../components/modals/OrderBillModal"));
 const OrderDetailsModal = lazy(() => import("../OrderDetailsModal"));
+const ConfirmationModal = lazy(() => import("../../components/modals/ConfirmationModal"));
 
 const AdminOrderManagementPage = () => {
   const [activeTab, setActiveTab] = useState("new");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [modalType, setModalType] = useState(null); // 'address', 'received', 'bill', 'details'
+  const [modalType, setModalType] = useState(null); // 'address', 'received', 'bill', 'details', 'confirm-received'
 
   // API call for orders
   const {
@@ -45,7 +47,6 @@ const AdminOrderManagementPage = () => {
   });
 
   const [updateOrderStatus] = useUpdateOrderStatusMutation();
-
 
   // Helper function to transform order data
   const transformOrderData = (orders) => {
@@ -130,6 +131,13 @@ const AdminOrderManagementPage = () => {
     setModalType(null);
   };
 
+  const confirmOrderReceived = () => {
+    if (selectedOrder) {
+      handleStatusUpdate(selectedOrder.id, 'received');
+      closeModal();
+    }
+  };
+
   const getStatusActions = (status, order) => {
     switch (status) {
       case 'new':
@@ -147,14 +155,24 @@ const AdminOrderManagementPage = () => {
         );
       case 'dispatched':
         return (
-          <button
-            onClick={() => openModal(order, 'details')}
-            className="inline-flex items-center gap-2 px-4 py-2 cursor-pointer rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition duration-200"
-            title="View Details"
-          >
-            <FiInfo className="h-4 w-4" />
-            <span>View Details</span>
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => openModal(order, 'details')}
+              className="inline-flex items-center gap-2 px-4 py-2 cursor-pointer rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition duration-200"
+              title="View Details"
+            >
+              <FiInfo className="h-4 w-4" />
+              <span>Details</span>
+            </button>
+            <button
+              onClick={() => openModal(order, 'confirm-received')}
+              className="inline-flex items-center gap-2 px-4 py-2 cursor-pointer rounded-lg border border-green-600 text-green-600 hover:bg-green-50 hover:text-green-700 transition duration-200"
+              title="Mark as Received"
+            >
+              <FiCheckCircle className="h-4 w-4" />
+              <span>Received</span>
+            </button>
+          </div>
         );
       case 'received':
         return (
@@ -167,19 +185,18 @@ const AdminOrderManagementPage = () => {
           </button>
         );
       case 'rejected':
-  return (
-    <div className="flex space-x-2">
-      
-      <button
-        onClick={() => openModal(order, 'details')}
-        className="inline-flex items-center gap-2 px-4 py-2 cursor-pointer rounded-lg border border-gray-600 text-gray-600 hover:bg-gray-50 hover:text-gray-700 transition duration-200"
-        title="Order Details"
-      >
-        <FiInfo className="h-4 w-4" />
-        <span>Order Details</span>
-      </button>
-    </div>
-  );
+        return (
+          <div className="flex space-x-2">
+            <button
+              onClick={() => openModal(order, 'details')}
+              className="inline-flex items-center gap-2 px-4 py-2 cursor-pointer rounded-lg border border-gray-600 text-gray-600 hover:bg-gray-50 hover:text-gray-700 transition duration-200"
+              title="Order Details"
+            >
+              <FiInfo className="h-4 w-4" />
+              <span>Details</span>
+            </button>
+          </div>
+        );
       case 'cancelled':
         return (
           <span className="text-gray-400">No actions</span>
@@ -224,7 +241,7 @@ const AdminOrderManagementPage = () => {
                 <option value="dispatched">Dispatched Orders</option>
                 <option value="received">Received Orders</option>
                 <option value="rejected">Rejected Orders</option>
-                <option value="cancelled">Cancelled Orders</option>
+                <option value="cancelled">Cancelled  Orders</option>
               </select>
             </div>
             <div className="hidden sm:block">
@@ -282,7 +299,7 @@ const AdminOrderManagementPage = () => {
                     }}
                     className={`whitespace-nowrap py-3 px-2 border-b-2 font-bold cursor-pointer text-xs sm:text-sm ${activeTab === 'cancelled' ? 'border-red-500 text-red-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
                   >
-                    Cancelled ({activeTab === 'cancelled' ? orderData.count : 0})
+                    Cancelled (Return) ({activeTab === 'cancelled' ? orderData.count : 0})
                   </button>
                 </nav>
               </div>
@@ -504,6 +521,16 @@ const AdminOrderManagementPage = () => {
           <OrderDetailsModal 
             order={selectedOrder} 
             onClose={closeModal}
+          />
+        )}
+        {modalType === 'confirm-received' && (
+          <ConfirmationModal
+            title="Confirm Order Received"
+            message="Are you sure you want to mark this order as received?"
+            onConfirm={confirmOrderReceived}
+            onCancel={closeModal}
+            confirmText="Yes, Mark as Received"
+            cancelText="No, Cancel"
           />
         )}
       </Suspense>

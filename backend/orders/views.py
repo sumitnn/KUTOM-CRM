@@ -294,6 +294,13 @@ class UpdateOrderStatusView(APIView):
         if request.user != order.created_by and request.user != order.created_for:
             return Response({"message": "You are not authorized to update this order."}, status=status.HTTP_403_FORBIDDEN)
 
+
+        is_received = request.data.get('status') == 'received'
+        if request.data.get('status') == 'received' and request.user.role == 'admin':
+            request.data['status'] = 'delivered' 
+            
+
+
         serializer = OrderStatusUpdateSerializer(order, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -305,6 +312,14 @@ class UpdateOrderStatusView(APIView):
                     user=admin_user,
                     title="Order Status Updated",
                     message=f"Order #{order.id} status updated to {serializer.validated_data.get('status', order.status)}.",
+                    notification_type="order status update",
+                    related_url=f"/orders/{order.id}/"
+                )
+            if is_received :
+                create_notification(
+                    user=order.created_for,
+                    title="Order Delivered Successfully",
+                    message=f"Your order #{order.id} has been delivered successfully.",
                     notification_type="order status update",
                     related_url=f"/orders/{order.id}/"
                 )
@@ -363,17 +378,23 @@ class UpdateOrderDispatchStatusView(APIView):
         try:
             order = Order.objects.get(id=pk)
         except Order.DoesNotExist:
-            return Response({"error": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        tracking_number = request.data.get('tracking_id')
+
+        # 🔍 Check if tracking number already exists (exclude current order)
+        if tracking_number:
+            if Order.objects.filter(tracking_number=tracking_number).exists():
+                return Response({"message": "Tracking number already exists."}, status=status.HTTP_400_BAD_REQUEST)
 
         dispatch_info = {
             'courier_name': request.data.get('courier_name'),
-            'tracking_number': request.data.get('tracking_id'),
+            'tracking_number': tracking_number,
             'transport_charges': request.data.get('transport_charges'),
             'expected_delivery_date': request.data.get('delivery_date'),
             'status': 'dispatched',
             'note': request.data.get('note', '')
         }
-        
 
         if 'receipt' in request.FILES:
             dispatch_info['receipt'] = request.FILES['receipt']

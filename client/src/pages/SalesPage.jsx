@@ -41,6 +41,7 @@ const SalesPage = ({ role }) => {
     { id: "new", label: "New Orders" },
     { id: "accepted", label: "Accepted Orders" },
     { id: "rejected", label: "Rejected Orders" },
+    { id: "cancelled", label: "Cancelled Orders" },
     { id: "dispatched", label: "Dispatched Orders" },
     { id: "delivered", label: "Delivered Orders" },
   ];
@@ -280,7 +281,7 @@ const SalesPage = ({ role }) => {
                           <td className="font-medium">
                             <span className={`badge badge-sm ${
                               order.status === 'delivered' ? 'badge-success' :
-                              order.status === 'rejected' ? 'badge-error' :
+                              order.status === 'rejected' || order.status === 'cancelled' ? 'badge-error' :
                               order.status === 'accepted' ? 'badge-primary' :
                               order.status === 'dispatched' ? 'badge-secondary' :
                               'badge-ghost'
@@ -317,18 +318,7 @@ const SalesPage = ({ role }) => {
                                   Dispatch
                                 </button>
                               )}
-                              {activeTab === "dispatched" && (
-                                <button 
-                                  className="btn btn-xs btn-success gap-1 font-bold cursor-pointer"
-                                  onClick={() => {
-                                    setSelectedOrder(order);
-                                  }}
-                                >
-                                  <FiPackage size={14} />
-                                  Deliver
-                                </button>
-                              )}
-                              {activeTab !== "accepted" && (
+                              {activeTab !== "accepted" && activeTab !== "cancelled" && (
                                 <button 
                                   className="btn btn-xs btn-ghost hover:bg-blue-50 gap-1 font-bold cursor-pointer" 
                                   onClick={() => navigate(`/vendor/my-sales/${order.id}`)}
@@ -395,147 +385,192 @@ const SalesPage = ({ role }) => {
 
       {/* Status Update Modal */}
       {selectedOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold">
+              <h3 className="text-xl font-bold text-gray-800">
                 {selectedOrder.status === 'new' ? 'Reject Order' : 
                  selectedOrder.status === 'accepted' ? 'Dispatch Order' : 
-                 'Mark as Delivered'}
+                 'Order Details'}
               </h3>
-              <button onClick={() => {
-                setSelectedOrder(null);
-                setDispatchForm({
-                  courier_name: "",
-                  tracking_id: "",
-                  transport_charges: "",
-                  delivery_date: "",
-                  receipt: null
-                });
-              }} className="text-gray-500 hover:text-gray-700">
+              <button 
+                onClick={() => {
+                  setSelectedOrder(null);
+                  setDispatchForm({
+                    courier_name: "",
+                    tracking_id: "",
+                    transport_charges: "",
+                    delivery_date: "",
+                    receipt: null
+                  });
+                }} 
+                className="btn btn-sm btn-circle btn-ghost"
+              >
                 <FiX size={20} />
               </button>
             </div>
             
             {selectedOrder.status === 'accepted' ? (
-              <>
-                {/* Order Details Section */}
-                <div className="mb-6 border-b pb-4">
-                  <h4 className="font-bold text-lg mb-3">Order Details</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-6">
+                {/* Order Summary Card */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-bold text-lg mb-3 text-gray-700">Order Summary</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <p className="font-medium">Order ID: #{selectedOrder.id}</p>
-                      <p className="text-sm">Date: {formatDate(selectedOrder.created_at)}</p>
-                      <p className="text-sm">Total: {formatCurrency(selectedOrder.total_price)}</p>
+                      <p className="text-sm text-gray-500">Order ID</p>
+                      <p className="font-medium">#{selectedOrder.id}</p>
                     </div>
                     <div>
-                      <h5 className="font-medium mb-1">Products:</h5>
-                      {selectedOrder.items.map((item, index) => (
-                        <div key={index} className="mb-2 p-2 bg-gray-50 rounded">
-                          <p className="font-medium">{item.product.name}</p>
-                          <p className="text-sm">Size: {item.product_size}</p>
-                          <p className="text-sm">Quantity: {item.quantity}</p>
-                          <p className="text-sm">Price: {formatCurrency(item.price)} each</p>
-                        </div>
-                      ))}
+                      <p className="text-sm text-gray-500">Order Date</p>
+                      <p className="font-medium">{formatDate(selectedOrder.created_at)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Total Amount</p>
+                      <p className="font-medium">{formatCurrency(selectedOrder.total_price)}</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Customer Details Section */}
-                <div className="mb-6 border-b pb-4">
-                  <h4 className="font-bold text-lg mb-3">Customer Details</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Products Card */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-bold text-lg mb-3 text-gray-700">Products</h4>
+                  <div className="space-y-4">
+                    {selectedOrder.items.map((item, index) => (
+                      <div key={index} className="flex items-start gap-4 p-3 bg-white rounded border border-gray-100">
+                        <div className="flex-1">
+                          <p className="font-medium">{item.product.name}</p>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2 text-sm">
+                            <div>
+                              <p className="text-gray-500">SKU</p>
+                              <p>{item.product.sku || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500">Size</p>
+                              <p>{item.product_size || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500">Quantity</p>
+                              <p>{item.quantity}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500">Price</p>
+                              <p>{formatCurrency(item.price)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Customer Card */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-bold text-lg mb-3 text-gray-700">Customer Information</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <p className="font-medium">{selectedOrder.created_by?.username}</p>
-                      <p className="text-sm">Email: {selectedOrder.created_by?.email}</p>
-                      <p className="text-sm">Phone: {selectedOrder.created_by?.phone || 'Not provided'}</p>
+                      <h5 className="font-medium mb-2 text-gray-600">Contact Details</h5>
+                      <div className="space-y-2">
+                        <p>
+                          <span className="text-gray-500 text-sm">Name: </span>
+                          {selectedOrder.created_by?.username || 'N/A'}
+                        </p>
+                        <p>
+                          <span className="text-gray-500 text-sm">Email: </span>
+                          {selectedOrder.created_by?.email || 'N/A'}
+                        </p>
+                        <p>
+                          <span className="text-gray-500 text-sm">Phone: </span>
+                          {selectedOrder.created_by?.phone || 'N/A'}
+                        </p>
+                      </div>
                     </div>
                     <div>
-                      <h5 className="font-medium mb-1">Shipping Address:</h5>
+                      <h5 className="font-medium mb-2 text-gray-600">Shipping Address</h5>
                       {selectedOrder.created_by?.address ? (
-                        <>
-                          <p className="text-sm">{selectedOrder.created_by.address.street_address}</p>
-                          <p className="text-sm">
+                        <div className="space-y-2">
+                          <p>{selectedOrder.created_by.address.street_address || 'N/A'}</p>
+                          <p>
                             {selectedOrder.created_by.address.city}, 
                             {selectedOrder.created_by.address.district && ` ${selectedOrder.created_by.address.district},`}
                             {selectedOrder.created_by.address.state && ` ${selectedOrder.created_by.address.state},`}
                           </p>
-                          <p className="text-sm">
+                          <p>
                             {selectedOrder.created_by.address.postal_code && `${selectedOrder.created_by.address.postal_code},`}
                             {selectedOrder.created_by.address.country}
                           </p>
-                        </>
+                        </div>
                       ) : (
-                        <p className="text-sm text-gray-500">No address provided</p>
+                        <p className="text-gray-500">No address provided</p>
                       )}
                     </div>
                   </div>
                 </div>
 
-                {/* Dispatch Form Section */}
-                <div className="mb-6">
-                  <h4 className="font-bold text-lg mb-3">Dispatch Information</h4>
+                {/* Dispatch Form */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-bold text-lg mb-3 text-gray-700">Dispatch Information</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="form-control">
                       <label className="label">
-                        <span className="label-text">Courier Name*</span>
+                        <span className="label-text font-medium">Courier Name <span className="text-red-500">*</span></span>
                       </label>
                       <input
                         type="text"
                         name="courier_name"
                         value={dispatchForm.courier_name}
                         onChange={handleDispatchFormChange}
-                        className="input input-bordered"
-                        placeholder="Enter courier name"
+                        className="input input-bordered w-full"
+                        placeholder="e.g. FedEx, UPS, DHL"
                         required
                       />
                     </div>
                     <div className="form-control">
                       <label className="label">
-                        <span className="label-text">Tracking ID*</span>
+                        <span className="label-text font-medium">Tracking ID <span className="text-red-500">*</span></span>
                       </label>
                       <input
                         type="text"
                         name="tracking_id"
                         value={dispatchForm.tracking_id}
                         onChange={handleDispatchFormChange}
-                        className="input input-bordered"
-                        placeholder="Enter tracking ID"
+                        className="input input-bordered w-full"
+                        placeholder="Enter tracking number"
                         required
                       />
                     </div>
                     <div className="form-control">
                       <label className="label">
-                        <span className="label-text">Transport Charges*</span>
+                        <span className="label-text font-medium">Shipping Cost <span className="text-red-500">*</span></span>
                       </label>
                       <input
                         type="number"
                         name="transport_charges"
                         value={dispatchForm.transport_charges}
                         onChange={handleDispatchFormChange}
-                        className="input input-bordered"
-                        placeholder="Enter transport charges"
+                        className="input input-bordered w-full"
+                        placeholder="Enter shipping cost"
+                        min="0"
+                        step="0.01"
                         required
                       />
                     </div>
                     <div className="form-control">
                       <label className="label">
-                        <span className="label-text">Expected Delivery Date*</span>
+                        <span className="label-text font-medium">Expected Delivery Date <span className="text-red-500">*</span></span>
                       </label>
                       <input
                         type="date"
                         name="delivery_date"
                         value={dispatchForm.delivery_date}
                         onChange={handleDispatchFormChange}
-                        className="input input-bordered"
+                        className="input input-bordered w-full"
                         required
                         min={new Date().toISOString().split('T')[0]}
                       />
                     </div>
                     <div className="form-control md:col-span-2">
                       <label className="label">
-                        <span className="label-text">Courier Receipt (Optional)</span>
+                        <span className="label-text font-medium">Shipping Receipt (Optional)</span>
                       </label>
                       <input
                         type="file"
@@ -544,14 +579,17 @@ const SalesPage = ({ role }) => {
                         className="file-input file-input-bordered w-full"
                         accept=".pdf,.jpg,.jpeg,.png"
                       />
+                      <label className="label">
+                        <span className="label-text-alt">Upload receipt or proof of shipment</span>
+                      </label>
                     </div>
                     <div className="form-control md:col-span-2">
                       <label className="label">
-                        <span className="label-text">Notes</span>
+                        <span className="label-text font-medium">Notes</span>
                       </label>
                       <textarea 
-                        className="textarea textarea-bordered" 
-                        placeholder="Enter any additional notes..."
+                        className="textarea textarea-bordered h-24" 
+                        placeholder="Enter any additional notes for this dispatch..."
                         value={statusNote}
                         onChange={(e) => setStatusNote(e.target.value)}
                       ></textarea>
@@ -559,7 +597,7 @@ const SalesPage = ({ role }) => {
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-3">
+                <div className="flex justify-end gap-3 pt-4">
                   <button 
                     onClick={() => {
                       setSelectedOrder(null);
@@ -586,65 +624,94 @@ const SalesPage = ({ role }) => {
                         Dispatching...
                       </>
                     ) : (
-                      "Dispatch Order"
+                      "Confirm Dispatch"
                     )}
                   </button>
                 </div>
-              </>
+              </div>
             ) : (
-              <>
-                {/* Original modal content for other statuses */}
-                <div className="mb-4">
-                  <p className="mb-2 font-medium">Order #{selectedOrder.id}</p>
-                  <p className="text-sm text-gray-600 mb-4">
-                    {selectedOrder.items.map(item => `${item.product.name} (${item.quantity}x)`).join(', ')}
-                  </p>
-                  
-                  {(selectedOrder.status === 'new' || selectedOrder.status === 'accepted') && (
-                    <div className="form-control">
-                      <label className="label">
-                        <span className="label-text">Note (Required)</span>
-                      </label>
-                      <textarea 
-                        className="textarea textarea-bordered" 
-                        placeholder="Enter reason or notes..."
-                        value={statusNote}
-                        onChange={(e) => setStatusNote(e.target.value)}
-                      ></textarea>
+              <div className="space-y-4">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-bold text-lg mb-2 text-gray-700">Order #{selectedOrder.id}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Order Date</p>
+                      <p className="font-medium">{formatDate(selectedOrder.created_at)}</p>
                     </div>
-                  )}
+                    <div>
+                      <p className="text-sm text-gray-500">Status</p>
+                      <p className="font-medium capitalize">{selectedOrder.status}</p>
+                    </div>
+                  </div>
                 </div>
-                
-                <div className="flex justify-end gap-3">
+
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-bold text-lg mb-2 text-gray-700">Products</h4>
+                  <div className="space-y-3">
+                    {selectedOrder.items.map((item, index) => (
+                      <div key={index} className="flex items-start gap-4 p-3 bg-white rounded border border-gray-100">
+                        <div className="flex-1">
+                          <p className="font-medium">{item.product.name}</p>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2 text-sm">
+                            <div>
+                              <p className="text-gray-500">Quantity</p>
+                              <p>{item.quantity}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500">Price</p>
+                              <p>{formatCurrency(item.price)}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500">Total</p>
+                              <p>{formatCurrency(item.price * item.quantity)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {(selectedOrder.status === 'new' || selectedOrder.status === 'accepted') && (
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text font-medium">
+                        {selectedOrder.status === 'new' ? 'Reason for Rejection' : 'Dispatch Notes'}
+                        <span className="text-red-500">*</span>
+                      </span>
+                    </label>
+                    <textarea 
+                      className="textarea textarea-bordered h-24" 
+                      placeholder={
+                        selectedOrder.status === 'new' 
+                          ? "Please provide reason for rejecting this order..."
+                          : "Enter any notes about this dispatch..."
+                      }
+                      value={statusNote}
+                      onChange={(e) => setStatusNote(e.target.value)}
+                      required
+                    ></textarea>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3 pt-4">
                   <button 
                     onClick={() => setSelectedOrder(null)}
                     className="btn btn-ghost"
                   >
                     Cancel
                   </button>
-                  <button 
-                    onClick={() => {
-                      if (selectedOrder.status === 'new') {
-                        handleStatusUpdate(selectedOrder.id, 'rejected');
-                      } else if (selectedOrder.status === 'accepted') {
-                        handleStatusUpdate(selectedOrder.id, 'dispatched');
-                      } else {
-                        handleStatusUpdate(selectedOrder.id, 'delivered');
-                      }
-                    }}
-                    className={`btn ${
-                      selectedOrder.status === 'new' ? 'btn-error' : 
-                      selectedOrder.status === 'accepted' ? 'btn-primary' : 
-                      'btn-success'
-                    }`}
-                    disabled={!statusNote && ['new', 'accepted'].includes(selectedOrder.status)}
-                  >
-                    {selectedOrder.status === 'new' ? 'Reject Order' : 
-                     selectedOrder.status === 'accepted' ? 'Dispatch Order' : 
-                     'Mark Delivered'}
-                  </button>
+                  {selectedOrder.status === 'new' && (
+                    <button 
+                      onClick={() => handleStatusUpdate(selectedOrder.id, 'rejected')}
+                      className="btn btn-error"
+                      disabled={!statusNote}
+                    >
+                      Confirm Rejection
+                    </button>
+                  )}
                 </div>
-              </>
+              </div>
             )}
           </div>
         </div>
