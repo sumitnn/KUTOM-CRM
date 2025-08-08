@@ -27,7 +27,7 @@ const FilePreviewButton = ({ value, label, onPreview }) => {
   );
 };
 
-export default function ProfileReviewModal({ vendor, onClose }) {
+export default function ProfileReviewModal({ vendor, onClose ,role}) {
   const [activeTab, setActiveTab] = useState(TAB_KEYS[0]);
   const [previewItem, setPreviewItem] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -377,7 +377,7 @@ export default function ProfileReviewModal({ vendor, onClose }) {
       <div className="modal modal-open">
         <div className="modal-box w-11/12 max-w-5xl max-h-[90vh] flex flex-col p-2 md:p-6">
           <div className="flex justify-between items-center mb-4 md:mb-6">
-            <h3 className="font-bold text-lg md:text-2xl text-primary">Vendor Profile</h3>
+            <h3 className="font-bold text-lg md:text-2xl text-primary">{role} details</h3>
             <button 
               className="btn btn-sm btn-circle btn-ghost hover:bg-error hover:text-white" 
               onClick={onClose}
@@ -390,7 +390,7 @@ export default function ProfileReviewModal({ vendor, onClose }) {
         <div className="flex flex-nowrap overflow-x-auto pb-2 mb-4 md:mb-6">
   <div
     className="tabs tabs-boxed bg-base-200 flex-nowrap whitespace-nowrap"
-    style={{ minHeight: '5rem' }} // ⬅️ fixed tab height (~48px)
+    style={{ minHeight: '5rem' }} 
   >
     {TAB_KEYS.map((tab) => {
       const status = approvalStatus[tab];

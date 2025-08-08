@@ -4,7 +4,6 @@ import {
   FaCheck, 
   FaTimes, 
   FaThumbsUp,
-  FaThumbsDown,
   FaIdCard,
   FaDotCircle 
 } from 'react-icons/fa';

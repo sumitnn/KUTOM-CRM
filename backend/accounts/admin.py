@@ -7,6 +7,10 @@ class WalletAdmin(admin.ModelAdmin):
     list_display = ('id', 'user', 'balance')
     search_fields = ['user__email', 'id']
 
+@admin.register(CommissionWallet)
+class CommissionWalletAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'balance')
+    search_fields = ['user__email', 'id']
 
 @admin.register(WalletTransaction)
 class WalletTransactionAdmin(admin.ModelAdmin):

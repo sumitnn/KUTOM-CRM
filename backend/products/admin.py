@@ -1,8 +1,5 @@
 from django.contrib import admin
-from .models import (
-    Brand, Category, SubCategory, Tag, Product,
-    ProductSize, ProductImage, ProductPriceTier, Stock
-)
+from .models import *
 
 
 
@@ -78,3 +75,38 @@ class ProductPriceTierAdmin(admin.ModelAdmin):
     list_filter = ('min_quantity',)
 
 
+class AdminProductSizeInline(admin.TabularInline):
+    model = AdminProductSize
+    extra = 0
+
+
+class AdminProductImageInline(admin.TabularInline):
+    model = AdminProductImage
+    extra = 0
+
+
+@admin.register(AdminProduct)
+class AdminProductAdmin(admin.ModelAdmin):
+    list_display = (
+        'id', 'name', 'admin','sku','slug', 'resale_price', 'quantity_available',
+        'is_active', 'created_at'
+    )
+    list_filter = ('is_active', 'admin', 'original_vendor', 'created_at')
+    search_fields = ('name', 'admin__email', )
+    inlines = [AdminProductSizeInline, AdminProductImageInline]
+    readonly_fields = ('created_at', 'updated_at')
+    ordering = ('-created_at',)
+
+
+@admin.register(AdminProductSize)
+class AdminProductSizeAdmin(admin.ModelAdmin):
+    list_display = ('id', 'admin_product', 'size', 'unit', 'price', 'is_default', 'is_active')
+    list_filter = ('is_active', 'is_default')
+    search_fields = ('admin_product__name', 'size')
+
+
+@admin.register(AdminProductImage)
+class AdminProductImageAdmin(admin.ModelAdmin):
+    list_display = ('id', 'admin_product', 'image', 'is_featured', 'is_default', 'created_at')
+    list_filter = ('is_featured', 'is_default')
+    search_fields = ('admin_product__name',)

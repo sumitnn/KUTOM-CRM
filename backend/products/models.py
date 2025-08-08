@@ -205,7 +205,68 @@ class ProductPriceTier(models.Model):
         return f"{self.size.product.name} - {self.min_quantity}+ units: {self.price}"
 
 
+# admin products 
+class AdminProduct(models.Model):
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    short_description = models.TextField(blank=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    weight_unit = models.CharField(max_length=10, blank=True)
+    dimensions = models.CharField(max_length=100, blank=True)
+    product_type = models.CharField(max_length=20, blank=True)
+    currency = models.CharField(max_length=3, blank=True)
+    sku = models.CharField(max_length=50, unique=True, blank=True)
+    slug = models.SlugField(max_length=255, blank=True)
+
+    admin = models.ForeignKey(User, on_delete=models.CASCADE, related_name="admin_products")
+    original_vendor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    source_product_id = models.IntegerField(null=True, blank=True)
+
+    resale_price = models.DecimalField(max_digits=10, decimal_places=2)
+    quantity_available = models.PositiveIntegerField()
+
+    is_active = models.BooleanField(default=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} (Admin Copy)"
     
+    def save(self, *args, **kwargs):
+        if not self.sku:
+            self.sku = f"PROD-{uuid.uuid4().hex[:8].upper()}"
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
+class AdminProductSize(models.Model):
+    admin_product = models.ForeignKey(AdminProduct, on_delete=models.CASCADE, related_name='sizes')
+    size = models.CharField(max_length=50)
+    unit = models.CharField(max_length=20)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    is_default = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.admin_product.name} - {self.size}{self.unit}"
+
+class AdminProductImage(models.Model):
+    admin_product = models.ForeignKey(AdminProduct, on_delete=models.CASCADE, related_name='images')
+    image = models.ImageField(upload_to='admin_products/images/')
+    alt_text = models.CharField(max_length=150, blank=True)
+    is_featured = models.BooleanField(default=True)
+    is_default = models.BooleanField(default=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Image for {self.admin_product.name}"
+
 
 class Stock(models.Model):
     STATUS_CHOICES = [

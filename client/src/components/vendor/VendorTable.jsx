@@ -25,7 +25,8 @@ export default function VendorTable({
   isLoading,
   isLoadingAction,
   currentActionId,
-  MarkFullKyc
+  MarkFullKyc,
+  role
 }) {
   const [viewVendor, setViewVendor] = useState(null);
   const [reviewVendor, setReviewVendor] = useState(null);
@@ -55,6 +56,16 @@ export default function VendorTable({
   };
 
   const getTableHeaders = () => {
+    const getRoleIdLabel = () => {
+    switch (role) {
+      case 'stockist':
+        return 'Stockist ID';
+      case 'reseller':
+        return 'Reseller ID';
+      default:
+        return 'Vendor ID';
+    }
+  };
     switch (activeTab) {
       case 'new':
         return ['Sr.No', 'Created Date', 'Full Name', 'Email', 'Phone Number', 'Actions'];
@@ -64,7 +75,15 @@ export default function VendorTable({
         return ['Sr.No', 'Created Date', 'Email', 'Full Name', 'Phone', 'Actions'];
       case 'active':
       case 'suspended':
-        return ['Vendor ID', 'Created Date', 'Name', 'Email', 'Phone', 'Business', 'Location', 'Actions'];
+        return [
+        getRoleIdLabel(), 
+        'Name',
+        'Email',
+        'Phone',
+        'Business',
+        'Location',
+        'Actions',
+      ];
       default:
         return [];
     }
@@ -180,7 +199,7 @@ export default function VendorTable({
               ) : (
                 <tr>
                   <td colSpan={getTableHeaders().length} className="text-center py-8 text-gray-500">
-                    No {activeTab === 'new' ? 'applications' : 'vendors'} found
+                    No {activeTab === 'new' ? 'applications' : role } found
                   </td>
                 </tr>
               )}
@@ -200,6 +219,7 @@ export default function VendorTable({
         {reviewVendor && (
           <ProfileReviewModal
             vendor={reviewVendor}
+            role={role}
             onClose={() => setReviewVendor(null)}
           />
         )}

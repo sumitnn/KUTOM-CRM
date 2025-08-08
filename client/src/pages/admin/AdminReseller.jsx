@@ -1,97 +1,206 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import {
-    useDeleteResellerMutation,
-    useUpdateResellerMutation,
-    useCreateResellerMutation,
-    useFetchResellerQuery,
-} from '../../features/reseller/resellerApi';
+  useFetchResellersQuery,
+  useUpdateResellerStatusMutation,
+} from "../../features/reseller/resellerApi";
 
-import ResellerCardList from '../../components/reseller/ResellerCardList';
-import CreateResellerModal from '../../components/reseller/CreateResellerModal';
+import {
+  useGetAllAccountApplicationsQuery,
+  useApproveAccountApplicationMutation,
+  useRejectAccountApplicationMutation,
+  useUpdateUserAccountKycMutation
+} from "../../features/newapplication/newAccountApplicationApi";
 
-const AdminReseller = () => {
-  const { data: reseller = [], isLoading, refetch } = useFetchResellerQuery();
-  const [createReseller, { isLoading: creating }] = useCreateResellerMutation();
-  const [updateReseller] = useUpdateResellerMutation();
-  const [deleteReseller] = useDeleteResellerMutation();
+import VendorTable from '../../components/vendor/VendorTable';
+import RejectReasonModal from '../../components/RejectReasonModal';
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [error, setError] = useState(null);
+const statusTabs = [
+  { id: 'new', label: 'New Request' },
+  { id: 'pending', label: 'Processing' },
+  { id: 'rejected', label: 'Rejected' },
+  { id: 'active', label: 'Active' },
+  { id: 'suspended', label: 'Inactive' },
+];
 
-  const handleAddReseller = async (resellerData) => {
-    setError(null);
+export default function AdminReseller() {
+  const [activeTab, setActiveTab] = useState('new');
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [selectedApplication, setSelectedApplication] = useState(null);
+  const [searchParams, setSearchParams] = useState({
+    searchTerm: '',
+    searchType: 'email'
+  });
+  const [isLoadingAction, setIsLoadingAction] = useState(false);
+  const [currentActionId, setCurrentActionId] = useState(null);
+
+  // Application APIs (new, pending, rejected)
+  const { 
+    data: applications = [], 
+    isLoading: isLoadingApplications, 
+    refetch: refetchApplications 
+  } = useGetAllAccountApplicationsQuery(
+    ['new', 'pending', 'rejected'].includes(activeTab) 
+      ? { 
+          status: activeTab,
+          search: searchParams.searchTerm,
+          search_type: searchParams.searchType,
+          role: 'reseller'
+        } 
+      : null,
+    { skip: !['new', 'pending', 'rejected'].includes(activeTab) }
+  );
+
+  // Reseller APIs (active, suspended)
+  const { 
+    data: resellers = [], 
+    isLoading: isLoadingResellers, 
+    refetch: refetchResellers 
+  } = useFetchResellersQuery(
+    ['active', 'suspended'].includes(activeTab)
+      ? { 
+          status: activeTab,
+          search: searchParams.searchTerm,
+          search_type: searchParams.searchType
+        }
+      : null,
+    { skip: !['active', 'suspended'].includes(activeTab) }
+  );
+
+  const [updateReseller] = useUpdateResellerStatusMutation();
+  const [approveApplication] = useApproveAccountApplicationMutation();
+  const [rejectApplication] = useRejectAccountApplicationMutation();
+  const [UpdateKyc] = useUpdateUserAccountKycMutation();
+
+  const isLoading = isLoadingApplications || isLoadingResellers;
+
+  const getCurrentData = () => {
+    if (['new', 'pending', 'rejected'].includes(activeTab)) {
+      return applications;
+    }
+    return resellers;
+  };
+
+  const handleSearch = (searchTerm, searchType) => {
+    setSearchParams({ searchTerm, searchType });
+  };
+
+  const handleRefresh = async (id) => {
     try {
-      await createReseller(resellerData).unwrap();
-      toast.success('reseller created successfully!');
-      setModalOpen(false);
-      refetch();
+      if (id === 'all') {
+        if (['new', 'pending', 'rejected'].includes(activeTab)) {
+          await refetchApplications();
+        } else {
+          await refetchResellers();
+        }
+        toast.success('Data refreshed successfully');
+      }
     } catch (err) {
-      console.error('Create reseller error:', err);
-  
-      // Extract error message from the nested message.email array
-      const errorMessage =
-        err?.data?.message?.email?.[0] ||    
-        err?.data?.message ||                 
-        err?.error ||                       
-        'Failed to create reseller';
-  
-      setError(errorMessage);
-      toast.error(errorMessage);
+      toast.error('Failed to refresh data');
     }
   };
 
-  const handleEditReseller = async (id, data) => {
+  const handleMarkKycCompleted = async (userId) => {
+  setIsLoadingAction(true);
+    
+
+  try {
+    await UpdateKyc({ userId }).unwrap();
+    toast.success('KYC marked as completed successfully');
+    refetchApplications();
+  } catch (err) {
+    toast.error(err?.data?.message || "Something went wrong while verifying KYC");
+  } finally {
+    setIsLoadingAction(false);
+   
+  }
+};
+
+
+  const handleApproveApplication = async (id, actionType = 'approve') => {
+    setIsLoadingAction(true);
+    setCurrentActionId(actionType);
     try {
-      await updateReseller({ id, data }).unwrap();
-      toast.success('reseller updated successfully!');
-      refetch();
+      await approveApplication(id).unwrap();
+      toast.success(actionType === 'kyc' 
+        ? 'KYC marked as completed successfully' 
+        : 'Application Status Updated');
+      refetchApplications();
     } catch (err) {
-      console.error('Update reseller error:', err);
-      toast.error('Failed to update reseller');
+      toast.error(err?.data?.message || "Something went wrong");
+    } finally {
+      setIsLoadingAction(false);
+      setCurrentActionId(null);
     }
   };
 
-  const handleDeleteReseller = async (id) => {
+  const handleRejectApplication = async (id, reason) => {
+    setIsLoadingAction(true);
+    setCurrentActionId('reject');
     try {
-      await deleteReseller(id).unwrap();
-      toast.success('reseller deleted successfully!');
-      refetch();
+      await rejectApplication({ id, reason }).unwrap();
+      toast.success('Application rejected!');
+      setRejectModalOpen(false);
+      refetchApplications();
     } catch (err) {
-      console.error('Delete reseller error:', err);
-      toast.error('Failed to delete reseller');
+      toast.error(err?.data?.message || 'Failed to reject application');
+    } finally {
+      setIsLoadingAction(false);
+      setCurrentActionId(null);
+    }
+  };
+
+  const handleToggleResellerStatus = async (id) => {
+    setIsLoadingAction(true);
+    setCurrentActionId('status');
+    try {
+      const newStatus = activeTab === 'active' ? 'suspended' : 'active';
+      await updateReseller({ id, data: { status: newStatus } }).unwrap();
+      toast.success("User Profile Status Updated");
+      refetchResellers();
+    } catch (err) {
+      toast.error('Failed to update reseller status');
+    } finally {
+      setIsLoadingAction(false);
+      setCurrentActionId(null);
     }
   };
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">All Reseller ({reseller.length})</h1>
-        <button className="btn btn-primary" onClick={() => setModalOpen(true)}>
-          + Create New Reseller
-        </button>
+    <div className="p-2 md:p-4">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 gap-4">
+        <h1 className="text-xl md:text-2xl font-bold">Reseller Management</h1>
       </div>
 
-      {isLoading ? (
-        <div>Loading...</div>
-      ) : (
-        <ResellerCardList reseller={reseller} onEdit={handleEditReseller} onDelete={handleDeleteReseller} />
-      )}
+      <VendorTable 
+        data={getCurrentData()}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onApprove={handleApproveApplication}
+        MarkFullKyc={handleMarkKycCompleted}
+        onReject={(id) => {
+          if (['new', 'pending', 'rejected'].includes(activeTab)) {
+            setSelectedApplication(id);
+            setRejectModalOpen(true);
+          } else {
+            handleToggleResellerStatus(id);
+          }
+        }}
+        onSearch={handleSearch}
+        onRefresh={handleRefresh}
+        isLoading={isLoading}
+        isLoadingAction={isLoadingAction}
+        currentActionId={currentActionId}
+        role="reseller"
+      />
 
-      {modalOpen && (
-        <CreateResellerModal
-          onClose={() => {
-            setModalOpen(false);
-            setError(null);
-           
-          }}
-          onAddVendor={handleAddReseller}
-          loading={creating}
-          error={error}
+      {rejectModalOpen && (
+        <RejectReasonModal
+          onClose={() => setRejectModalOpen(false)}
+          onSubmit={(reason) => handleRejectApplication(selectedApplication, reason)}
+          isLoading={isLoadingAction && currentActionId === 'reject'}
         />
       )}
     </div>
   );
-};
-
-export default AdminReseller;
+}
