@@ -3,6 +3,12 @@ import { Route } from "react-router-dom";
 import ProtectedRoute from "../ProtectedRoutes";
 import StockistMainLayout from "../../layout/stockist/StockistMainLayout";
 import Spinner from "../../components/common/Spinner";
+import ProductDetailsPage from "../../pages/ProductDetailPage";
+import ProductListPage from "../../pages/ProductListPage";
+import CommonProductListPage from "../../pages/CommonProductListPage";
+import CommonProductDetailPage from "../../pages/CommonProductDetailPage";
+import MyCart from "../../pages/MyCart";
+
 
 // Lazy-loaded components
 const StockistDashboard = lazy(() => import("../../pages/stockist/StockistDashboard"));
@@ -15,6 +21,8 @@ const UserWalletPage = lazy(() => import("../../pages/UserWalletPage"));
 const StockistReseller = lazy(() => import("../../pages/stockist/StockistReseller"));
 const CreateTopupRequest = lazy(() => import("../../pages/CreateTopupRequest"));
 const TopupRequestsList = lazy(() => import("../../pages/TopupRequestList"));
+const WithdrawlRequestsList = lazy(() => import("../../pages/WithdrawlRequestsList"));
+const CreateWithdrawalRequest = lazy(() => import("../../pages/CreateWithdrawalRequest"));
 
 const StockistRoutes = [
   <Route element={<ProtectedRoute allowedRoles={["stockist"]} />} key="stockist">
@@ -25,6 +33,27 @@ const StockistRoutes = [
         <StockistMainLayout>
           <Suspense fallback={<Spinner />}>
             <StockistDashboard />
+          </Suspense>
+        </StockistMainLayout>
+      }
+    />
+
+    <Route 
+      path="/stockist/products" 
+      element={
+        <StockistMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <CommonProductListPage role="stockist"/>
+          </Suspense>
+        </StockistMainLayout>
+      }
+    />
+    <Route 
+      path="/stockist/products/:id" 
+      element={
+        <StockistMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <CommonProductDetailPage role="stockist"/>
           </Suspense>
         </StockistMainLayout>
       }
@@ -70,10 +99,33 @@ const StockistRoutes = [
       element={
         <StockistMainLayout>
           <Suspense fallback={<Spinner />}>
-            <UserWalletPage />
+            <UserWalletPage role="stockist"/>
           </Suspense>
         </StockistMainLayout>
       } 
+    />
+
+      {/* Withdrawal */}
+    <Route
+      path="/stockist/withdrawl-request"
+      element={
+        <StockistMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <CreateWithdrawalRequest role="stockist" />
+          </Suspense>
+        </StockistMainLayout>
+      }
+    />
+    
+    <Route
+      path="/stockist/my-withdrawl"
+      element={
+        <StockistMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <WithdrawlRequestsList role="stockist" />
+          </Suspense>
+        </StockistMainLayout>
+      }
     />
 
     {/* Topup */}
@@ -82,11 +134,24 @@ const StockistRoutes = [
       element={
         <StockistMainLayout>
           <Suspense fallback={<Spinner />}>
-            <CreateTopupRequest/>
+            <CreateTopupRequest role="stockist"/>
           </Suspense>
         </StockistMainLayout>
       } 
     />
+
+     <Route 
+      path="/stockist/my-cart" 
+      element={
+        <StockistMainLayout>
+          <Suspense fallback={<Spinner />}>
+            
+            <MyCart role="stockist"/>
+          </Suspense>
+        </StockistMainLayout>
+      } 
+    />
+
     <Route 
       path="/stockist/my-topup" 
       element={

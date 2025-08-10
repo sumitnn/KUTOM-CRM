@@ -2,7 +2,7 @@ import { lazy, Suspense } from "react";
 import { Route } from "react-router-dom";
 import ProtectedRoute from "../ProtectedRoutes";
 import ResellerMainLayout from "../../layout/reseller/ResellerMainLayout";
-import Spinner from "../../components/common/Spinner"; // Make sure you have this component
+import Spinner from "../../components/common/Spinner"; 
 
 // Lazy-loaded components
 const ResellerDashboard = lazy(() => import("../../pages/reseller/ResellerDashboard"));
@@ -17,6 +17,8 @@ const ChangePassword = lazy(() => import("../../components/auths/ChangePassword"
 const OrderDetailPage = lazy(() => import("../../pages/OrderDetailPage"));
 const CreateTopupRequest = lazy(() => import("../../pages/CreateTopupRequest"));
 const TopupRequestsList = lazy(() => import("../../pages/TopupRequestList"));
+const WithdrawlRequestsList = lazy(() => import("../../pages/WithdrawlRequestsList"));
+const CreateWithdrawalRequest = lazy(() => import("../../pages/CreateWithdrawalRequest"));
 
 const ResellerRoutes = [
   <Route element={<ProtectedRoute allowedRoles={["reseller"]} />} key="reseller">
@@ -75,6 +77,28 @@ const ResellerRoutes = [
         </ResellerMainLayout>
       } 
     />
+     {/* Withdrawal */}
+    <Route
+      path="/reseller/withdrawl-request"
+      element={
+        <ResellerMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <CreateWithdrawalRequest role="reseller" />
+          </Suspense>
+        </ResellerMainLayout>
+      }
+    />
+    
+    <Route
+      path="/reseller/my-withdrawl"
+      element={
+        <ResellerMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <WithdrawlRequestsList role="reseller" />
+          </Suspense>
+        </ResellerMainLayout>
+      }
+    />
     
     {/* Topup */}
     <Route 
@@ -104,7 +128,7 @@ const ResellerRoutes = [
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
-            <UserWalletPage/>
+            <UserWalletPage role="reseller"/>
           </Suspense>
         </ResellerMainLayout>
       } 

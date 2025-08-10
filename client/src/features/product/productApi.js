@@ -39,6 +39,12 @@ export const productApi = createApi({
                 method: 'GET',
             }),
         }),
+        getAdminProductById: builder.query({
+            query: (id) => ({
+                url: `/admin-products/${id}/`,
+                method: 'GET',
+            }),
+        }),
 
         createProduct: builder.mutation({
             query: (data) => ({
@@ -109,6 +115,28 @@ export const productApi = createApi({
             }),
             providesTags: ['Product'],
         }),
+        getAdminAllProducts: builder.query({
+            query: (params = {}) => ({
+                url: 'admin/products/',
+                method: 'GET',
+                params: {
+                    ...(params.page && { page: params.page }),
+                    ...(params.pageSize && { page_size: params.pageSize }),
+                },
+            }),
+            providesTags: ['Product'],
+        }),
+        getAdminActiveProducts: builder.query({
+            query: (params = {}) => ({
+                url: 'admin/products/',
+                method: 'GET',
+                params: {
+                    ...(params.page && { page: params.page }),
+                    ...(params.pageSize && { page_size: params.pageSize }),
+                },
+            }),
+            providesTags: ['Product'],
+        }),
 
         getProductSizes: builder.query({
             query: (productId) => ({
@@ -116,6 +144,13 @@ export const productApi = createApi({
                 method: 'GET',
             }),
             providesTags: ['ProductSize'],
+        }),
+        getAdminProductSizes: builder.query({
+            query: (productId) => ({
+                url: `admin/products/${productId}/sizes/`,
+                method: 'GET',
+            }),
+            providesTags: ['AdminProductSize'],
         }),
     }),
 });
@@ -139,4 +174,8 @@ export const {
     useLazyGetVendorActiveProductsQuery,
     useGetProductSizesQuery,
     useLazyGetProductSizesQuery,
+    useGetAdminActiveProductsQuery,
+    useGetAdminAllProductsQuery,
+    useGetAdminProductSizesQuery,
+    useGetAdminProductByIdQuery
 } = productApi;

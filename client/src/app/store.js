@@ -7,7 +7,7 @@ import authReducer from "../features/auth/authSlice";
 import { orderApi } from "../features/order/orderApi";
 import { walletApi } from "../features/walletApi";
 import { topupApi } from "../features/topupApi";
-import { stockistApi } from "../features/stockist/stockistApi";
+import { stockistApi } from "../features/stockist/StockistApi";
 import { vendorApi } from "../features/vendor/VendorApi";
 import { brandApi } from "../features/brand/brandApi";
 import { categoryApi } from "../features/category/categoryApi";
@@ -22,6 +22,8 @@ import { stocksApi } from "../features/stocks/stocksApi";
 import { notificationApi } from "../features/notification/notificationApi";
 import { newAccountApplicationApi } from "../features/newapplication/newAccountApplicationApi";
 import { salesApi } from "../features/sales/salesApi";
+import { commissionsApi } from "../features/commission/commissionApi";
+import { adminProductApi } from "../features/adminProduct/adminProductApi";
 
 
 
@@ -46,7 +48,9 @@ export const store = configureStore({
         [stocksApi.reducerPath]: stocksApi.reducer,
         [notificationApi.reducerPath]: notificationApi.reducer,
         [newAccountApplicationApi.reducerPath]: newAccountApplicationApi.reducer,
-        [salesApi.reducerPath]:salesApi.reducer,
+        [salesApi.reducerPath]: salesApi.reducer,
+        [commissionsApi.reducerPath]: commissionsApi.reducer,
+        [adminProductApi.reducerPath]:adminProductApi.reducer,
         
     },
     middleware: (getDefaultMiddleware) =>
@@ -65,5 +69,7 @@ export const store = configureStore({
             notificationApi.middleware,
             newAccountApplicationApi.middleware,
             salesApi.middleware,
+            commissionsApi.middleware,
+            adminProductApi.middleware
         ),
 });

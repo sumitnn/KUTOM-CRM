@@ -3,6 +3,10 @@ import { Route } from "react-router-dom";
 import ProtectedRoute from "../ProtectedRoutes";
 import AdminMainLayout from "../../layout/admin/AdminMainLayout";
 import Spinner from "../../components/common/Spinner";
+
+import Report from "../../pages/Report";
+import CommonMyStockPage from "../../pages/CommonMyStockPage";
+import ViewProductPage from "../../pages/ViewProductPage";
 const AdminWithdrawalRequest =lazy(()=>import("../../pages/admin/AdminWithdrawalRequest")) ;
 const OrderDetailPage =lazy(()=>"../../pages/OrderDetailPage") ;
 
@@ -91,6 +95,31 @@ const AdminRoutes = [
       } 
     />
 
+        {/* Stocks */}
+    <Route
+      path="/admin/my-stocks"
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <CommonMyStockPage role="admin" />
+          </Suspense>
+        </AdminMainLayout>
+      }
+    />
+    
+    {/* Report */}
+    <Route
+      path="/admin/sales-report"
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <Report role="admin" />
+          </Suspense>
+        </AdminMainLayout>
+      }
+    />
+
+
     {/* product routes */}
     <Route 
       path="/admin/products" 
@@ -143,6 +172,20 @@ const AdminRoutes = [
         </AdminMainLayout>
       }
     />
+    <Route 
+      path="/view/product/:id" 
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <ViewProductPage role="admin"/>
+          </Suspense>
+        </AdminMainLayout>
+      }
+    />
+
+
+
+
     <Route 
       path="/admin/products/edit/:id" 
       element={

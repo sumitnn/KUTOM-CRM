@@ -110,3 +110,10 @@ class AdminProductImageAdmin(admin.ModelAdmin):
     list_display = ('id', 'admin_product', 'image', 'is_featured', 'is_default', 'created_at')
     list_filter = ('is_featured', 'is_default')
     search_fields = ('admin_product__name',)
+
+
+@admin.register(ProductCommission)
+class AdminProductCommissionAdmin(admin.ModelAdmin):
+    list_display = ('admin_product', 'commission_type', 'reseller_commission_value', 'stockist_commission_value', 'admin_commission_value', 'updated_at')
+    list_filter = ('commission_type',)
+    search_fields = ('admin_product__name',)

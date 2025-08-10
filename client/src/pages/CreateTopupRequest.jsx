@@ -78,6 +78,7 @@ const CreateTopupRequest = ({role}) => {
 
       await createTopup(formData).unwrap();
       toast.success("Topup request submitted successfully");
+      console.log(`/${role}/my-topup`);
       navigate(`/${role}/my-topup`);
     } catch (err) {
       console.error(err);

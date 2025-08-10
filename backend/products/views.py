@@ -1,7 +1,7 @@
 from rest_framework import viewsets
 from .models import Brand
 from .serializers import *
-from accounts.permissions import IsAdminOrResellerRole,IsAdminOrVendorRole,IsVendorRole
+from accounts.permissions import IsAdminRole,IsAdminOrVendorRole,IsVendorRole,IsAdminStockistResellerRole
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
@@ -17,6 +17,7 @@ from rest_framework.pagination import PageNumberPagination
 from datetime import datetime
 from accounts.utils import create_notification
 from django.db import transaction
+from rest_framework.exceptions import NotFound
 
 class BrandListCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -546,6 +547,48 @@ class ProductListCreateAPIView(APIView):
 
 
 
+class AdminProductDetailView(generics.RetrieveUpdateAPIView):
+    queryset = AdminProduct.objects.all()
+    
+    serializer_class = AdminProductDetailSerializer
+    permission_classes = [IsAdminStockistResellerRole] 
+
+
+class ProductCommissionDetail(APIView):
+    permission_classes = [IsAdminRole]
+    
+    def get_object(self, product_id):
+        try:
+            return ProductCommission.objects.get(admin_product_id=product_id)
+        except ProductCommission.DoesNotExist:
+            
+            raise NotFound(detail="Invalid product ID or commission not found")
+
+    def get(self, request, product_id, format=None):
+        commission = self.get_object(product_id)
+        serializer = AdminProductCommissionSerializer(commission)
+        return Response(serializer.data)
+
+    def patch(self, request, product_id, format=None):
+        
+        commission = self.get_object(product_id)
+        serializer = AdminProductCommissionSerializer(
+            commission, 
+            data=request.data, 
+            partial=True
+        )
+        
+        if serializer.is_valid():
+            try:
+                serializer.save()
+                return Response(serializer.data)
+            except ValueError as e:
+                return Response(
+                    {'detail': str(e)}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class ProductDetailAPIView(APIView):
     permission_classes = [IsAdminOrVendorRole]
@@ -868,6 +911,16 @@ class VendorActiveProductListView(generics.ListAPIView):
     def get_queryset(self):
         return Product.objects.filter(is_featured=True, owner=self.request.user)
 
+class AdminActiveProductListView(generics.ListAPIView):
+    serializer_class = AdminProductDropdownSerializer
+    permission_classes = [IsAdminStockistResellerRole]
+    pagination_class=None
+
+    def get_queryset(self):
+        return AdminProduct.objects.filter(is_active=True)
+
+
+
 # View to fetch all sizes for a selected product
 class ProductSizeListByProductView(generics.ListAPIView):
     serializer_class = ProductSizeSerializer
@@ -878,6 +931,14 @@ class ProductSizeListByProductView(generics.ListAPIView):
         product_id = self.kwargs['product_id']
         return ProductSize.objects.filter(product_id=product_id, is_active=True)
     
+class AdminProductSizeListByProductView(generics.ListAPIView):
+    serializer_class = AdminProductSizeSerializer
+    permission_classes = [IsAdminStockistResellerRole]
+    pagination_class=None
+
+    def get_queryset(self):
+        product_id = self.kwargs['product_id']
+        return AdminProductSize.objects.filter(product_id=product_id, is_active=True)
 
 class StockListCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -923,3 +984,63 @@ class StockRetrieveUpdateAPIView(generics.RetrieveUpdateAPIView):
     queryset = Stock.objects.all()
     serializer_class = StockSerializer
     permission_classes = [IsVendorRole]
+
+
+class AdminProductPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
+class AdminStockListView(generics.ListAPIView):
+    serializer_class = AdminProductSerializer
+    pagination_class = AdminProductPagination
+    permission_classes = [IsAdminStockistResellerRole]
+
+    def get_queryset(self):
+        queryset = AdminProduct.objects.all().order_by('-created_at')
+        status = self.request.query_params.get('status')
+        if status in ['in_stock', 'out_of_stock']:
+            queryset = queryset.filter(stock_status=status)
+        return queryset
+    
+class AdminProductListView(generics.ListAPIView):
+    serializer_class = AdminProductListSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    search_fields = ['name', 'sku', 'short_description']
+    filterset_fields = {
+        'brand': ['exact'],
+        'category': ['exact'],
+        'subcategory': ['exact'],
+        'is_active': ['exact'],
+        'stock_status': ['exact'],
+    }
+    
+    def get_queryset(self):
+        queryset = AdminProduct.objects.select_related(
+            'brand', 'category', 'subcategory'
+        ).prefetch_related('images').filter(is_active=True)
+        
+        # Additional filters from query params
+        search = self.request.query_params.get('search', None)
+        category = self.request.query_params.get('category', None)
+        subcategory = self.request.query_params.get('subcategory', None)
+        brand = self.request.query_params.get('brand', None)
+        
+        if search:
+            queryset = queryset.filter(
+                Q(name__icontains=search) |
+                Q(short_description__icontains=search) |
+                Q(sku__icontains=search)
+            )
+        
+        if category:
+            queryset = queryset.filter(category_id=category)
+        
+        if subcategory:
+            queryset = queryset.filter(subcategory_id=subcategory)
+        
+        if brand:
+            queryset = queryset.filter(brand_id=brand)
+            
+        return queryset.order_by('-created_at')

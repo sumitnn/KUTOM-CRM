@@ -21,9 +21,10 @@ class WalletSerializer(serializers.ModelSerializer):
 
 class TopupRequestSerializer(serializers.ModelSerializer):
     approved_by=serializers.SerializerMethodField()
+    user=serializers.SerializerMethodField()
     class Meta:
         model = TopupRequest
-        fields = ['id', 'amount', 'payment_method', 'screenshot','payment_details','approved_by','rejected_reason','reviewed_at', 'note', 'status', 'created_at']
+        fields = ['id', 'amount','user', 'payment_method', 'screenshot','payment_details','approved_by','rejected_reason','reviewed_at', 'note', 'status', 'created_at']
         read_only_fields = ['id', 'status', 'created_at']
         
     def validate_amount(self, value):
@@ -34,6 +35,13 @@ class TopupRequestSerializer(serializers.ModelSerializer):
         if obj.approved_by:
             return obj.approved_by.username
         return "Not Approved Yet"
+    
+    def get_user(self, obj):
+        try:
+            user =obj.user
+            return UserListSerializer(user).data
+        except User.DoesNotExist:
+            return None
 
 class WithdrawalRequestSerializer(serializers.ModelSerializer):
     wallet = WalletSerializer(read_only=True)
@@ -53,14 +61,25 @@ class WithdrawalRequestSerializer(serializers.ModelSerializer):
                 "message": "Amount must be greater than zero"
             })
 
-        if user.wallet.balance < amount:
+        # Choose which wallet to use based on role
+        if user.role in ["stockist", "reseller"]:
+            wallet = getattr(user, "commission_wallet", None)
+        else:
+            wallet = getattr(user, "wallet", None)
+
+        if wallet is None:
+            raise ValidationError({
+                "status": False,
+                "message": "Wallet not found"
+            })
+
+        if wallet.balance < amount:
             raise ValidationError({
                 "status": False,
                 "message": "Insufficient wallet balance"
             })
 
-        # Deduct from wallet
-        wallet = user.wallet
+        # Deduct from chosen wallet
         wallet.balance -= amount
         wallet.save()
 
@@ -78,6 +97,8 @@ class WithdrawalRequestSerializer(serializers.ModelSerializer):
             description=f"Withdrawal request #{withdrawal.id}",
             transaction_status='PENDING'
         )
+
+        # Notify admin
         admin_user = User.objects.filter(role="admin").first()
         if admin_user:
             create_notification(
@@ -89,6 +110,7 @@ class WithdrawalRequestSerializer(serializers.ModelSerializer):
             )
 
         return withdrawal
+
 
 
 class StateSerializer(serializers.ModelSerializer):

@@ -27,7 +27,7 @@ from io import StringIO
 from django.utils.text import get_valid_filename
 from accounts.utils import create_notification
 from rest_framework.parsers import MultiPartParser, FormParser
-
+from products.models import AdminProduct, AdminProductSize, AdminProductImage
 
 
 # Reseller can create
@@ -281,7 +281,6 @@ class OrderDetailAPIView(APIView):
         serializer = OrderDetailSerializer(order)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
-
 class UpdateOrderStatusView(APIView):
     permission_classes = [IsAdminOrVendorRole]
 
@@ -294,19 +293,19 @@ class UpdateOrderStatusView(APIView):
         if request.user != order.created_by and request.user != order.created_for:
             return Response({"message": "You are not authorized to update this order."}, status=status.HTTP_403_FORBIDDEN)
 
-
         is_received = request.data.get('status') == 'received'
-        if request.data.get('status') == 'received' and request.user.role == 'admin':
-            request.data['status'] = 'delivered' 
-            
+        is_delivered = request.data.get('status') == 'delivered'
 
+        if request.data.get('status') == 'received' and request.user.role == 'admin':
+            request.data['status'] = 'delivered'
 
         serializer = OrderStatusUpdateSerializer(order, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
 
-            # Notify admin
             admin_user = User.objects.filter(role='admin').first()
+
+            # Notifications
             if admin_user:
                 create_notification(
                     user=admin_user,
@@ -315,7 +314,7 @@ class UpdateOrderStatusView(APIView):
                     notification_type="order status update",
                     related_url=f"/orders/{order.id}/"
                 )
-            if is_received :
+            if is_received or is_delivered:
                 create_notification(
                     user=order.created_for,
                     title="Order Delivered Successfully",
@@ -324,50 +323,102 @@ class UpdateOrderStatusView(APIView):
                     related_url=f"/orders/{order.id}/"
                 )
 
-            # If order is delivered, process wallet changes
+                # ✅ Create Admin Product from Vendor's Product
+                self.create_admin_product(order, admin_user)
+
+            # Wallet handling if delivered
             if serializer.validated_data.get('status') == 'delivered':
-                transport_charges = order.transport_charges or 0
-
-                if transport_charges > 0:
-                    try:
-                        admin_wallet = Wallet.objects.get(user=admin_user)
-                        user_wallet = Wallet.objects.get(user=order.created_for)
-
-                        # Deduct from admin wallet
-                        if admin_wallet.balance < transport_charges:
-                            return Response({"message": "Admin wallet has insufficient balance to process transport charges."},
-                                            status=status.HTTP_400_BAD_REQUEST)
-
-                        admin_wallet.balance -= transport_charges
-                        user_wallet.balance += transport_charges
-
-                        admin_wallet.save()
-                        user_wallet.save()
-
-                        # Create transaction for admin (DEBIT)
-                        WalletTransaction.objects.create(
-                            wallet=admin_wallet,
-                            transaction_type='DEBIT',
-                            amount=transport_charges,
-                            description=f"Transport charges for Order #{order.id}",
-                            transaction_status='SUCCESS'
-                        )
-
-                        # Create transaction for user (CREDIT)
-                        WalletTransaction.objects.create(
-                            wallet=user_wallet,
-                            transaction_type='CREDIT',
-                            amount=transport_charges,
-                            description=f"Received transport charges for Order #{order.id}",
-                            transaction_status='RECEIVED'
-                        )
-
-                    except Wallet.DoesNotExist:
-                        return Response({"message": "Admin or user wallet not found."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                self.handle_wallet_transactions(order, admin_user)
 
             return Response(serializer.data)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def handle_wallet_transactions(self, order, admin_user):
+        transport_charges = order.transport_charges or 0
+        if transport_charges > 0:
+            try:
+                admin_wallet = Wallet.objects.get(user=admin_user)
+                user_wallet = Wallet.objects.get(user=order.created_for)
+
+                if admin_wallet.balance < transport_charges:
+                    raise ValidationError({"message": "Insufficient admin wallet balance."})
+
+                admin_wallet.balance -= transport_charges
+                user_wallet.balance += transport_charges
+                admin_wallet.save()
+                user_wallet.save()
+
+                WalletTransaction.objects.create(
+                    wallet=admin_wallet,
+                    transaction_type='DEBIT',
+                    amount=transport_charges,
+                    description=f"Transport charges for Order #{order.id}",
+                    transaction_status='SUCCESS'
+                )
+                WalletTransaction.objects.create(
+                    wallet=user_wallet,
+                    transaction_type='CREDIT',
+                    amount=transport_charges,
+                    description=f"Received transport charges for Order #{order.id}",
+                    transaction_status='RECEIVED'
+                )
+            except Wallet.DoesNotExist:
+                raise ValidationError({"message": "Admin or user wallet not found."})
+
+    @transaction.atomic
+    def create_admin_product(self, order, admin_user):
+        # Assuming order has order_items with product
+        
+        for item in order.items.all():
+            vendor_product = item.product
+
+            # Prevent duplicates if already copied
+            if AdminProduct.objects.filter(
+                source_product_id=vendor_product.id,
+                admin=admin_user
+            ).exists():
+                continue
+
+            admin_product = AdminProduct.objects.create(
+                name=vendor_product.name,
+                description=vendor_product.description,
+                short_description=vendor_product.short_description,
+                price=item.price,
+                weight=vendor_product.weight,
+                weight_unit=vendor_product.weight_unit,
+                dimensions=vendor_product.dimensions,
+                product_type=vendor_product.product_type,
+                currency=vendor_product.currency,
+                admin=admin_user,
+                original_vendor=vendor_product.owner,
+                source_product_id=vendor_product.id,
+                resale_price=item.price,  
+                quantity_available=item.quantity,
+                video_url=vendor_product.video_url,
+                is_active=True
+            )
+
+            # Copy product sizes
+            for size in vendor_product.sizes.all():
+                AdminProductSize.objects.create(
+                    admin_product=admin_product,
+                    size=size.size,
+                    unit=size.unit,
+                    price=size.price,
+                    is_default=size.is_default,
+                    is_active=size.is_active
+                )
+
+            # Copy product images
+            for img in vendor_product.images.all():
+                AdminProductImage.objects.create(
+                    admin_product=admin_product,
+                    image=img.image,
+                    alt_text=img.alt_text,
+                    is_featured=img.is_featured,
+                    is_default=img.is_default
+                )
 
 
 class UpdateOrderDispatchStatusView(APIView):

@@ -116,6 +116,7 @@ class ProductPriceTierSerializer(serializers.ModelSerializer):
         read_only_fields = ['id','product', 'size']
 
 
+
 class ProductSizeSerializer(serializers.ModelSerializer):
     price_tiers = ProductPriceTierSerializer(many=True, read_only=True)
 
@@ -125,7 +126,12 @@ class ProductSizeSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at', 'updated_at']
 
 
-
+class AdminProductSizeSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = AdminProductSize
+        fields = "__all__"
+        read_only_fields = ['created_at', 'updated_at']
 
 
 
@@ -151,6 +157,79 @@ class ProductSerializer(serializers.ModelSerializer):
         read_only_fields = ['sku', 'slug', 'created_at', 'updated_at']
 
 
+class AdminProductImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdminProductImage
+        fields = ['id', 'image', 'alt_text', 'is_featured', 'is_default', 'created_at']
+
+
+class AdminProductSizeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdminProductSize
+        fields = ['id', 'size', 'unit', 'price', 'is_default', 'is_active', 'created_at', 'updated_at']
+
+
+class AdminProductDetailSerializer(serializers.ModelSerializer):
+    images = AdminProductImageSerializer(many=True, read_only=True)
+    sizes = AdminProductSizeSerializer(many=True, read_only=True)
+    admin_id = serializers.CharField(source='admin.id', read_only=True)
+    admin_name = serializers.CharField(source='admin.username', read_only=True)
+
+    brand_id = serializers.SerializerMethodField()
+    brand_name = serializers.SerializerMethodField()
+    category_id = serializers.SerializerMethodField()
+    category_name = serializers.SerializerMethodField()
+    subcategory_id = serializers.SerializerMethodField()
+    subcategory_name = serializers.SerializerMethodField()
+
+    tags = serializers.SlugRelatedField(
+        many=True,
+        read_only=True,
+        slug_field='name'
+    )
+
+    class Meta:
+        model = AdminProduct
+        fields = [
+            'id', 'sku', 'name', 'slug', 'description', 'short_description',
+            'price', 'resale_price', 'weight', 'weight_unit', 'dimensions',
+            'product_type', 'currency', 'quantity_available', 'stock_status',
+            'is_active', 'admin_id', 'admin_name', 'video_url',
+            'brand_id', 'brand_name',
+            'category_id', 'category_name',
+            'subcategory_id', 'subcategory_name',
+            'tags',
+            'created_at', 'updated_at',
+            'images', 'sizes'
+        ]
+        read_only_fields = fields
+
+    def get_brand_id(self, obj):
+        return obj.brand.id if obj.brand else None
+
+    def get_brand_name(self, obj):
+        return obj.brand.name if obj.brand else None
+
+    def get_category_id(self, obj):
+        return obj.category.id if obj.category else None
+
+    def get_category_name(self, obj):
+        return obj.category.name if obj.category else None
+
+    def get_subcategory_id(self, obj):
+        return obj.subcategory.id if obj.subcategory else None
+
+    def get_subcategory_name(self, obj):
+        return obj.subcategory.name if obj.subcategory else None
+
+    def update(self, instance, validated_data):
+        # Only allow updating price, resale_price, is_active
+        allowed_fields = {'price', 'resale_price', 'is_active'}
+        for field in list(validated_data.keys()):
+            if field not in allowed_fields:
+                validated_data.pop(field)
+        return super().update(instance, validated_data)
+
 
 
 
@@ -162,6 +241,11 @@ class ProductSizeDetailSerializer(serializers.ModelSerializer):
 class ProductDropdownSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
+        fields = ['id', 'name', 'sku']
+
+class AdminProductDropdownSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdminProduct
         fields = ['id', 'name', 'sku']
 
 class StockSerializer(serializers.ModelSerializer):
@@ -218,3 +302,85 @@ class StockSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
+    
+
+class AdminProductCommissionSerializer(serializers.ModelSerializer):
+    product_name = serializers.SerializerMethodField()
+    vendor_price = serializers.SerializerMethodField()
+    mrp = serializers.SerializerMethodField()
+    margin = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProductCommission
+        fields = [
+            'id', 'admin_product', 'product_name', 'vendor_price', 'mrp', 'margin',
+            'commission_type', 'reseller_commission_value', 'stockist_commission_value',
+            'admin_commission_value', 'updated_at'
+        ]
+        read_only_fields = ['admin_commission_value', 'margin']
+
+    def get_product_name(self, obj):
+        return obj.admin_product.name if obj.admin_product else None
+
+    def get_vendor_price(self, obj):
+        return obj.admin_product.price if obj.admin_product else None
+
+    def get_mrp(self, obj):
+        return obj.admin_product.resale_price if obj.admin_product else None
+
+    def get_margin(self, obj):
+        return obj.calculate_margin()
+    
+
+class AdminProductSerializer(serializers.ModelSerializer):
+    reseller_commission_value = serializers.SerializerMethodField()
+    stockist_commission_value = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AdminProduct
+        fields = '__all__'  # still sends all AdminProduct fields
+        # the two commission fields will be appended
+
+    def get_reseller_commission_value(self, obj):
+        commission = getattr(obj, "commission", None)
+        if not commission:
+            commission = getattr(obj, "adminproductcommission", None)
+        return commission.reseller_commission_value if commission else None
+
+    def get_stockist_commission_value(self, obj):
+        commission = getattr(obj, "commission", None)
+        if not commission:
+            commission = getattr(obj, "adminproductcommission", None)
+        return commission.stockist_commission_value if commission else None
+    
+
+class AdminProductListSerializer(serializers.ModelSerializer):
+    brand_id = serializers.IntegerField(source='brand.id', read_only=True)
+    brand_name = serializers.CharField(source='brand.name', read_only=True)
+
+    category_id = serializers.IntegerField(source='category.id', read_only=True)
+    category_name = serializers.CharField(source='category.name', read_only=True)
+
+    subcategory_id = serializers.IntegerField(source='subcategory.id', read_only=True)
+    subcategory_name = serializers.CharField(source='subcategory.name', read_only=True)
+
+    first_image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AdminProduct
+        fields = [
+            'id', 'name', 'short_description', 'price', 'resale_price',
+            'weight', 'weight_unit', 'stock_status', 'is_active', 'sku',
+            'brand_id', 'brand_name',
+            'category_id', 'category_name',
+            'subcategory_id', 'subcategory_name',
+            'first_image', 'quantity_available'
+        ]
+
+    def get_first_image(self, obj):
+        image = (
+            obj.images.filter(is_default=True).first()
+            or obj.images.filter(is_featured=True).first()
+            or obj.images.first()
+        )
+        return image.image.url if image else None

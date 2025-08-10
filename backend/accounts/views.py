@@ -364,6 +364,11 @@ class WalletSummaryView(generics.GenericAPIView):
             wallet = Wallet.objects.get(user=user)
         except Wallet.DoesNotExist:
             return Response({'error': 'Wallet not found.'}, status=404)
+        
+        try:
+            cwallet = CommissionWallet.objects.get(user=user).balance
+        except Wallet.DoesNotExist:
+            cwallet=0
 
         # ✅ Calculate total sales from Sale model
         total_sales = Sale.objects.filter(seller=user).aggregate(
@@ -380,7 +385,8 @@ class WalletSummaryView(generics.GenericAPIView):
         data = {
             'current_balance': wallet.balance,
             'total_sales': total_sales,
-            'total_withdrawals': total_withdrawals
+            'total_withdrawals': total_withdrawals,
+            'total_earnings':cwallet
         }
 
         return Response(data)

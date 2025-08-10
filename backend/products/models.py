@@ -3,6 +3,7 @@ from django.utils.text import slugify
 from django.core.validators import MinValueValidator
 from accounts.models import User
 import uuid
+from decimal import Decimal
 
 class Brand(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -222,11 +223,19 @@ class AdminProduct(models.Model):
     admin = models.ForeignKey(User, on_delete=models.CASCADE, related_name="admin_products")
     original_vendor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     source_product_id = models.IntegerField(null=True, blank=True)
+    video_url = models.URLField(blank=True, null=True)
 
     resale_price = models.DecimalField(max_digits=10, decimal_places=2)
-    quantity_available = models.PositiveIntegerField()
+    
+    quantity_available= models.PositiveIntegerField(default=0)
+    stock_status = models.CharField(max_length=20, choices=[('in_stock', 'In Stock'), ('out_of_stock', 'Out of Stock')], default='in_stock')
 
     is_active = models.BooleanField(default=True)
+    brand = models.ForeignKey(Brand, on_delete=models.SET_NULL, null=True, blank=True)
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
+    subcategory = models.ForeignKey(SubCategory, on_delete=models.SET_NULL, null=True, blank=True)
+    tags = models.ManyToManyField(Tag, blank=True)
+
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -239,6 +248,8 @@ class AdminProduct(models.Model):
             self.sku = f"PROD-{uuid.uuid4().hex[:8].upper()}"
         if not self.slug:
             self.slug = slugify(self.name)
+        if self.quantity_available < 10:
+            self.stock_status = 'out_of_stock'
         super().save(*args, **kwargs)
 
 class AdminProductSize(models.Model):
@@ -266,6 +277,55 @@ class AdminProductImage(models.Model):
 
     def __str__(self):
         return f"Image for {self.admin_product.name}"
+
+
+class ProductCommission(models.Model):
+    admin_product = models.OneToOneField(
+        AdminProduct,
+        on_delete=models.CASCADE,
+        related_name='commission'
+    )
+
+    commission_type = models.CharField(
+        max_length=10,
+        choices=[('flat', 'Flat'), ('percent', 'Percentage')],
+        default='flat'
+    )
+
+    reseller_commission_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    stockist_commission_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    admin_commission_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def calculate_margin(self):
+        """Margin = MRP - Vendor Price."""
+        return self.admin_product.price - self.admin_product.resale_price
+
+    def calculate_amount(self, value):
+        """Convert percentage to amount if needed."""
+        if self.commission_type == 'percent':
+            return (self.calculate_margin() * Decimal(value)) / Decimal(100)
+        return Decimal(value)
+
+    def clean(self):
+        """Validate commission distribution."""
+        reseller_amt = self.calculate_amount(self.reseller_commission_value)
+        stockist_amt = self.calculate_amount(self.stockist_commission_value)
+
+        if reseller_amt + stockist_amt > self.calculate_margin():
+            raise ValueError("Total commission cannot exceed the margin.")
+
+    def save(self, *args, **kwargs):
+        """Auto-calculate admin commission."""
+        self.clean()
+        reseller_amt = self.calculate_amount(self.reseller_commission_value)
+        stockist_amt = self.calculate_amount(self.stockist_commission_value)
+        self.admin_commission_value = self.calculate_margin() - (reseller_amt + stockist_amt)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Commission for {self.admin_product.name}"
 
 
 class Stock(models.Model):

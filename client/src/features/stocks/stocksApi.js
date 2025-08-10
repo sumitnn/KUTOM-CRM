@@ -15,6 +15,13 @@ export const stocksApi = createApi({
             }),
             providesTags: ['Stocks'],
         }),
+        getAdminStocks: builder.query({
+            query: ({ status, page = 1, pageSize = 10 }) => ({
+                url: `/admin-stocks/?status=${status}&page=${page}&page_size=${pageSize}`,
+                method: "GET"
+            }),
+            providesTags: ['AdminStocks'],
+        }),
 
         createStock: builder.mutation({
             query: (stockData) => ({
@@ -40,4 +47,5 @@ export const {
     useGetStocksQuery,
     useCreateStockMutation,
     useUpdateStockMutation,
+    useGetAdminStocksQuery
 } = stocksApi;
