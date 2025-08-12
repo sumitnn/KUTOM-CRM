@@ -1,16 +1,15 @@
 import { lazy, Suspense } from "react";
 import { Route } from "react-router-dom";
-import ProtectedRoute from "../ProtectedRoutes";
-import StockistMainLayout from "../../layout/stockist/StockistMainLayout";
-import Spinner from "../../components/common/Spinner";
-import ProductDetailsPage from "../../pages/ProductDetailPage";
-import ProductListPage from "../../pages/ProductListPage";
-import CommonProductListPage from "../../pages/CommonProductListPage";
-import CommonProductDetailPage from "../../pages/CommonProductDetailPage";
-import MyCart from "../../pages/MyCart";
+
 
 
 // Lazy-loaded components
+const ProtectedRoute=lazy(()=>"../ProtectedRoutes")
+const CommonProductListPage=lazy(()=>"../../pages/CommonProductListPage")
+const CommonProductDetailPage=lazy(()=>"../../pages/CommonProductDetailPage")
+const MyCart=lazy(()=>"../../pages/MyCart")
+const Spinner=lazy(()=>"../../components/common/Spinner")
+const StockistMainLayout = Lazy(() => "../../layout/stockist/StockistMainLayout");
 const StockistDashboard = lazy(() => import("../../pages/stockist/StockistDashboard"));
 const Logout = lazy(() => import("../../pages/Logout"));
 const Profile = lazy(() => import("../../pages/common/Profile"));

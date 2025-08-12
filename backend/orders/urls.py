@@ -11,9 +11,12 @@ urlpatterns = [
     path('orders/vendor/my-orders/', VendorOrdersView.as_view(), name='vendor-orders'),
     path('orders/bulk-create/', BulkOrderCreateView.as_view(), name='bulk-order-create'),
     path('orders/<int:order_id>/', OrderDetailAPIView.as_view(), name='order-detail'),
+    path('admin-product-orders/<int:order_id>/', AdminProductOrderDetailAPIView.as_view(), name='adminproduct-order-detail'),
+    path('orders/<int:order_id>/cancel/', CancelOrderAPIView.as_view(), name='cancel-order'),
 
     path('orders/summary/', OrderSummaryView.as_view(), name='order-summary'),
      path('orders-update-status/<int:pk>/', UpdateOrderStatusView.as_view(), name='update-order-status'),
+     path('common-orders-update-status/<int:pk>/', UpdateStockistResellerOrderStatusView.as_view(), name='update-stockist-reseller-order-status'),
      path('orders/<int:pk>/dispatch/', UpdateOrderDispatchStatusView.as_view(), name='update-order-dispatch-status'),
 
       path('order-history/', OrderHistoryListAPIView.as_view(), name='order-history-list'),

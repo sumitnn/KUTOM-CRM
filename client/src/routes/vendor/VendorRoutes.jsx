@@ -1,9 +1,11 @@
 import { lazy, Suspense } from "react";
 import { Route } from "react-router-dom";
-import ProtectedRoute from "../ProtectedRoutes";
-import VendorMainLayout from "../../layout/vendor/VendorMainLayout";
-import Spinner from "../../components/common/Spinner";
+
+
 const OrderDetailPage =lazy(()=>import("../../pages/OrderDetailPage")) ;
+const Spinner =lazy(()=>import("../../components/common/Spinner")) ;
+const VendorMainLayout =lazy(()=>import("../../layout/vendor/VendorMainLayout")) ;
+const ProtectedRoute =lazy(()=>import("../ProtectedRoutes")) ;
 
 // Lazy-loaded components
 const VendorDashboard = lazy(() => import("../../pages/vendor/VendorDashboard"));

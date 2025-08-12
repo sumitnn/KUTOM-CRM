@@ -60,6 +60,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         label: "Stockist",
         children: [
           { label: "Registration", path: "/admin/stockist" },
+          
 
 
         ],
@@ -69,6 +70,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         label: "Reseller",
         children: [
           { label: "Registration", path: "/admin/reseller" },
+          
 
 
         ],
@@ -84,6 +86,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         ]
       },
 
+      { icon: <SiBrandfolder />, label: "Order Requests", path: "/admin/order-requests" },
       { icon: <SiBrandfolder />, label: "Brands", path: "/admin/brand" },
       { icon: <TbCategoryPlus />, label: "Category", path: "/admin/categories" },
       { icon: <TbCategoryMinus />, label: "Sub-Category", path: "/admin/subcategories" },
@@ -122,7 +125,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         icon: <FaCodePullRequest />,
         label: "Order Management",
         children: [
-          { label: "Order Requests", path: "/stockist/orders" },
+          { label: "My Orders", path: "/stockist/orders" },
         ],
       },{
         icon: <FaCodePullRequest />,
@@ -158,18 +161,18 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         icon: <FaCodePullRequest />,
         label: "Order Management",
         children: [
-          { label: "Order History", path: "/reseller/orders" },
+          { label: "My Orders", path: "/reseller/orders" },
         ],
       },{
         icon: <FaCodePullRequest />,
-        label: "Topup Management",
+        label: "Topup Requests",
         children: [
           { label: "Create Topup Requests", path: "/reseller/topup-request" },
           { label: "Topup Request History", path: "/reseller/my-topup" },
         ],
       },{
         icon: <FaCodePullRequest />,
-        label: "Withdrawl Management",
+        label: "Withdrawl Requests",
         children: [
           { label: "Withdrawal Request", path: "/reseller/withdrawl-request" },
           { label: "Withdrawal Request History", path: "/reseller/my-withdrawl" },

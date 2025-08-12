@@ -1,17 +1,18 @@
 import { lazy, Suspense } from "react";
 import { Route } from "react-router-dom";
-import ProtectedRoute from "../ProtectedRoutes";
-import AdminMainLayout from "../../layout/admin/AdminMainLayout";
-import Spinner from "../../components/common/Spinner";
 
-import Report from "../../pages/Report";
-import CommonMyStockPage from "../../pages/CommonMyStockPage";
-import ViewProductPage from "../../pages/ViewProductPage";
+
+
+const OrderDetailPage =lazy(()=>import("../../pages/OrderDetailPage")) ;
+const AdminOrderRequestPage =lazy(()=>import("../../pages/AdminOrderRequestPage")) ;
+const ViewProductPage =lazy(()=>import("../../pages/ViewProductPage")) ;
+const CommonMyStockPage = lazy(() => import("../../pages/CommonMyStockPage"));
+const Report = lazy(() => import("../../pages/Report"));
+const Spinner = lazy(() => import("../../components/common/Spinner"));
+const AdminMainLayout = lazy(() => import("../../layout/admin/AdminMainLayout"));
+const ProtectedRoute = lazy(() => import("../ProtectedRoutes"));
 const AdminWithdrawalRequest =lazy(()=>import("../../pages/admin/AdminWithdrawalRequest")) ;
-const OrderDetailPage =lazy(()=>"../../pages/OrderDetailPage") ;
 
-
- 
 // Lazy-loaded components
 const AdminOrderManagementPage=lazy(()=> import("../../pages/admin/AdminOrderManagementPage"))
 const AdminDashboard = lazy(() => import("../../pages/admin/AdminDashboard"));
@@ -31,7 +32,7 @@ const ProductDetailsPage = lazy(() => import("../../pages/ProductDetailPage"));
 
 const EditProductPage = lazy(() => import("../../pages/EditProductPage"));
 const AdminReseller = lazy(() => import("../../pages/admin/AdminReseller"));
-const OrdersManagement = lazy(() => import("../../pages/OrdersManagement"));
+
 const AdminTopupPage = lazy(() => import("../../pages/admin/AdminTopupPage"));
 const AdminProductApprovalPage = lazy(() => import("../../pages/admin/AdminProductApprovalPage"));
 const MyCart = lazy(() => import("../../pages/MyCart"));
@@ -118,6 +119,27 @@ const AdminRoutes = [
         </AdminMainLayout>
       }
     />
+     <Route
+      path="/admin/order-requests"
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <AdminOrderRequestPage  />
+          </Suspense>
+        </AdminMainLayout>
+      }
+    />
+     <Route 
+          path="/admin/orders-request/:id" 
+          element={
+            <AdminMainLayout>
+              <Suspense fallback={<Spinner />}>
+                <OrderDetailPage role="admin"/>
+              </Suspense>
+            </AdminMainLayout>
+          } 
+        />
+   
 
 
     {/* product routes */}

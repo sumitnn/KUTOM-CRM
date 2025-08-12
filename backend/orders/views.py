@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from .models import *
 from .serializers import *
 from django.utils.timezone import now
-from accounts.permissions import IsAdminRole, IsStockistRole, IsVendorRole,IsAdminOrVendorRole
+from accounts.permissions import IsAdminRole, IsStockistRole, IsVendorRole,IsAdminOrVendorRole,IsAdminStockistResellerRole
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import status
@@ -28,7 +28,7 @@ from django.utils.text import get_valid_filename
 from accounts.utils import create_notification
 from rest_framework.parsers import MultiPartParser, FormParser
 from products.models import AdminProduct, AdminProductSize, AdminProductImage
-
+from django.shortcuts import get_object_or_404
 
 # Reseller can create
 class CreateOrderAPIView(generics.CreateAPIView):
@@ -80,6 +80,8 @@ class MyOrdersView(ListAPIView):
         if status:
             if status =="received":
                 queryset = queryset.filter(status__in=['delivered', 'received'])
+            elif status == "all":
+                queryset = queryset.all()
             else:
                 queryset = queryset.filter(status=status)
 
@@ -109,51 +111,29 @@ class BulkOrderCreateView(APIView):
     def post(self, request):
         data = request.data
         items_data = data.get("items")
-        
-        if request.user.role == 'vendor':
-            return Response({"message": "You don’t have access to order items."}, status=400)
 
         if not isinstance(items_data, list) or not items_data:
             return Response({"message": "Invalid or empty 'items' list."}, status=400)
 
         try:
-            order, total_price = OrderService.create_bulk_order(request.user, items_data)
-            create_notification(
-                    user=order.created_for,
-                    title="New Order Received",
-                    message=f"New Order Request Received from {order.created_by.username}",
-                    notification_type="order received",
-                    related_url=f""
-                )
-            return Response(
-                {
-                    "message": "Order created successfully.",
-                    "order_id": order.id,
-                    "total_deducted": total_price
-                },
-                status=status.HTTP_201_CREATED
-            )
+            if request.user.role in ["stockist", "reseller"]:
+                order, total_price = OrderService.create_bulk_order_from_admin(request.user, items_data)
+            elif request.user.role == "admin":
+                order, total_price = OrderService.create_bulk_order(request.user, items_data)
+            else:
+                return Response({"message": "You don’t have access to order items."}, status=400)
+
+            return Response({
+                "message": "Order created successfully.",
+                "order_id": order.id,
+                "total_deducted": total_price
+            }, status=status.HTTP_201_CREATED)
 
         except ValidationError as e:
-            # Handles DRF ValidationError which might have a dictionary or string inside
-            error_detail = e.detail if hasattr(e, 'detail') else str(e)
-
-            if isinstance(error_detail, dict):
-                # For structured error responses (field-level errors)
-                flat_errors = [str(msg) for messages in error_detail.values() for msg in messages]
-                error_message = flat_errors[0] if flat_errors else "Invalid input."
-            else:
-                # For plain string messages
-                error_message = str(error_detail)
-
-            # Normalize specific known messages
-            if "Insufficient wallet balance" in error_message:
-                error_message = "Insufficient balance"
-
-            return Response({"message": error_message}, status=status.HTTP_400_BAD_REQUEST)
-
+            return Response({"message": str(e)}, status=400)
         except Exception as e:
-            return Response({"message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": str(e)}, status=400)
+
 
 class StockistAcceptOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -203,22 +183,72 @@ class AdminOrderListView(APIView):
     permission_classes = [IsAdminRole]
 
     def get(self, request):
-        filter_type = request.query_params.get('filter', 'all')
+        filter_type = request.query_params.get('filter', 'today')
+        search_term = request.query_params.get('search', '')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+
         today = timezone.now().date()
 
-        filters = {
-            'approved': Q(status='approved'),
-            'rejected': Q(status='rejected'),
-            'today': Q(created_at__date=today,status="forwarded"),
+        # Base queryset: orders belonging to the logged-in admin
+        base_qs = Order.objects.filter(created_for=request.user)
+
+        # Apply filter type
+        if filter_type == 'today':
+            orders = base_qs.filter(created_at__date=today)
+        elif filter_type != 'all':
+            orders = base_qs.filter(status=filter_type)
+        else:
+            orders = base_qs
+
+        # Search filter
+        if search_term:
+            search_q = (
+                Q(id__icontains=search_term) |
+                Q(created_by__username__icontains=search_term) |
+                Q(created_by__email__icontains=search_term) |
+                Q(created_for__username__icontains=search_term) |
+                Q(created_for__email__icontains=search_term)
+            )
+            orders = orders.filter(search_q)
+
+        # Date range filter
+        if start_date and end_date:
+            orders = orders.filter(
+                created_at__date__gte=start_date,
+                created_at__date__lte=end_date
+            )
+
+        # Aggregate counts in a single DB hit
+        status_counts = (
+            base_qs
+            .values('status')
+            .annotate(count=Count('id'))
+        )
+        counts_dict = {status: 0 for status in [
+            'new', 'accepted', 'ready_for_dispatch', 'dispatched',
+            'delivered', 'rejected', 'cancelled'
+        ]}
+        for item in status_counts:
+            counts_dict[item['status']] = item['count']
+
+        counts = {
+            'all': base_qs.count(),
+            'today': base_qs.filter(created_at__date=today).count(),
+            **counts_dict
         }
 
-        filter_q = filters.get(filter_type, Q())
-        orders = Order.objects.filter(filter_q).order_by('-created_at')
-
+        # Pagination
         paginator = PageNumberPagination()
-        paginated_orders = paginator.paginate_queryset(orders, request)
+        paginated_orders = paginator.paginate_queryset(
+            orders.order_by('-created_at'), request
+        )
         serializer = OrderSerializer(paginated_orders, many=True)
-        return paginator.get_paginated_response(serializer.data)
+
+        response = paginator.get_paginated_response(serializer.data)
+        response.data['counts'] = counts
+        return response
+
 
 
 class AdminApproveRejectOrderAPIView(APIView):
@@ -280,6 +310,65 @@ class OrderDetailAPIView(APIView):
 
         serializer = OrderDetailSerializer(order)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class AdminProductOrderDetailAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, order_id):
+        
+        order = get_object_or_404(
+            Order.objects.prefetch_related(
+                'items__product',
+                'items__product_size',
+                'items__admin_product',
+                'items__admin_product_size'
+            ),
+            id=order_id
+        )
+        
+        # Check if user has permission to view this order
+        if not (request.user == order.created_by or request.user == order.created_for or request.user.is_staff):
+            return Response(
+                {"detail": "You do not have permission to view this order."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = OrderDetailSerializer(order, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)   
+
+class CancelOrderAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, order_id):
+        order = get_object_or_404(Order, id=order_id)
+        
+        if order.status != 'new':
+            return Response(
+                {"detail": "Only new orders can be cancelled."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        if request.user != order.created_by and not request.user.is_staff:
+            return Response(
+                {"detail": "You don't have permission to cancel this order."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Create history record
+        OrderHistory.objects.create(
+            order=order,
+            actor=request.user,
+            action='cancelled',
+            notes=request.data.get('note', 'Order cancelled by customer'),
+            previous_status=order.status
+        )
+
+        order.status = 'cancelled'
+        order.save()
+
+        serializer = OrderDetailSerializer(order, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
     
 class UpdateOrderStatusView(APIView):
     permission_classes = [IsAdminOrVendorRole]
@@ -421,8 +510,116 @@ class UpdateOrderStatusView(APIView):
                 )
 
 
+
+
+
+class UpdateStockistResellerOrderStatusView(APIView):
+    permission_classes = [IsAdminStockistResellerRole]
+
+    def patch(self, request, pk):
+        
+        try:
+            order = Order.objects.get(pk=pk)
+        except Order.DoesNotExist:
+            return Response({"message": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if request.user != order.created_by and request.user != order.created_for:
+            return Response({"message": "You are not authorized to update this order."}, status=status.HTTP_403_FORBIDDEN)
+
+        new_status = request.data.get('status')
+        note = request.data.get('note', '')
+
+        with transaction.atomic():
+            # Update order status
+            serializer = OrderStatusUpdateSerializer(order, data={'status': new_status, 'note': note}, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+
+                # Handle different status updates
+                if new_status == 'received' or new_status == 'delivered':
+                    self.handle_received_status(order, request.user)
+                    self.handle_delivered_status(order,request.user)
+
+                # Create notifications
+                self.create_notifications(order, new_status, request.user)
+
+                return Response(serializer.data)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def handle_received_status(self, order, user):
+        if user.role == 'stockist':
+            for item in order.items.all():
+                if not item.admin_product:
+                    continue  # skip if no admin product
+
+                stock_item, created = Inventory.objects.get_or_create(
+                    product=item.admin_product,
+                    product_size=item.admin_product_size,
+                    movement_type="IN",
+                    user=user,
+                    defaults={'quantity': item.quantity}
+                )
+                if not created:
+                    stock_item.quantity += item.quantity
+                    stock_item.save()
+
+    def handle_delivered_status(self, order,user):
+
+        if user and order.transport_charges and order.transport_charges > 0:
+            self.handle_wallet_transactions(order, user)
+
+    def handle_wallet_transactions(self, order, user):
+        transport_charges = order.transport_charges or 0
+        try:
+            user_wallet = Wallet.objects.get(user=user)
+            admin_wallet = Wallet.objects.get(user=order.created_for)
+
+            if user_wallet.balance < transport_charges:
+                raise ValidationError({"message": "Insufficient admin wallet balance."})
+
+            user_wallet.balance -= transport_charges
+            admin_wallet.balance += transport_charges
+            admin_wallet.save()
+            user_wallet.save()
+
+            WalletTransaction.objects.create(
+                wallet=user_wallet,
+                transaction_type='DEBIT',
+                amount=transport_charges,
+                description=f"Transport charges for Order #{order.id}",
+                transaction_status='SUCCESS'
+            )
+            WalletTransaction.objects.create(
+                wallet=admin_wallet,
+                transaction_type='CREDIT',
+                amount=transport_charges,
+                description=f"Received transport charges for Order #{order.id}",
+                transaction_status='RECEIVED'
+            )
+        except Wallet.DoesNotExist:
+            raise ValidationError({"message": "Admin or user wallet not found."})
+
+    def create_notifications(self, order, new_status, current_user):
+       
+        create_notification(
+            user=current_user,
+            title="Order Status Updated",
+            message=f"Order #{order.id} status updated to {new_status}.",
+            notification_type="order status update",
+            related_url=f"/orders/{order.id}/"
+        )
+
+        if new_status in ['received', 'delivered']:
+            create_notification(
+                user=order.created_for,
+                title=f"Order {new_status.capitalize()} Successfully",
+                message=f"Your order #{order.id} has been {new_status} successfully.",
+                notification_type="order status update",
+                related_url=f"/orders/{order.id}/"
+            )
+
 class UpdateOrderDispatchStatusView(APIView):
-    permission_classes = [IsVendorRole]
+    permission_classes = [IsAdminOrVendorRole]
     parser_classes = [MultiPartParser, FormParser]
 
     def patch(self, request, pk):
@@ -431,12 +628,22 @@ class UpdateOrderDispatchStatusView(APIView):
         except Order.DoesNotExist:
             return Response({"message": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
 
+        # ✅ Role check for admin users
+        if getattr(request.user, "role", None) == "admin":
+            if order.created_for != request.user:
+                return Response(
+                    {"message": "You are not allowed to update this order."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
         tracking_number = request.data.get('tracking_id')
 
-        # 🔍 Check if tracking number already exists (exclude current order)
-        if tracking_number:
-            if Order.objects.filter(tracking_number=tracking_number).exists():
-                return Response({"message": "Tracking number already exists."}, status=status.HTTP_400_BAD_REQUEST)
+        # 🔍 Check if tracking number already exists (excluding this order)
+        if tracking_number and Order.objects.exclude(id=order.id).filter(tracking_number=tracking_number).exists():
+            return Response(
+                {"message": "Tracking number already exists."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         dispatch_info = {
             'courier_name': request.data.get('courier_name'),
@@ -455,6 +662,7 @@ class UpdateOrderDispatchStatusView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     
 
 
@@ -506,7 +714,7 @@ class ExportOrderHistoryExcelAPIView(generics.ListAPIView):
     
 
 class VendorSalesReportView(APIView):
-    permission_classes = [IsVendorRole]
+    permission_classes = [IsAdminOrVendorRole]
     pagination_class = MyOrdersPagination
 
     def get(self, request):

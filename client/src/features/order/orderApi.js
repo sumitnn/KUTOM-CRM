@@ -54,11 +54,24 @@ export const orderApi = createApi({
                 method: 'GET',
             }),
         }),
+        getAdminProductOrderById: builder.query({
+            query: (orderId) => ({
+                url: `/admin-product-orders/${orderId}/`,
+                method: 'GET',
+            }),
+        }),
         updateOrderStatus: builder.mutation({
             query: ({ orderId, status,note }) => ({
                 url: `/orders-update-status/${orderId}/`,
                 method: 'PATCH',
                 data: { status,note },
+            }),
+        }),
+        updateStockistResellerOrderStatus: builder.mutation({
+            query: ({ orderId, status, note }) => ({
+                url: `/common-orders-update-status/${orderId}/`,
+                method: 'PATCH',
+                data: { status, note },
             }),
         }),
         updateDispatchStatus: builder.mutation({
@@ -83,6 +96,13 @@ export const orderApi = createApi({
                     method: 'GET',
                 };
             },
+        }),
+        cancelOrder: builder.mutation({
+            query: (orderId) => ({
+                url: `/orders/${orderId}/cancel/`,
+                method: 'POST',
+            }),
+            invalidatesTags: (result, error, orderId) => [{ type: 'Order', id: orderId }],
         }),
 
         // Export order history to CSV
@@ -116,5 +136,8 @@ export const {
     useGetOrderHistoryQuery,
     useLazyExportOrderHistoryQuery,
     useGetVendorOrdersQuery,
-    useUpdateDispatchStatusMutation
+    useUpdateDispatchStatusMutation,
+    useGetAdminProductOrderByIdQuery,
+    useCancelOrderMutation,
+    useUpdateStockistResellerOrderStatusMutation
 } = orderApi;

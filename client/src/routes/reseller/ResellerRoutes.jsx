@@ -1,17 +1,18 @@
 import { lazy, Suspense } from "react";
 import { Route } from "react-router-dom";
-import ProtectedRoute from "../ProtectedRoutes";
-import ResellerMainLayout from "../../layout/reseller/ResellerMainLayout";
-import Spinner from "../../components/common/Spinner"; 
+
 
 // Lazy-loaded components
+const Spinner = lazy(() => import("../../components/common/Spinner"));
+const ResellerMainLayout = lazy(() => import("../../layout/reseller/ResellerMainLayout"));
+const ProtectedRoute = lazy(() => import("../ProtectedRoutes"));
 const ResellerDashboard = lazy(() => import("../../pages/reseller/ResellerDashboard"));
 const Logout = lazy(() => import("../../pages/Logout"));
-const ProductListPage = lazy(() => import("../../pages/ProductListPage"));
+const CommonProductListPage = lazy(() => import("../../pages/CommonProductListPage"));
 const OrdersManagement = lazy(() => import("../../pages/OrdersManagement"));
 const UserWalletPage = lazy(() => import("../../pages/UserWalletPage"));
 const MyCart = lazy(() => import("../../pages/MyCart"));
-const ProductDetailsPage = lazy(() => import("../../pages/ProductDetailPage"));
+const CommonProductDetailPage = lazy(() => import("../../pages/CommonProductDetailPage"));
 const Profile = lazy(() => import("../../pages/common/Profile"));
 const ChangePassword = lazy(() => import("../../components/auths/ChangePassword"));
 const OrderDetailPage = lazy(() => import("../../pages/OrderDetailPage"));
@@ -40,7 +41,7 @@ const ResellerRoutes = [
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
-            <ProductListPage role="reseller"/>
+            <CommonProductListPage role="reseller"/>
           </Suspense>
         </ResellerMainLayout>
       }
@@ -50,7 +51,7 @@ const ResellerRoutes = [
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
-            <ProductDetailsPage role="reseller"/>
+            <CommonProductDetailPage role="reseller"/>
           </Suspense>
         </ResellerMainLayout>
       }

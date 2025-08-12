@@ -4,9 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { addItem } from "../features/cart/cartSlice";
 import { useGetAdminProductByIdQuery } from "../features/adminProduct/adminProductApi";
 import { toast } from "react-toastify";
-import {
-  FiMinus, FiPlus, FiChevronRight
-} from "react-icons/fi";
+import { FiMinus, FiPlus } from "react-icons/fi";
 import "react-toastify/dist/ReactToastify.css";
 
 const CommonProductDetailPage = ({ role }) => {
@@ -18,9 +16,6 @@ const CommonProductDetailPage = ({ role }) => {
   const [selectedSize, setSelectedSize] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [mainImage, setMainImage] = useState(null);
-  const [zoom, setZoom] = useState(false);
-  const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 });
-  const [selectedTier, setSelectedTier] = useState(null);
 
   useEffect(() => {
     if (product) {
@@ -30,52 +25,21 @@ const CommonProductDetailPage = ({ role }) => {
           "/placeholder.png"
       );
       if (product.sizes?.length) {
-        const defaultSize = product.sizes.find((s) => s.is_default) || product.sizes[0];
-        setSelectedSize(defaultSize);
-        if (defaultSize?.price_tiers?.length > 0) {
-          setSelectedTier(defaultSize.price_tiers[0]);
-        }
+        setSelectedSize(product.sizes[0]);
       }
     }
   }, [product]);
 
-  useEffect(() => {
-    if (selectedSize?.price_tiers?.length > 0) {
-      // Sort tiers by min_quantity in descending order to find the first matching tier
-      const sortedTiers = [...selectedSize.price_tiers].sort((a, b) => b.min_quantity - a.min_quantity);
-      const matchingTier = sortedTiers.find(tier => quantity >= tier.min_quantity);
-      setSelectedTier(matchingTier || null);
-    } else {
-      setSelectedTier(null);
-    }
-  }, [quantity, selectedSize]);
-
   const getEmbedUrl = (url) => {
     if (!url) return null;
-
     const regex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{11})/;
     const match = url.match(regex);
-
     return match ? `https://www.youtube.com/embed/${match[1]}` : null;
-  };
-
-  const handleZoom = (e) => {
-    const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
-    const x = ((e.pageX - left) / width) * 100;
-    const y = ((e.pageY - top) / height) * 100;
-    setZoomPos({ x, y });
   };
 
   const inCart = cartItems.some(
     (item) => item.id === product?.id && item.size?.id === selectedSize?.id
   );
-
-  const calculatePrice = () => {
-    if (selectedTier) {
-      return selectedTier.price;
-    }
-    return selectedSize?.price || product?.price || 0;
-  };
 
   const handleQuantityChange = (e) => {
     const value = parseInt(e.target.value) || 1;
@@ -97,12 +61,11 @@ const CommonProductDetailPage = ({ role }) => {
       addItem({
         id: product.id,
         name: product.name,
-        price: calculatePrice(),
+        price: selectedSize?.price || product.price,
         quantity,
         image: mainImage,
         size: selectedSize,
-        shipping_info: product.shipping_info,
-        price_tier: selectedTier
+        shipping_info: product.shipping_info
       })
     );
 
@@ -128,7 +91,6 @@ const CommonProductDetailPage = ({ role }) => {
     );
   }
 
-  // Check if buttons should be shown based on role and product status
   const showActionButtons = ["stockist", "reseller"].includes(role);
   const isProductAvailable = product.is_active && product.stock_status === "in_stock";
 
@@ -137,18 +99,11 @@ const CommonProductDetailPage = ({ role }) => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Image Section */}
         <div>
-          <div
-            className="relative w-full border bg-gray-100 overflow-hidden rounded-md cursor-zoom-in"
-            onClick={() => setZoom(!zoom)}
-            onMouseMove={zoom ? handleZoom : null}
-          >
+          <div className="relative w-full border bg-gray-100 overflow-hidden rounded-md">
             <img
               src={mainImage}
               alt={product.name}
-              className={`w-full object-contain duration-300 transition-transform ${
-                zoom ? "scale-150" : "scale-100"
-              }`}
-              style={{ transformOrigin: `${zoomPos.x}% ${zoomPos.y}%` }}
+              className="w-full object-contain"
             />
           </div>
           <div className="flex mt-4 gap-2">
@@ -188,17 +143,7 @@ const CommonProductDetailPage = ({ role }) => {
           <p className="text-gray-600">SKU: {product.sku}</p>
 
           <div className="text-2xl font-extrabold text-green-600">
-            ₹{calculatePrice()}
-            {selectedTier && (
-              <span className="ml-2 text-sm text-gray-500 line-through">
-                ₹{selectedSize?.price}
-              </span>
-            )}
-            {selectedTier && (
-              <div className="text-sm text-green-600 mt-1">
-                Bulk discount applied ({selectedTier.min_quantity}+ units)
-              </div>
-            )}
+            ₹{selectedSize?.price || product.price}
           </div>
 
           {product.sizes?.length > 0 && (
@@ -208,17 +153,7 @@ const CommonProductDetailPage = ({ role }) => {
                 {product.sizes.map((size) => (
                   <button
                     key={size.id}
-                    onClick={() => {
-                      setSelectedSize(size);
-                      if (size.price_tiers?.length > 0) {
-                        // Find the appropriate tier based on current quantity
-                        const sortedTiers = [...size.price_tiers].sort((a, b) => b.min_quantity - a.min_quantity);
-                        const matchingTier = sortedTiers.find(tier => quantity >= tier.min_quantity);
-                        setSelectedTier(matchingTier || null);
-                      } else {
-                        setSelectedTier(null);
-                      }
-                    }}
+                    onClick={() => setSelectedSize(size)}
                     disabled={!size.is_active}
                     className={`px-3 py-1 rounded-md text-sm font-bold border cursor-pointer ${
                       selectedSize?.id === size.id
@@ -229,38 +164,6 @@ const CommonProductDetailPage = ({ role }) => {
                     {size.size} {size.unit && `(${size.unit})`} – ₹{size.price}
                   </button>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {/* Price Tiers (Admin only) */}
-          {selectedSize?.price_tiers?.length > 0 && (
-            <div className="mt-4">
-              <p className="font-semibold text-gray-700 mb-1">Bulk Pricing</p>
-              <div className="bg-gray-50 p-3 rounded-md">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left pb-2 font-bold">Quantity</th>
-                      <th className="text-right pb-2 font-bold">Price</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[...selectedSize.price_tiers]
-                      .sort((a, b) => a.min_quantity - b.min_quantity)
-                      .map((tier) => (
-                        <tr 
-                          key={tier.id} 
-                          className={`${
-                            selectedTier?.id === tier.id ? 'bg-blue-50 font-bold' : ''
-                          }`}
-                        >
-                          <td className="py-2 font-extrabold">{tier.min_quantity}+</td>
-                          <td className="text-right font-bold">₹{tier.price}</td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
               </div>
             </div>
           )}
@@ -330,32 +233,15 @@ const CommonProductDetailPage = ({ role }) => {
             </p>
           </div>
 
-          {/* Features */}
-          {product.features?.length > 0 && (
-            <div className="mt-6">
-              <h2 className="text-xl font-extrabold mb-2">Features</h2>
-              <ul className="list-disc pl-5 text-gray-700 text-sm space-y-1">
-                {product.features.map((feature, index) => (
-                  <li key={index}>{feature}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
           {/* Details */}
           <div className="mt-6 border-t pt-4">
             <h2 className="text-xl font-extrabold mb-2">Additional Details</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600">
-              <div><strong>Brand:</strong> {product.brand_name || "N/A"}</div>
-              <div><strong>Category:</strong> {product.category_name || "N/A"}</div>
-              <div><strong>Subcategory:</strong> {product.subcategory_name || "N/A"}</div>
               <div><strong>Weight:</strong> {product.weight} {product.weight_unit}</div>
               <div><strong>Dimensions:</strong> {product.dimensions}</div>
-              <div><strong>Shipping Info:</strong> {product.shipping_info || "N/A"}</div>
               <div><strong>Status:</strong> {product.is_active ? "Active" : "Inactive"}</div>
               <div><strong>Stock Status:</strong> {product.stock_status === "in_stock" ? "In Stock" : "Out of Stock"}</div>
               <div><strong>Available Quantity:</strong> {product.quantity_available}</div>
-              <div><strong>Rating:</strong> {product.rating ? `${product.rating} ★` : "Not rated"}</div>
               <div><strong>Product Created:</strong> {new Date(product.created_at).toLocaleString()}</div>
             </div>
           </div>

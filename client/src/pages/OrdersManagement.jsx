@@ -1,25 +1,65 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { formatDistanceToNow, parseISO } from "date-fns";
-import { useGetMyOrdersQuery } from "../features/order/orderApi";
-import { FiSearch, FiChevronRight, FiRefreshCw, FiFilter } from "react-icons/fi";
-import { BsBoxSeam, BsClockHistory, BsCheckCircle, BsXCircle } from "react-icons/bs";
+import { useGetMyOrdersQuery, useUpdateStockistResellerOrderStatusMutation } from "../features/order/orderApi";
+import { 
+  FiSearch, 
+  FiChevronRight, 
+  FiRefreshCw, 
+  FiFilter, 
+  FiTruck, 
+  FiPackage, 
+  FiCheckCircle, 
+  FiX 
+} from "react-icons/fi";
+import { 
+  BsBoxSeam, 
+  BsClockHistory, 
+  BsCheckCircle, 
+  BsXCircle, 
+  BsExclamationCircle 
+} from "react-icons/bs";
 import { Link } from "react-router-dom";
 
 const statusConfig = {
-  completed: {
+  new: {
+    color: "bg-blue-100 text-blue-800",
+    icon: <BsBoxSeam className="mr-1" />,
+    label: "New Order"
+  },
+  accepted: {
     color: "bg-green-100 text-green-800",
     icon: <BsCheckCircle className="mr-1" />,
-    label: "Completed"
-  },
-  pending: {
-    color: "bg-yellow-100 text-yellow-800",
-    icon: <BsClockHistory className="mr-1" />,
-    label: "Pending"
+    label: "Accepted"
   },
   rejected: {
     color: "bg-red-100 text-red-800",
     icon: <BsXCircle className="mr-1" />,
     label: "Rejected"
+  },
+  ready_for_dispatch: {
+    color: "bg-purple-100 text-purple-800",
+    icon: <FiPackage className="mr-1" />,
+    label: "Ready for Dispatch"
+  },
+  dispatched: {
+    color: "bg-yellow-100 text-yellow-800",
+    icon: <FiTruck className="mr-1" />,
+    label: "Dispatched"
+  },
+  delivered: {
+    color: "bg-green-100 text-green-800",
+    icon: <FiCheckCircle className="mr-1" />,
+    label: "Delivered"
+  },
+  cancelled: {
+    color: "bg-gray-100 text-gray-800",
+    icon: <FiX className="mr-1" />,
+    label: "Cancelled"
+  },
+  received: {
+    color: "bg-green-100 text-green-800",
+    icon: <FiCheckCircle className="mr-1" />,
+    label: "Received"
   },
   default: {
     color: "bg-gray-100 text-gray-800",
@@ -30,27 +70,32 @@ const statusConfig = {
 
 const today = new Date().toISOString().slice(0, 10);
 
-const OrdersManagement = ({role}) => {
+const OrdersManagement = ({ role }) => {
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
   const [visibleCount, setVisibleCount] = useState(10);
   const [page, setPage] = useState(1);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+  const [showReceivedModal, setShowReceivedModal] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [note, setNote] = useState("");
+  const [showloading, setshowloading] = useState(false);
 
-  const { data, error, isLoading, isFetching } = useGetMyOrdersQuery({
+  const { data, error, isLoading, isFetching, refetch } = useGetMyOrdersQuery({
     status: activeTab === "all" ? undefined : activeTab,
     page,
   });
+
+  const [updateOrderStatus] = useUpdateStockistResellerOrderStatusMutation();
 
   const filteredOrders = React.useMemo(() => {
     if (!data?.results) return [];
     return data.results
       .filter(
         (order) =>
-          order.reseller.username.toLowerCase().includes(search.toLowerCase()) ||
+          order.created_for?.username?.toLowerCase().includes(search.toLowerCase()) ||
           order.id.toString().toLowerCase().includes(search.toLowerCase())
-      )
-      .slice(0, visibleCount);
+      .slice(0, visibleCount));
   }, [data, search, visibleCount]);
 
   const todaysOrders = React.useMemo(() => {
@@ -68,6 +113,36 @@ const OrdersManagement = ({role}) => {
     return statusConfig[status] || statusConfig.default;
   };
 
+  const handleCancelOrder = async (orderId) => {
+    try {
+      // await cancelOrder(orderId);
+      refetch();
+    } catch (error) {
+      console.error("Failed to cancel order:", error);
+    }
+  };
+
+  const handleMarkReceived = async () => {
+    if (!selectedOrder) return;
+    setshowloading(true);
+    try {
+      await updateOrderStatus({
+        orderId: selectedOrder.id,
+        status: "delivered",
+        note: note
+      }).unwrap();
+      
+      refetch();
+      setShowReceivedModal(false);
+      setSelectedOrder(null);
+      setNote("");
+      setshowloading(false);
+    } catch (error) {
+      console.error("Failed to update order status:", error);
+      setshowloading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
@@ -80,7 +155,7 @@ const OrdersManagement = ({role}) => {
           <div className="mt-4 md:mt-0 flex items-center space-x-2">
             <button 
               className="px-4 py-2 bg-white border border-gray-300 rounded-md flex items-center text-gray-700 hover:bg-gray-50"
-              onClick={() => window.location.reload()}
+              onClick={refetch}
             >
               <FiRefreshCw className="mr-2" />
               Refresh
@@ -109,17 +184,17 @@ const OrdersManagement = ({role}) => {
               {todaysOrders.map((order) => {
                 const status = getStatusConfig(order.status);
                 return (
-                  <div
+                  <Link 
+                    to={`/${role}/orders/${order.id}`}
                     key={order.id}
                     className="border rounded-lg p-4 hover:shadow-md transition cursor-pointer group"
-                    
                   >
                     <div className="flex justify-between items-start mb-3">
                       <div>
                         <h3 className="font-medium text-gray-900 group-hover:text-indigo-600 transition">
                           #{order.id}
                         </h3>
-                        <p className="text-sm text-gray-500">{order.reseller.username}</p>
+                        <p className="text-sm text-gray-500">{order.created_for?.username || 'N/A'}</p>
                       </div>
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status.color}`}>
                         {status.icon}
@@ -132,15 +207,67 @@ const OrdersManagement = ({role}) => {
                         {formatDistanceToNow(parseISO(order.created_at), { addSuffix: true })}
                       </p>
                       <p className="font-semibold text-gray-900">
-                        ${parseFloat(order.total_price).toFixed(2)}
+                        ₹{parseFloat(order.total_price).toFixed(2)}
                       </p>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
           )}
         </section>
+
+        {/* Received Confirmation Modal */}
+        {showReceivedModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Confirm Product Received
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Are you sure you want to mark order #{selectedOrder?.id} as received?
+              </p>
+              
+              <div className="mb-4">
+                <label htmlFor="note" className="block text-sm font-medium text-gray-700 mb-1">
+                  Note (Optional)
+                </label>
+                <textarea
+                  id="note"
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Add any notes about the received products..."
+                />
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowReceivedModal(false);
+                    setSelectedOrder(null);
+                    setNote("");
+                  }}
+                  className="px-4 py-2 border border-gray-300 cursor-pointer rounded-md text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                   <button
+      onClick={handleMarkReceived}
+      disabled={showloading}
+      className={`px-4 py-2 rounded-md text-white ${
+        showloading
+          ? "bg-gray-400 cursor-not-allowed"
+          : "bg-indigo-600 hover:bg-indigo-700 cursor-pointer"
+      }`}
+    >
+      {showloading ? "Loading..." : "Confirm Received"}
+    </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Main Orders Section */}
         <section className="bg-white rounded-xl shadow-sm p-6">
@@ -172,8 +299,11 @@ const OrdersManagement = ({role}) => {
               
               <div className={`${isMobileFilterOpen ? 'block' : 'hidden'} md:block`}>
                 <div className="flex flex-wrap gap-2">
-                  {["all", "pending", "completed", "rejected"].map((tab) => {
+                  {["all", "new", "accepted", "ready_for_dispatch", "dispatched", "delivered", "received", "rejected", "cancelled"].map((tab) => {
                     const isActive = activeTab === tab;
+                    const tabLabel = tab === "all" ? "All" : 
+                                   tab === "ready_for_dispatch" ? "Ready" : 
+                                   tab.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
                     return (
                       <button
                         key={tab}
@@ -189,7 +319,7 @@ const OrdersManagement = ({role}) => {
                           setIsMobileFilterOpen(false);
                         }}
                       >
-                        {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                        {tabLabel}
                       </button>
                     );
                   })}
@@ -211,7 +341,7 @@ const OrdersManagement = ({role}) => {
               <h3 className="text-lg font-medium text-gray-900 mb-2">Failed to load orders</h3>
               <p className="text-gray-600 mb-4">Please try again later</p>
               <button
-                onClick={() => window.location.reload()}
+                onClick={refetch}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
               >
                 Retry
@@ -246,7 +376,7 @@ const OrdersManagement = ({role}) => {
                       Status
                     </th>
                     <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Action
+                      Actions
                     </th>
                   </tr>
                 </thead>
@@ -256,20 +386,19 @@ const OrdersManagement = ({role}) => {
                     return (
                       <tr 
                         key={order.id} 
-                        className="hover:bg-gray-50 cursor-pointer"
-                        
+                        className="hover:bg-gray-50"
                       >
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           #{order.id}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {order.reseller.username}
+                          {order.created_for?.username || 'N/A'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {formatDistanceToNow(parseISO(order.created_at), { addSuffix: true })}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
-                          ${parseFloat(order.total_price).toFixed(2)}
+                          ₹{parseFloat(order.total_price).toFixed(2)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status.color}`}>
@@ -277,10 +406,36 @@ const OrdersManagement = ({role}) => {
                             {status.label}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <Link to={`/${role}/orders/${order.id}`} className="text-indigo-600 hover:text-indigo-900 flex items-center justify-end w-full">
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                          <Link 
+                            to={`/${role}/orders/${order.id}`} 
+                            className="text-indigo-600 hover:text-indigo-900 inline-flex items-center"
+                          >
                             View <FiChevronRight className="ml-1" />
                           </Link>
+                          {order.status === 'new' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCancelOrder(order.id);
+                              }}
+                              className="text-red-600 hover:text-red-900 ml-3"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                          {(role === 'stockist' || role === 'reseller') && order.status === 'dispatched' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedOrder(order);
+                                setShowReceivedModal(true);
+                              }}
+                              className="text-green-600 cursor-pointer hover:text-green-900 ml-3"
+                            >
+                              Mark Received
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );

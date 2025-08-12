@@ -2,7 +2,7 @@ from decimal import Decimal
 from django.db import transaction
 from django.db.models import F
 from .models import  Order, OrderItem, OrderHistory
-from products.models import Product,ProductSize
+from products.models import Product,ProductSize, AdminProduct, AdminProductSize
 from accounts.models import Wallet,StockistAssignment,WalletTransaction
 from accounts.utils import create_notification
 from rest_framework.exceptions import ValidationError
@@ -137,5 +137,124 @@ class OrderService:
                     price=item["price"],
                   
                 )
+
+            return order, total_price
+        
+    @staticmethod
+    def create_bulk_order_from_admin(buyer, items_data):
+        """
+        Stockist or reseller buys from admin's catalog (AdminProduct).
+        Creates an order, deducts stock, and records wallet transaction.
+        Sales records are handled in signals.
+        """
+        
+
+        with transaction.atomic():
+            # Lock buyer's wallet
+            try:
+                wallet = Wallet.objects.select_for_update().get(user=buyer)
+            except Wallet.DoesNotExist:
+                raise ValidationError("Wallet not found for the buyer.")
+
+            if wallet.balance < 10:
+                raise ValidationError("Insufficient wallet balance.")
+
+            total_price = Decimal('0.00')
+            validated_items = []
+
+            # Validate and prepare items
+            for item in items_data:
+                product_id = item.get("product_id")
+                size_id = item.get("size")  # ID of AdminProductSize
+                quantity = int(item.get("quantity", 1))
+
+                if not product_id or not size_id:
+                    raise ValidationError("Missing product_id or size.")
+
+                try:
+                    admin_product = AdminProduct.objects.select_for_update().get(
+                        id=product_id,
+                        is_active=True
+                    )
+                    product_size = AdminProductSize.objects.select_for_update().get(
+                        id=size_id,
+                        admin_product=admin_product,
+                        is_active=True
+                    )
+                except (AdminProduct.DoesNotExist, AdminProductSize.DoesNotExist):
+                    raise ValidationError("Invalid admin product or size.")
+
+                if admin_product.quantity_available < quantity:
+                    raise ValidationError(
+                        f"Insufficient stock for {admin_product.name} ({product_size.size})."
+                    )
+
+                unit_price = admin_product.resale_price
+                line_total = unit_price * quantity
+                total_price += line_total
+
+                validated_items.append({
+                    "product": admin_product,
+                    "product_size": product_size,
+                    "quantity": quantity,
+                    "price": unit_price
+                })
+
+            if wallet.balance < total_price:
+                raise ValidationError("Insufficient wallet balance.")
+
+            # Deduct wallet
+            wallet.balance = F('balance') - total_price
+            wallet.save()
+
+            WalletTransaction.objects.create(
+                wallet=wallet,
+                transaction_type='DEBIT',
+                amount=total_price,
+                description="Payment for admin bulk order",
+                transaction_status='SUCCESS'
+            )
+
+            # Seller = admin who owns the product
+            seller_user = validated_items[0]["product"].admin if validated_items else None
+
+            # Create order
+            order = Order.objects.create(
+                created_by=buyer,
+                created_for=seller_user,
+                total_price=total_price,
+                status='new',
+                description="Order placed from admin catalog"
+            )
+
+            create_notification(
+                user=buyer,
+                title="Order Placed Successfully",
+                message=f"Your order #{order.id} has been placed successfully!",
+                notification_type="order",
+                related_url=f"/orders/{order.id}/"
+            )
+
+            OrderHistory.objects.create(
+                order=order,
+                actor=buyer,
+                action='new',
+                notes="Order from admin catalog."
+            )
+
+            # Create order items and deduct stock
+            for item in validated_items:
+                OrderItem.objects.create(
+                    order=order,
+                    admin_product=item["product"],
+                    admin_product_size=item["product_size"],
+                    quantity=item["quantity"],
+                    price=item["price"],
+                )
+
+                # Deduct stock
+
+                item["product"].quantity_available = item["product"].quantity_available - item["quantity"]
+                item["product"].save()
 
             return order, total_price
