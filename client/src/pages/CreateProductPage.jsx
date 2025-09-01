@@ -17,6 +17,8 @@ const CreateProductPage = () => {
   const [product, setProduct] = useState({
     name: "",
     description: "",
+    gst_tax: "",
+    gst_percentage: "0",
     short_description: "",
     brand: "",
     category: "",
@@ -82,10 +84,6 @@ const CreateProductPage = () => {
   const currencyOptions = [
     { value: "INR", label: "Indian Rupee (INR)" },
     { value: "USD", label: "US Dollar (USD)" },
-    // { value: "EUR", label: "Euro (EUR)" },
-    // { value: "GBP", label: "British Pound (GBP)" },
-    
-    // { value: "JPY", label: "Japanese Yen (JPY)" },
   ];
 
   const weightUnitOptions = [
@@ -101,6 +99,12 @@ const CreateProductPage = () => {
     { value: "service", label: "Service" },
     { value: "subscription", label: "Subscription" },
   ];
+
+  // Generate GST percentage options from 0% to 40%
+  const gstPercentageOptions = Array.from({ length: 41 }, (_, i) => ({
+    value: i.toString(),
+    label: `${i}%`
+  }));
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -470,6 +474,33 @@ const CreateProductPage = () => {
             <h3 className="text-lg font-bold text-gray-800 mb-4">Product Specifications</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+              {/* GST Tax Field */}
+              <div className="space-y-1">
+                <label className="block text-sm font-bold text-gray-700">GST Tax</label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    name="gst_tax"
+                    min="0"
+                    step="0.01"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base"
+                    value={product.gst_tax}
+                    onChange={handleChange}
+                    placeholder="Enter GST tax amount"
+                  />
+                  <select
+                    name="gst_percentage"
+                    className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500  focus:outline-none text-sm md:text-base cursor-pointer"
+                    value={product.gst_percentage}
+                    onChange={handleChange}
+                  >
+                    {gstPercentageOptions.map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               <div className="space-y-1">
                 <label className="block text-sm font-bold text-gray-700">Weight</label>
                 <div className="flex gap-2">

@@ -173,7 +173,7 @@ const OrderDetailsModal = ({ order, onClose }) => {
                 </p>
               </div>
               <div>
-                <p className="text-xs text-gray-500">Expected Delivery Date</p>
+                <p className="text-xs text-gray-500">Delivery Date</p>
                 <p className="text-sm font-medium text-gray-900">
                   {formatDate(order.expected_delivery_date)}
                 </p>

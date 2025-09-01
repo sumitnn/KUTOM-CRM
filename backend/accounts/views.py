@@ -1050,9 +1050,9 @@ class VerifyUserKYCView(APIView):
             return Response({"message": "KYC is already verified."}, status=status.HTTP_400_BAD_REQUEST)
    
         profile_status=ProfileApprovalStatus.objects.get(user=profile.user)
-        if profile_status.calculate_completion() < 100:
+        if profile_status.calculate_completion() < 60:
             return Response({
-                "message": "100% profile completion is required for full KYC verification.",
+                "message": "60% profile completion is required for full KYC verification.",
                 "status": False
             }, status=status.HTTP_400_BAD_REQUEST)
 

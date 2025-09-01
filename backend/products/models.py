@@ -141,7 +141,9 @@ class Product(models.Model):
     video_url = models.URLField(blank=True, null=True)
     warranty = models.CharField(max_length=100, blank=True, null=True)
     content_embeds = models.TextField(blank=True, null=True)
-    features = models.JSONField(default=list)  
+    features = models.JSONField(default=list)
+    gst_percentage=models.CharField(max_length=10, blank=True, null=True,default='0')
+    gst_tax=models.CharField(max_length=10, blank=True, null=True,default='0')  
     
     owner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -161,7 +163,7 @@ class Product(models.Model):
         super().save(*args, **kwargs)
 
 class ProductSize(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='sizes')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE,related_name='sizes')
     size = models.CharField(max_length=50)
     unit = models.CharField(max_length=20)
     price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])

@@ -103,7 +103,9 @@ const getEmbedUrl = (url) => {
         image: mainImage,
         size: selectedSize,
         shipping_info: product.shipping_info,
-        price_tier: selectedTier
+        price_tier: selectedTier,
+        gst_tax: product.gst_tax,
+        gst_percentage:product.gst_percentage
       })
     );
 
@@ -314,6 +316,7 @@ const getEmbedUrl = (url) => {
                   : "Add to Cart"}
               </button>
               <button
+                onClick={handleAddToCart}
                 className="btn btn-secondary"
                 disabled={
                   !selectedSize || product.status === "draft" || !product.is_featured

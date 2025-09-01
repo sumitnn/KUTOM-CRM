@@ -101,7 +101,7 @@ const EditProductPage = ({ role = "vendor" }) => {
         brand: product.brand?.id || product.brand || "",
         category: product.category?.id || product.category || "",
         subcategory: product.subcategory?.id || product.subcategory || "",
-        tags: product.tags || [],
+        tags: product.tags ? extractTagNames(product.tags) : [],
         currency: product.currency || "INR",
         weight: product.weight || "",
         weight_unit: product.weight_unit || "kg",
@@ -344,20 +344,25 @@ const EditProductPage = ({ role = "vendor" }) => {
       
       // Add basic product info
       Object.entries(formData).forEach(([key, value]) => {
-        if (value !== null && value !== "") {
-          if (key === 'tags' || key === 'features') {
-            formDataToSend.append(key, JSON.stringify(value));
-          } else {
-            formDataToSend.append(key, value);
-          }
+      if (value !== null && value !== "") {
+        if (key === 'tags') {
+          // Extract tag names if they are objects
+          const tagNames = value.map(tag => typeof tag === 'object' ? tag.name : tag);
+          formDataToSend.append(key, JSON.stringify(tagNames));
+        } else if (key === 'features') {
+          formDataToSend.append(key, JSON.stringify(value));
+        } else {
+          formDataToSend.append(key, value);
         }
-      });
+      }
+    });
 
       // Add sizes as JSON
       formDataToSend.append('sizes', JSON.stringify(sizes));
 
       // Add price tiers as JSON
       formDataToSend.append('price_tiers', JSON.stringify(priceTiers));
+      formDataToSend.append('tags', JSON.stringify(extractTagNames(formData.tags)));
 
       // Add removed image IDs
       removedImageIds.forEach(id => {
@@ -387,6 +392,9 @@ const EditProductPage = ({ role = "vendor" }) => {
   const isFormValid = !formErrors.sizes && !formErrors.image && 
     formData.name && formData.description && formData.short_description && 
     formData.brand && formData.category;
+  const extractTagNames = (tags) => {
+  return tags.map(tag => typeof tag === 'object' ? tag.name : tag);
+};
 
   if (isLoading) return (
     <div className="flex items-center justify-center h-[60vh]">
@@ -509,33 +517,33 @@ const EditProductPage = ({ role = "vendor" }) => {
 
               {/* Tags Field */}
               <div className="space-y-1 md:col-span-2">
-                <label className="block text-sm font-bold text-gray-700">Tags</label>
-                <div className="flex flex-wrap gap-2 items-center">
-                  {formData.tags.map((tag, index) => (
-                    <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
-                      {tag}
-                      <button
-                        type="button"
-                        onClick={() => removeTag(index)}
-                        className="ml-1.5 inline-flex text-blue-400 hover:text-blue-600 focus:outline-none"
-                      >
-                        <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
-                          <path strokeLinecap="round" strokeWidth="1.5" d="M1 1l6 6m0-6L1 7" />
-                        </svg>
-                      </button>
-                    </span>
-                  ))}
-                  <input
-                    type="text"
-                    value={tagInput}
-                    onChange={handleTagInputChange}
-                    onKeyDown={addTag}
-                    placeholder="Type a tag and press Enter"
-                    className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm"
-                  />
-                </div>
-                <p className="mt-1 text-xs text-gray-500">Add tags to help customers find your product</p>
-              </div>
+  <label className="block text-sm font-bold text-gray-700">Tags</label>
+  <div className="flex flex-wrap gap-2 items-center">
+    {formData.tags.map((tag, index) => (
+      <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
+        {typeof tag === 'object' ? tag.name : tag}
+        <button
+          type="button"
+          onClick={() => removeTag(index)}
+          className="ml-1.5 inline-flex text-blue-400 hover:text-blue-600 focus:outline-none"
+        >
+          <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+            <path strokeLinecap="round" strokeWidth="1.5" d="M1 1l6 6m0-6L1 7" />
+          </svg>
+        </button>
+      </span>
+    ))}
+    <input
+      type="text"
+      value={tagInput}
+      onChange={handleTagInputChange}
+      onKeyDown={addTag}
+      placeholder="Type a tag and press Enter"
+      className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm"
+    />
+  </div>
+  <p className="mt-1 text-xs text-gray-500">Add tags to help customers find your product</p>
+</div>
             </div>
           </div>
 

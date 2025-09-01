@@ -177,24 +177,25 @@ export default function VendorTable({
                   data.map((item, index) => (
                   
                   <VendorTableRow
-                    key={item.id}
-                    vendor={item}
-                    index={index}
-                    activeTab={activeTab}
-                    onView={() => setViewVendor(item)}
-                    onReview={() => setReviewVendor(item)}
-                    onApprove={onApprove}
-                    onReject={onReject}
-                        onMarkKycCompleted={() => {
-              setSelectedVendor(item);
-              setShowKycModal(true);
-            }}
-                    onRefresh={onRefresh}
-                    isLoadingAction={isLoadingAction}
-                    currentActionId={currentActionId}
-                    setShowKycModal={setShowKycModal}
-                    setSelectedVendor={setSelectedVendor}
-                  />
+                  key={item.id}
+                  vendor={item}
+                  index={index}
+                  activeTab={activeTab}
+                  onView={() => setViewVendor(item)}
+                  onReview={() => setReviewVendor(item)}
+                  onApprove={onApprove}
+                  onReject={onReject}
+                  onToggleStatus={onReject} 
+                  onMarkKycCompleted={() => {
+                    setSelectedVendor(item);
+                    setShowKycModal(true);
+                  }}
+                  onRefresh={onRefresh}
+                  isLoadingAction={isLoadingAction}
+                  currentActionId={currentActionId}
+                  setShowKycModal={setShowKycModal}
+                  setSelectedVendor={setSelectedVendor}
+                />
                 ))
               ) : (
                 <tr>

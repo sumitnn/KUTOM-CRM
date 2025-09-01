@@ -21,15 +21,45 @@ const calculateItemPrice = (item) => {
   return item.price;
 };
 
+const calculateGSTForItem = (item) => {
+  const itemPrice = calculateItemPrice(item);
+  const subtotal = Number(itemPrice) * (item.quantity || 1);
+  
+  // Calculate GST based on either fixed amount or percentage
+  let gstAmount = 0;
+  if (item.gst_tax) {
+    // If fixed GST tax amount is provided
+    gstAmount = Number(item.gst_tax) * (item.quantity || 1);
+  } else if (item.gst_percentage) {
+    // If GST percentage is provided
+    gstAmount = (subtotal * Number(item.gst_percentage)) / 100;
+  }
+  
+  return gstAmount;
+};
+
 const MyCart = ({ role }) => {
   const dispatch = useDispatch();
   const cartItems = useSelector((state) => state.cart.items);
   const [placeBulkOrder, { isLoading }] = useCreateBulkOrdersMutation();
 
-  const totalPrice = cartItems.reduce(
+  // Calculate subtotal (price of all items without GST and shipping)
+  const subtotal = cartItems.reduce(
     (acc, item) => acc + (calculateItemPrice(item) || 0) * (item.quantity || 1),
     0
   );
+
+  // Calculate total GST for all items
+  const totalGST = cartItems.reduce(
+    (acc, item) => acc + calculateGSTForItem(item),
+    0
+  );
+
+  // Calculate shipping cost
+  const shippingCost = 0;
+
+  // Calculate final total
+  const totalPrice = subtotal + shippingCost + totalGST;
 
   const handleQuantityChange = (id, newQuantity) => {
     const item = cartItems.find(item => item.id === id);
@@ -52,12 +82,17 @@ const MyCart = ({ role }) => {
   const handleCheckout = async () => {
     try {
       const orderData = {
-        items: cartItems.map(({ id, quantity, size, price_tier }) => ({
+        items: cartItems.map(({ id, quantity, size, price_tier, gst_tax, gst_percentage }) => ({
           product_id: id,
           quantity,
           size: size?.id || null,
-          price_tier_id: price_tier?.id || null
+          price_tier_id: price_tier?.id || null,
+          gst_tax: gst_tax || null,
+          gst_percentage: gst_percentage || null
         })),
+        subtotal,
+        shipping: shippingCost,
+        gst: totalGST,
         total: totalPrice,
       };
 
@@ -114,7 +149,8 @@ const MyCart = ({ role }) => {
                 <div className="divide-y divide-gray-200">
                   {cartItems.map((item) => {
                     const itemPrice = calculateItemPrice(item);
-                    const { id, name, price, quantity, image, size, color, description, price_tier } = item;
+                    const itemGST = calculateGSTForItem(item);
+                    const { id, name, price, quantity, image, size, color, description, price_tier, gst_tax, gst_percentage } = item;
                     
                     return (
                       <div key={id} className="p-6 flex flex-col sm:flex-row group hover:bg-gray-50 transition-colors">
@@ -164,6 +200,11 @@ const MyCart = ({ role }) => {
                                   Bulk discount applied ({price_tier.min_quantity}+ units)
                                 </div>
                               )}
+                              {(gst_tax || gst_percentage) && (
+                                <div className="mt-1 text-xs text-blue-600">
+                                  GST : {gst_tax ? `₹${gst_tax} per unit` : `${gst_percentage}%`}
+                                </div>
+                              )}
                             </div>
                             <button
                               onClick={() => dispatch(removeItem(id))}
@@ -208,8 +249,14 @@ const MyCart = ({ role }) => {
                                   </span>
                                 )}
                               </p>
+                              <p className="text-sm text-gray-600">
+                                Subtotal: ₹{(Number(itemPrice) * quantity).toFixed(2)}
+                              </p>
+                              <p className="text-sm text-blue-600">
+                                GST: ₹{itemGST.toFixed(2)}
+                              </p>
                               <p className="text-lg font-bold text-indigo-600 mt-1">
-                                ₹{(Number(itemPrice) * quantity).toFixed(2)}
+                                Total: ₹{((Number(itemPrice) * quantity) + itemGST).toFixed(2)}
                               </p>
                             </div>
                           </div>
@@ -260,23 +307,21 @@ const MyCart = ({ role }) => {
                 <div className="px-6 py-4 space-y-4">
                   <div className="flex justify-between">
                     <p className="text-gray-600 font-medium">Subtotal</p>
-                    <p className="text-gray-900 font-bold">₹{totalPrice.toFixed(2)}</p>
+                    <p className="text-gray-900 font-bold">₹{subtotal.toFixed(2)}</p>
                   </div>
+                  
+                 
+                  
                   <div className="flex justify-between">
-                    <p className="text-gray-600 font-medium">Shipping</p>
-                    <p className="text-gray-900 font-bold">
-                      {totalPrice > 500 ? "FREE" : "₹50.00"}
-                    </p>
+                    <p className="text-gray-600 font-medium">GST (Tax):</p>
+                    <p className="text-gray-900 font-bold">₹{totalGST.toFixed(2)}</p>
                   </div>
-                  <div className="flex justify-between">
-                    <p className="text-gray-600 font-medium">Tax</p>
-                    <p className="text-gray-900 font-bold">₹{(totalPrice * 0.18).toFixed(2)}</p>
-                  </div>
+                  
                   <div className="border-t border-gray-200 pt-4 mt-2">
                     <div className="flex justify-between">
                       <p className="text-lg font-extrabold text-gray-900">Total</p>
                       <p className="text-xl font-extrabold text-indigo-600">
-                        ₹{(totalPrice + (totalPrice > 500 ? 0 : 50) + (totalPrice * 0.18)).toFixed(2)}
+                        ₹{totalPrice.toFixed(2)}
                       </p>
                     </div>
                   </div>

@@ -72,7 +72,7 @@ const OrderDetailPage = ({ role }) => {
 
   if (!order) return null;
 
-  const backLink = role === "vendor" ? "/vendor/orders" : "/admin/orders";
+  const backLink = role === "vendor" ? "/vendor/my-sales" : "/admin/orders";
   const orderDate = parseISO(order.created_at);
   const expectedDeliveryDate = order.expected_delivery_date ? parseISO(order.expected_delivery_date) : null;
 
@@ -196,7 +196,7 @@ const OrderDetailPage = ({ role }) => {
                     <p><span className="font-medium">Tracking #:</span> {order.tracking_number || "Not available"}</p>
                     {expectedDeliveryDate && (
                       <p>
-                        <span className="font-medium">Expected Delivery:</span> {format(expectedDeliveryDate, 'MMMM d, yyyy')}
+                        <span className="font-medium">Delivery Date:</span> {format(expectedDeliveryDate, 'MMMM d, yyyy')}
                       </p>
                     )}
                     <p><span className="font-medium">Transport Charges:</span> ₹{parseFloat(order.transport_charges).toFixed(2)}</p>

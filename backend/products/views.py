@@ -437,11 +437,12 @@ class ProductListCreateAPIView(APIView):
         if featured:
             products = products.filter(is_featured=True)
 
-        serializer = ProductSerializer(products, many=True, context={'request': request})
+        serializer = ProductLISTCREATESerializer(products, many=True, context={'request': request})
         return Response(serializer.data)
 
     def post(self, request):
         data = request.data.copy()
+
         # Truncate short_description if too long
         if 'short_description' in data and len(data['short_description']) > 450:
             data['short_description'] = data['short_description'][:450]
@@ -539,7 +540,7 @@ class ProductListCreateAPIView(APIView):
                 )
 
             return Response(
-                ProductSerializer(product, context={'request': request}).data,
+                ProductLISTCREATESerializer(product, context={'request': request}).data,
                 status=status.HTTP_201_CREATED
             )
 
@@ -593,6 +594,7 @@ class ProductCommissionDetail(APIView):
 class ProductDetailAPIView(APIView):
     permission_classes = [IsAdminOrVendorRole]
 
+
     def get_object(self, pk):
         return get_object_or_404(Product.objects.prefetch_related(
             'images', 'sizes', 'price_tiers', 'tags'
@@ -607,7 +609,15 @@ class ProductDetailAPIView(APIView):
 
     def put(self, request, pk):
         product = self.get_object(pk)
-        data = request.data.copy()
+        data = dict(request.data) 
+
+        # JSON decode values that come in as lists
+        for key, value in data.items():
+            if isinstance(value, list) and len(value) == 1:
+                data[key] = value[0]
+
+
+        
 
         self.check_object_permissions(request, product)
 
@@ -686,33 +696,60 @@ class ProductDetailAPIView(APIView):
                             is_default=False
                         )
 
-                # Delete old sizes
-                product.sizes.all().delete()
-
-                # Handle sizes
                 saved_sizes = []
+
                 if 'sizes' in data and isinstance(data['sizes'], list):
-                    temp_sizes = []
+                    existing_sizes = {s.id: s for s in product.sizes.all()}
+                    sent_size_ids = []
+
                     for size_data in data['sizes']:
                         size_data = size_data.copy()
                         size_data['product'] = product.id
                         original_default = size_data.pop('is_default', False)
 
-                        size_serializer = ProductSizeSerializer(data=size_data)
-                        if size_serializer.is_valid():
-                            size_instance = size_serializer.save()
-                            temp_sizes.append((size_instance, original_default))
-                        else:
-                            return Response(
-                                {'sizes': size_serializer.errors},
-                                status=status.HTTP_400_BAD_REQUEST
+                        size_id = size_data.get('id')
+                        if size_id and size_id in existing_sizes:
+                            # Update existing size
+                            size_instance = existing_sizes[size_id]
+                            size_serializer = ProductSizeSerializer(
+                                size_instance, data=size_data, partial=True
                             )
+                            if size_serializer.is_valid():
+                                updated_size = size_serializer.save()
+                                if original_default:
+                                    updated_size.is_default = True
+                                    updated_size.save()
+                                saved_sizes.append(updated_size)
+                                sent_size_ids.append(size_id)
+                            else:
+                                return Response(
+                                    {'sizes': size_serializer.errors},
+                                    status=status.HTTP_400_BAD_REQUEST
+                                )
+                        else:
+                            # Create new size
+                            size_serializer = ProductSizeSerializer(data=size_data)
+                            if size_serializer.is_valid():
+                                new_size = size_serializer.save()
+                                if original_default:
+                                    new_size.is_default = True
+                                    new_size.save()
+                                saved_sizes.append(new_size)
+                                sent_size_ids.append(new_size.id)
+                            else:
+                                return Response(
+                                    {'sizes': size_serializer.errors},
+                                    status=status.HTTP_400_BAD_REQUEST
+                                )
 
-                    for size_instance, original_default in temp_sizes:
-                        if original_default:
-                            size_instance.is_default = True
-                            size_instance.save()
-                        saved_sizes.append(size_instance)
+                    # Optionally deactivate sizes not in request (instead of deleting)
+                    for size in product.sizes.exclude(id__in=sent_size_ids):
+                        # If it has no OrderItem references, you could delete
+                        if not size.orderitem_set.exists():
+                            size.delete()
+                        else:
+                            size.is_active = False  # if you add is_active flag
+                            size.save()
                 
                 # Handle price tiers
                 if 'price_tiers' in data and isinstance(data['price_tiers'], list):

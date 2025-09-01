@@ -122,7 +122,9 @@ const ProductListPage = ({ role }) => {
         image: getProductImage(prod),
         size: defaultSize,
         shipping_info: prod.shipping_info,
-        price_tier: priceTier
+        price_tier: priceTier,
+        gst_tax: prod.gst_tax,
+        gst_percentage:prod.gst_percentage
       })
     );
 

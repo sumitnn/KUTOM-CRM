@@ -44,6 +44,11 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+    
+    @property
+    def unique_role_id(self):
+        """Return whichever of vendor_id, stockist_id, or reseller_id is set"""
+        return self.vendor_id or self.stockist_id or self.reseller_id
 
 class Profile(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -135,6 +140,8 @@ class WalletTransaction(models.Model):
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     description = models.TextField(blank=True)
     transaction_status=models.CharField(max_length=10,choices=TRANSACTION_STATUS_CHOICES)
+    user_id=models.CharField(max_length=50,null=True,blank=True)
+    order_id=models.CharField(max_length=50,null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

@@ -61,6 +61,14 @@ def update_profile_completion(sender, instance, **kwargs):
         user.is_user_active = "active"
         NewAccountApplication.objects.filter(
             email=profile.user.email).update(status='approved')
+        # Assign role-based IDs if not already set
+        if role == 'vendor' and not user.vendor_id:
+            user.vendor_id = generate_unique_role_id('vendor')
+        elif role == 'stockist' and not user.stockist_id:
+            user.stockist_id = generate_unique_role_id('stockist')
+        elif role == 'reseller' and not user.reseller_id:
+            user.reseller_id = generate_unique_role_id('reseller')
+
 
     elif completion < 15:
         # Reset KYC status
@@ -79,20 +87,6 @@ def update_profile_completion(sender, instance, **kwargs):
 
         NewAccountApplication.objects.filter(
             email=profile.user.email).update(status='pending')
-
-        
-
-    elif completion > 15:
-        # Assign role-based IDs if not already set
-        if role == 'vendor' and not user.vendor_id:
-            user.vendor_id = generate_unique_role_id('vendor')
-            user.is_user_active = "active"
-        elif role == 'stockist' and not user.stockist_id:
-            user.stockist_id = generate_unique_role_id('stockist')
-            user.is_user_active = "active"
-        elif role == 'reseller' and not user.reseller_id:
-            user.reseller_id = generate_unique_role_id('reseller')
-            user.is_user_active = "active"
 
     profile.save()
     user.save()

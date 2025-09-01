@@ -369,7 +369,6 @@ class CancelOrderAPIView(APIView):
         serializer = OrderDetailSerializer(order, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    
 class UpdateOrderStatusView(APIView):
     permission_classes = [IsAdminOrVendorRole]
 
@@ -384,6 +383,7 @@ class UpdateOrderStatusView(APIView):
 
         is_received = request.data.get('status') == 'received'
         is_delivered = request.data.get('status') == 'delivered'
+        is_cancelled = request.data.get('status') == 'cancelled'
 
         if request.data.get('status') == 'received' and request.user.role == 'admin':
             request.data['status'] = 'delivered'
@@ -394,7 +394,7 @@ class UpdateOrderStatusView(APIView):
 
             admin_user = User.objects.filter(role='admin').first()
 
-            # Notifications
+            # --- Notifications ---
             if admin_user:
                 create_notification(
                     user=admin_user,
@@ -403,6 +403,7 @@ class UpdateOrderStatusView(APIView):
                     notification_type="order status update",
                     related_url=f"/orders/{order.id}/"
                 )
+
             if is_received or is_delivered:
                 create_notification(
                     user=order.created_for,
@@ -411,17 +412,48 @@ class UpdateOrderStatusView(APIView):
                     notification_type="order status update",
                     related_url=f"/orders/{order.id}/"
                 )
-
                 # ✅ Create Admin Product from Vendor's Product
                 self.create_admin_product(order, admin_user)
 
-            # Wallet handling if delivered
+            # --- Wallet handling ---
             if serializer.validated_data.get('status') == 'delivered':
                 self.handle_wallet_transactions(order, admin_user)
+
+            if is_cancelled:
+                self.refund_order(order, admin_user)
 
             return Response(serializer.data)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # --- Refund handler ---
+    def refund_order(self, order, admin_user):
+        """Refund money back to buyer wallet if order cancelled"""
+        wallet = order.created_by.wallet  
+        refund_amount = order.total_price  
+
+        wallet.balance += refund_amount
+        wallet.save()
+
+        # Save a wallet transaction log
+        WalletTransaction.objects.create(
+            wallet=wallet,
+            amount=refund_amount,
+            transaction_type="CREDIT",
+            transaction_status="SUCCESS",
+            order_id=order.id,
+            user_id=order.created_for.unique_role_id,
+            description=f"Refund for cancelled order #{order.id}"
+        )
+
+        # Notify buyer
+        create_notification(
+            user=order.created_by,
+            title="Order Cancelled",
+            message=f"Your order #{order.id} was cancelled. ₹{refund_amount} refunded to your wallet.",
+            notification_type="order refund",
+            related_url=f"/wallet/"
+        )
 
     def handle_wallet_transactions(self, order, admin_user):
         transport_charges = order.transport_charges or 0
@@ -442,6 +474,8 @@ class UpdateOrderStatusView(APIView):
                     wallet=admin_wallet,
                     transaction_type='DEBIT',
                     amount=transport_charges,
+                    order_id=order.id,
+                    user_id=order.created_for.unique_role_id,
                     description=f"Transport charges for Order #{order.id}",
                     transaction_status='SUCCESS'
                 )
@@ -449,6 +483,8 @@ class UpdateOrderStatusView(APIView):
                     wallet=user_wallet,
                     transaction_type='CREDIT',
                     amount=transport_charges,
+                    order_id=order.id,
+                    user_id=order.created_for.unique_role_id,
                     description=f"Received transport charges for Order #{order.id}",
                     transaction_status='RECEIVED'
                 )
@@ -512,6 +548,7 @@ class UpdateOrderStatusView(APIView):
 
 
 
+ 
 
 class UpdateStockistResellerOrderStatusView(APIView):
     permission_classes = [IsAdminStockistResellerRole]
@@ -586,6 +623,8 @@ class UpdateStockistResellerOrderStatusView(APIView):
                 wallet=user_wallet,
                 transaction_type='DEBIT',
                 amount=transport_charges,
+                order_id=order.id,
+                user_id=order.created_for.unique_role_id,
                 description=f"Transport charges for Order #{order.id}",
                 transaction_status='SUCCESS'
             )
@@ -593,6 +632,8 @@ class UpdateStockistResellerOrderStatusView(APIView):
                 wallet=admin_wallet,
                 transaction_type='CREDIT',
                 amount=transport_charges,
+                order_id=order.id,
+                user_id=order.created_by.unique_role_id,
                 description=f"Received transport charges for Order #{order.id}",
                 transaction_status='RECEIVED'
             )

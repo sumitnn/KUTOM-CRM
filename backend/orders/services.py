@@ -30,6 +30,7 @@ class OrderService:
 
             for item in items_data:
                 product_id = item.get("product_id")
+                
                 size_id = item.get("size", None)
                 quantity = item.get("quantity", 1)
                 price_tier_id = item.get("price_tier_id")
@@ -66,7 +67,9 @@ class OrderService:
                         price_tier_id = None
 
                     line_total = unit_price * quantity
+                    total_gst_for_item = int(product.gst_tax) * quantity
                     total_price += line_total
+                    total_price += total_gst_for_item
 
                     validated_items.append({
                         "product": product,
@@ -165,6 +168,7 @@ class OrderService:
             # Validate and prepare items
             for item in items_data:
                 product_id = item.get("product_id")
+                gst_amount=Product.objects.get(id=product_id).gst_tax
                 size_id = item.get("size")  # ID of AdminProductSize
                 quantity = int(item.get("quantity", 1))
 
@@ -189,9 +193,11 @@ class OrderService:
                         f"Insufficient stock for {admin_product.name} ({product_size.size})."
                     )
 
+                total_gst_for_item = int(gst_amount) * quantity
                 unit_price = admin_product.resale_price
                 line_total = unit_price * quantity
                 total_price += line_total
+                total_price += total_gst_for_item
 
                 validated_items.append({
                     "product": admin_product,

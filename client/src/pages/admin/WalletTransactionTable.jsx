@@ -132,7 +132,21 @@ const WalletTransactionTable = () => {
             Clear Filters
           </button>
           
-        
+          {/* Page Size Selector */}
+          <div className="flex items-center space-x-2">
+            <label className="text-sm text-gray-700">Show:</label>
+            <select
+              value={pageSize}
+              onChange={handlePageSizeChange}
+              className="select select-bordered select-sm"
+            >
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+            </select>
+            <span className="text-sm text-gray-700">entries</span>
+          </div>
         </div>
       </div>
 
@@ -142,27 +156,39 @@ const WalletTransactionTable = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gradient-to-r from-orange-50 to-amber-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Amount</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Type</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Description</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Date</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Txn ID</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Date</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">User ID</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Order ID</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Type</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Amount</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Balance</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Description</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {transactions.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan="8" className="px-6 py-4 text-center text-gray-500">
                     {isFetching ? 'Loading...' : 'No transactions found'}
                   </td>
                 </tr>
               ) : (
                 transactions.map((tx) => (
                   <tr key={tx.id} className="hover:bg-orange-50 transition-colors duration-150">
-                    <td className={`px-6 py-4 whitespace-nowrap ${tx.transaction_type === "CREDIT" ? "text-green-600" : "text-red-600"}`}>
-                      <span className="font-semibold">₹{tx.amount}</span>
+                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {tx.id}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
+                      {format(parseISO(tx.created_at), 'dd MMM yyyy, hh:mm a')}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
+                      {tx.user_id || 'N/A'}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
+                      {tx.order_id || 'N/A'}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                         tx.transaction_type === "CREDIT" 
                           ? "bg-green-100 text-green-800" 
@@ -171,22 +197,14 @@ const WalletTransactionTable = () => {
                         {tx.transaction_type}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        tx.transaction_status === "SUCCESS" 
-                          ? "bg-green-100 text-green-800" 
-                          : tx.transaction_status === "PENDING"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-red-100 text-red-800"
-                      }`}>
-                        {tx.transaction_status}
-                      </span>
+                    <td className={`px-4 py-4 whitespace-nowrap text-sm font-semibold ${
+                      tx.transaction_type === "CREDIT" ? "text-green-600" : "text-red-600"
+                    }`}>
+                      {tx.transaction_type === "CREDIT" ? "+" : "-"}₹{tx.amount}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700 max-w-xs truncate" title={tx.description}>
+                    
+                    <td className="px-4 py-4 text-sm text-gray-700 max-w-xs truncate" title={tx.description}>
                       {tx.description}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {format(parseISO(tx.created_at), 'dd MMM yyyy, hh:mm a')}
                     </td>
                   </tr>
                 ))

@@ -556,7 +556,7 @@ const SalesPage = ({ role }) => {
                     </div>
                     <div className="form-control">
                       <label className="label">
-                        <span className="label-text font-medium">Expected Delivery Date <span className="text-red-500">*</span></span>
+                        <span className="label-text font-medium">Delivery Date <span className="text-red-500">*</span></span>
                       </label>
                       <input
                         type="date"
@@ -565,7 +565,8 @@ const SalesPage = ({ role }) => {
                         onChange={handleDispatchFormChange}
                         className="input input-bordered w-full"
                         required
-                        min={new Date().toISOString().split('T')[0]}
+                        min={new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]} // 7 days ago
+                        max={new Date().toISOString().split('T')[0]} // today
                       />
                     </div>
                     <div className="form-control md:col-span-2">

@@ -134,8 +134,7 @@ class AdminProductSizeSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at', 'updated_at']
 
 
-
-class ProductSerializer(serializers.ModelSerializer):
+class ProductLISTCREATESerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
     sizes = ProductSizeSerializer(many=True, read_only=True)
     tags = TagSerializer(many=True, read_only=True)
@@ -143,6 +142,8 @@ class ProductSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
     subcategory_name = serializers.CharField(source='subcategory.name', read_only=True)
     vendor_id = serializers.CharField(source='owner.vendor_id', read_only=True)
+ 
+    
 
     class Meta:
         model = Product
@@ -152,9 +153,46 @@ class ProductSerializer(serializers.ModelSerializer):
             'subcategory_name', 'tags', 'status', 'is_featured', 'rating',
             'images', 'sizes', 'created_at', 'updated_at',
             'currency', 'weight', 'weight_unit', 'dimensions', 'product_type',
-            'shipping_info', 'video_url', 'warranty', 'content_embeds', 'features','vendor_id'
+            'shipping_info', 'video_url', 'warranty', 'content_embeds', 'features','vendor_id','gst_tax','gst_percentage'
         ]
         read_only_fields = ['sku', 'slug', 'created_at', 'updated_at']
+
+
+
+
+class ProductSerializer(serializers.ModelSerializer):
+    images = ProductImageSerializer(many=True, read_only=True)
+    sizes = ProductSizeSerializer(many=True, read_only=True)
+    tags = TagSerializer(many=True, read_only=True)
+    brand_name = serializers.CharField(source='brand.name', read_only=True)
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    subcategory_name = serializers.CharField(source='subcategory.name', read_only=True)
+    vendor_id = serializers.CharField(source='owner.vendor_id', read_only=True)
+    features = serializers.SerializerMethodField()
+    
+
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'sku', 'name', 'slug', 'description', 'short_description',
+            'brand', 'brand_name', 'category', 'category_name', 'subcategory',
+            'subcategory_name', 'tags', 'status', 'is_featured', 'rating',
+            'images', 'sizes', 'created_at', 'updated_at',
+            'currency', 'weight', 'weight_unit', 'dimensions', 'product_type',
+            'shipping_info', 'video_url', 'warranty', 'content_embeds', 'features','vendor_id','gst_tax','gst_percentage'
+        ]
+        read_only_fields = ['sku', 'slug', 'created_at', 'updated_at']
+
+    def get_features(self, obj):
+        try:
+            if isinstance(obj.features, str):
+                return json.loads(obj.features)
+            elif isinstance(obj.features, list):
+                return obj.features
+            else:
+                return []
+        except Exception:
+            return []
 
 
 class AdminProductImageSerializer(serializers.ModelSerializer):
