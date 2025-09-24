@@ -21,6 +21,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     stockist_id = models.CharField(max_length=20, null=True, blank=True, unique=True)
     reseller_id = models.CharField(max_length=20, null=True, blank=True, unique=True)
     completion_percentage = models.IntegerField(default=0)
+    is_user_active = models.BooleanField(default=True) 
 
     # Role field
     ROLE_CHOICES = (
