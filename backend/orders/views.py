@@ -236,7 +236,7 @@ class CancelOrderAPIView(APIView):
 
     def post(self, request, order_id):
         order = get_object_or_404(Order, id=order_id)
-        import pdb; pdb.set_trace()
+        
 
         if order.status != 'pending':
             return Response(
