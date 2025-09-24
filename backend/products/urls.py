@@ -27,21 +27,26 @@ urlpatterns = [
     
 
     # vendor api 
-    path('vendor/products/', VendorActiveProductListView.as_view(), name='vendor-product-list'),
-    path('vendor/products/<int:product_id>/sizes/', ProductSizeListByProductView.as_view(), name='product-size-list'),
+    path('vendor/products/', ActiveProductListView.as_view(), name='vendor-product-list'),
+    path('vendor/products/<int:product_id>/sizes/', ProductVariantListByProductView.as_view(), name='product-size-list'),
 
     # admin api 
-    path('admin/products/', AdminActiveProductListView.as_view(), name='admin-product-list'),
-    path('admin/products/<int:product_id>/sizes/', AdminProductSizeListByProductView.as_view(), name='adminproduct-size-list'),
-    path('admin-stocks/', AdminStockListView.as_view(), name='adminstock-list'),
+    path('admin/products/', AdminProductListView.as_view(), name='admin-product-list'),
+    path('admin/products/<int:product_id>/sizes/', AdminProductListView.as_view(), name='adminproduct-size-list'),
+    path('admin-stocks/', StockListCreateAPIView.as_view(), name='adminstock-list'),
     
     # stocks 
     path('stocks/', StockListCreateAPIView.as_view(), name='stock-list-create'),
     path('stocks/<int:pk>/', StockRetrieveUpdateAPIView.as_view(), name='stock-detail'),
+    path('stocks/<int:stock_id>/history/', StockHistoryAPIView.as_view(), name='get-stock-history'),
 
     path('commissions/<int:product_id>/',ProductCommissionDetail.as_view(),name='product-commission-detail'),
      path('admin-products/', AdminProductListView.as_view(), name='admin-product-list'),
-     path('admin-products/<int:pk>/', AdminProductDetailView.as_view(), name='admin-product-details'),
-
+     path('admin-products/<int:pk>/', AdminProductListView.as_view(), name='admin-product-details'),
+     
+    path('products/<int:product_id>/commission/', ProductCommissionAPIView.as_view(), name='product-commission'),
+    path('products/<int:product_id>/featured/', ProductFeaturedStatusAPIView.as_view(), name='product-featured'),
+    path('products/<int:product_id>/variants/<int:variant_id>/price/', ProductPriceUpdateAPIView.as_view(), name='product-price-update'),
+   
 
 ]

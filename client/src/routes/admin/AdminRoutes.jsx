@@ -6,7 +6,9 @@ import Spinner from "../../components/common/Spinner";
 import ProtectedRoute from "../ProtectedRoutes";
 import AdminMainLayout from "../../layout/admin/AdminMainLayout";
 
+
 // Lazy-loaded page components
+const AdminMyProduct = lazy(() => import("../../pages/admin/AdminMyProduct"));
 const OrderDetailPage = lazy(() => import("../../pages/OrderDetailPage"));
 const AdminOrderRequestPage = lazy(() => import("../../pages/AdminOrderRequestPage"));
 const ViewProductPage = lazy(() => import("../../pages/ViewProductPage"));
@@ -200,6 +202,17 @@ const AdminRoutes = [
         </AdminMainLayout>
       }
     />
+   <Route 
+      path="/admin/my-products" 
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <AdminMyProduct/>
+          </Suspense>
+        </AdminMainLayout>
+      }
+    />
+
     <Route 
       path="/admin/products/edit/:id" 
       element={

@@ -1,119 +1,251 @@
 from django.contrib import admin
-from .models import *
-
+from .models import (
+    Brand, MainCategory, Category, SubCategory, Tag, ProductFeatures,
+    Product, ProductVariant, ProductImage, ProductVariantPrice, ProductVariantBulkPrice,
+    RoleBasedProduct, ProductCommission, StockInventory, StockInventoryHistory
+)
 
 
 @admin.register(Brand)
 class BrandAdmin(admin.ModelAdmin):
-    list_display = ['name', 'is_active', 'description', 'owner_email', 'created_at']
-    list_filter = ['is_active']
-    search_fields = ['name']
-    readonly_fields = ['created_at', 'updated_at']
+    list_display = ('name', 'owner', 'is_active', 'created_at')
+    search_fields = ('name',)
+    list_filter = ('is_active', 'created_at')
+    ordering = ('-created_at',)
 
-    def owner_email(self, obj):
-        return obj.owner.email if obj.owner else "-"
-    owner_email.short_description = "Owner Email"
+
+@admin.register(MainCategory)
+class MainCategoryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'owner', 'is_active', 'created_at')
+    search_fields = ('name',)
+    list_filter = ('is_active', 'created_at')
+    ordering = ('-created_at',)
 
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ['name', 'is_active']
-    list_filter = ['is_active']
-    search_fields = ['name']
-    readonly_fields = ['created_at', 'updated_at']
+    list_display = ('name', 'main_category', 'owner', 'is_active', 'created_at')
+    search_fields = ('name',)
+    list_filter = ('main_category', 'is_active', 'created_at')
 
 
 @admin.register(SubCategory)
 class SubCategoryAdmin(admin.ModelAdmin):
-    list_display = ['name', 'category', 'is_active']
-    list_filter = ['category', 'is_active']
-    search_fields = ['name']
-    readonly_fields = ['created_at', 'updated_at']
-
-
-
-@admin.register(Stock)
-class StockAdmin(admin.ModelAdmin):
-    list_display = (
-        'id', 'product', 'size', 'quantity', 'rate', 'total_price',
-        'status', 'owner', 'created_at', 'updated_at'
-    )
-    list_filter = ('status',)
-    search_fields = ('product__name', 'product__brand__name')
-    ordering = ('-created_at',)
-    readonly_fields = ('total_price', 'created_at', 'updated_at')
+    list_display = ('name', 'category', 'brand', 'owner', 'is_active', 'created_at')
+    search_fields = ('name',)
+    list_filter = ('category', 'brand', 'is_active', 'created_at')
 
 
 @admin.register(Tag)
 class TagAdmin(admin.ModelAdmin):
     list_display = ('name', 'slug', 'owner')
-    search_fields = ('name', 'slug')
+    search_fields = ('name',)
     prepopulated_fields = {'slug': ('name',)}
+
+
+@admin.register(ProductFeatures)
+class ProductFeaturesAdmin(admin.ModelAdmin):
+    list_display = ('name', 'owner', 'created_at')
+    search_fields = ('name',)
+
+
+class ProductVariantInline(admin.TabularInline):
+    model = ProductVariant
+    extra = 1
+    fields = ('name', 'is_default', 'is_active')
+
+
+class ProductImageInline(admin.TabularInline):
+    model = Product.images.through
+    extra = 1
+    verbose_name = 'Image'
+    verbose_name_plural = 'Images'
+
+
+class ProductVariantPriceInline(admin.TabularInline):
+    model = ProductVariantPrice
+    extra = 1
+    autocomplete_fields = ('variant', 'user')
+    show_change_link = True
+
+
+class ProductBulkPriceInline(admin.TabularInline):
+    model = ProductVariantBulkPrice
+    extra = 1
+    autocomplete_fields = ('variant',)
+
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('name', 'slug', 'brand', 'category', 'status', 'created_at')
-    list_filter = ('status', 'category', 'brand', 'created_at')
-    search_fields = ('name', 'description', 'short_description', 'sku')
+    list_display = ('name', 'sku', 'brand', 'category', 'subcategory', 'status', 'is_active', 'created_at')
+    search_fields = ('name', 'sku')
+    list_filter = ('brand', 'category', 'subcategory', 'status', 'is_active', 'created_at')
     prepopulated_fields = {'slug': ('name',)}
-    filter_horizontal = ('tags',)
+    inlines = [ProductVariantInline, ProductVariantPriceInline, ProductBulkPriceInline, ProductImageInline]
+    filter_horizontal = ('tags', 'features')
+    readonly_fields = ('sku',)
+    
+    # Optimize queryset to reduce database queries
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'brand', 'category', 'subcategory'
+        ).prefetch_related('tags', 'features')
 
-@admin.register(ProductSize)
-class ProductSizeAdmin(admin.ModelAdmin):
-    list_display = ('product', 'size', 'unit', 'price', 'is_default', 'is_active')
-    list_filter = ('is_default', 'is_active')
-    search_fields = ('product__name', )
+
+@admin.register(ProductVariant)
+class ProductVariantAdmin(admin.ModelAdmin):
+    list_display = ('name', 'sku', 'product', 'is_default', 'is_active', 'created_at')
+    search_fields = ('name', 'sku', 'product__name')
+    list_filter = ('is_active', 'is_default', 'created_at')
+    readonly_fields = ('sku',)
+    
+    # Optimize queryset
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('product')
+
 
 @admin.register(ProductImage)
 class ProductImageAdmin(admin.ModelAdmin):
-    list_display = ('product', 'image', 'is_featured', 'is_default', 'created_at')
-    list_filter = ('is_featured', 'is_default')
-
-@admin.register(ProductPriceTier)
-class ProductPriceTierAdmin(admin.ModelAdmin):
-    list_display = ('product', 'size', 'min_quantity', 'price')
-    list_filter = ('min_quantity',)
-
-
-class AdminProductSizeInline(admin.TabularInline):
-    model = AdminProductSize
-    extra = 0
-
-
-class AdminProductImageInline(admin.TabularInline):
-    model = AdminProductImage
-    extra = 0
+    list_display = ('id', 'image_preview', 'alt_text', 'is_featured', 'is_default', 'created_at')
+    search_fields = ('alt_text',)
+    list_filter = ('is_featured', 'is_default', 'created_at')
+    readonly_fields = ('image_preview',)
+    
+    def image_preview(self, obj):
+        if obj.image:
+            return f'<img src="{obj.image.url}" style="max-height: 50px; max-width: 50px;" />'
+        return "No Image"
+    image_preview.allow_tags = True
+    image_preview.short_description = 'Preview'
 
 
-@admin.register(AdminProduct)
-class AdminProductAdmin(admin.ModelAdmin):
-    list_display = (
-        'id', 'name', 'admin','sku','slug', 'resale_price', 'quantity_available',
-        'is_active', 'created_at'
-    )
-    list_filter = ('is_active', 'admin', 'original_vendor', 'created_at')
-    search_fields = ('name', 'admin__email', )
-    inlines = [AdminProductSizeInline, AdminProductImageInline]
-    readonly_fields = ('created_at', 'updated_at')
-    ordering = ('-created_at',)
+@admin.register(ProductVariantPrice)
+class ProductVariantPriceAdmin(admin.ModelAdmin):
+    list_display = ('product', 'variant', 'user', 'role', 'price', 'discount', 'gst_percentage', 'actual_price')
+    search_fields = ('product__name', 'variant__name', 'user__username')
+    list_filter = ('role', 'user')
+    
+    # Optimize queryset
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('product', 'variant', 'user')
 
 
-@admin.register(AdminProductSize)
-class AdminProductSizeAdmin(admin.ModelAdmin):
-    list_display = ('id', 'admin_product', 'size', 'unit', 'price', 'is_default', 'is_active')
-    list_filter = ('is_active', 'is_default')
-    search_fields = ('admin_product__name', 'size')
+@admin.register(ProductVariantBulkPrice)
+class ProductVariantBulkPriceAdmin(admin.ModelAdmin):
+    list_display = ('product', 'variant', 'max_quantity', 'price', 'created_at')
+    list_filter = ('created_at',)
+    search_fields = ('product__name', 'variant__name')
+    
+    # Optimize queryset
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('product', 'variant')
 
 
-@admin.register(AdminProductImage)
-class AdminProductImageAdmin(admin.ModelAdmin):
-    list_display = ('id', 'admin_product', 'image', 'is_featured', 'is_default', 'created_at')
-    list_filter = ('is_featured', 'is_default')
-    search_fields = ('admin_product__name',)
+# ---------- Role Based Products ----------
+
+class RoleBasedProductVariantInline(admin.TabularInline):
+    model = RoleBasedProduct.variants.through
+    extra = 1
+    verbose_name = 'Variant'
+    verbose_name_plural = 'Variants'
+
+
+@admin.register(RoleBasedProduct)
+class RoleBasedProductAdmin(admin.ModelAdmin):
+    list_display = ('product', 'user', 'role', 'price', 'is_featured', 'created_at')
+    list_filter = ('role', 'is_featured', 'created_at')
+    search_fields = ('product__name', 'user__username')
+    inlines = [RoleBasedProductVariantInline]
+    
+    # Only show price field for roles that need it
+    def get_fields(self, request, obj=None):
+        fields = super().get_fields(request, obj)
+        if obj and obj.role in ['vendor', 'admin']:
+            # Remove price field for vendor and admin roles
+            return [field for field in fields if field != 'price']
+        return fields
+    
+    # Optimize queryset
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('product', 'user')
 
 
 @admin.register(ProductCommission)
-class AdminProductCommissionAdmin(admin.ModelAdmin):
-    list_display = ('admin_product', 'commission_type', 'reseller_commission_value', 'stockist_commission_value', 'admin_commission_value', 'updated_at')
+class ProductCommissionAdmin(admin.ModelAdmin):
+    list_display = (
+        'get_product_name', 'commission_type',
+        'reseller_commission_value', 'stockist_commission_value',
+        'admin_commission_value', 'updated_at'
+    )
+    search_fields = ('role_product__product__name',)
     list_filter = ('commission_type',)
-    search_fields = ('admin_product__name',)
+    
+    def get_product_name(self, obj):
+        return obj.role_product.product.name
+    get_product_name.short_description = 'Product'
+    
+    # Optimize queryset
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('role_product__product')
+
+
+class StockInventoryHistoryInline(admin.TabularInline):
+    model = StockInventoryHistory
+    extra = 0
+    readonly_fields = (
+        "old_quantity",
+        "change_quantity",
+        "new_quantity",
+        "action",
+        "reference_id",
+        "created_at",
+    )
+    can_delete = False
+    show_change_link = True
+
+@admin.register(StockInventory)
+class StockInventoryAdmin(admin.ModelAdmin):
+    list_display = (
+        "product",
+        "variant",
+        "user",
+        "total_quantity",
+        "created_at",
+        "updated_at",
+    )
+    list_filter = ("product", "variant", "user", "created_at", "updated_at")
+    search_fields = ("product__name", "variant__name", "user__username")
+    inlines = [StockInventoryHistoryInline]
+    readonly_fields = ("created_at", "updated_at")
+    ordering = ("-updated_at",)
+
+@admin.register(StockInventoryHistory)
+class StockInventoryHistoryAdmin(admin.ModelAdmin):
+    list_display = (
+        "stock_inventory",
+        "user",
+        "old_quantity",
+        "change_quantity",
+        "new_quantity",
+        "action",
+        "reference_id",
+        "created_at",
+    )
+    list_filter = ("action", "user", "created_at")
+    search_fields = (
+        "stock_inventory__product__name",
+        "stock_inventory__variant__name",
+        "user__username",
+        "reference_id",
+    )
+    readonly_fields = (
+        "stock_inventory",
+        "user",
+        "old_quantity",
+        "change_quantity",
+        "new_quantity",
+        "action",
+        "reference_id",
+        "created_at",
+    )
+    ordering = ("-created_at",)

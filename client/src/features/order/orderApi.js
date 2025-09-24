@@ -57,7 +57,8 @@ export const orderApi = createApi({
         getAdminProductOrderById: builder.query({
             query: (orderId) => ({
                 url: `/admin-product-orders/${orderId}/`,
-                method: 'GET',
+                method: 'PATCH',
+                data:{orderId}
             }),
         }),
         updateOrderStatus: builder.mutation({

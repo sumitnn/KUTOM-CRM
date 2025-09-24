@@ -14,9 +14,6 @@ import {
   useUpdateProductStatusMutation,
 } from "../features/product/productApi";
 
-
-
-
 const RequestedProductsPage = ({ role }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("draft");
@@ -71,32 +68,37 @@ const RequestedProductsPage = ({ role }) => {
 
   const [updateStatus] = useUpdateProductStatusMutation();
 
-  // Helper function to transform product data
+  // Helper function to transform product data based on new API structure
   const transformProductData = (products) => {
-    return products?.map((product) => ({
-      id: product.id,
-      date: product.created_at,
-      name: product.name,
-      sku: product.sku,
-      brand: product.brand_name,
-      category: product.category_name,
-      subcategory: product.subcategory_name,
-      quantity: product.sizes?.reduce((sum, size) => sum + (size.quantity || 0), 0) || 0,
-      rate: parseFloat(
-        product.sizes?.find((size) => size.is_default)?.price ||
-        product.sizes?.[0]?.price ||
-        0
-      ) || 0,
-      price: parseFloat(
-        product.sizes?.reduce(
-          (sum, size) => sum + ((size.quantity || 0) * parseFloat(size.price || 0)),
-          0
-        )
-      ) || 0,
-      demandDate: product.updated_at,
-      status: product.status,
-      isFeatured: product.is_featured,
-    }));
+    if (!products) return [];
+    
+    return products.map((item) => {
+      const product = item.product_detail || {};
+      const defaultVariant = product.variants?.[0] || {};
+      const variantPrice = defaultVariant.bulk_prices?.[0];
+      
+      return {
+        id: item.product || product.id,
+        date: product.created_at || item.created_at,
+        name: product.name,
+        sku: product.sku,
+        brand: product.brand_name,
+        category: product.category_name,
+        subcategory: product.subcategory_name,
+        // Calculate quantity from variants if available
+        quantity: product.variants?.reduce((sum, variant) => {
+          return sum + (variant.quantity || 0);
+        }, 0) || 0,
+        // Get price from variant or product
+        rate: parseFloat(variantPrice?.price || product.price || 0),
+        // Calculate total price (quantity * rate)
+        price: parseFloat(variantPrice?.price || product.price || 0) * 
+               (product.variants?.reduce((sum, variant) => sum + (variant.quantity || 0), 0) || 1),
+        demandDate: product.updated_at || item.updated_at,
+        status: product.status || item.status,
+        isFeatured: item.is_featured || product.is_featured,
+      };
+    });
   };
 
   const requestData = {
@@ -141,23 +143,20 @@ const RequestedProductsPage = ({ role }) => {
         if (!productId || !newStatus) {
             console.error("Product ID and status are required");
             return;
-      }
-      console.log(newStatus)
+        }
 
         await updateStatus({
             id: productId,
             status: newStatus,  
         }).unwrap();
 
-        // Optional: Show success message
         toast.success(`Product marked as ${newStatus}`);
-        
         handleRefresh(); 
     } catch (error) {
         console.error("Failed to update status:", error);
         toast.error("Failed to update product status");
     }
-};
+  };
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
@@ -269,26 +268,26 @@ const RequestedProductsPage = ({ role }) => {
                     <tr key={item.id} className="hover:bg-gray-50">
                       <td>{(currentPage - 1) * pageSize + index + 1}</td>
                       <td>
-                        {new Date(item.date).toLocaleDateString("en-US", {
+                        {item.date ? new Date(item.date).toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",
                           year: "numeric",
-                        })}
+                        }) : '-'}
                       </td>
-                      <td className="font-bold">{item.name}</td>
-                      <td className="font-bold hidden md:table-cell">{item.sku}</td>
-                      <td className="hidden md:table-cell">{item.brand}</td>
-                      <td className="hidden lg:table-cell">{item.category}</td>
-                      <td className="hidden lg:table-cell">{item.subcategory}</td>
+                      <td className="font-bold">{item.name || 'N/A'}</td>
+                      <td className="font-bold hidden md:table-cell">{item.sku || 'N/A'}</td>
+                      <td className="hidden md:table-cell">{item.brand || 'N/A'}</td>
+                      <td className="hidden lg:table-cell">{item.category || 'N/A'}</td>
+                      <td className="hidden lg:table-cell">{item.subcategory || 'N/A'}</td>
                       <td>{item.quantity.toLocaleString()}</td>
                       <td className="hidden sm:table-cell">₹{item.rate.toFixed(2)}</td>
                       <td className="hidden sm:table-cell">₹{item.price.toFixed(2)}</td>
                       <td className="hidden md:table-cell">
-                        {new Date(item.demandDate).toLocaleDateString("en-US", {
+                        {item.demandDate ? new Date(item.demandDate).toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",
                           year: "numeric",
-                        })}
+                        }) : '-'}
                       </td>
                       <td>
                         <div className="flex items-center gap-2">
@@ -313,6 +312,14 @@ const RequestedProductsPage = ({ role }) => {
                               onClick={() => handleStatusUpdate(item.id, 'active')}
                             >
                               Mark Active
+                            </button>
+                          )}
+                          {activeTab === "draft" && role === "admin" && (
+                            <button
+                              className="btn btn-outline btn-success btn-sm"
+                              onClick={() => handleStatusUpdate(item.id, 'published')}
+                            >
+                              Publish
                             </button>
                           )}
                         </div>

@@ -21,6 +21,7 @@ const WithdrawlRequestsList = ({ role }) => {
   const [modalImage, setModalImage] = useState(null);
 
   const requests = responseData.results || [];
+  const currentBalance = requests.length > 0 ? requests[0].wallet?.current_balance || 0 : 0;
 
   const openModal = (imageUrl) => {
     setModalImage(imageUrl);
@@ -120,6 +121,23 @@ const WithdrawlRequestsList = ({ role }) => {
           </div>
         </div>
 
+        {/* Current Balance Card */}
+        {requests.length > 0 && (
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 mb-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Current Wallet Balance</h2>
+                <p className="text-3xl font-bold mt-2">₹{currentBalance}</p>
+              </div>
+              <div className="bg-white/20 p-3 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="bg-white shadow overflow-hidden sm:rounded-lg">
           {requests.length === 0 ? (
             <div className="text-center py-12 px-4">
@@ -173,10 +191,7 @@ const WithdrawlRequestsList = ({ role }) => {
                       Created Date
                     </th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">
-                      Current Wallet Balance
-                    </th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">
-                      Details
+                     Other Details
                     </th>
                   </tr>
                 </thead>
@@ -215,9 +230,6 @@ const WithdrawlRequestsList = ({ role }) => {
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                         {format(new Date(request.created_at), "MMM d, yyyy h:mm a")}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
-                        ₹{request.wallet?.balance || '0.00'}
                       </td>
                       <td className="px-4 py-4 text-sm text-gray-500">
                         <div className="space-y-2">

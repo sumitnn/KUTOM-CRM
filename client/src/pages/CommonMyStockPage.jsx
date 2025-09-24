@@ -1,9 +1,8 @@
 import { useState, useEffect, lazy, Suspense } from "react";
-import { FiPackage, FiCheckCircle, FiEdit, FiX, FiRefreshCw, FiEye } from "react-icons/fi";
-import { useGetAdminStocksQuery } from "../features/stocks/stocksApi";
-import { useGetProductCommissionQuery, useUpdateProductCommissionMutation } from "../features/commission/commissionApi";
+import { FiPackage, FiCheckCircle, FiX, FiRefreshCw } from "react-icons/fi";
+import { GrHistory } from "react-icons/gr";
+import { useGetAdminStocksQuery, useGetStockHistoryQuery } from "../features/stocks/stocksApi";
 import { toast } from "react-toastify";
-import { useNavigate } from "react-router-dom";
 
 // Lazy-loaded components
 const Spinner = lazy(() => import('../components/common/Spinner'));
@@ -13,45 +12,34 @@ const CommonMyStockPage = ({ role }) => {
   const [activeTab, setActiveTab] = useState("in_stock"); 
   const [page, setPage] = useState(1);
   const pageSize = 10;
-  const [showEditModal, setShowEditModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedStock, setSelectedStock] = useState(null);
-  const [isUpdating, setisUpdating] = useState(false);
   
-  const [updateCommission] = useUpdateProductCommissionMutation();
-  
-  // Form state
-  const [formData, setFormData] = useState({
-    price: '',
-    resale_price: '',
-    stockist_commission: '',
-    reseller_commission: ''
-  });
-
   const { data: response = {}, isLoading, isError, error, refetch } = useGetAdminStocksQuery({
     status: activeTab,
     page,
     pageSize
   });
 
-  // Fetch commission data when a stock is selected
-  const { data: commissionData } = useGetProductCommissionQuery(selectedStock?.id, {
-    skip: !selectedStock
+  // Stock history query - only fetch when modal is open and stock is selected
+  const { 
+    data: historyData, 
+    isLoading: isHistoryLoading, 
+    isError: isHistoryError,
+    refetch: refetchHistory 
+  } = useGetStockHistoryQuery(selectedStock?.id, {
+    skip: !selectedStock || !showHistoryModal
   });
 
-  const stocks = response.results || [];
-  const totalCount = response.count || 0;
-  const navigate = useNavigate();
+  // Handle API response structure
+  const stocks = Array.isArray(response) ? response : response.results || response.data || [];
+  const totalCount = Array.isArray(response) ? response.length : response.count || response.total || 0;
 
   useEffect(() => {
-    if (showEditModal && selectedStock) {
-      setFormData({
-        price: selectedStock.price,
-        resale_price: selectedStock.resale_price,
-        stockist_commission: commissionData?.stockist_commission || '',
-        reseller_commission: commissionData?.reseller_commission || ''
-      });
+    if (showHistoryModal && selectedStock) {
+      refetchHistory();
     }
-  }, [showEditModal, selectedStock, commissionData]);
+  }, [showHistoryModal, selectedStock, refetchHistory]);
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -63,47 +51,14 @@ const CommonMyStockPage = ({ role }) => {
     toast.success("Stock data refreshed!");
   };
 
-  const openEditModal = (stock) => {
+  const openHistoryModal = (stock) => {
     setSelectedStock(stock);
-    setShowEditModal(true);
+    setShowHistoryModal(true);
   };
 
   const handleCloseModal = () => {
-    setShowEditModal(false);
+    setShowHistoryModal(false);
     setSelectedStock(null);
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-        
-        setisUpdating(true);
-      // Update commissions if they exist in the form
-      if (formData.stockist_commission || formData.reseller_commission) {
-        await updateCommission({
-          productId: selectedStock.id,
-          stockist_commission_value: formData.stockist_commission,
-          reseller_commission_value: formData.reseller_commission
-        }).unwrap();
-      }
-
-        toast.success("Stock and commissions updated successfully!");
-        setisUpdating(false);
-        refetch();
-        
-      handleCloseModal();
-    } catch (err) {
-        toast.error(err?.data?.detail || "Failed to update commision");
-         setisUpdating(false);
-    }
   };
 
   const renderTableHeaders = () => {
@@ -111,14 +66,13 @@ const CommonMyStockPage = ({ role }) => {
       <tr className="font-bold text-black">
         <th className="w-12">No.</th>
         <th>{activeTab === "in_stock" ? "Created" : "Updated"} Date</th>
-        <th>SKU</th>
         <th>Product Name</th>
-        <th>Price</th>
-        <th>Resale Price</th>
-        {(role === 'admin' || role === 'stockist') && <th>Stockist Commission</th>}
-        {(role === 'admin' || role === 'reseller') && <th>Reseller Commission</th>}
+        <th>Variant</th>
+        <th>Brand</th>
+        <th>Category</th>
+        <th>Subcategory</th>
         <th className="text-center">Available Qty</th>
-        <th>Status</th>
+        <th className="text-center">Notes</th>
         <th className="text-center">Actions</th>
       </tr>
     );
@@ -139,36 +93,20 @@ const CommonMyStockPage = ({ role }) => {
             minute: '2-digit'
           })}
         </td>
-        <td>{item.sku}</td>
-        <td className="whitespace-nowrap">{item.name}</td>
-        <td>₹{item.price}</td>
-        <td>₹{item.resale_price}</td>
-        {(role === 'admin' || role === 'stockist') && (
-          <td>₹{item?.stockist_commission_value || '0'}</td>
-        )}
-        {(role === 'admin' || role === 'reseller') && (
-          <td>₹{item?.reseller_commission_value || '0'}</td>
-        )}
-        <td className="text-center">{item.quantity_available}</td>
-        <td>
-          <span className={`badge ${item.stock_status === 'in_stock' ? 'badge-success' : 'badge-error'}`}>
-            {item.stock_status.replace('_', ' ')}
-          </span>
-        </td>
-        <td className="flex gap-2 justify-center">
+        <td className="whitespace-nowrap">{item.product_name}</td>
+        <td>{item.variant_name || 'Default'}</td>
+        <td>{item.brand_name}</td>
+        <td>{item.category_name}</td>
+        <td>{item.subcategory_name || 'N/A'}</td>
+        <td className="text-center font-bold">{item.total_quantity}</td>
+        <td className="max-w-xs truncate text-sm">{item.notes || 'No notes'}</td>
+        <td className="text-center">
           <button 
-            onClick={() => navigate(`/view/product/${item.id}/`)}
-            className="btn btn-ghost btn-xs font-bold tooltip"
-            data-tip="View Product"
+            onClick={() => openHistoryModal(item)}
+            className="btn btn-ghost btn-xs font-bold tooltip text-primary"
+            data-tip="View History"
           >
-            <FiEye />
-          </button>
-          <button 
-            onClick={() => openEditModal(item)}
-            className="btn btn-ghost btn-xs font-bold tooltip"
-            data-tip="Edit Price"
-          >
-            <FiEdit />
+            <GrHistory className="w-4 h-4" />
           </button>
         </td>
       </tr>
@@ -178,7 +116,7 @@ const CommonMyStockPage = ({ role }) => {
   const renderTableContent = () => {
     if (isLoading) return (
       <tr>
-        <td colSpan={9 + (role === 'admin' ? 2 : role === 'stockist' || role === 'reseller' ? 1 : 0)} className="text-center py-8">
+        <td colSpan={10} className="text-center py-8">
           <Suspense fallback={<div>Loading...</div>}>
             <Spinner />
           </Suspense>
@@ -188,7 +126,7 @@ const CommonMyStockPage = ({ role }) => {
 
     if (isError) return (
       <tr>
-        <td colSpan={9 + (role === 'admin' ? 2 : role === 'stockist' || role === 'reseller' ? 1 : 0)} className="text-center py-8">
+        <td colSpan={10} className="text-center py-8">
           <Suspense fallback={<div>Error loading...</div>}>
             <ErrorMessage message={error?.data?.message || "Failed to load stocks"} />
           </Suspense>
@@ -198,14 +136,18 @@ const CommonMyStockPage = ({ role }) => {
 
     if (!stocks || stocks.length === 0) return (
       <tr>
-        <td colSpan={9 + (role === 'admin' ? 2 : role === 'stockist' || role === 'reseller' ? 1 : 0)} className="text-center py-8">
+        <td colSpan={10} className="text-center py-8">
           <div className="flex flex-col items-center justify-center gap-2">
             <FiPackage className="w-12 h-12 text-gray-400" />
             <h3 className="text-lg font-medium text-gray-700">
-              {activeTab === "in_stock" ? "No items in stock" : "No out of stock items"}
+              {activeTab === "in_stock" ? "No items in stock" : 
+               activeTab === "out_of_stock" ? "No out of stock items" : 
+               "No new stock items today"}
             </h3>
             <p className="text-gray-500">
-              {activeTab === "in_stock" ? "Your in-stock items will appear here" : "Your out of stock items will appear here"}
+              {activeTab === "in_stock" ? "Your in-stock items will appear here" : 
+               activeTab === "out_of_stock" ? "Your out of stock items will appear here" : 
+               "New stock items added today will appear here"}
             </p>
           </div>
         </td>
@@ -215,18 +157,166 @@ const CommonMyStockPage = ({ role }) => {
     return stocks.map((item, index) => renderTableRow(item, index));
   };
 
+  const renderHistoryModal = () => {
+    if (!selectedStock || !showHistoryModal) return null;
+
+    const historyItems = Array.isArray(historyData) ? historyData : [];
+    const stockInfo = selectedStock;
+
+    return (
+      <div className="modal modal-open">
+        <div className="modal-box max-w-6xl">
+          <button 
+            onClick={handleCloseModal}
+            className="btn btn-sm btn-circle absolute right-2 top-2"
+          >
+            ✕
+          </button>
+          <h3 className="font-bold text-lg mb-4">
+            Stock History - {stockInfo.product_name}
+            {stockInfo.variant_name && ` (${stockInfo.variant_name})`}
+          </h3>
+          
+          {/* Stock Information */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+            <div>
+              <p className="text-sm font-bold text-gray-600">Product Name</p>
+              <p className="text-sm font-medium">{stockInfo.product_name}</p>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-gray-600">Current Quantity</p>
+              <p className="text-sm font-bold">{stockInfo.total_quantity}</p>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-gray-600">Brand</p>
+              <p className="text-sm">{stockInfo.brand_name}</p>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-gray-600">Category</p>
+              <p className="text-sm">{stockInfo.category_name}</p>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-gray-600">Subcategory</p>
+              <p className="text-sm">{stockInfo.subcategory_name || 'N/A'}</p>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-gray-600">Variant</p>
+              <p className="text-sm">{stockInfo.variant_name || 'Default'}</p>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-gray-600">Created</p>
+              <p className="text-sm">
+                {new Date(stockInfo.created_at).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric'
+                })}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-gray-600">Last Updated</p>
+              <p className="text-sm">
+                {new Date(stockInfo.updated_at).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric'
+                })}
+              </p>
+            </div>
+          </div>
+          
+          {/* History Table */}
+          <div className="overflow-x-auto">
+            {isHistoryLoading ? (
+              <div className="text-center py-8">
+                <Suspense fallback={<div>Loading...</div>}>
+                  <Spinner />
+                </Suspense>
+              </div>
+            ) : isHistoryError ? (
+              <div className="text-center py-8">
+                <Suspense fallback={<div>Error loading...</div>}>
+                  <ErrorMessage message="Failed to load stock history" />
+                </Suspense>
+              </div>
+            ) : (
+              <table className="table table-zebra w-full">
+                <thead>
+                  <tr>
+                    <th>Date & Time</th>
+                    <th>Action</th>
+                    <th>Previous Qty</th>
+                    <th>Change</th>
+                    <th>New Qty</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyItems.length > 0 ? (
+                    historyItems.map((history, index) => (
+                      <tr key={index}>
+                        <td>
+                          {new Date(history.created_at).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </td>
+                        <td>
+                          <span className={`badge ${
+                            history.action === 'ADD' ? 'badge-success' :
+                            history.action === 'REMOVE' ? 'badge-error' :
+                            history.action === 'ORDER' ? 'badge-warning' :
+                            history.action === 'RETURN' ? 'badge-info' : 'badge-neutral'
+                          }`}>
+                            {history.action}
+                          </span>
+                        </td>
+                        <td className="font-medium">{history.old_quantity}</td>
+                        <td className={`font-bold ${history.change_quantity > 0 ? 'text-success' : 'text-error'}`}>
+                          {history.change_quantity > 0 ? '+' : ''}{history.change_quantity}
+                        </td>
+                        <td className="font-bold">{history.new_quantity}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="text-center py-8 text-gray-500">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <GrHistory className="w-12 h-12 text-gray-300" />
+                          <h4 className="font-medium">No history available</h4>
+                          <p className="text-sm">No stock history records found for this item.</p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Modal Actions */}
+          <div className="modal-action">
+            <button onClick={handleCloseModal} className="btn btn-ghost">Close</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="px-4 py-8 max-w-8xl mx-auto">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Stock Management</h1>
-          <p className="text-sm text-gray-500">Manage your stock inventory</p>
+          <h1 className="text-2xl font-bold text-gray-800">Stock Inventory Management</h1>
+          <p className="text-sm text-gray-500">Manage your stock inventory and track history</p>
         </div>
         <div className="flex gap-2">
           <button 
             onClick={handleRefresh}
-            className="btn btn-ghost gap-2"
+            className="btn btn-primary gap-2"
             disabled={isLoading}
           >
             <FiRefreshCw className={isLoading ? "animate-spin" : ""} /> 
@@ -251,6 +341,13 @@ const CommonMyStockPage = ({ role }) => {
           <FiX className="mr-2" />
           Out of Stock
         </button>
+        <button
+          className={`tab ${activeTab === "new_stock" ? "tab-active bg-white shadow-sm" : ""}`}
+          onClick={() => handleTabChange("new_stock")}
+        >
+          <FiPackage className="mr-2" />
+          New Today
+        </button>
       </div>
 
       {/* Table */}
@@ -267,11 +364,11 @@ const CommonMyStockPage = ({ role }) => {
         </div>
         
         {/* Pagination */}
-        {stocks.length > 0 && (
+        {totalCount > pageSize && (
           <div className="flex flex-col sm:flex-row justify-between items-center p-4 border-t border-gray-100 gap-4">
             <div className="text-sm text-gray-500 font-bold">
               Showing <span className="font-medium">{(page - 1) * pageSize + 1}</span> to{' '}
-              <span className="font-medium">{(page - 1) * pageSize + stocks.length}</span> of{' '}
+              <span className="font-medium">{Math.min(page * pageSize, totalCount)}</span> of{' '}
               <span className="font-medium">{totalCount}</span> entries
             </div>
             <div className="join">
@@ -285,7 +382,7 @@ const CommonMyStockPage = ({ role }) => {
               <button className="join-item btn btn-sm btn-active">{page}</button>
               <button 
                 className="join-item btn btn-sm" 
-                disabled={stocks.length < pageSize}
+                disabled={page * pageSize >= totalCount}
                 onClick={() => setPage(p => p + 1)}
               >
                 »
@@ -295,103 +392,8 @@ const CommonMyStockPage = ({ role }) => {
         )}
       </div>
 
-      {/* Edit Modal */}
-      {showEditModal && selectedStock && (
-        <div className="modal modal-open">
-          <div className="modal-box max-w-md">
-            <button 
-              onClick={handleCloseModal}
-              className="btn btn-sm btn-circle absolute right-2 top-2"
-            >
-              ✕
-            </button>
-            <h3 className="font-bold text-lg mb-4">Update Pricing for {selectedStock.name}</h3>
-            
-            <div className="mb-4">
-              <p className="text-sm"><span className="font-bold">SKU:</span> {selectedStock.sku}</p>
-              <p className="text-sm"><span className="font-bold">Current Price:</span> ₹{selectedStock.price}</p>
-              <p className="text-sm"><span className="font-bold">Current Resale Price:</span> ₹{selectedStock.resale_price}</p>
-            </div>
-            
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-4">
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-bold">Actual Price</span>
-                  </label>
-                  <input
-                    type="number"
-                    name="price"
-                    value={formData.price}
-                    onChange={handleInputChange}
-                    className="input input-bordered w-full"
-                    min="1"
-                    required
-                  />
-                </div>
-                
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-bold">Resale Price</span>
-                  </label>
-                  <input
-                    type="number"
-                    name="resale_price"
-                    value={formData.resale_price}
-                    onChange={handleInputChange}
-                    className="input input-bordered w-full"
-                    min="1"
-                    required
-                  />
-                </div>
-                
-                {(role === 'admin' || role === 'stockist') && (
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text font-bold">Stockist Commission</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="stockist_commission"
-                      value={formData.stockist_commission}
-                      onChange={handleInputChange}
-                      className="input input-bordered w-full"
-                      min="0"
-                    />
-                  </div>
-                )}
-                
-                {(role === 'admin' || role === 'reseller') && (
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text font-bold">Reseller Commission</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="reseller_commission"
-                      value={formData.reseller_commission}
-                      onChange={handleInputChange}
-                      className="input input-bordered w-full"
-                      min="0"
-                    />
-                  </div>
-                )}
-                
-                <div className="flex justify-between items-center pt-2">
-                
-                  <button
-                    type="submit"
-                    className="btn btn-primary"
-                    disabled={isUpdating}
-                  >
-                    {isUpdating ? <span className="loading loading-spinner"></span> : 'Update'}
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* History Modal */}
+      {renderHistoryModal()}
     </div>
   );
 };

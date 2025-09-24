@@ -1,4 +1,3 @@
-// features/withdrawal/AdminWithdrawalRequest.jsx
 import React, { useState } from 'react';
 import { useGetAdminWithdrawalsQuery, useUpdateWithdrawalMutation } from '../../features/topupApi';
 import { format } from 'date-fns';
@@ -36,6 +35,8 @@ const AdminWithdrawalRequest = () => {
   const [openRejectModal, setOpenRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [screenshotModal, setScreenshotModal] = useState(false);
+  const [selectedScreenshot, setSelectedScreenshot] = useState(null);
 
   const { data, isLoading, isError } = useGetAdminWithdrawalsQuery({
     page,
@@ -102,6 +103,11 @@ const AdminWithdrawalRequest = () => {
     setDateFrom(null);
     setDateTo(null);
     setPage(1);
+  };
+
+  const openScreenshotModal = (screenshotUrl) => {
+    setSelectedScreenshot(screenshotUrl);
+    setScreenshotModal(true);
   };
 
   return (
@@ -206,10 +212,18 @@ const AdminWithdrawalRequest = () => {
                   {data?.results?.map((withdrawal,index) => (
                     <tr key={withdrawal.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#{index +1}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">
-                              {withdrawal.user?.email || 'Unknown'}
-                              <br/>
-                        <strong>Role</strong> ({withdrawal.user?.role || 'Unknown'})
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div className="font-medium">
+                          {withdrawal.user?.email || 'Unknown'}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          <strong>Role:</strong> {withdrawal.user?.role || 'Unknown'}
+                        </div>
+                        {withdrawal.user?.vendor_id && (
+                          <div className="text-xs text-blue-600 font-bold">
+                            <strong>Vendor ID:</strong> {withdrawal.user.vendor_id}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-bold">
                         ₹{withdrawal.amount}
@@ -221,14 +235,19 @@ const AdminWithdrawalRequest = () => {
                         <span className={`px-2 inline-flex text-xs leading-5 font-bold rounded-full ${statusColors[withdrawal.status]}`}>
                           {withdrawal.status}
                         </span>
+                        {withdrawal.status === 'rejected' && withdrawal.rejected_reason && (
+                          <div className="text-xs text-red-600 mt-1">
+                            Reason: {withdrawal.rejected_reason}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {format(new Date(withdrawal.created_at), 'MMM dd, yyyy')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
+                        <div className="flex flex-col gap-2">
                           {withdrawal.status === 'pending' && (
-                            <>
+                            <div className="flex space-x-2">
                               <button
                                 onClick={() => {
                                   setSelectedWithdrawal(withdrawal);
@@ -249,21 +268,28 @@ const AdminWithdrawalRequest = () => {
                               >
                                 Reject
                               </button>
-                            </>
+                            </div>
                           )}
                           {['approved', 'pending'].includes(withdrawal.status) && (
-  <button
-    onClick={() => {
-      setSelectedWithdrawal(withdrawal);
-      setOpenDialog(true);
-    }}
-    disabled={isProcessing}
-    className={`text-blue-600 btn hover:text-blue-900 ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
-  >
-     {withdrawal?.screenshot?"Uploaded (Update)":"Upload Transaction File"}
-  </button>
-)}
-
+                            <button
+                              onClick={() => {
+                                setSelectedWithdrawal(withdrawal);
+                                setOpenDialog(true);
+                              }}
+                              disabled={isProcessing}
+                              className={`text-blue-600 btn hover:text-blue-900 ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                              {withdrawal?.screenshot?"Uploaded (Update)":"Upload Transaction File"}
+                            </button>
+                          )}
+                          {withdrawal.screenshot && (
+                            <button
+                              onClick={() => openScreenshotModal(withdrawal.screenshot)}
+                              className="text-purple-600 btn hover:text-purple-900"
+                            >
+                              View Screenshot
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -445,6 +471,34 @@ const AdminWithdrawalRequest = () => {
               >
                 Cancel
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Screenshot Preview Modal */}
+      {screenshotModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full">
+            <div className="p-4 flex justify-between items-center border-b">
+              <h3 className="text-lg font-bold text-gray-900">Payment Screenshot</h3>
+              <button
+                onClick={() => setScreenshotModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-6 max-h-[70vh] overflow-auto flex justify-center">
+              {selectedScreenshot && (
+                <img
+                  src={selectedScreenshot}
+                  alt="Payment Screenshot"
+                  className="max-w-full h-auto rounded-lg border border-gray-200"
+                />
+              )}
             </div>
           </div>
         </div>

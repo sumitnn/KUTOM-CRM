@@ -6,6 +6,7 @@ class IsAdminRole(BasePermission):
 
 class IsVendorRole(BasePermission):
     def has_permission(self, request,view):
+        print(request.user.role)
         return bool(request.user and request.user.is_authenticated and request.user.role == 'vendor')
     
 

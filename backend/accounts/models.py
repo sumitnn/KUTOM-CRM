@@ -8,25 +8,19 @@ import uuid
 # Create your models here.
 
 class User(AbstractBaseUser, PermissionsMixin):
-    USER_ACTIVE_CHOICES = [
-        ('active', 'Active'),
-        ('inactive', 'Inactive'),
-        ('new_user', 'New User'),
-    ]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
+    phone = models.CharField(max_length=10, blank=True, null=True)
     username = models.CharField(max_length=50,blank=True)
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
     is_default_user = models.BooleanField(default=False)
-    is_user_active = models.CharField(
-        max_length=10,
-        choices=USER_ACTIVE_CHOICES,
-        default='new_user'
-    )
+    is_profile_completed = models.BooleanField(default=False)
+  
     vendor_id = models.CharField(max_length=20, null=True, blank=True, unique=True)
     stockist_id = models.CharField(max_length=20, null=True, blank=True, unique=True)
     reseller_id = models.CharField(max_length=20, null=True, blank=True, unique=True)
+    completion_percentage = models.IntegerField(default=0)
 
     # Role field
     ROLE_CHOICES = (
@@ -34,8 +28,19 @@ class User(AbstractBaseUser, PermissionsMixin):
         ('vendor', 'Vendor'),
         ('reseller', 'Reseller'),
         ('stockist', 'Stockist'),
+        ('superuser', 'Superuser')
     )
+    Status_CHOICES = (
+        ('new_user', 'New User'),
+        ('active_user', 'Active User'),
+        ('inactive_user', 'Inactive User'),
+        ('pending_user', 'Pending User'),
+        ('rejected_user', 'Rejected User'), 
+    )
+    status=models.CharField(max_length=15, choices=Status_CHOICES, default='new_user')
     role = models.CharField(max_length=10, choices=ROLE_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+    rejected_reason = models.TextField(blank=True, null=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
@@ -55,11 +60,7 @@ class Profile(models.Model):
     user = models.OneToOneField('User', on_delete=models.CASCADE, related_name='profile')
     full_name = models.CharField(max_length=100)
     date_of_birth = models.DateField(null=True, blank=True)
-
-    phone = models.CharField(max_length=10, blank=True)
     profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True)
-    
-    # New fields
     gender = models.CharField(max_length=10, choices=[('male', 'Male'), ('female', 'Female'), ('other', 'Other')], blank=True)
 
     facebook = models.URLField(max_length=255, blank=True)
@@ -68,7 +69,7 @@ class Profile(models.Model):
     youtube = models.URLField(max_length=255, blank=True)
 
     bio = models.TextField(blank=True)
-    whatsapp_number = models.CharField(max_length=10, blank=True)
+    whatsapp_number = models.CharField(max_length=10, blank=True,null=True)
 
     # 🔐 NEW: UPI & Bank info (stored in profile)
     bank_upi = models.CharField(max_length=255, blank=True, null=True)
@@ -95,9 +96,6 @@ class Profile(models.Model):
     kyc_verified = models.BooleanField(default=False)
     kyc_verified_at = models.DateTimeField(null=True, blank=True)
     kyc_rejected_reason = models.TextField(blank=True, null=True)
-    completion_percentage = models.FloatField(default=0.0)
-    
-    
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -109,10 +107,11 @@ class Profile(models.Model):
 class Wallet(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='wallet')
-    balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    current_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    payout_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     def __str__(self):
-        return f"{self.user.username} Wallet - ₹{self.balance}"
+        return f"{self.user.username} Wallet - ₹{self.current_balance}"
 
 class CommissionWallet(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -128,20 +127,24 @@ class WalletTransaction(models.Model):
         ('DEBIT', 'Debit'),
     ]
     TRANSACTION_STATUS_CHOICES=[
-        ("REFUND","Refund"),
         ("FAILED","Failed"),
         ("SUCCESS","Success"),
         ("PENDING","Pending"),
-        ("RECEIVED","Received"),
+        ("CANCELLED","Cancelled"),
+        
     ]
 
     wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE, related_name='transactions')
     transaction_type = models.CharField(max_length=6, choices=TRANSACTION_TYPE_CHOICES)
+    transaction_status=models.CharField(max_length=10,choices=TRANSACTION_STATUS_CHOICES)
+    is_refund=models.BooleanField(default=False)
+
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     description = models.TextField(blank=True)
-    transaction_status=models.CharField(max_length=10,choices=TRANSACTION_STATUS_CHOICES)
+    
     user_id=models.CharField(max_length=50,null=True,blank=True)
     order_id=models.CharField(max_length=50,null=True,blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -234,7 +237,7 @@ class District(models.Model):
         verbose_name_plural = 'Districts'
 
     def __str__(self):
-        return f"{self.name}, {self.state.name}"
+        return self.name
     
 
 class Address(models.Model):
@@ -315,22 +318,7 @@ class Notification(models.Model):
     def __str__(self):
         return f"{self.title} - {self.user.username}"
     
-class NewAccountApplication(models.Model):
-    ROLE_CHOICES = (
-        ('vendor', 'Vendor'),
-        ('reseller', 'Reseller'),
-        ('stockist', 'Stockist'),
-    )
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES)
-    full_name = models.CharField(max_length=20)
-    email = models.EmailField()
-    phone = models.CharField(max_length=10)
-    rejected_reason = models.TextField(blank=True, null=True)
-    status = models.CharField(max_length=20, default='new', choices=[('new', 'New Record'),('pending', 'Pending'), ('approved', 'Approved'), ('rejected', 'Rejected')])
-    created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"{self.full_name} - {self.role} ({self.status})"
     
 
 class Company(models.Model):

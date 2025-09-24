@@ -15,10 +15,34 @@ import { Link } from "react-router-dom";
 const LazyImage = lazy(() => import("./LazyImage"));
 
 const calculateItemPrice = (item) => {
-  if (item.price_tier && item.quantity >= item.price_tier.min_quantity) {
-    return item.price_tier.price;
+  // If we have bulk prices in the variant
+  if (item.variant?.bulk_prices?.length > 0) {
+    // Sort bulk prices by max_quantity in ascending order to find the best match
+    const sortedBulkPrices = [...item.variant.bulk_prices].sort((a, b) => a.max_quantity - b.max_quantity);
+    
+    // Find the appropriate bulk price based on quantity
+    // We want the highest tier that the quantity qualifies for
+    let applicableBulkPrice = null;
+    
+    for (const bulkPrice of sortedBulkPrices) {
+      if (item.quantity <= bulkPrice.max_quantity) {
+        applicableBulkPrice = bulkPrice;
+        break;
+      }
+    }
+    
+    // If no tier found (quantity exceeds all), use the last (highest) tier
+    if (!applicableBulkPrice && sortedBulkPrices.length > 0) {
+      applicableBulkPrice = sortedBulkPrices[sortedBulkPrices.length - 1];
+    }
+    
+    if (applicableBulkPrice) {
+      return applicableBulkPrice.price;
+    }
   }
-  return item.price;
+  
+  // If no bulk pricing, use the variant price or regular price
+  return item.variant?.product_variant_prices?.[0]?.price || item.price;
 };
 
 const calculateGSTForItem = (item) => {
@@ -27,12 +51,25 @@ const calculateGSTForItem = (item) => {
   
   // Calculate GST based on either fixed amount or percentage
   let gstAmount = 0;
-  if (item.gst_tax) {
-    // If fixed GST tax amount is provided
-    gstAmount = Number(item.gst_tax) * (item.quantity || 1);
-  } else if (item.gst_percentage) {
-    // If GST percentage is provided
-    gstAmount = (subtotal * Number(item.gst_percentage)) / 100;
+  
+  // Check if we have variant pricing with GST info
+  if (item.variant?.product_variant_prices?.[0]) {
+    const variantPricing = item.variant.product_variant_prices[0];
+    
+    if (variantPricing.gst_tax) {
+      // If fixed GST tax amount is provided
+      gstAmount = Number(variantPricing.gst_tax) * (item.quantity || 1);
+    } else if (variantPricing.gst_percentage) {
+      // If GST percentage is provided
+      gstAmount = (subtotal * Number(variantPricing.gst_percentage)) / 100;
+    }
+  } else {
+    // Fallback to item-level GST if available
+    if (item.gst_tax) {
+      gstAmount = Number(item.gst_tax) * (item.quantity || 1);
+    } else if (item.gst_percentage) {
+      gstAmount = (subtotal * Number(item.gst_percentage)) / 100;
+    }
   }
   
   return gstAmount;
@@ -65,28 +102,48 @@ const MyCart = ({ role }) => {
     const item = cartItems.find(item => item.id === id);
     if (!item) return;
 
-    let priceTier = null;
-    if (item.size?.price_tiers?.length > 0) {
-      // Sort tiers by min_quantity in descending order to find the best match
-      const sortedTiers = [...item.size.price_tiers].sort((a, b) => b.min_quantity - a.min_quantity);
-      priceTier = sortedTiers.find(tier => newQuantity >= tier.min_quantity) || null;
+    let bulkPrice = null;
+    
+    // Determine the appropriate bulk price based on the new quantity
+    if (item.variant?.bulk_prices?.length > 0) {
+      // Sort bulk prices by max_quantity in ascending order
+      const sortedBulkPrices = [...item.variant.bulk_prices].sort((a, b) => a.max_quantity - b.max_quantity);
+      
+      // Find the applicable bulk price
+      let applicableBulkPrice = null;
+      
+      for (const bulkPrice of sortedBulkPrices) {
+        if (newQuantity <= bulkPrice.max_quantity) {
+          applicableBulkPrice = bulkPrice;
+          break;
+        }
+      }
+      
+      // If no tier found (quantity exceeds all), use the last (highest) tier
+      if (!applicableBulkPrice && sortedBulkPrices.length > 0) {
+        applicableBulkPrice = sortedBulkPrices[sortedBulkPrices.length - 1];
+      }
+      
+      if (applicableBulkPrice) {
+        bulkPrice = applicableBulkPrice;
+      }
     }
 
     dispatch(updateQuantity({
       id,
       quantity: Math.max(1, newQuantity),
-      priceTier
+      bulkPrice
     }));
   };
 
   const handleCheckout = async () => {
     try {
       const orderData = {
-        items: cartItems.map(({ id, quantity, size, price_tier, gst_tax, gst_percentage }) => ({
+        items: cartItems.map(({ id, quantity, variant, bulk_price, gst_tax, gst_percentage }) => ({
           product_id: id,
           quantity,
-          size: size?.id || null,
-          price_tier_id: price_tier?.id || null,
+          variant_id: variant?.id || null,
+          bulk_price_id: bulk_price?.id || null,
           gst_tax: gst_tax || null,
           gst_percentage: gst_percentage || null
         })),
@@ -103,6 +160,35 @@ const MyCart = ({ role }) => {
       console.error(err);
       toast.error(err?.data?.message || "Something went wrong.");
     }
+  };
+
+  // Helper function to get the base price (without any bulk discounts)
+  const getBasePrice = (item) => {
+    return item.variant?.product_variant_prices?.[0]?.price || item.price;
+  };
+
+  // Helper function to get the current bulk price tier info
+  const getBulkPriceInfo = (item) => {
+    if (item.variant?.bulk_prices?.length > 0) {
+      const sortedBulkPrices = [...item.variant.bulk_prices].sort((a, b) => a.max_quantity - b.max_quantity);
+      
+      let applicableBulkPrice = null;
+      
+      for (const bulkPrice of sortedBulkPrices) {
+        if (item.quantity <= bulkPrice.max_quantity) {
+          applicableBulkPrice = bulkPrice;
+          break;
+        }
+      }
+      
+      // If no tier found (quantity exceeds all), use the last (highest) tier
+      if (!applicableBulkPrice && sortedBulkPrices.length > 0) {
+        applicableBulkPrice = sortedBulkPrices[sortedBulkPrices.length - 1];
+      }
+      
+      return applicableBulkPrice;
+    }
+    return null;
   };
 
   return (
@@ -149,8 +235,10 @@ const MyCart = ({ role }) => {
                 <div className="divide-y divide-gray-200">
                   {cartItems.map((item) => {
                     const itemPrice = calculateItemPrice(item);
+                    const basePrice = getBasePrice(item);
+                    const bulkPriceInfo = getBulkPriceInfo(item);
                     const itemGST = calculateGSTForItem(item);
-                    const { id, name, price, quantity, image, size, color, description, price_tier, gst_tax, gst_percentage } = item;
+                    const { id, name, price, quantity, image, variant, color, description } = item;
                     
                     return (
                       <div key={id} className="p-6 flex flex-col sm:flex-row group hover:bg-gray-50 transition-colors">
@@ -169,9 +257,9 @@ const MyCart = ({ role }) => {
                             />
                           </Suspense>
                         
-                          {size?.size && (
+                          {variant?.name && (
                               <span className="absolute top-2 left-2 bg-white/90 text-xs font-bold px-2 py-1 rounded-md shadow-sm cursor-default">
-                                {`${size.size} ${size.unit || ""}`}
+                                {variant.name}
                               </span>
                             )}
                         </div>
@@ -195,14 +283,17 @@ const MyCart = ({ role }) => {
                               <p className="mt-2 text-gray-600 text-sm line-clamp-2">
                                 {description}
                               </p>
-                              {price_tier && (
+                              {bulkPriceInfo && (
                                 <div className="mt-1 text-xs text-green-600">
-                                  Bulk discount applied ({price_tier.min_quantity}+ units)
+                                  Bulk discount applied (up to {bulkPriceInfo.max_quantity} units)
                                 </div>
                               )}
-                              {(gst_tax || gst_percentage) && (
+                              {variant?.product_variant_prices?.[0] && (
                                 <div className="mt-1 text-xs text-blue-600">
-                                  GST : {gst_tax ? `₹${gst_tax} per unit` : `${gst_percentage}%`}
+                                  {variant.product_variant_prices[0].gst_tax ? 
+                                    `GST: ₹${variant.product_variant_prices[0].gst_tax} per unit` : 
+                                    `GST: ${variant.product_variant_prices[0].gst_percentage}%`
+                                  }
                                 </div>
                               )}
                             </div>
@@ -243,9 +334,9 @@ const MyCart = ({ role }) => {
                               <p className="text-sm text-gray-500 font-bold">Unit Price</p>
                               <p className="text-lg font-extrabold text-gray-900">
                                 ₹{Number(itemPrice).toFixed(2)}
-                                {price_tier && (
+                                {Number(itemPrice) < Number(basePrice) && (
                                   <span className="ml-1 text-sm text-gray-500 line-through">
-                                    ₹{Number(price).toFixed(2)}
+                                    ₹{Number(basePrice).toFixed(2)}
                                   </span>
                                 )}
                               </p>
@@ -309,8 +400,6 @@ const MyCart = ({ role }) => {
                     <p className="text-gray-600 font-medium">Subtotal</p>
                     <p className="text-gray-900 font-bold">₹{subtotal.toFixed(2)}</p>
                   </div>
-                  
-                 
                   
                   <div className="flex justify-between">
                     <p className="text-gray-600 font-medium">GST (Tax):</p>

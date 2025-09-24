@@ -4,7 +4,7 @@ import axiosBaseQuery from '../../utils/axiosBaseQuery';
 export const productApi = createApi({
     reducerPath: 'productApi',
     baseQuery: axiosBaseQuery({ baseUrl: import.meta.env.VITE_BACKEND_API_URL }),
-    tagTypes: ['Product', 'ProductSize'],
+    tagTypes: ['Product', 'ProductSize','MY-Product'],
     endpoints: (builder) => ({
         getAllProducts: builder.query({
             query: (params = {}) => ({
@@ -26,11 +26,17 @@ export const productApi = createApi({
                 url: '/products/my-products/',
                 method: 'GET',
                 params: {
-                    ...(params.page && { page: params.page }),
-                    ...(params.pageSize && { page_size: params.pageSize }),
+                    page: params.page || 1,
+                    page_size: params.pageSize || 10,
+                    search: params.search || '',
+                    featured: params.featured || '',
+                    category: params.category || '',
+                    brand: params.brand || '',
+                    sort_by: params.sortField || 'name',
+                    sort_direction: params.sortDirection || 'asc',
                 },
             }),
-            providesTags: ['Product'],
+            providesTags: ['MY-Product'],
         }),
 
         getProductById: builder.query({
@@ -44,6 +50,38 @@ export const productApi = createApi({
                 url: `/admin-products/${id}/`,
                 method: 'GET',
             }),
+        }),
+        updateProductPrice: builder.mutation({
+            query: ({ productId, variantId, priceData }) => ({
+                url: `/products/${productId}/variants/${variantId}/price/`,
+                method: 'PUT',
+                data: priceData,
+            }),
+            invalidatesTags: ['MY-Product', 'Product'],
+        }),
+        updateProductFeaturedStatus: builder.mutation({
+            query: ({ productId, isFeatured }) => ({
+                url: `/products/${productId}/featured/`,
+                method: 'PUT',
+                data: { is_featured: isFeatured },
+            }),
+            invalidatesTags: ['MY-Product', 'Product'],
+        }),
+        updateCommission: builder.mutation({
+            query: ({ productId, commissionData }) => ({
+                url: `/products/${productId}/commission/`,
+                method: 'PUT',
+                data: commissionData,
+            }),
+            invalidatesTags: ['MY-Product', 'Product', 'Commission'],
+        }),
+
+        getCommission: builder.query({
+            query: (productId) => ({
+                url: `/products/${productId}/commission/`,
+                method: 'GET',
+            }),
+            providesTags: ['Commission'],
         }),
 
         createProduct: builder.mutation({
@@ -177,5 +215,9 @@ export const {
     useGetAdminActiveProductsQuery,
     useGetAdminAllProductsQuery,
     useGetAdminProductSizesQuery,
-    useGetAdminProductByIdQuery
+    useGetAdminProductByIdQuery,
+    useGetCommissionQuery,
+    useUpdateCommissionMutation,
+    useUpdateProductFeaturedStatusMutation,
+    useUpdateProductPriceMutation
 } = productApi;

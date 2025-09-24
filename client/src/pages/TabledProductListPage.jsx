@@ -1,4 +1,4 @@
-import { useState ,useEffect} from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiEdit, FiEye, FiPlus, FiUpload, FiSearch } from "react-icons/fi";
 import { useGetAllProductsQuery } from "../features/product/productApi";
@@ -9,9 +9,9 @@ import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const getProductImage = (prod) => {
-  if (prod.images && prod.images.length > 0) {
-    const featured = prod.images.find((img) => img.is_featured);
-    return featured?.image || prod.images[0]?.image || null;
+  if (prod.product_detail?.images && prod.product_detail.images.length > 0) {
+    const featured = prod.product_detail.images.find((img) => img.is_featured);
+    return featured?.image || prod.product_detail.images[0]?.image || null;
   }
   return null;
 };
@@ -54,7 +54,7 @@ const TabledProductListPage = ({ role }) => {
 
   // Fetch products with API filtering
   const {
-    data: products = [],
+    data: apiResponse = [],
     isLoading: isLoadingProducts,
     isError: isProductsError,
     refetch,
@@ -62,6 +62,19 @@ const TabledProductListPage = ({ role }) => {
     search: debouncedSearchTerm || undefined,
     category: selectedCategory || undefined,
   });
+
+  // Extract products from the new API response structure
+  const products = apiResponse.map(item => ({
+    ...item,
+    // Add product_detail information to the main object for easier access
+    ...item.product_detail,
+    // Keep the original API structure accessible
+    product_detail: item.product_detail,
+    variants_detail: item.variants_detail,
+    user_name: item.user_name,
+    role: item.role,
+    is_featured: item.is_featured
+  }));
 
   // Reset all filters
   const handleResetFilters = () => {
@@ -71,8 +84,12 @@ const TabledProductListPage = ({ role }) => {
 
   // Handle add to cart
   const handleAddToCart = (prod) => {
-    const defaultSize = prod.sizes?.find((size) => size.is_default);
-    const price = defaultSize ? defaultSize.price : prod.price || 0;
+    // Get the default variant or first variant
+    const defaultVariant = prod.variants_detail?.find(variant => variant.is_default) || prod.variants_detail?.[0];
+    
+    // Get price from variant pricing or fallback
+    const variantPrice = defaultVariant?.bulk_prices?.[0];
+    const price = variantPrice?.price || prod.price || 0;
 
     const isAlreadyInCart = cartItems.some((item) => item.id === prod.id);
 
@@ -86,6 +103,7 @@ const TabledProductListPage = ({ role }) => {
           price: Number(price),
           quantity: 1,
           image: getProductImage(prod) || "/placeholder.png",
+          variantId: defaultVariant?.id // Include variant ID if needed
         })
       );
       toast.success("Item added to cart successfully!");
@@ -198,9 +216,8 @@ const TabledProductListPage = ({ role }) => {
                   <th>Category</th>
                   <th>Sub-Category</th>
                   <th>Price</th>
-               
                   <th>Status</th>
-                  <th>Short Description</th>
+                  <th>Vendor</th>
                   <th className="text-center">Actions</th>
                 </tr>
               </thead>
@@ -208,8 +225,10 @@ const TabledProductListPage = ({ role }) => {
               <tbody>
                 {products.length > 0 ? (
                   products.map((prod, index) => {
-                    const defaultSize = prod.sizes?.find(size => size.is_default);
-                    const price = defaultSize ? defaultSize.price : prod.price || 0;
+                    // Get the default variant or first variant for pricing
+                    const defaultVariant = prod.variants_detail?.find(variant => variant.is_default) || prod.variants_detail?.[0];
+                    const variantPrice = defaultVariant?.bulk_prices?.[0];
+                    const price = variantPrice?.price || prod.price || 0;
                     const productImage = getProductImage(prod);
 
                     return (
@@ -238,21 +257,23 @@ const TabledProductListPage = ({ role }) => {
                             <div>
                               <div className="font-medium">{prod.name}</div>
                               <div className="text-xs text-gray-500">SKU: <strong>{prod.sku}</strong></div>
+                              {prod.is_featured && (
+                                <span className="badge badge-primary badge-xs mt-1">Featured</span>
+                              )}
                             </div>
                           </div>
                         </td>
                         <td>{prod.category_name || '-'}</td>
                         <td>{prod.subcategory_name || '-'}</td>
                         <td>₹{Number(price).toFixed(2)}</td>
-                     
                         <td>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                             statusColors[prod.status?.toLowerCase() || 'active']
                           }`}>
-                            {prod.status || 'Active'}
+                            {prod.status_display || prod.status || 'Active'}
                           </span>
                         </td>
-                        <td>{prod.short_description}</td>
+                        <td>{prod.user_name || '-'}</td>
                         <td>
                           <div className="flex justify-center gap-3">
                             <button
@@ -288,7 +309,7 @@ const TabledProductListPage = ({ role }) => {
                   })
                 ) : (
                   <tr>
-                    <td colSpan="7" className="text-center py-8">
+                    <td colSpan="8" className="text-center py-8">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>

@@ -80,7 +80,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         label: "Stock and Sales",
         children: [
           { label: "Sales & Reports", path: "/admin/sales-report" },
-          { label: "Stock", path: "/admin/my-stocks" },
+          { label: "My Stock ", path: "/admin/my-stocks" },
           
        
         ]
@@ -96,6 +96,14 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         children: [
           { label: "Topup Request ", path: "/admin/topup" },
           { label: "Withdrawal Request ", path: "/admin/withdrawal-request" },
+        ],
+      },
+        {
+        icon: <TbCategoryPlus />,
+        label: "Production",
+        children: [
+          { label: "My Products", path: "/admin/my-products" },  
+        
         ],
       },
       

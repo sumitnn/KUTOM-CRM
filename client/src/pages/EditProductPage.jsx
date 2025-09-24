@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
@@ -29,6 +29,24 @@ const EditProductPage = ({ role = "vendor" }) => {
   
   const subcategories = Array.isArray(subcategoriesData) ? subcategoriesData : [];
 
+  // Calculate final price for a single size
+  const calculateFinalPrice = useCallback((size) => {
+    const price = parseFloat(size.price) || 0;
+    const discountPercentage = parseFloat(size.discount_percentage) || 0;
+    const gstPercentage = parseFloat(size.gst_percentage) || 0;
+    
+    // Calculate price after discount
+    const priceAfterDiscount = price - (price * discountPercentage / 100);
+    
+    // Calculate GST amount on discounted price
+    const gstAmount = priceAfterDiscount * gstPercentage / 100;
+    
+    // Final price = discounted price + GST
+    const finalPrice = priceAfterDiscount + gstAmount;
+    
+    return finalPrice.toFixed(2);
+  }, []);
+
   const currencyOptions = [
     { value: "INR", label: "Indian Rupee (INR)" },
     { value: "USD", label: "US Dollar (USD)" },
@@ -48,6 +66,18 @@ const EditProductPage = ({ role = "vendor" }) => {
     { value: "subscription", label: "Subscription" },
   ];
 
+  // Generate discount percentage options from 0% to 100%
+  const discountPercentageOptions = Array.from({ length: 101 }, (_, i) => ({
+    value: i.toString(),
+    label: `${i}%`
+  }));
+
+  // Generate GST percentage options from 0% to 40%
+  const gstPercentageOptions = Array.from({ length: 41 }, (_, i) => ({
+    value: i.toString(),
+    label: `${i}% GST`
+  }));
+
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -62,10 +92,8 @@ const EditProductPage = ({ role = "vendor" }) => {
     weight_unit: "kg",
     dimensions: "",
     product_type: "physical",
-    shipping_info: "",
     video_url: "",
     warranty: "",
-    content_embeds: "",
     features: []
   });
 
@@ -74,6 +102,9 @@ const EditProductPage = ({ role = "vendor" }) => {
     unit: "gram", 
     price: "", 
     quantity: "",
+    discount_percentage: "0",
+    gst_percentage: "0",
+    final_price: "0.00",
     is_default: false,
   }]);
 
@@ -92,49 +123,95 @@ const EditProductPage = ({ role = "vendor" }) => {
     image: false
   });
 
+  // Calculate final prices only when specific fields change
+  useEffect(() => {
+    // Check if any size has price, discount or GST values that need calculation
+    const needsUpdate = sizes.some(size => {
+      const currentFinal = parseFloat(size.final_price) || 0;
+      const calculatedFinal = parseFloat(calculateFinalPrice(size)) || 0;
+      return currentFinal !== calculatedFinal;
+    });
+
+    if (needsUpdate) {
+      const updatedSizes = sizes.map(size => ({
+        ...size,
+        final_price: calculateFinalPrice(size)
+      }));
+      
+      setSizes(updatedSizes);
+    }
+  }, [sizes, calculateFinalPrice]);
+
   useEffect(() => {
     if (product) {
       setFormData({
-        name: product.name || "",
-        description: product.description || "",
-        short_description: product.short_description || "",
-        brand: product.brand?.id || product.brand || "",
-        category: product.category?.id || product.category || "",
-        subcategory: product.subcategory?.id || product.subcategory || "",
-        tags: product.tags ? extractTagNames(product.tags) : [],
-        currency: product.currency || "INR",
-        weight: product.weight || "",
-        weight_unit: product.weight_unit || "kg",
-        dimensions: product.dimensions || "",
-        product_type: product.product_type || "physical",
-        shipping_info: product.shipping_info || "",
-        video_url: product.video_url || "",
-        warranty: product.warranty || "",
-        content_embeds: product.content_embeds || "",
-        features: product.features || []
+        name: product.product_detail?.name || "",
+        description: product.product_detail?.description || "",
+        short_description: product.product_detail?.short_description || "",
+        brand: product.product_detail?.brand || "",
+        category: product.product_detail?.category || "",
+        subcategory: product.product_detail?.subcategory || "",
+        tags: product.product_detail?.tags || [],
+        currency: product.product_detail?.currency || "INR",
+        weight: product.product_detail?.weight || "",
+        weight_unit: product.product_detail?.weight_unit || "kg",
+        dimensions: product.product_detail?.dimensions || "",
+        product_type: product.product_detail?.product_type || "physical",
+        video_url: product.product_detail?.video_url || "",
+        warranty: product.product_detail?.warranty || "",
+        features: product.product_detail?.features || []
       });
 
-      setSelectedCategoryId(product.category?.id || product.category || "");
+      setSelectedCategoryId(product.product_detail?.category || "");
       
-      if (product.sizes) {
-        setSizes(product.sizes.map(size => ({
-          id: size.id,
-          size: size.size,
-          unit: size.unit,
-          price: size.price,
-          quantity: size.quantity,
-          is_default: size.is_default,
-        })));
-
+      // Set sizes from variants
+      if (product.variants_detail && product.variants_detail.length > 0) {
+        const sizesData = product.variants_detail.map(variant => {
+          // Get the first price object (assuming there's at least one)
+          const priceData = variant.product_variant_prices && variant.product_variant_prices.length > 0 
+            ? variant.product_variant_prices[0] 
+            : {};
+          
+          // Extract unit from variant name or use default
+          let unit = "gram";
+          const sizeName = variant.name || "";
+          
+          // Try to extract unit from size name
+          if (sizeName.includes("kg") || sizeName.toLowerCase().includes("kilo")) {
+            unit = "kg";
+          } else if (sizeName.includes("ml")) {
+            unit = "ml";
+          } else if (sizeName.includes("l") || sizeName.toLowerCase().includes("litre")) {
+            unit = "litre";
+          } else if (sizeName.includes("pcs") || sizeName.toLowerCase().includes("piece")) {
+            unit = "pcs";
+          }
+          // Otherwise, use the default "gram"
+          
+          return {
+            id: variant.id,
+            size: variant.name,
+            unit: unit,
+            price: priceData.price || "0.00",
+            quantity: "",
+            discount: priceData.discount ? priceData.discount.toString() : "0",
+            gst_percentage: priceData.gst_percentage ? priceData.gst_percentage.toString() : "0",
+            final_price: priceData.actual_price || "0.00",
+            is_default: variant.is_default || false,
+          };
+        });
+        setSizes(sizesData);
+        
+        // Set price tiers from bulk prices
         const tiers = [];
-        product.sizes.forEach((size, sizeIndex) => {
-          if (size.price_tiers?.length > 0) {
-            size.price_tiers.forEach(tier => {
+        product.variants_detail.forEach((variant, sizeIndex) => {
+          if (variant.bulk_prices?.length > 0) {
+            variant.bulk_prices.forEach(tier => {
               tiers.push({
                 id: tier.id,
                 sizeIndex,
-                sizeId: size.id,
-                min_quantity: tier.min_quantity,
+                sizeId: variant.id,
+                min_quantity: tier.max_quantity?.toString() || tier.min_quantity?.toString() || "",
                 price: tier.price,
               });
             });
@@ -143,9 +220,9 @@ const EditProductPage = ({ role = "vendor" }) => {
         setPriceTiers(tiers);
       }
 
-      if (product.images) {
-        setExistingImages(product.images);
-        const featuredImage = product.images.find(img => img.is_featured);
+      if (product.product_detail?.images) {
+        setExistingImages(product.product_detail.images);
+        const featuredImage = product.product_detail.images.find(img => img.is_featured);
         if (featuredImage) {
           setPreview(featuredImage.image);
         }
@@ -286,6 +363,9 @@ const EditProductPage = ({ role = "vendor" }) => {
       unit: "gram", 
       price: "", 
       quantity: "",
+      discount: "0",
+      gst_percentage: "0",
+      final_price: "0.00",
       is_default: false,
     }]);
   };
@@ -344,25 +424,20 @@ const EditProductPage = ({ role = "vendor" }) => {
       
       // Add basic product info
       Object.entries(formData).forEach(([key, value]) => {
-      if (value !== null && value !== "") {
-        if (key === 'tags') {
-          // Extract tag names if they are objects
-          const tagNames = value.map(tag => typeof tag === 'object' ? tag.name : tag);
-          formDataToSend.append(key, JSON.stringify(tagNames));
-        } else if (key === 'features') {
-          formDataToSend.append(key, JSON.stringify(value));
-        } else {
-          formDataToSend.append(key, value);
+        if (value !== null && value !== "") {
+          if (key === 'tags' || key === 'features') {
+            formDataToSend.append(key, JSON.stringify(value));
+          } else {
+            formDataToSend.append(key, value);
+          }
         }
-      }
-    });
+      });
 
       // Add sizes as JSON
       formDataToSend.append('sizes', JSON.stringify(sizes));
 
       // Add price tiers as JSON
       formDataToSend.append('price_tiers', JSON.stringify(priceTiers));
-      formDataToSend.append('tags', JSON.stringify(extractTagNames(formData.tags)));
 
       // Add removed image IDs
       removedImageIds.forEach(id => {
@@ -392,9 +467,6 @@ const EditProductPage = ({ role = "vendor" }) => {
   const isFormValid = !formErrors.sizes && !formErrors.image && 
     formData.name && formData.description && formData.short_description && 
     formData.brand && formData.category;
-  const extractTagNames = (tags) => {
-  return tags.map(tag => typeof tag === 'object' ? tag.name : tag);
-};
 
   if (isLoading) return (
     <div className="flex items-center justify-center h-[60vh]">
@@ -517,33 +589,33 @@ const EditProductPage = ({ role = "vendor" }) => {
 
               {/* Tags Field */}
               <div className="space-y-1 md:col-span-2">
-  <label className="block text-sm font-bold text-gray-700">Tags</label>
-  <div className="flex flex-wrap gap-2 items-center">
-    {formData.tags.map((tag, index) => (
-      <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
-        {typeof tag === 'object' ? tag.name : tag}
-        <button
-          type="button"
-          onClick={() => removeTag(index)}
-          className="ml-1.5 inline-flex text-blue-400 hover:text-blue-600 focus:outline-none"
-        >
-          <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
-            <path strokeLinecap="round" strokeWidth="1.5" d="M1 1l6 6m0-6L1 7" />
-          </svg>
-        </button>
-      </span>
-    ))}
-    <input
-      type="text"
-      value={tagInput}
-      onChange={handleTagInputChange}
-      onKeyDown={addTag}
-      placeholder="Type a tag and press Enter"
-      className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm"
-    />
-  </div>
-  <p className="mt-1 text-xs text-gray-500">Add tags to help customers find your product</p>
-</div>
+                <label className="block text-sm font-bold text-gray-700">Tags</label>
+                <div className="flex flex-wrap gap-2 items-center">
+                  {formData.tags.map((tag, index) => (
+                    <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => removeTag(index)}
+                        className="ml-1.5 inline-flex text-blue-400 hover:text-blue-600 focus:outline-none"
+                      >
+                        <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                          <path strokeLinecap="round" strokeWidth="1.5" d="M1 1l6 6m0-6L1 7" />
+                        </svg>
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    type="text"
+                    value={tagInput}
+                    onChange={handleTagInputChange}
+                    onKeyDown={addTag}
+                    placeholder="Type a tag and press Enter"
+                    className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500">Add tags to help customers find your product</p>
+              </div>
             </div>
           </div>
 
@@ -615,7 +687,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                     onChange={handleChange}
                   >
                     {weightUnitOptions.map(option => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
+                    <option key={option.value} value={option.value}>{option.label}</option>
                     ))}
                   </select>
                 </div>
@@ -630,18 +702,6 @@ const EditProductPage = ({ role = "vendor" }) => {
                   value={formData.dimensions}
                   onChange={handleChange}
                   placeholder="e.g., 10x5x2 cm"
-                />
-              </div>
-              
-              <div className="space-y-1">
-                <label className="block text-sm font-bold text-gray-700">Shipping Information</label>
-                <input
-                  type="text"
-                  name="shipping_info"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base"
-                  value={formData.shipping_info}
-                  onChange={handleChange}
-                  placeholder="e.g., Free shipping, Special handling"
                 />
               </div>
               
@@ -666,18 +726,6 @@ const EditProductPage = ({ role = "vendor" }) => {
                   value={formData.video_url}
                   onChange={handleChange}
                   placeholder="https://youtube.com/embed/example"
-                />
-              </div>
-              
-              <div className="space-y-1 md:col-span-2">
-                <label className="block text-sm font-bold text-gray-700">Content Embeds</label>
-                <textarea
-                  name="content_embeds"
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base"
-                  value={formData.content_embeds}
-                  onChange={handleChange}
-                  placeholder="HTML or iframe code for embedded content"
                 />
               </div>
               
@@ -707,7 +755,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                     className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm"
                   />
                 </div>
-                <p className="mt-1 text-xs text-gray-500">Add key features or selling points of the product</p>
+                <p className="mt-1 text-xs text-gray-500 font-bold">Add key features ,hit enter button To add more..</p>
               </div>
             </div>
           </div>
@@ -766,7 +814,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                     </div>
                     
                     <div className="space-y-1">
-                      <label className="block text-xs md:text-sm font-bold text-gray-700">Actual Price (₹)*</label>
+                      <label className="block text-xs md:text-sm font-bold text-gray-700"> Actual Price (₹)*</label>
                       <input
                         type="number"
                         min="0.01"
@@ -777,6 +825,42 @@ const EditProductPage = ({ role = "vendor" }) => {
                         placeholder="Product price"
                         required
                       />
+                    </div>
+                  </div>
+
+                  {/* Discount and GST fields */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+                    <div className="space-y-1">
+                      <label className="block text-xs md:text-sm font-bold text-gray-700">Discount %</label>
+                      <select
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:outline-none text-sm cursor-pointer"
+                         value={String(size.discount ?? "")}  
+                        onChange={(e) => handleSizeChange(index, "discount", e.target.value)}
+                      >
+                        {discountPercentageOptions.map(option => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <label className="block text-xs md:text-sm font-bold text-gray-700">GST %</label>
+                      <select
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:outline-none text-sm cursor-pointer"
+                        value={String(size.gst_percentage ?? "")}
+                        onChange={(e) => handleSizeChange(index, "gst_percentage", e.target.value)}
+                      >
+                        {gstPercentageOptions.map(option => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <label className="block text-xs md:text-sm font-bold text-gray-700">Final Price (₹)</label>
+                      <div className="w-full px-2 py-1.5 border border-gray-300 rounded-md bg-gray-50 text-sm">
+                        {size.final_price || "0.00"}
+                      </div>
                     </div>
                   </div>
                   
@@ -808,9 +892,10 @@ const EditProductPage = ({ role = "vendor" }) => {
                               <input
                                 type="number"
                                 min="1"
-                                className="w-full h-10 px-2 py-1 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:outline-none text-xs"
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:outline-none text-sm"
                                 value={tier.min_quantity}
                                 onChange={(e) => handlePriceTierChange(tierIdx, "min_quantity", e.target.value)}
+                                placeholder="Minimum quantity"
                                 required
                               />
                             </div>
@@ -821,9 +906,10 @@ const EditProductPage = ({ role = "vendor" }) => {
                                 type="number"
                                 min="0.01"
                                 step="0.01"
-                                className="w-full h-10 px-2 py-1 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:outline-none text-xs"
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:outline-none text-sm"
                                 value={tier.price}
                                 onChange={(e) => handlePriceTierChange(tierIdx, "price", e.target.value)}
+                                placeholder="Tier price"
                                 required
                               />
                             </div>
@@ -832,7 +918,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                               <button
                                 type="button"
                                 onClick={() => removePriceTier(tierIdx)}
-                                className="px-2 py-1 h-10 bg-red-100 text-red-700 rounded-md text-md font-bold hover:bg-red-200 w-full cursor-pointer"
+                                className="px-3 py-1.5 bg-red-100 text-red-700 rounded-md text-sm font-bold hover:bg-red-200 w-full cursor-pointer"
                               >
                                 Remove
                               </button>
@@ -843,153 +929,191 @@ const EditProductPage = ({ role = "vendor" }) => {
                     </div>
                   </div>
                   
-                  {sizes.length > 1 && (
-                    <div className="mt-3 flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => removeSize(index)}
-                        className="px-3 py-1 bg-red-600 text-white rounded-md text-xs md:text-sm font-bold hover:bg-red-700 cursor-pointer"
-                      >
-                        Remove Size
-                      </button>
-                    </div>
-                  )}
+                  <div className="flex justify-between items-center mt-3">
+                    <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={size.is_default}
+                        onChange={(e) => handleSizeChange(index, "is_default", e.target.checked)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      Set as default size
+                    </label>
+                    
+                    <button
+                      type="button"
+                      onClick={() => removeSize(index)}
+                      className="px-3 py-1.5 bg-red-600 text-white rounded-md text-sm font-bold hover:bg-red-700 cursor-pointer"
+                    >
+                      Remove Size
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Images Section */}
+          {/* Product Images Section */}
           <div className="bg-gray-50 p-4 md:p-6 rounded-lg border border-gray-200">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">Product Images</h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Product Images*</h3>
             
             {formErrors.image && (
-              <div className="mb-4 p-2 bg-red-50 text-red-600 font-bold text-sm rounded">
+              <div className="mb-4 p-2 bg-red-50 text-red-600 text-sm font-bold rounded">
                 Main image is required
               </div>
             )}
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-              {/* Main Image */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Main Image Upload */}
               <div className="space-y-3">
-                <label className="block text-sm font-bold text-gray-700">Main Image*</label>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                  <label className="cursor-pointer inline-flex">
-                    <span className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer">
-                      Choose File
-                    </span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="sr-only"
-                      onChange={handleImageChange}
-                    />
-                  </label>
-                  {formData.image && (
-                    <span className="text-sm text-gray-500 truncate max-w-xs">{formData.image.name}</span>
-                  )}
-                </div>
-                {(preview || (existingImages.length > 0 && existingImages.some(img => img.is_featured))) && (
-                  <div className="mt-2">
-                    <img
-                      src={preview || existingImages.find(img => img.is_featured)?.image}
-                      alt="Preview"
-                      className="w-32 h-32 rounded-lg object-cover border"
-                    />
-                  </div>
-                )}
-              </div>
-              
-              {/* Additional Images */}
-              <div className="space-y-3">
-                <label className="block text-sm font-bold text-gray-700">Additional Images (Max 5)</label>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                  <label className="cursor-pointer inline-flex">
-                    <span className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer">
-                      Choose Files
-                    </span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="sr-only"
-                      onChange={handleImagesChange}
-                      multiple
-                      disabled={existingImages.length + newImages.length >= 5}
-                    />
-                  </label>
-                  <span className="text-sm text-gray-500">
-                    {existingImages.length + newImages.length} / 5 images selected
-                  </span>
-                </div>
-                
-                <div className="mt-2 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                  {/* Existing images */}
-                  {existingImages.map((img) => (
-                    <div key={img.id} className="relative aspect-square">
+                <h4 className="text-sm font-bold text-gray-700">Main Product Image</h4>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                  {preview ? (
+                    <div className="relative">
                       <img
-                        src={img.image}
-                        alt={`Preview ${img.id}`}
-                        className="w-full h-full rounded-md object-cover border"
+                        src={preview}
+                        alt="Main product preview"
+                        className="mx-auto h-40 object-contain rounded"
                       />
                       <button
                         type="button"
-                        onClick={() => removeExistingImage(img.id)}
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 cursor-pointer"
+                        onClick={() => {
+                          setPreview(null);
+                          setFormData(prev => ({ ...prev, image: null }));
+                        }}
+                        className="absolute top-0 right-0 bg-red-600 text-white rounded-full p-1 cursor-pointer"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       </button>
                     </div>
-                  ))}
-                  
-                  {/* New images */}
-                  {newImages.map((img, index) => (
-                    <div key={index} className="relative aspect-square">
+                  ) : (
+                    <div className="flex flex-col items-center justify-center space-y-2">
+                      <svg className="w-12 h-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      <div className="flex text-sm text-gray-600">
+                        <label className="relative cursor-pointer bg-white rounded-md font-bold text-blue-600 hover:text-blue-500">
+                          <span>Upload main image</span>
+                          <input
+                            type="file"
+                            className="sr-only"
+                            accept="image/*"
+                            onChange={handleImageChange}
+                            required={!preview && existingImages.length === 0}
+                          />
+                        </label>
+                      </div>
+                      <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Additional Images */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-bold text-gray-700">Additional Images (Max 5)</h4>
+                
+                {/* Existing Images */}
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {existingImages.map((image) => (
+                    <div key={image.id} className="relative">
                       <img
-                        src={img.preview}
-                        alt={`New Preview ${index}`}
-                        className="w-full h-full rounded-md object-cover border"
+                        src={image.image}
+                        alt={`Product ${image.id}`}
+                        className="h-20 w-20 object-cover rounded border"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeExistingImage(image.id)}
+                        className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1 cursor-pointer"
+                      >
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                      {image.is_featured && (
+                        <span className="absolute -top-2 -left-2 bg-blue-600 text-white text-xs px-1 rounded">
+                          Main
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* New Images */}
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {newImages.map((image, index) => (
+                    <div key={index} className="relative">
+                      <img
+                        src={image.preview}
+                        alt={`New image ${index}`}
+                        className="h-20 w-20 object-cover rounded border"
                       />
                       <button
                         type="button"
                         onClick={() => removeNewImage(index)}
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 cursor-pointer"
+                        className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1 cursor-pointer"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       </button>
                     </div>
                   ))}
+                </div>
+
+                {/* Upload Button */}
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                  <div className="flex flex-col items-center justify-center space-y-2">
+                    <svg className="w-8 h-8 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                      <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <div className="flex text-sm text-gray-600">
+                      <label className="relative cursor-pointer bg-white rounded-md font-bold text-blue-600 hover:text-blue-500">
+                        <span>Add more images</span>
+                        <input
+                          type="file"
+                          multiple
+                          className="sr-only"
+                          accept="image/*"
+                          onChange={handleImagesChange}
+                          disabled={existingImages.length + newImages.length >= 5}
+                        />
+                      </label>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      {5 - existingImages.length - newImages.length} images remaining
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Submit Button */}
-          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
+          {/* Form Actions */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-end pt-6">
             <button
               type="button"
               onClick={() => navigate(`/${role}/products`)}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 cursor-pointer"
+              className="px-6 py-2.5 border border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 w-full sm:w-auto cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={isUpdating || !isFormValid}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm text-sm font-bold hover:bg-blue-700 focus:outline-none focus:ring-1 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
+              disabled={!isFormValid || isUpdating}
+              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto cursor-pointer"
             >
               {isUpdating ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
+                <span className="flex items-center justify-center">
+                  <span className="loading loading-spinner loading-sm mr-2"></span>
                   Updating...
-                </>
-              ) : 'Update Product'}
+                </span>
+              ) : (
+                'Update Product'
+              )}
             </button>
           </div>
         </form>

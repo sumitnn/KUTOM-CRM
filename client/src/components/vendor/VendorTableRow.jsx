@@ -36,16 +36,16 @@ export default function VendorTableRow({
     ? format(new Date(vendor.created_at), 'MMM dd, yyyy HH:mm') 
     : 'N/A';
 
-  const fullName = vendor.profile?.full_name || vendor?.full_name;
+  const fullName = vendor.profile?.full_name || vendor?.username;
   const phone = vendor.profile?.phone || vendor?.phone;
   const created_at = vendor.profile?.created_at || 'N/A';
-  const state = vendor.address?.state_name || 'N/A';
+  const state = vendor.address?.state || 'N/A';
   const postalCode = vendor.address?.postal_code || 'N/A';
   const city = vendor.address?.city || 'N/A';
   const userId = vendor.user?.id || vendor.id; // Fallback to vendor.id if user.id doesn't exist
   const FullKycApproved = vendor.profile?.kyc_verified;
-  const completionPercentage = vendor?.user?.profile?.completion_percentage || 0;
-  const isKycButtonEnabled = completionPercentage >= 60;
+  const completionPercentage = vendor?.completion_percentage || 0;
+  const isKycButtonEnabled = completionPercentage >= 80;
 
   const handleAction = async (action, actionFn) => {
     if (action === 'kyc') {
@@ -145,7 +145,7 @@ export default function VendorTableRow({
           <div className="absolute left-1/2 transform -translate-x-1/2 bottom-full mb-2 hidden group-hover:block w-64 bg-gray-800 text-white text-xs rounded p-2 z-10">
             <div className="flex items-center">
               <FaInfoCircle className="mr-1 " />
-              Profile completion must be at least 60% to enable this button.
+              Profile completion must be at least 80% to enable this button.
             </div>
           </div>
         )}

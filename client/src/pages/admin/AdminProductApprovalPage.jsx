@@ -76,26 +76,35 @@ const AdminProductApprovalPage = () => {
 
   const [updateStatus] = useUpdateProductStatusMutation();
 
-  // Helper function to transform product data
+  // Helper function to transform product data based on new API structure
   const transformProductData = (products) => {
-    return products?.map((product) => ({
-      id: product.id,
-      sku: product.sku,
-      name: product.name,
-      vendorId: product.vendor_id || "N/A",
-      brand: product.brand_name,
-      category: product.category_name,
-      subcategory: product.subcategory_name,
-      type: product.product_type,
-      status: product.status,
-      createdAt: product.created_at,
-      updatedAt: product.updated_at,
-      isFeatured: product.is_featured,
-      productType: product.product_type,
-      images: product.images,
-      features: product.features,
-      description: product.description
-    }));
+    if (!products) return [];
+    
+    return products.map((item) => {
+      const product = item.product_detail || {};
+      
+      return {
+        id: item.product || product.id,
+        sku: product.sku,
+        name: product.name,
+        vendorId: item.user_unique_id || "N/A",
+        vendorName: item.user_name || "N/A",
+        brand: product.brand_name,
+        category: product.category_name,
+        subcategory: product.subcategory_name,
+        type: product.product_type,
+        status: product.status,
+        statusDisplay: product.status_display,
+        createdAt: product.created_at || item.created_at,
+        updatedAt: product.updated_at || item.updated_at,
+        isFeatured: item.is_featured || product.is_featured,
+        productType: product.product_type,
+        productTypeDisplay: product.product_type_display,
+        images: product.images,
+        features: product.features,
+        description: product.description
+      };
+    });
   };
 
   const productData = {
@@ -173,6 +182,7 @@ const AdminProductApprovalPage = () => {
     (activeTab === 'inactive' && isInactiveFetching);
 
   const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
@@ -200,7 +210,6 @@ const AdminProductApprovalPage = () => {
           </button>
         </div>
 
-        {/* Rest of your component remains the same */}
         {/* Status Tabs */}
         <div className="mb-4 px-2">
           <div className="sm:hidden">
@@ -310,7 +319,7 @@ const AdminProductApprovalPage = () => {
                       Date
                     </th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">
-                      Vendor ID
+                      Vendor
                     </th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">
                       Brand
@@ -380,23 +389,27 @@ const AdminProductApprovalPage = () => {
                           {formatDate(product.createdAt)}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-600">
-                          {product.vendorId}
+                          {product.vendorName}
+                          <div className="text-xs text-gray-500">{product.vendorId}</div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                          {product.brand}
+                          {product.brand || 'N/A'}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                          {product.category}
+                          {product.category || 'N/A'}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                          {product.subcategory}
+                          {product.subcategory || 'N/A'}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">
                           {product.name}
                           <div className="text-xs text-gray-500 font-bold">{product.sku}</div>
+                          <div className="text-xs text-gray-500">
+                            Status: {product.statusDisplay || product.status}
+                          </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 capitalize">
-                          {product.productType}
+                          {product.productTypeDisplay || product.productType}
                         </td>
                         {activeTab !== 'active' && activeTab !== 'inactive' && (
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
@@ -425,9 +438,9 @@ const AdminProductApprovalPage = () => {
                                 <button
                                   onClick={() => handleStatusUpdate(product.id, 'published')}
                                   className="w-36 h-10 btn btn-outline-success text-green-600 hover:text-green-900"
-                                  title="Published Product"
+                                  title="Publish Product"
                                 >
-                                  Published
+                                  Publish
                                 </button>
                               </>
                             )}
@@ -438,7 +451,7 @@ const AdminProductApprovalPage = () => {
                                 className="w-36 h-10 flex items-center justify-center rounded border border-red-600 text-red-600 hover:text-red-900 hover:border-red-900"
                                 title="Unpublish"
                               >
-                                Not-Published
+                                Unpublish
                               </button>
                             )}
                           </div>

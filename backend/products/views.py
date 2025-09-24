@@ -1,14 +1,14 @@
 from rest_framework import viewsets
-from .models import Brand
+from .models import Brand, MainCategory, Category, SubCategory, Product, ProductVariant, ProductImage, ProductVariantPrice, ProductVariantBulkPrice, RoleBasedProduct, ProductCommission, StockInventory, Tag, ProductFeatures
 from .serializers import *
-from accounts.permissions import IsAdminRole,IsAdminOrVendorRole,IsVendorRole,IsAdminStockistResellerRole
+from accounts.permissions import IsAdminRole, IsAdminOrVendorRole, IsVendorRole, IsAdminStockistResellerRole
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
-from django.db.models import Sum,Q
+from django.db.models import Sum, Q
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.generics import ListAPIView
@@ -18,6 +18,11 @@ from datetime import datetime
 from accounts.utils import create_notification
 from django.db import transaction
 from rest_framework.exceptions import NotFound
+import json
+from decimal import Decimal
+from accounts.models import User
+from .models import ProductCommission
+from django.core.paginator import Paginator
 
 class BrandListCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -55,7 +60,7 @@ class BrandListCreateAPIView(APIView):
         serializer = BrandSerializer(data=data, context={'request': request})
         if serializer.is_valid():
             serializer.save(owner=request.user)
-            admin_user=User.objects.filter(role='admin').first()
+            admin_user = User.objects.filter(role='admin').first()
             if admin_user:
                 create_notification(
                     user=admin_user,
@@ -102,12 +107,12 @@ class BrandDetailAPIView(APIView):
         )
         if serializer.is_valid():
             serializer.save()
-            admin_user=User.objects.filter(role='admin').first()
+            admin_user = User.objects.filter(role='admin').first()
             if admin_user:
                 create_notification(
                     user=admin_user,
                     title="Brand Details Updated",
-                    message=f"brand '{serializer.data['name']}' has been updated by {request.user.username}.",
+                    message=f"Brand '{serializer.data['name']}' has been updated by {request.user.username}.",
                     notification_type="brand update",
                     related_url=f"/brands/{serializer.data['id']}/"
                 )
@@ -130,6 +135,7 @@ class BrandDetailAPIView(APIView):
             status=status.HTTP_204_NO_CONTENT
         )
 
+
 class MainCategoryAPIView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -149,7 +155,6 @@ class MainCategoryAPIView(APIView):
             return Response(serializer.data)
 
     def post(self, request):
-        
         if request.user.role not in ["admin", "vendor"]:
             return Response({"message": "Not authorized to create main category.", "status": False}, status=status.HTTP_403_FORBIDDEN)
 
@@ -160,7 +165,7 @@ class MainCategoryAPIView(APIView):
         serializer = MainCategorySerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save(owner=request.user)
-            admin_user=User.objects.filter(role='admin').first()
+            admin_user = User.objects.filter(role='admin').first()
             if admin_user:
                 create_notification(
                     user=admin_user,
@@ -180,7 +185,7 @@ class MainCategoryAPIView(APIView):
         category = get_object_or_404(MainCategory, pk=pk)
 
         if not (request.user.role == "admin" or category.owner == request.user):
-            return Response({"message": "Not authorized to update this category.","status":False}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"message": "Not authorized to update this category.", "status": False}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = MainCategorySerializer(category, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
@@ -200,7 +205,6 @@ class MainCategoryAPIView(APIView):
 
         category.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-
 
 
 class CategoryAPIView(APIView):
@@ -238,7 +242,7 @@ class CategoryAPIView(APIView):
         serializer = CategorySerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save(owner=request.user)
-            admin_user=User.objects.filter(role='admin').first()
+            admin_user = User.objects.filter(role='admin').first()
             if admin_user:
                 create_notification(
                     user=admin_user,
@@ -296,18 +300,16 @@ class CategoryAPIView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-
 class SubcategoryAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk=None):
-
         if pk:
             category = get_object_or_404(Category, pk=pk)
             subcategories = SubCategory.objects.filter(category=category).order_by('name')
 
             if not subcategories.exists():
-                return Response({"message": "No subcategories found for this category.","status":False}, status=404)
+                return Response({"message": "No subcategories found for this category.", "status": False}, status=404)
 
             serializer = SubCategorySerializer(subcategories, many=True, context={'request': request})
             return Response(serializer.data)
@@ -321,25 +323,25 @@ class SubcategoryAPIView(APIView):
 
     def post(self, request):
         if request.user.role not in ["admin", "vendor"]:
-            return Response({"message": "Not authorized to create subcategory.","status":False}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"message": "Not authorized to create subcategory.", "status": False}, status=status.HTTP_403_FORBIDDEN)
 
         cat_id = request.data.get('category')
         name = request.data.get('name', '').strip().lower()
-        brand_id= request.data.get('brand')
+        brand_id = request.data.get('brand')
 
         if not cat_id:
-            return Response({"message": "Subcategory must have a parent category.","status":False}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": "Subcategory must have a parent category.", "status": False}, status=status.HTTP_400_BAD_REQUEST)
         
         if not brand_id:
-            return Response({"message": "Subcategory must have a brand.","status":False}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": "Subcategory must have a brand.", "status": False}, status=status.HTTP_400_BAD_REQUEST)
 
-        if SubCategory.objects.filter(category_id=cat_id, name__iexact=name,brand_id=brand_id).exists():
+        if SubCategory.objects.filter(category_id=cat_id, name__iexact=name, brand_id=brand_id).exists():
             return Response({"message": "A Subcategory with this name already exists under this category.", "status": False}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = SubCategorySerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save(owner=request.user)
-            admin_user=User.objects.filter(role='admin').first()
+            admin_user = User.objects.filter(role='admin').first()
             if admin_user:
                 create_notification(
                     user=admin_user,
@@ -352,7 +354,6 @@ class SubcategoryAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def put(self, request, pk=None):
-
         if not pk:
             return Response({"detail": "Subcategory id is required for update."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -361,7 +362,7 @@ class SubcategoryAPIView(APIView):
         if not (request.user.role == "admin" or subcategory.owner == request.user):
             return Response({"detail": "Not authorized to update this subcategory."}, status=status.HTTP_403_FORBIDDEN)
 
-        serializer = SubCategorySerializer(subcategory, data=request.data.get("data",{}), partial=True, context={'request': request})
+        serializer = SubCategorySerializer(subcategory, data=request.data.get("data", {}), partial=True, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -380,422 +381,177 @@ class SubcategoryAPIView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-
-class ProductListNotApprovedAPIView(APIView):
-
-    def get_permissions(self):
-        if self.request.method == 'POST':
-            return [IsAdminOrVendorRole]
-        return [IsAdminOrVendorRole]
-
-    def get(self, request):
-        products = Product.objects.filter(approved_by_Admin=False)
-        serializer = ProductSerializer(products, many=True)
-        return Response(serializer.data)
-    def post(self, request):
-
-        print("Request Data:", request.data)  
-        serializer = ProductSerializer(data=request.data, context={'request': request})
-        if serializer.is_valid():
-            serializer.save(owner=request.user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+def parse_json_field(data, field, default=None):
+    """Parse a field that comes as a list with a JSON string inside."""
+    if field not in data:
+        return default or []
+    raw_value = data.get(field)
+    if isinstance(raw_value, list) and raw_value:
+        raw_value = raw_value[0]  # take first element
+    if isinstance(raw_value, str) and raw_value.startswith("["):
+        try:
+            return json.loads(raw_value)
+        except json.JSONDecodeError:
+            return default or []
+    return default or []
 
 
 class ProductListCreateAPIView(APIView):
     def get_permissions(self):
-        if self.request.method == 'POST':
+        if self.request.method == "POST":
             return [IsAdminOrVendorRole()]
         return [IsAuthenticated()]
 
     def get(self, request):
-        # Get query parameters
-        search = request.query_params.get('search', None)
-        category = request.query_params.get('category', None)
-        product_type = request.query_params.get('type', None)
-        featured = request.query_params.get('featured', None)
-        
-        # Start with all products
-        products = Product.objects.all()
-        
-        # Apply filters if provided
-        if search:
-            products = products.filter(
-                Q(name__icontains=search) |
-                Q(description__icontains=search) |
-                Q(sku__icontains=search) |
-                Q(tags__name__icontains=search)
-            ).distinct()
-        
-        if category:
-            products = products.filter(category_id=category)
-            
-        if product_type:
-            products = products.filter(product_type=product_type)
-            
-        if featured:
-            products = products.filter(is_featured=True)
+        search = request.query_params.get("search")
+        category = request.query_params.get("category")
+        product_type = request.query_params.get("type")
+        featured = request.query_params.get("featured")
 
-        serializer = ProductLISTCREATESerializer(products, many=True, context={'request': request})
+        # Get role-based products for the current user
+        if request.user.role == "admin":
+            role_products = RoleBasedProduct.objects.filter(role="vendor")
+        else:
+            role_products = RoleBasedProduct.objects.filter(user=request.user)
+        
+        if search:
+            role_products = role_products.filter(
+                Q(product__name__icontains=search) |
+                Q(product__description__icontains=search) |
+                Q(product__sku__icontains=search) |
+                Q(product__tags__name__icontains=search)
+            ).distinct()
+
+        if category:
+            role_products = role_products.filter(product__category_id=category)
+
+        if product_type:
+            role_products = role_products.filter(product__product_type=product_type)
+
+        if featured and featured.lower() in ["1", "true", "yes"]:
+            role_products = role_products.filter(is_featured=True)
+
+        serializer = RoleBasedProductSerializer(
+            role_products, many=True, context={"request": request}
+        )
         return Response(serializer.data)
 
     def post(self, request):
         data = request.data.copy()
 
-        # Truncate short_description if too long
-        if 'short_description' in data and len(data['short_description']) > 450:
-            data['short_description'] = data['short_description'][:450]
+        if "short_description" in data and len(data["short_description"]) > 450:
+            data["short_description"] = data["short_description"][:450]
+        print(data)
+        serializer = ProductCreateSerializer(data=data, context={"request": request})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        with transaction.atomic():
+            product = serializer.save()
 
-        # Safely load JSON fields
-        for field in ['tags', 'features', 'sizes', 'price_tiers']:
-            if field in data:
-                value = data.get(field)
-                if isinstance(value, str):
-                    try:
-                        if field =="features":
-                             data[field] =value
-                        else:
-
-                            data[field] = json.loads(value)
-                    except (json.JSONDecodeError, TypeError):
-                        return Response(
-                            {field: "Invalid JSON format"},
-                            status=status.HTTP_400_BAD_REQUEST
-                        )
-
-        # Create product
-        serializer = ProductSerializer(data=data, context={'request': request})
-        if serializer.is_valid():
-            product = serializer.save(owner=request.user)
-
-            if 'tags' in data and isinstance(data['tags'], list):
-                tag_ids = []
-                for tag_name in data['tags']:
-                    tag_obj, _ = Tag.objects.get_or_create(name=tag_name, defaults={'owner': request.user})
-                    tag_ids.append(tag_obj.id)
-                product.tags.set(tag_ids)
-
-            # Save main images
-            if 'image' in request.FILES:
-                image_list = request.FILES.getlist('image')
-                if image_list:
-                    ProductImage.objects.create(
-                        product=product,
-                        image=image_list[0], 
-                        is_featured=True,
-                        is_default=True
-                    )
-
-            # Save additional images
-            if 'additional_images' in request.FILES:
-                for img in request.FILES.getlist('additional_images'):
-                    ProductImage.objects.create(
-                        product=product,
-                        image=img,
-                        is_featured=True,
-                        is_default=False
-                    )
-         
-            
-            # Save sizes and track them by index
-            saved_sizes = []
-            if 'sizes' in data and isinstance(data['sizes'], list):
-                for size_data in data['sizes']:
-                    size_serializer = ProductSizeSerializer(data={**size_data, "product": product.id})
-                    if size_serializer.is_valid():
-                        size_instance = size_serializer.save()
-                        saved_sizes.append(size_instance)
-                    else:
-                        return Response(size_serializer.errors, status=400)
-
-            # Save price tiers with size reference using sizeIndex
-            if 'price_tiers' in data and isinstance(data['price_tiers'], list):
-                for tier_data in data['price_tiers']:
-                    size_index = tier_data.get('sizeIndex')
-                    if size_index is None or size_index >= len(saved_sizes):
-                        return Response(
-                            {"price_tiers": f"Invalid sizeIndex: {size_index}"},
-                            status=400
-                        )
-
-                    tier_serializer = ProductPriceTierSerializer(data=tier_data)
-                    if tier_serializer.is_valid():
-                        tier_serializer.save(
-                            product=product,
-                            size=saved_sizes[size_index]
-                        )
-                    else:
-                        return Response(tier_serializer.errors, status=400)
-                    
-            admin_user=User.objects.filter(role='admin').first()
-            if admin_user:
-                create_notification(
-                    user=admin_user,
-                    title="New Product Created",
-                    message=f"A new product '{product.name}' has been created. by {request.user.username}.",
-                    notification_type="product",
-                    related_url=f"/products/{product.id}/"
-                )
-
-            return Response(
-                ProductLISTCREATESerializer(product, context={'request': request}).data,
-                status=status.HTTP_201_CREATED
+        # Notify admin
+        admin_user = User.objects.filter(role="admin").first()
+        if admin_user:
+            create_notification(
+                user=admin_user,
+                title="New Product Created",
+                message=f"A new product '{product.name}' was created by {request.user.username}.",
+                notification_type="product",
+                related_url=f"/products/{product.id}/",
             )
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-
-class AdminProductDetailView(generics.RetrieveUpdateAPIView):
-    queryset = AdminProduct.objects.all()
-    
-    serializer_class = AdminProductDetailSerializer
-    permission_classes = [IsAdminStockistResellerRole] 
-
-
-class ProductCommissionDetail(APIView):
-    permission_classes = [IsAdminRole]
-    
-    def get_object(self, product_id):
-        try:
-            return ProductCommission.objects.get(admin_product_id=product_id)
-        except ProductCommission.DoesNotExist:
-            
-            raise NotFound(detail="Invalid product ID or commission not found")
-
-    def get(self, request, product_id, format=None):
-        commission = self.get_object(product_id)
-        serializer = AdminProductCommissionSerializer(commission)
-        return Response(serializer.data)
-
-    def patch(self, request, product_id, format=None):
-        
-        commission = self.get_object(product_id)
-        serializer = AdminProductCommissionSerializer(
-            commission, 
-            data=request.data, 
-            partial=True
+        return Response(
+            ProductSerializer(product, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
         )
-        
-        if serializer.is_valid():
-            try:
-                serializer.save()
-                return Response(serializer.data)
-            except ValueError as e:
-                return Response(
-                    {'detail': str(e)}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ProductDetailAPIView(APIView):
     permission_classes = [IsAdminOrVendorRole]
 
-
-    def get_object(self, pk):
-        return get_object_or_404(Product.objects.prefetch_related(
-            'images', 'sizes', 'price_tiers', 'tags'
-        ), pk=pk)
+    def get_object(self, pk, user):
+        """Get the role-based product for the current user"""
+        if user.role == "admin":
+            # Admins can always access the product
+            try:
+                return RoleBasedProduct.objects.get(product_id=pk)
+            except RoleBasedProduct.DoesNotExist:
+                raise NotFound("Product not found ")
+        else:
+            try:
+                return RoleBasedProduct.objects.get(
+                    product_id=pk, 
+                    user=user,
+                    role=user.role
+                )
+            except RoleBasedProduct.DoesNotExist:
+                raise NotFound("Product not found or you don't have permission to access it")
 
     def get(self, request, pk):
-        
-        product = self.get_object(pk)
-        self.check_object_permissions(request, product)
-        serializer = ProductSerializer(product, context={'request': request})
+        role_product = self.get_object(pk, request.user)
+        serializer = RoleBasedProductSerializer(role_product, context={"request": request})
         return Response(serializer.data)
 
     def put(self, request, pk):
-        product = self.get_object(pk)
-        data = dict(request.data) 
+        try:
+            product = Product.objects.get(pk=pk)
+        except Product.DoesNotExist:
+            return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # JSON decode values that come in as lists
-        for key, value in data.items():
-            if isinstance(value, list) and len(value) == 1:
-                data[key] = value[0]
+        # Check if user has permission to update this product
+        role_based_product = RoleBasedProduct.objects.filter(product=product, user=request.user).first()
+        if not role_based_product and not request.user.role == "admin":
+            return Response({"error": "You don't have permission to update this product"}, 
+                           status=status.HTTP_403_FORBIDDEN)
 
+        data = request.data.copy()
 
+        if "short_description" in data and len(data["short_description"]) > 450:
+            data["short_description"] = data["short_description"][:450]
         
+        print(data)
 
-        self.check_object_permissions(request, product)
-
-        # Truncate short_description if too long
-        if 'short_description' in data and len(data['short_description']) > 450:
-            data['short_description'] = data['short_description'][:450]
-
-        # Safely load JSON fields
-        for field in ['tags', 'features', 'sizes', 'price_tiers']:
-            if field in data:
-                value = data.get(field)
-                if isinstance(value, str):
-                    try:
-                        if field == "features":
-                            data[field] = value
-                        else:
-                            data[field] = json.loads(value)
-                    except (json.JSONDecodeError, TypeError):
-                        return Response(
-                            {field: "Invalid JSON format"},
-                            status=status.HTTP_400_BAD_REQUEST
-                        )
-
+        serializer = ProductUpdateSerializer(
+            product, 
+            data=data, 
+            context={"request": request},
+            partial=True  # Allow partial updates
+        )
         
-        with transaction.atomic():  # Ensure full update or rollback
-            serializer = ProductSerializer(
-                product,
-                data=data,
-                partial=True,
-                context={'request': request}
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            product = serializer.save()
+
+
+        # Notify admin about product update
+        admin_user = User.objects.filter(role="admin").first()
+        if admin_user:
+            create_notification(
+                user=admin_user,
+                title="Product Updated",
+                message=f"Product '{product.name}' was updated by {request.user.username}.",
+                notification_type="product",
+                related_url=f"/products/{product.id}/",
             )
 
-            if serializer.is_valid():
-                product = serializer.save()
-                product.status = "draft"
-                product.save()
+        return Response(
+            ProductSerializer(product, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
 
-                # Handle tags update
-                if 'tags' in data and isinstance(data['tags'], list):
-                    tag_ids = []
-                    for tag_name in data['tags']:
-                        tag_obj, _ = Tag.objects.get_or_create(
-                            name=tag_name, defaults={'owner': request.user}
-                        )
-                        tag_ids.append(tag_obj.id)
-                    product.tags.set(tag_ids)
-
-                # Handle featured image update
-                if 'image' in request.FILES:
-                    old_images = product.images.filter(is_default=True)
-                    for img in old_images:
-                        img.image.delete(save=False)
-                    old_images.delete()
-
-                    image_list = request.FILES.getlist('image')
-                    if image_list:
-                        ProductImage.objects.create(
-                            product=product,
-                            image=image_list[0],
-                            is_featured=True,
-                            is_default=True
-                        )
-
-                # Handle additional images
-                if 'additional_images' in request.FILES:
-                    old_additional_images = product.images.filter(is_default=False)
-                    for img in old_additional_images:
-                        img.image.delete(save=False)
-                    old_additional_images.delete()
-
-                    for img in request.FILES.getlist('additional_images'):
-                        ProductImage.objects.create(
-                            product=product,
-                            image=img,
-                            is_featured=True,
-                            is_default=False
-                        )
-
-                saved_sizes = []
-
-                if 'sizes' in data and isinstance(data['sizes'], list):
-                    existing_sizes = {s.id: s for s in product.sizes.all()}
-                    sent_size_ids = []
-
-                    for size_data in data['sizes']:
-                        size_data = size_data.copy()
-                        size_data['product'] = product.id
-                        original_default = size_data.pop('is_default', False)
-
-                        size_id = size_data.get('id')
-                        if size_id and size_id in existing_sizes:
-                            # Update existing size
-                            size_instance = existing_sizes[size_id]
-                            size_serializer = ProductSizeSerializer(
-                                size_instance, data=size_data, partial=True
-                            )
-                            if size_serializer.is_valid():
-                                updated_size = size_serializer.save()
-                                if original_default:
-                                    updated_size.is_default = True
-                                    updated_size.save()
-                                saved_sizes.append(updated_size)
-                                sent_size_ids.append(size_id)
-                            else:
-                                return Response(
-                                    {'sizes': size_serializer.errors},
-                                    status=status.HTTP_400_BAD_REQUEST
-                                )
-                        else:
-                            # Create new size
-                            size_serializer = ProductSizeSerializer(data=size_data)
-                            if size_serializer.is_valid():
-                                new_size = size_serializer.save()
-                                if original_default:
-                                    new_size.is_default = True
-                                    new_size.save()
-                                saved_sizes.append(new_size)
-                                sent_size_ids.append(new_size.id)
-                            else:
-                                return Response(
-                                    {'sizes': size_serializer.errors},
-                                    status=status.HTTP_400_BAD_REQUEST
-                                )
-
-                    # Optionally deactivate sizes not in request (instead of deleting)
-                    for size in product.sizes.exclude(id__in=sent_size_ids):
-                        # If it has no OrderItem references, you could delete
-                        if not size.orderitem_set.exists():
-                            size.delete()
-                        else:
-                            size.is_active = False  # if you add is_active flag
-                            size.save()
-                
-                # Handle price tiers
-                if 'price_tiers' in data and isinstance(data['price_tiers'], list):
-                    product.price_tiers.all().delete()
-                    for tier_data in data['price_tiers']:
-                        size_index = tier_data.get('sizeIndex')
-                        if size_index is None or size_index >= len(saved_sizes):
-                            return Response(
-                                {"price_tiers": f"Invalid sizeIndex: {size_index}"},
-                                status=400
-                            )
-
-                        tier_data = tier_data.copy()
-                        tier_serializer = ProductPriceTierSerializer(data=tier_data)
-                        if tier_serializer.is_valid():
-                            tier_serializer.save(
-                                product=product,
-                                size=saved_sizes[size_index]
-                            )
-                        else:
-                            return Response(
-                                {'price_tiers': tier_serializer.errors},
-                                status=status.HTTP_400_BAD_REQUEST
-                            )
-
-                # Optional: Admin notification
-                admin_user = User.objects.filter(role='admin').first()
-                if admin_user:
-                    create_notification(
-                        user=admin_user,
-                        title="Product Updated",
-                        message=f"Product '{product.name}' was updated by {request.user.username}.",
-                        notification_type="product",
-                        related_url=f"/products/{product.id}/"
-                    )
-
-                return Response(
-                    ProductSerializer(product, context={'request': request}).data,
-                    status=status.HTTP_200_OK
-                )
-
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     def delete(self, request, pk):
-        product = self.get_object(pk)
-        self.check_object_permissions(request, product)
-        product.delete()
+        role_product = self.get_object(pk, request.user)
+        product = role_product.product
+        
+        # Delete the role-based product entry
+        role_product.delete()
+        
+        # If no other role-based products reference this product, delete the product itself
+        if not RoleBasedProduct.objects.filter(product=product).exists():
+            product.delete()
+            
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -807,11 +563,19 @@ class ProductStatusUpdateView(APIView):
 
     def put(self, request, pk):
         product = self.get_object(pk)
-        self.check_object_permissions(request, product)
         
-        # Get status from request data
+        
+        # Check if user has permission to update this product
+        if request.user.role != "admin" and not RoleBasedProduct.objects.filter(product=product, user=request.user).exists():
+            return Response(
+                {"message": "You don't have permission to update this product", "status": False},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+
         new_status = request.data.get('status')
-        if request.user.role=='admin':
+        
+        if request.user.role == 'admin':
             if new_status not in ['draft', 'published']:
                 return Response(
                     {'message': 'Status must be either "draft" or "published"', "status": False},
@@ -819,13 +583,15 @@ class ProductStatusUpdateView(APIView):
                 )
             product.status = new_status
             product.save()
+            product_owner=RoleBasedProduct.objects.get(product=product, role="vendor")
+            
             create_notification(
-                    user=product.owner,
-                    title="Product Request Status Updated by Admin",
-                    message=f"Product '{product.name}' status was updated to {new_status} by Admin.",
-                    notification_type="product request",
-                    related_url=f"/products/{product.id}/"
-                )
+                user=product_owner.user,
+                title="Product Request Status Updated by Admin",
+                message=f"Product '{product.name}' status was updated to {new_status} by Admin.",
+                notification_type="product request",
+                related_url=f"/products/{product.id}/"
+            )
                 
             return Response(
                 {
@@ -835,16 +601,16 @@ class ProductStatusUpdateView(APIView):
                 status=status.HTTP_200_OK
             )
 
-
         if new_status not in ['active', 'inactive']:
             return Response(
                 {'message': 'Status must be either "active" or "inactive"', "status": False},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Update is_featured based on status
-        product.is_featured = (new_status == 'active')
-        product.save()
+        # Update is_featured based on status for role-based product
+        role_product = RoleBasedProduct.objects.get(product=product, user=request.user)
+        role_product.is_featured = (new_status == 'active')
+        role_product.save()
 
         return Response(
             {
@@ -854,173 +620,319 @@ class ProductStatusUpdateView(APIView):
             status=status.HTTP_200_OK
         )
 
+
 class ProductByStatusAPIView(APIView):
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
-        status_param = request.query_params.get('status')
-        page = request.query_params.get('page', 1)
-        page_size = request.query_params.get('page_size', 10)
+        status_param = request.query_params.get("status")
+        featured = request.query_params.get("featured")
+        page_size = request.query_params.get("page_size", 10)
 
         if not status_param:
             return Response(
-                {'message': 'Status query parameter is required.', "status": False},
-                status=status.HTTP_400_BAD_REQUEST
+                {"message": "Status query parameter is required.", "status": False},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        try:
-            page = int(page)
-            page_size = int(page_size)
-        except ValueError:
-            return Response(
-                {'message': 'Invalid page or page_size parameter.', "status": False},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Define queryset based on status
-        if status_param == 'draft':
-            products = Product.objects.filter(status='draft')
-        elif status_param == 'published':
-            products = Product.objects.filter(status='published')
-        elif status_param == 'active':
-            products = Product.objects.filter(status='published', is_featured=True)
-        elif status_param == 'inactive':
-            products = Product.objects.filter(status='published', is_featured=False)
+        # Get role-based products for the current user
+        if request.user.role == 'admin':
+            role_products = RoleBasedProduct.objects.all()
         else:
-            return Response(
-                {'message': 'Invalid status parameter.', "status": False},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            role_products = RoleBasedProduct.objects.filter(user=request.user, role=request.user.role)
+
+        if status_param == "active":
+            role_products = role_products.filter(is_featured=True)
+        elif status_param == "inactive":
+            role_products = role_products.filter(is_featured=False)
+        elif status_param in ["draft", "published"]:
+            role_products = role_products.filter(product__status=status_param)
+
+        if featured and featured.lower() in ["1", "true", "yes"]:
+            role_products = role_products.filter(is_featured=True)
 
         # Pagination
         paginator = PageNumberPagination()
-        paginator.page_size = page_size
-        paginated_products = paginator.paginate_queryset(products, request)
-        
-        serializer = ProductSerializer(
-            paginated_products,
-            many=True,
-            context={'request': request}
+        paginator.page_size = int(page_size)
+        paginated_products = paginator.paginate_queryset(role_products, request)
+
+        serializer = RoleBasedProductSerializer(
+            paginated_products, many=True, context={"request": request}
         )
-        
+
         return paginator.get_paginated_response(serializer.data)
+
 
 class MyProductListAPIView(APIView):
     permission_classes = [IsAdminOrVendorRole]
-
-    def get(self, request):
-        products = Product.objects.filter(owner=request.user)
-        serializer = ProductSerializer(products, many=True)
-        return Response(serializer.data)
     
+    def get(self, request):
+        # Get all filter parameters
+        page_number = request.GET.get('page', 1)
+        page_size = request.GET.get('page_size', 10)
+        search_term = request.GET.get('search', '').strip()
+        featured_filter = request.GET.get('featured', 'all')
+        category_filter = request.GET.get('category', 'all')
+        brand_filter = request.GET.get('brand', 'all')
+        sort_field = request.GET.get('sort_by', 'name')
+        sort_direction = request.GET.get('sort_direction', 'asc')
+        
+
+        # Convert to proper types
+        try:
+            page_number = int(page_number)
+            page_size = int(page_size)
+        except (ValueError, TypeError):
+            page_number = 1
+            page_size = 10
+        
+        # Base queryset
+        role_products = RoleBasedProduct.objects.filter(
+            user=request.user, 
+            role=request.user.role
+        ).select_related('product', 'product__category', 'product__brand', 'product__subcategory')
+        
+        # Search filter
+        if search_term:
+            role_products = role_products.filter(
+                Q(product__name__icontains=search_term) |
+                Q(product__description__icontains=search_term) |
+                Q(product__sku__icontains=search_term)
+            )
+        
+        # Featured filter
+        if featured_filter != 'all' and featured_filter != '':
+            is_featured = featured_filter == 'featured'
+            role_products = role_products.filter(is_featured=is_featured)
+        
+        # Category filter
+        if category_filter != 'all' and category_filter != '':
+            role_products = role_products.filter(product__category_id=category_filter)
+        
+        # Brand filter
+        if brand_filter != 'all' and brand_filter != '':
+            role_products = role_products.filter(product__brand_id=brand_filter)
+        
+        # Sorting
+        sort_prefix = '-' if sort_direction.lower() == 'desc' else ''
+        field_mapping = {
+            'name': 'product__name',
+            'price': 'price',
+            'created_at': 'product__created_at',
+            'updated_at': 'product__updated_at',
+            'status': 'product__status',
+            'quantity': 'product__total_quantity',  # Assuming you have this field
+        }
+        db_sort_field = field_mapping.get(sort_field, 'product__name')
+        role_products = role_products.order_by(f'{sort_prefix}{db_sort_field}')
+        
+        # Count
+        total_count = role_products.count()
+        
+        # Pagination
+        paginator = Paginator(role_products, page_size)
+        try:
+            paginated_role_products = paginator.page(page_number)
+        except:
+            paginated_role_products = paginator.page(1)
+        
+        # Serialize
+        serializer = ADMINRoleBasedProductSerializer(
+            paginated_role_products, 
+            many=True, 
+            context={'request': request}
+        )
+        
+        return Response({
+            'count': total_count,
+            'total_pages': paginator.num_pages,
+            'current_page': page_number,
+            'next': paginated_role_products.has_next(),
+            'previous': paginated_role_products.has_previous(),
+            'results': serializer.data
+        })
+
+class ProductCommissionAPIView(APIView):
+    permission_classes = [IsAdminOrVendorRole]
+    
+    def get(self, request, product_id):
+        try:
+            commission = ProductCommission.objects.get(
+                role_product__product_id=product_id,
+                role_product__user=request.user
+            )
+            serializer = ProductCommissionSerializer(commission)
+            return Response(serializer.data)
+        except ProductCommission.DoesNotExist:
+            return Response({
+                'reseller_commission_value': '0.00',
+                'stockist_commission_value': '0.00',
+                'admin_commission_value': '0.00',
+                'commission_type': 'percentage'
+            })
+    
+    def put(self, request, product_id):
+ 
+        try:
+            role_product = RoleBasedProduct.objects.get(
+                product_id=product_id,
+                user=request.user
+            )
+            
+            commission= ProductCommission.objects.filter(
+                role_product=role_product
+            ).last()
+            
+            if commission:
+                serializer = ProductCommissionSerializer(commission, data=request.data, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                    return Response(serializer.data)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            return Response(ProductCommissionSerializer(commission).data)
+            
+        except RoleBasedProduct.DoesNotExist:
+            return Response(
+                {'error': 'Product not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+class ProductPriceUpdateAPIView(APIView):
+    permission_classes = [IsAdminRole]
+    
+    def put(self, request, product_id, variant_id):
+        try:
+            updated = ProductVariantPrice.objects.filter(
+                product_id=product_id,
+                variant_id=variant_id,
+                user=request.user
+            ).update(price=request.data.get('price'))
+
+            if updated == 0:
+                return Response(
+                    {"error": "No matching ProductVariantPrice found."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            return Response({"success": True})
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+class ProductFeaturedStatusAPIView(APIView):
+    permission_classes = [IsAdminOrVendorRole]
+    
+    def put(self, request, product_id):
+        try:
+            role_product = RoleBasedProduct.objects.get(
+                product_id=product_id,
+                user=request.user
+            )
+            role_product.is_featured = request.data.get('is_featured', False)
+            role_product.save()
+            
+            return Response({'success': True, 'is_featured': role_product.is_featured})
+        except RoleBasedProduct.DoesNotExist:
+            return Response(
+                {'error': 'Product not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
 class ProductStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
-        products = Product.objects.filter(owner=user)
+        role_products = RoleBasedProduct.objects.filter(user=user)
+        products = [rp.product for rp in role_products]
 
         labels = []
         data = []
 
         for product in products:
             labels.append(product.name or product.sku)
-            total_quantity = (
-                Product.objects
-                .filter(product=product)
-                .aggregate(total=Sum('quantity'))['total'] or 0
-            )
+            # Calculate total quantity from inventory
+            total_quantity = StockInventory.objects.filter(
+                product=product, user=user
+            ).aggregate(total=Sum('total_quantity'))['total'] or 0
             data.append(total_quantity)
 
         return Response({
             'labels': labels,
             'data': data,
         })
-    
 
 
-
-class VendorActiveProductListView(generics.ListAPIView):
+class ActiveProductListView(generics.ListAPIView):
     serializer_class = ProductDropdownSerializer
-    permission_classes = [IsVendorRole]
-    pagination_class=None
+    permission_classes = [IsAuthenticated]
+    pagination_class = None
 
     def get_queryset(self):
-        return Product.objects.filter(is_featured=True, owner=self.request.user)
-
-class AdminActiveProductListView(generics.ListAPIView):
-    serializer_class = AdminProductDropdownSerializer
-    permission_classes = [IsAdminStockistResellerRole]
-    pagination_class=None
-
-    def get_queryset(self):
-        return AdminProduct.objects.filter(is_active=True)
+        role_products = RoleBasedProduct.objects.filter(
+            user=self.request.user, 
+            role=self.request.user.role,
+            is_featured=True
+        )
+        return [rp.product for rp in role_products]
 
 
-
-# View to fetch all sizes for a selected product
-class ProductSizeListByProductView(generics.ListAPIView):
-    serializer_class = ProductSizeSerializer
-    permission_classes = [IsVendorRole]
-    pagination_class=None
+class ProductVariantListByProductView(generics.ListAPIView):
+    serializer_class = ProductVariantMiniSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = None
 
     def get_queryset(self):
         product_id = self.kwargs['product_id']
-        return ProductSize.objects.filter(product_id=product_id, is_active=True)
-    
-class AdminProductSizeListByProductView(generics.ListAPIView):
-    serializer_class = AdminProductSizeSerializer
-    permission_classes = [IsAdminStockistResellerRole]
-    pagination_class=None
+        return ProductVariant.objects.filter(product_id=product_id, is_active=True)
 
-    def get_queryset(self):
-        product_id = self.kwargs['product_id']
-        return AdminProductSize.objects.filter(product_id=product_id, is_active=True)
 
 class StockListCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get_permissions(self):
-        if self.request.method == 'POST':
-            return [IsVendorRole()]
-        return super().get_permissions()
-
     def get(self, request):
         user = request.user
-        queryset = Stock.objects.filter(owner=user)
+        queryset = StockInventory.objects.filter(user=user)
+        
 
         product = request.query_params.get('product')
-        status_param = request.query_params.get('status')
+        variant = request.query_params.get('variant')
+        status=request.query_params.get('status')
 
         if product:
             queryset = queryset.filter(product=product)
 
-        if status_param:
-            today = datetime.now().date()
-            if status_param == "new_stock":
-                queryset = queryset.filter(created_at__date=today)
-            elif status_param == "in_stock":
-                queryset = queryset.filter(status='in_stock').exclude(created_at__date=today)
-            elif status_param == "out_of_stock":
-                queryset = queryset.filter(status='out_of_stock')
+        if variant:
+            queryset = queryset.filter(variant=variant)
+        if status =="new_stock":
+            queryset = queryset.filter(created_at__date=datetime.now().date())
+        elif status =="in_stock":
+            queryset = queryset.filter(total_quantity__gt=10)
+        elif status =="out_of_stock":
+            queryset = queryset.filter(total_quantity__lte=10)
 
-
-        serializer = StockSerializer(queryset, many=True)
+        serializer = StockInventorySerializer(queryset, many=True)
         return Response(serializer.data)
 
     def post(self, request):
-        serializer = StockSerializer(data=request.data, context={'request': request})
+        serializer = StockInventorySerializer(data=request.data, context={'request': request})
         
         if serializer.is_valid():
-            serializer.save(owner=request.user)
+            serializer.save(user=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class StockRetrieveUpdateAPIView(generics.RetrieveUpdateAPIView):
-    queryset = Stock.objects.all()
-    serializer_class = StockSerializer
-    permission_classes = [IsVendorRole]
+    queryset = StockInventory.objects.all()
+    serializer_class = StockInventorySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return StockInventory.objects.filter(user=self.request.user)
 
 
 class AdminProductPagination(PageNumberPagination):
@@ -1029,20 +941,10 @@ class AdminProductPagination(PageNumberPagination):
     max_page_size = 100
 
 
-class AdminStockListView(generics.ListAPIView):
-    serializer_class = AdminProductSerializer
+class AdminProductListView(generics.ListAPIView):
+    serializer_class = ProductSerializer
     pagination_class = AdminProductPagination
     permission_classes = [IsAdminStockistResellerRole]
-
-    def get_queryset(self):
-        queryset = AdminProduct.objects.all().order_by('-created_at')
-        status = self.request.query_params.get('status')
-        if status in ['in_stock', 'out_of_stock']:
-            queryset = queryset.filter(stock_status=status)
-        return queryset
-    
-class AdminProductListView(generics.ListAPIView):
-    serializer_class = AdminProductListSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     search_fields = ['name', 'sku', 'short_description']
     filterset_fields = {
@@ -1050,13 +952,13 @@ class AdminProductListView(generics.ListAPIView):
         'category': ['exact'],
         'subcategory': ['exact'],
         'is_active': ['exact'],
-        'stock_status': ['exact'],
+        'status': ['exact'],
     }
     
     def get_queryset(self):
-        queryset = AdminProduct.objects.select_related(
+        queryset = Product.objects.select_related(
             'brand', 'category', 'subcategory'
-        ).prefetch_related('images').filter(is_active=True)
+        ).prefetch_related('images').filter(status='published')
         
         # Additional filters from query params
         search = self.request.query_params.get('search', None)
@@ -1081,3 +983,58 @@ class AdminProductListView(generics.ListAPIView):
             queryset = queryset.filter(brand_id=brand)
             
         return queryset.order_by('-created_at')
+
+
+class ProductCommissionDetail(APIView):
+    permission_classes = [IsAdminRole]
+    
+    def get_object(self, product_id):
+        try:
+            role_product = RoleBasedProduct.objects.get(
+                product_id=product_id, 
+                role='admin'
+            )
+            return ProductCommission.objects.get(role_product=role_product)
+        except (RoleBasedProduct.DoesNotExist, ProductCommission.DoesNotExist):
+            raise NotFound(detail="Invalid product ID or commission not found")
+
+    def get(self, request, product_id, format=None):
+        commission = self.get_object(product_id)
+        serializer = ProductCommissionSerializer(commission)
+        return Response(serializer.data)
+
+    def patch(self, request, product_id, format=None):
+        commission = self.get_object(product_id)
+        serializer = ProductCommissionSerializer(
+            commission, 
+            data=request.data, 
+            partial=True
+        )
+        
+        if serializer.is_valid():
+            try:
+                serializer.save()
+                return Response(serializer.data)
+            except ValueError as e:
+                return Response(
+                    {'detail': str(e)}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class StockHistoryAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, stock_id):
+        
+        try:
+            stock = StockInventory.objects.filter(id=stock_id, user=request.user).first()
+            if not stock:
+                return Response({"error": "Stock not found"}, status=status.HTTP_404_NOT_FOUND)
+
+            history = StockInventoryHistory.objects.filter(stock_inventory=stock).order_by('-created_at')
+            serializer = StockInventoryHistorySerializer(history, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

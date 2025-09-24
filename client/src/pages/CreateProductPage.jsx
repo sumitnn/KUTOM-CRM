@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useCreateProductMutation } from "../features/product/productApi";
@@ -17,8 +17,6 @@ const CreateProductPage = () => {
   const [product, setProduct] = useState({
     name: "",
     description: "",
-    gst_tax: "",
-    gst_percentage: "0",
     short_description: "",
     brand: "",
     category: "",
@@ -30,10 +28,8 @@ const CreateProductPage = () => {
     weight_unit: "kg",
     dimensions: "",
     product_type: "physical",
-    shipping_info: "",
     video_url: "",
     warranty: "",
-    content_embeds: "",
     features: [],
   });
 
@@ -43,6 +39,9 @@ const CreateProductPage = () => {
     unit: "gram", 
     price: "", 
     quantity: "",
+    discount_percentage: "0",
+    gst_percentage: "0",
+    final_price: "0.00",
     is_default: false,
   }]);
 
@@ -62,6 +61,43 @@ const CreateProductPage = () => {
   });
 
   const subcategories = Array.isArray(subcategoriesData) ? subcategoriesData : [];
+
+  // Calculate final price for a single size
+  const calculateFinalPrice = useCallback((size) => {
+    const price = parseFloat(size.price) || 0;
+    const discountPercentage = parseFloat(size.discount_percentage) || 0;
+    const gstPercentage = parseFloat(size.gst_percentage) || 0;
+    
+    // Calculate price after discount
+    const priceAfterDiscount = price - (price * discountPercentage / 100);
+    
+    // Calculate GST amount on discounted price
+    const gstAmount = priceAfterDiscount * gstPercentage / 100;
+    
+    // Final price = discounted price + GST
+    const finalPrice = priceAfterDiscount + gstAmount;
+    
+    return finalPrice.toFixed(2);
+  }, []);
+
+  // Calculate final prices only when specific fields change
+  useEffect(() => {
+    // Check if any size has price, discount or GST values that need calculation
+    const needsUpdate = sizes.some(size => {
+      const currentFinal = parseFloat(size.final_price) || 0;
+      const calculatedFinal = parseFloat(calculateFinalPrice(size)) || 0;
+      return currentFinal !== calculatedFinal;
+    });
+
+    if (needsUpdate) {
+      const updatedSizes = sizes.map(size => ({
+        ...size,
+        final_price: calculateFinalPrice(size)
+      }));
+      
+      setSizes(updatedSizes);
+    }
+  }, [sizes, calculateFinalPrice]); // Only recalculate when sizes array changes
 
   // Add form validation state
   const [formErrors, setFormErrors] = useState({
@@ -100,10 +136,16 @@ const CreateProductPage = () => {
     { value: "subscription", label: "Subscription" },
   ];
 
+  // Generate discount percentage options from 0% to 100%
+  const discountPercentageOptions = Array.from({ length: 101 }, (_, i) => ({
+    value: i.toString(),
+    label: `${i}%`
+  }));
+
   // Generate GST percentage options from 0% to 40%
   const gstPercentageOptions = Array.from({ length: 41 }, (_, i) => ({
     value: i.toString(),
-    label: `${i}%`
+    label: `${i}% GST`
   }));
 
   const handleImageChange = (e) => {
@@ -200,6 +242,9 @@ const CreateProductPage = () => {
       unit: "gram", 
       price: "", 
       quantity: "",
+      discount_percentage: "0",
+      gst_percentage: "0",
+      final_price: "0.00",
       is_default: false,
     }]);
   };
@@ -474,33 +519,6 @@ const CreateProductPage = () => {
             <h3 className="text-lg font-bold text-gray-800 mb-4">Product Specifications</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-              {/* GST Tax Field */}
-              <div className="space-y-1">
-                <label className="block text-sm font-bold text-gray-700">GST Tax</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    name="gst_tax"
-                    min="0"
-                    step="0.01"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base"
-                    value={product.gst_tax}
-                    onChange={handleChange}
-                    placeholder="Enter GST tax amount"
-                  />
-                  <select
-                    name="gst_percentage"
-                    className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500  focus:outline-none text-sm md:text-base cursor-pointer"
-                    value={product.gst_percentage}
-                    onChange={handleChange}
-                  >
-                    {gstPercentageOptions.map(option => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
               <div className="space-y-1">
                 <label className="block text-sm font-bold text-gray-700">Weight</label>
                 <div className="flex gap-2">
@@ -539,17 +557,7 @@ const CreateProductPage = () => {
                 />
               </div>
               
-              <div className="space-y-1">
-                <label className="block text-sm font-bold text-gray-700">Shipping Information</label>
-                <input
-                  type="text"
-                  name="shipping_info"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:outline-none focus:border-blue-500 text-sm md:text-base"
-                  value={product.shipping_info}
-                  onChange={handleChange}
-                  placeholder="e.g., Free shipping, Special handling"
-                />
-              </div>
+             
               
               <div className="space-y-1">
                 <label className="block text-sm font-bold text-gray-700">Warranty Information</label>
@@ -572,18 +580,6 @@ const CreateProductPage = () => {
                   value={product.video_url}
                   onChange={handleChange}
                   placeholder="https://youtube.com/embed/example"
-                />
-              </div>
-              
-              <div className="space-y-1 md:col-span-2">
-                <label className="block text-sm font-bold text-gray-700">Content Embeds</label>
-                <textarea
-                  name="content_embeds"
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:outline-none focus:border-blue-500 text-sm md:text-base"
-                  value={product.content_embeds}
-                  onChange={handleChange}
-                  placeholder="HTML or iframe code for embedded content"
                 />
               </div>
               
@@ -681,6 +677,42 @@ const CreateProductPage = () => {
                         placeholder="Product price"
                         required
                       />
+                    </div>
+                  </div>
+
+                  {/* Discount and GST fields */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+                    <div className="space-y-1">
+                      <label className="block text-xs md:text-sm font-bold text-gray-700">Discount %</label>
+                      <select
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1  focus:outline-none focus:ring-blue-500 text-sm cursor-pointer"
+                        value={size.discount_percentage}
+                        onChange={(e) => handleSizeChange(index, "discount_percentage", e.target.value)}
+                      >
+                        {discountPercentageOptions.map(option => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <label className="block text-xs md:text-sm font-bold text-gray-700">GST %</label>
+                      <select
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1  focus:outline-none focus:ring-blue-500 text-sm cursor-pointer"
+                        value={size.gst_percentage}
+                        onChange={(e) => handleSizeChange(index, "gst_percentage", e.target.value)}
+                      >
+                        {gstPercentageOptions.map(option => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <label className="block text-xs md:text-sm font-bold text-gray-700">Final Price (₹)</label>
+                      <div className="w-full px-2 py-1.5 border border-gray-300 rounded-md bg-gray-50 text-sm">
+                        {size.final_price || "0.00"}
+                      </div>
                     </div>
                   </div>
                   

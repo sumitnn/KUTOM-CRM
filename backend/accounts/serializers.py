@@ -2,6 +2,8 @@ from rest_framework import serializers
 from .models import *
 from rest_framework.exceptions import ValidationError
 from .utils import create_notification
+from django.db import transaction
+
 
 class WalletTransactionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -9,28 +11,39 @@ class WalletTransactionSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['wallet', 'created_at']
 
+
 class WalletSerializer(serializers.ModelSerializer):
-    
     class Meta:
         model = Wallet
+        fields = ['id', 'current_balance', 'payout_balance']
+        read_only_fields = ['user', 'current_balance', 'payout_balance']
+
+
+class CommissionWalletSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CommissionWallet
         fields = ['id', 'balance']
         read_only_fields = ['user', 'balance']
 
 
-
-
 class TopupRequestSerializer(serializers.ModelSerializer):
-    approved_by=serializers.SerializerMethodField()
-    user=serializers.SerializerMethodField()
+    approved_by = serializers.SerializerMethodField()
+    user = serializers.SerializerMethodField()
+    
     class Meta:
         model = TopupRequest
-        fields = ['id', 'amount','user', 'payment_method', 'screenshot','payment_details','approved_by','rejected_reason','reviewed_at', 'note', 'status', 'created_at']
+        fields = [
+            'id', 'amount', 'user', 'payment_method', 'screenshot', 
+            'payment_details', 'approved_by', 'rejected_reason', 
+            'reviewed_at', 'note', 'status', 'created_at'
+        ]
         read_only_fields = ['id', 'status', 'created_at']
         
     def validate_amount(self, value):
         if value <= 0:
             raise serializers.ValidationError("Amount must be greater than zero")
         return value
+    
     def get_approved_by(self, obj):
         if obj.approved_by:
             return obj.approved_by.username
@@ -38,17 +51,21 @@ class TopupRequestSerializer(serializers.ModelSerializer):
     
     def get_user(self, obj):
         try:
-            user =obj.user
+            user = obj.user
             return UserListSerializer(user).data
         except User.DoesNotExist:
             return None
+
 
 class WithdrawalRequestSerializer(serializers.ModelSerializer):
     wallet = WalletSerializer(read_only=True)
 
     class Meta:
         model = WithdrawalRequest
-        fields = ['id', 'amount', 'payment_method', 'status', 'payment_details', 'wallet', 'created_at','screenshot', 'rejected_reason']
+        fields = [
+            'id', 'amount', 'payment_method', 'status', 'payment_details', 
+            'wallet', 'created_at', 'screenshot', 'rejected_reason'
+        ]
         read_only_fields = ['id', 'status', 'created_at', 'wallet']
 
     def create(self, validated_data):
@@ -73,14 +90,14 @@ class WithdrawalRequestSerializer(serializers.ModelSerializer):
                 "message": "Wallet not found"
             })
 
-        if wallet.balance < amount:
+        if wallet.current_balance < amount:
             raise ValidationError({
                 "status": False,
                 "message": "Insufficient wallet balance"
             })
 
         # Deduct from chosen wallet
-        wallet.balance -= amount
+        wallet.current_balance -= amount
         wallet.save()
 
         # Attach wallet and user to the withdrawal request
@@ -112,40 +129,47 @@ class WithdrawalRequestSerializer(serializers.ModelSerializer):
         return withdrawal
 
 
-
 class StateSerializer(serializers.ModelSerializer):
     class Meta:
         model = State
-        fields = ['id', 'name']
+        fields = ['id', 'name', 'code', 'is_union_territory']
 
 
 class DistrictSerializer(serializers.ModelSerializer):
+    state_name = serializers.CharField(source='state.name', read_only=True)
+    
     class Meta:
         model = District
-        fields = ['id', 'name']
+        fields = ['id', 'name', 'state', 'state_name', 'is_active']
 
     def validate_name(self, value):
-        if not value.isalpha():
-            raise serializers.ValidationError("District name should only contain alphabetic characters.")
+        if not value.replace(' ', '').isalpha():
+            raise serializers.ValidationError("District name should only contain alphabetic characters and spaces.")
         return value
-    
+
+
 class StockistSerializer(serializers.ModelSerializer):
     class Meta:
-        model=User
-        fields = ['id', 'email', 'username', 'role']
+        model = User
+        fields = ['id', 'email', 'username', 'role', 'stockist_id']
+
 
 class UserSerializer(serializers.ModelSerializer):
     state = serializers.PrimaryKeyRelatedField(queryset=State.objects.all(), required=False, allow_null=True, write_only=True)
     district = serializers.PrimaryKeyRelatedField(queryset=District.objects.all(), required=False, allow_null=True, write_only=True)
-    stockist=serializers.PrimaryKeyRelatedField(
+    stockist = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.filter(role='stockist'), 
         required=False, 
         allow_null=True, 
         write_only=True
     )
+    
     class Meta:
         model = User
-        fields = ['id', 'email', 'password', 'role', 'username', 'state', 'district','stockist', 'is_default_user']
+        fields = [
+            'id', 'email', 'password', 'phone', 'role', 'username', 
+            'state', 'district', 'stockist', 'is_default_user'
+        ]
         extra_kwargs = {
             'password': {'write_only': True}
         }
@@ -154,7 +178,7 @@ class UserSerializer(serializers.ModelSerializer):
         """Ensure the email is unique except for the current user."""
         user_qs = User.objects.filter(email=value)
         if self.instance:
-            user_qs = user_qs.exclude(pk=self.instance.pk)  # Exclude current user
+            user_qs = user_qs.exclude(pk=self.instance.pk)
         if user_qs.exists():
             raise serializers.ValidationError("A user with this email already exists.")
         return value
@@ -165,10 +189,9 @@ class UserSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Password must be at least 8 characters long.")
         return value
 
+    @transaction.atomic
     def create(self, validated_data):
         """Create a user with a hashed password and associated address."""
-
-        
         state_data = validated_data.pop('state', None)  
         district_data = validated_data.pop('district', None)  
         is_default_user = validated_data.pop('is_default_user', False)
@@ -181,37 +204,21 @@ class UserSerializer(serializers.ModelSerializer):
         user.is_default_user = is_default_user
         user.save()
 
-        # Ensure that state_data and district_data are ids, not model instances
-        if state_data and isinstance(state_data, State):
-            state = state_data
-        else:
-            try:
-                state = State.objects.get(id=state_data)  
-            except State.DoesNotExist:
-                state=None
+        # Create address if state/district provided
+        if state_data or district_data:
+            Address.objects.create(
+                user=user,
+                state=state_data,
+                district=district_data
+            )
 
-        if district_data and isinstance(district_data, District):
-            district = district_data
-        else:
-            try:
-                district = District.objects.get(id=district_data)  
-            except District.DoesNotExist:
-                district = None
-        
-        if stockist and isinstance(stockist, User):
-            try:
-                stockist = stockist
-            except User.DoesNotExist:
-                stockist = None
-
-        # Create an associated address
-        address = Address.objects.create(
-            user=user,
-            state=state,
-            district=district
-        )
-        # create stockist assignment 
-        StockistAssignment.objects.create(reseller=user,stockist=stockist,state=state) 
+        # Create stockist assignment if applicable
+        if stockist and user.role == 'reseller':
+            StockistAssignment.objects.create(
+                reseller=user,
+                stockist=stockist,
+                state=state_data
+            )
 
         return user
 
@@ -220,26 +227,44 @@ class UserSerializer(serializers.ModelSerializer):
         instance.email = validated_data.get('email', instance.email)
         instance.role = validated_data.get('role', instance.role)
         instance.username = validated_data.get('username', instance.username)
+        instance.phone = validated_data.get('phone', instance.phone)
 
         if 'password' in validated_data:
             instance.set_password(validated_data['password'])
 
         instance.save()
         return instance
-    
+
 
 class AddressSerializer(serializers.ModelSerializer):
-    state = StateSerializer()
-    district = DistrictSerializer()
+    state = StateSerializer(read_only=True)
+    district = DistrictSerializer(read_only=True)
+    state_id = serializers.PrimaryKeyRelatedField(
+        queryset=State.objects.all(), 
+        source='state', 
+        write_only=True, 
+        required=False
+    )
+    district_id = serializers.PrimaryKeyRelatedField(
+        queryset=District.objects.all(), 
+        source='district', 
+        write_only=True, 
+        required=False
+    )
     
     class Meta:
         model = Address
-        fields = ['id', 'street_address', 'city', 'state', 'district', 'postal_code', 'country', 'is_primary']
+        fields = [
+            'id', 'street_address', 'city', 'state', 'district', 
+            'state_id', 'district_id', 'postal_code', 'country', 'is_primary'
+        ]
+
 
 class BasicUserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['username', 'email']
+        fields = ['username', 'email', 'phone']
+
 
 class ProfileSerializer(serializers.ModelSerializer):
     user = BasicUserProfileSerializer(read_only=True)
@@ -261,54 +286,8 @@ class ProfileSerializer(serializers.ModelSerializer):
             return AddressSerializer(address).data
         return None
 
-    def to_internal_value(self, data):
-        data = data.copy()
-        
-        # Handle null values
-        for field in ['date_of_birth', 'profile_picture']:
-            if field in data and data[field] in ('null', 'None'):
-                data[field] = None
-                
-        ret = super().to_internal_value(data)
-        request = self.context.get('request')
-        
-        # Handle file uploads
-        if request and hasattr(request, 'FILES'):
-            for field in request.FILES:
-                ret[field] = request.FILES[field]
-        
-        # Handle address data
-        address_data = {}
-        address_fields = ['street_address', 'city', 'postal_code', 'country']
-        
-        for field in address_fields:
-            key = f'address[{field}]'
-            if key in data:
-                address_data[field] = data[key]
-        
-        # Handle state and district foreign keys
-        foreign_key_fields = {
-            'state': State,
-            'district': District
-        }
-        
-        for field, model in foreign_key_fields.items():
-            key = f'address[{field}]'
-            if key in data and data[key]:
-                try:
-                    address_data[field] = model.objects.get(id=data[key])
-                except model.DoesNotExist:
-                    raise serializers.ValidationError({
-                        field: f'Invalid {field} ID'
-                    })
-        
-        if address_data:
-            ret['address'] = address_data
-            
-        return ret
-
     def update(self, instance, validated_data):
-        address_data = validated_data.pop('address', None)
+        address_data = self.context.get('request').data.get('address', {})
         
         # Update profile fields
         for attr, value in validated_data.items():
@@ -317,35 +296,19 @@ class ProfileSerializer(serializers.ModelSerializer):
 
         # Update or create address
         if address_data:
-            Address.objects.update_or_create(
-                user=instance.user,
-                defaults=address_data
-            )
+            address, created = Address.objects.get_or_create(user=instance.user)
+            for attr, value in address_data.items():
+                setattr(address, attr, value)
+            address.save()
 
         instance.save()
         return instance
 
 
-class AddressWithUserAndProfileSerializer(serializers.ModelSerializer):
-    user = ProfileSerializer(read_only=True)
-
-    class Meta:
-        model = Address
-        fields = [
-            'id',
-            'street_address',
-            'city',
-            'state',
-            'district',
-            'postal_code',
-            'country',
-            'is_primary',
-            'user'
-        ]
-
-
 class BroadcastMessageSerializer(serializers.ModelSerializer):
     admin_name = serializers.CharField(source='admin.username', read_only=True)
+    visible_to_display = serializers.CharField(source='get_visible_to_display', read_only=True)
+    priority_display = serializers.CharField(source='get_priority_display', read_only=True)
 
     class Meta:
         model = BroadcastMessage
@@ -357,14 +320,10 @@ class UserPaymentDetailsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
         fields = [
-            "upi_id",
-            'bank_upi',
-            'account_holder_name',
-            'account_number',
-            'ifsc_code',
-            'bank_name',
-            'passbook_pic',
+            "upi_id", 'bank_upi', 'account_holder_name', 'account_number',
+            'ifsc_code', 'bank_name', 'passbook_pic'
         ]
+
 
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
@@ -374,72 +333,6 @@ class NotificationSerializer(serializers.ModelSerializer):
             'is_read', 'related_url', 'created_at'
         ]
         read_only_fields = ['created_at']
-
-
-class NewAccountApplicationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = NewAccountApplication
-        fields = '__all__'
-        read_only_fields = ['status', 'created_at']
-
-    def validate(self, data):
-        email = data.get('email')
-        phone = data.get('phone')
-
-        # Check email
-        if email:
-            existing_email_app = NewAccountApplication.objects.filter(email=email).first()
-            if existing_email_app:
-                status = existing_email_app.status
-                if status in ['new', 'pending']:
-                    raise serializers.ValidationError({
-                        'email': "An application with this email is already in progress and awaiting admin approval."
-                    })
-                elif status == 'approved':
-                    raise serializers.ValidationError({
-                        'email': "An application with this email has already been approved. Please use a different email."
-                    })
-                elif status == 'rejected':
-                    raise serializers.ValidationError({
-                        'email': "previous application with this email was rejected. Please contact support for assistance."
-                    })
-
-        # Check phone
-        if phone:
-            existing_phone_app = NewAccountApplication.objects.filter(phone=phone).first()
-            if existing_phone_app:
-                status = existing_phone_app.status
-                if status in ['new', 'pending']:
-                    raise serializers.ValidationError({
-                        'phone': "An application with this phone number is already in progress and awaiting admin approval."
-                    })
-                elif status == 'approved':
-                    raise serializers.ValidationError({
-                        'phone': "An application with this phone number has already been approved. Please use a different phone number."
-                    })
-                elif status == 'rejected':
-                    raise serializers.ValidationError({
-                        'phone': "previous application with this phone number was rejected. Please contact support for assistance."
-                    })
-
-        return data
-    
-
-
-class ApplicationWithUserSerializer(serializers.ModelSerializer):
-    user = serializers.SerializerMethodField()
-
-    class Meta:
-        model = NewAccountApplication
-        fields = ['id','role','created_at','status','rejected_reason','phone','email','full_name','user']
-
-    def get_user(self, obj):
-        try:
-            user = User.objects.get(email=obj.email)
-            return UserListSerializer(user).data
-        except User.DoesNotExist:
-            return None
-
 
 
 class UserAddressSerializer(serializers.ModelSerializer):
@@ -454,6 +347,7 @@ class UserAddressSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     created_at = serializers.SerializerMethodField()
     updated_at = serializers.SerializerMethodField()
+    
     class Meta:
         model = Profile
         fields = "__all__"
@@ -465,12 +359,22 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return obj.updated_at.date() if obj.updated_at else None
 
 
-
-
 class CompanySerializer(serializers.ModelSerializer):
-    state = serializers.PrimaryKeyRelatedField(queryset=State.objects.all(), required=False, allow_null=True)
-    district = serializers.PrimaryKeyRelatedField(queryset=District.objects.all(), required=False, allow_null=True)
-
+    state = StateSerializer(read_only=True)
+    district = DistrictSerializer(read_only=True)
+    state_id = serializers.PrimaryKeyRelatedField(
+        queryset=State.objects.all(), 
+        source='state', 
+        write_only=True, 
+        required=False
+    )
+    district_id = serializers.PrimaryKeyRelatedField(
+        queryset=District.objects.all(), 
+        source='district', 
+        write_only=True, 
+        required=False
+    )
+    
     joining_date = serializers.DateField(format="%Y-%m-%d", required=False, allow_null=True)
     verified_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M", required=False, allow_null=True)
     created_at = serializers.SerializerMethodField()
@@ -479,7 +383,7 @@ class CompanySerializer(serializers.ModelSerializer):
     class Meta:
         model = Company
         fields = "__all__"
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = ['user', 'created_at', 'updated_at']
     
     def get_created_at(self, obj):
         return obj.created_at.date() if obj.created_at else None
@@ -492,45 +396,29 @@ class UserListSerializer(serializers.ModelSerializer):
     address = UserAddressSerializer(read_only=True)
     profile = UserProfileSerializer(read_only=True)
     company = CompanySerializer(read_only=True)
-
-
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    role_display = serializers.CharField(source='get_role_display', read_only=True)
 
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'role', 'username', 
-            'address', 'profile','company',"reseller_id","stockist_id","vendor_id"
+            'id', 'email', 'role', 'role_display', 'username', 'phone', 'status', 'status_display',
+            'address', 'profile', 'company', 'reseller_id', 'stockist_id', 'vendor_id',
+            'is_active', 'is_profile_completed', 'completion_percentage', 'created_at'
         ]
 
 
+class ProfileApprovalStatusSerializer(serializers.ModelSerializer):
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    completion_percentage = serializers.SerializerMethodField()
 
-# create serializers
-class AddressCreateSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Address
+        model = ProfileApprovalStatus
         fields = '__all__'
-        extra_kwargs = {
-            'profile': {'read_only': True}
-        }
+        read_only_fields = ['user', 'last_updated']
 
-class CompanyCreateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Company
-        fields = '__all__'
-        extra_kwargs = {
-            'user': {'read_only': True}
-        }
-
-class ProfileCreateSerializer(serializers.ModelSerializer):
-    address = AddressCreateSerializer(required=False)
-    company = CompanyCreateSerializer(required=False)
-    
-    class Meta:
-        model = Profile
-        fields = '__all__'
-        extra_kwargs = {
-            'user': {'read_only': True}
-        }
+    def get_completion_percentage(self, obj):
+        return obj.calculate_completion()
 
 
 class ProfileApprovalStatusUpdateSerializer(serializers.ModelSerializer):
@@ -546,30 +434,155 @@ class ProfileApprovalStatusUpdateSerializer(serializers.ModelSerializer):
 
 
 class CurrentUserSerializer(serializers.ModelSerializer):
+    role_display = serializers.CharField(source='get_role_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role']
+        fields = ['id', 'username', 'email', 'role', 'role_display', 'status', 'status_display']
         read_only_fields = fields
 
 
 class AdminWithdrawalRequestSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
+    user = UserListSerializer(read_only=True)
     wallet = WalletSerializer(read_only=True)
-    approved_by = UserSerializer(read_only=True)
+    approved_by = CurrentUserSerializer(read_only=True)
+    payment_method_display = serializers.CharField(source='get_payment_method_display', read_only=True)
 
     class Meta:
         model = WithdrawalRequest
         fields = [
-            'id', 'user', 'amount', 'payment_method', 'status',
+            'id', 'user', 'amount', 'payment_method', 'payment_method_display', 'status',
             'payment_details', 'wallet', 'approved_by', 'created_at',
-            'updated_at', 'screenshot'
+            'updated_at', 'screenshot', 'rejected_reason'
         ]
         read_only_fields = [
-            'id', 'user', 'wallet', 'approved_by', 'created_at',
-            'updated_at'
+            'id', 'user', 'wallet', 'approved_by', 'created_at', 'updated_at'
         ]
 
+
+class StockistAssignmentSerializer(serializers.ModelSerializer):
+    reseller = UserListSerializer(read_only=True)
+    stockist = UserListSerializer(read_only=True)
+    state = StateSerializer(read_only=True)
+
+    class Meta:
+        model = StockistAssignment
+        fields = ['id', 'reseller', 'stockist', 'state', 'assigned_at']
+
+
+class NewUserRegistrationSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "id", "full_name", "email", "phone", "role",
+            "is_active", "is_profile_completed", "completion_percentage"
+        ]
+        read_only_fields = [
+            "id", "is_active", "is_profile_completed", "completion_percentage"
+        ]
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("This email is already registered.")
+        return value
+
+    def validate_phone(self, value):
+        if value and User.objects.filter(phone=value).exists():
+            raise serializers.ValidationError("This phone number is already registered.")
+        return value
+
+    def create(self, validated_data):
+        full_name = validated_data.pop("full_name", None)
+
+        if full_name and not validated_data.get("username"):
+            validated_data["username"] = full_name
+
+        user = User.objects.create(**validated_data)
+        user.is_active = False
+        user.status = "new_user"
+        user.save()  
+        return user
+
+
+class NewProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profile
+        fields = "__all__"
+        read_only_fields = ["id", "user", "created_at", "updated_at"]
+
+
+class NewAddressSerializer(serializers.ModelSerializer):
+    state = StateSerializer(read_only=True)
+    district = DistrictSerializer(read_only=True)
+
+    class Meta:
+        model = Address
+        fields = "__all__"
+        read_only_fields = ["id", "user"]
+
+
+class NewCompanySerializer(serializers.ModelSerializer):
+    state = StateSerializer(read_only=True)
+    district = DistrictSerializer(read_only=True)
+
+    class Meta:
+        model = Company
+        fields = "__all__"
+        read_only_fields = ["id", "user", "created_at", "updated_at"]
+
+
+class CASEAddressSerializer(serializers.ModelSerializer):
+    state = serializers.CharField(source='state.name', read_only=True)
+    district = serializers.CharField(source='district.name', read_only=True)
+    
+    state_id = serializers.PrimaryKeyRelatedField(
+        queryset=State.objects.all(), 
+        source='state', 
+        write_only=True, 
+        required=False
+    )
+    district_id = serializers.PrimaryKeyRelatedField(
+        queryset=District.objects.all(), 
+        source='district', 
+        write_only=True, 
+        required=False
+    )
+
+    class Meta:
+        model = Address
+        fields = [
+            'id', 'street_address', 'city', 'state', 'district', 
+            'state_id', 'district_id', 'postal_code', 'country', 'is_primary'
+        ]
+
+
+class NewUserFullDetailSerializer(serializers.ModelSerializer):
+    profile = NewProfileSerializer(read_only=True)
+    address = CASEAddressSerializer(read_only=True)
+    company = NewCompanySerializer(read_only=True)
+    role_display = serializers.CharField(source='get_role_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "id", "email", "phone", "username", "role", "role_display", 
+            "status", "status_display", "vendor_id", "stockist_id", "reseller_id",
+            "is_active", "is_staff", "is_default_user", "is_profile_completed", 
+            "completion_percentage", "created_at", "profile", "address", "company"
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class UserStatusUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['status', 'rejected_reason']
+
     def validate_status(self, value):
-        if value not in ['pending', 'approved', 'rejected']:
+        if value not in [choice[0] for choice in User.Status_CHOICES]:
             raise serializers.ValidationError("Invalid status")
         return value

@@ -50,7 +50,7 @@ export default function VendorTable({
 
  const handleConfirmKyc = async () => {
     if (selectedVendor) {
-      await MarkFullKyc(selectedVendor.user?.id); 
+      await MarkFullKyc(selectedVendor?.id); 
       setShowKycModal(false);
     }
   };
@@ -77,6 +77,7 @@ export default function VendorTable({
       case 'suspended':
         return [
         getRoleIdLabel(), 
+        'Created Date',
         'Name',
         'Email',
         'Phone',

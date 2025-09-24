@@ -31,6 +31,7 @@ export default function ProfileReviewModal({ vendor, onClose ,role}) {
   const [activeTab, setActiveTab] = useState(TAB_KEYS[0]);
   const [previewItem, setPreviewItem] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+ 
   
   const defaultApprovalStatus = {
     userDetails: 'pending',
@@ -44,11 +45,11 @@ export default function ProfileReviewModal({ vendor, onClose ,role}) {
     paymentDetails: 'pending',
     paymentDetailsReason: ""
   };
-
+ 
   const [approvalStatus, setApprovalStatus] = useState(defaultApprovalStatus);
   
   const [updateApprovalStatus] = useUpdateProfileApprovalStatusMutation();
-  const { data: existingStatus, isLoading, isError, refetch } = useGetProfileApprovalStatusQuery(vendor?.user?.id);
+  const { data: existingStatus, isLoading, isError, refetch } = useGetProfileApprovalStatusQuery(vendor?.id);
 
   useEffect(() => {
     if (existingStatus) {
@@ -117,7 +118,7 @@ export default function ProfileReviewModal({ vendor, onClose ,role}) {
       };
 
       await updateApprovalStatus({
-        userId: vendor?.user?.id,
+        userId: vendor?.id,
         data: submissionData
       }).unwrap();
 
@@ -136,32 +137,32 @@ export default function ProfileReviewModal({ vendor, onClose ,role}) {
       userDetails: {
         title: "User & Contact Information",
         fields: [
-          { label: "Full Name", value: vendor.user.profile.full_name },
+          { label: "Full Name", value: vendor.username },
           { label: "Email", value: vendor.email },
           { label: "Phone", value: vendor.phone },
-          { label: "WhatsApp", value: vendor.user.profile.whatsapp_number },
-          { label: "Date of Birth", value: vendor.user.profile.date_of_birth || 'Not provided' },
-          { label: "Gender", value: vendor.user.profile.gender || 'Not provided' },
-          { label: "KYC Status", value: vendor.user.profile.kyc_status },
+          { label: "WhatsApp", value: vendor.profile.whatsapp_number },
+          { label: "Date of Birth", value: vendor.profile.date_of_birth || 'Not provided' },
+          { label: "Gender", value: vendor.profile.gender || 'Not provided' },
+          { label: "KYC Status", value: vendor.profile.kyc_status },
           {
             label: "Address",
             value: (
-              vendor.user.address &&
-              vendor.user.address.street_address &&
-              vendor.user.address.city &&
-              vendor.user.address.district_name &&
-              vendor.user.address.state_name &&
-              vendor.user.address.country &&
-              vendor.user.address.postal_code
-            ) ? `${vendor.user.address.street_address}, ${vendor.user.address.city}, ${vendor.user.address.district_name}, ${vendor.user.address.state_name}, ${vendor.user.address.country} - ${vendor.user.address.postal_code}` : 'Not provided'
+              vendor.address &&
+              vendor.address.street_address &&
+              vendor.address.city &&
+              vendor.address.district &&
+              vendor.address.state &&
+              vendor.address.country &&
+              vendor.address.postal_code
+            ) ? `${vendor.address.street_address}, ${vendor.address.city}, ${vendor.address.district}, ${vendor.address.state}, ${vendor.address.country} - ${vendor.address.postal_code}` : 'Not provided'
           },
           { 
             label: "Social Media", 
             value: (
               <div className="flex flex-wrap gap-2">
-                {vendor.user.profile.facebook && <a href={vendor.user.profile.facebook} target="_blank" rel="noopener noreferrer" className="link link-primary">Facebook</a>}
-                {vendor.user.profile.instagram && <a href={vendor.user.profile.instagram} target="_blank" rel="noopener noreferrer" className="link link-primary">Instagram</a>}
-                {!vendor.user.profile.facebook && !vendor.user.profile.instagram && 'Not provided'}
+                {vendor.profile.facebook && <a href={vendor.profile.facebook} target="_blank" rel="noopener noreferrer" className="link link-primary">Facebook</a>}
+                {vendor.profile.instagram && <a href={vendor.profile.instagram} target="_blank" rel="noopener noreferrer" className="link link-primary">Instagram</a>}
+                {!vendor.profile.facebook && !vendor.profile.instagram && 'Not provided'}
               </div>
             )
           }
@@ -173,7 +174,7 @@ export default function ProfileReviewModal({ vendor, onClose ,role}) {
           { 
             label: "Aadhaar Card", 
             value: <FilePreviewButton 
-                     value={vendor.user.profile.adhaar_card_pic} 
+                     value={vendor.profile.adhaar_card_pic} 
                      label="Aadhaar Card" 
                      onPreview={setPreviewItem} 
                    />
@@ -181,7 +182,7 @@ export default function ProfileReviewModal({ vendor, onClose ,role}) {
           { 
             label: "PAN Card", 
             value: <FilePreviewButton 
-                     value={vendor.user.profile.pancard_pic} 
+                     value={vendor.profile.pancard_pic} 
                      label="PAN Card" 
                      onPreview={setPreviewItem} 
                    />
@@ -189,7 +190,7 @@ export default function ProfileReviewModal({ vendor, onClose ,role}) {
           { 
             label: "Profile Picture", 
             value: <FilePreviewButton 
-                     value={vendor.user.profile.profile_picture} 
+                     value={vendor.profile.profile_picture} 
                      label="Profile Picture" 
                      onPreview={setPreviewItem} 
                    />
@@ -197,7 +198,7 @@ export default function ProfileReviewModal({ vendor, onClose ,role}) {
           { 
             label: "Other Documents", 
             value: <FilePreviewButton 
-                     value={vendor.user.profile.kyc_other_document} 
+                     value={vendor.profile.kyc_other_document} 
                      label="Other Document" 
                      onPreview={setPreviewItem} 
                    />
@@ -207,21 +208,21 @@ export default function ProfileReviewModal({ vendor, onClose ,role}) {
       companyDetails: {
         title: "Company Information",
         fields: [
-          { label: "Company Name", value: vendor.user.company?.company_name || 'Not provided' },
-          { label: "Business Type", value: vendor.user.company?.business_type || 'Not provided' },
-          { label: "Business Category", value: vendor.user.company?.business_category || 'Not provided' },
-          { label: "Company Email", value: vendor.user.company?.company_email || 'Not provided' },
-          { label: "Company Phone", value: vendor.user.company?.company_phone || 'Not provided' },
-          { label: "GST Number", value: vendor.user.company?.gst_number || 'Not provided' },
-          { label: "PAN Number", value: vendor.user.company?.pan_number || 'Not provided' },
-          { label: "Business Description", value: vendor.user.company?.business_description || 'Not provided' },
+          { label: "Company Name", value: vendor.company?.company_name || 'Not provided' },
+          { label: "Business Type", value: vendor.company?.business_type || 'Not provided' },
+          { label: "Business Category", value: vendor.company?.business_category || 'Not provided' },
+          { label: "Company Email", value: vendor.company?.company_email || 'Not provided' },
+          { label: "Company Phone", value: vendor.company?.company_phone || 'Not provided' },
+          { label: "GST Number", value: vendor.company?.gst_number || 'Not provided' },
+          { label: "PAN Number", value: vendor.company?.pan_number || 'Not provided' },
+          { label: "Business Description", value: vendor.company?.business_description || 'Not provided' },
           { 
             label: "Address", 
-            value: vendor.user.company?.registered_address || 'Not provided'
+            value: vendor.company?.registered_address || 'Not provided'
           },
           { 
             label: "Operational Address", 
-            value: vendor.user.company?.operational_address || 'Not provided'
+            value: vendor.company?.operational_address || 'Not provided'
           }
         ]
       },
@@ -231,7 +232,7 @@ export default function ProfileReviewModal({ vendor, onClose ,role}) {
           { 
             label: "GST Certificate", 
             value: <FilePreviewButton 
-                     value={vendor.user.company?.gst_certificate} 
+                     value={vendor.company?.gst_certificate} 
                      label="GST Certificate" 
                      onPreview={setPreviewItem} 
                    />
@@ -239,7 +240,7 @@ export default function ProfileReviewModal({ vendor, onClose ,role}) {
           { 
             label: "PAN Card", 
             value: <FilePreviewButton 
-                     value={vendor.user.company?.pan_card} 
+                     value={vendor.company?.pan_card} 
                      label="Company PAN Card" 
                      onPreview={setPreviewItem} 
                    />
@@ -247,7 +248,7 @@ export default function ProfileReviewModal({ vendor, onClose ,role}) {
           { 
             label: "Business Registration", 
             value: <FilePreviewButton 
-                     value={vendor.user.company?.business_registration_doc} 
+                     value={vendor.company?.business_registration_doc} 
                      label="Business Registration" 
                      onPreview={setPreviewItem} 
                    />
@@ -255,7 +256,7 @@ export default function ProfileReviewModal({ vendor, onClose ,role}) {
           { 
             label: "Food License", 
             value: <FilePreviewButton 
-                     value={vendor.user.company?.food_license_doc} 
+                     value={vendor.company?.food_license_doc} 
                      label="Food License" 
                      onPreview={setPreviewItem} 
                    />
@@ -265,15 +266,15 @@ export default function ProfileReviewModal({ vendor, onClose ,role}) {
       paymentDetails: {
         title: "Payment Information",
         fields: [
-          { label: "Bank Name", value: vendor.user.profile.bank_name || 'Not provided' },
-          { label: "Account Holder", value: vendor.user.profile.account_holder_name || 'Not provided' },
-          { label: "Account Number", value: vendor.user.profile.account_number || 'Not provided' },
-          { label: "IFSC Code", value: vendor.user.profile.ifsc_code || 'Not provided' },
-          { label: "UPI ID", value: vendor.user.profile.upi_id || 'Not provided' },
+          { label: "Bank Name", value: vendor.profile.bank_name || 'Not provided' },
+          { label: "Account Holder", value: vendor.profile.account_holder_name || 'Not provided' },
+          { label: "Account Number", value: vendor.profile.account_number || 'Not provided' },
+          { label: "IFSC Code", value: vendor.profile.ifsc_code || 'Not provided' },
+          { label: "UPI ID", value: vendor.profile.upi_id || 'Not provided' },
           { 
             label: "Passbook/Cheque", 
             value: <FilePreviewButton 
-                     value={vendor.user.profile.passbook_pic} 
+                     value={vendor.profile.passbook_pic} 
                      label="Passbook/Cheque" 
                      onPreview={setPreviewItem} 
                    />

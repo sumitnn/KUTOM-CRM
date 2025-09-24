@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from .models import *
 from .serializers import *
 from django.utils.timezone import now
-from accounts.permissions import IsAdminRole, IsStockistRole, IsVendorRole,IsAdminOrVendorRole,IsAdminStockistResellerRole
+from accounts.permissions import IsAdminRole, IsStockistRole, IsVendorRole, IsAdminOrVendorRole, IsAdminStockistResellerRole
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import status
@@ -27,43 +27,38 @@ from io import StringIO
 from django.utils.text import get_valid_filename
 from accounts.utils import create_notification
 from rest_framework.parsers import MultiPartParser, FormParser
-from products.models import AdminProduct, AdminProductSize, AdminProductImage
+from products.models import Product, ProductVariant, ProductVariantPrice, RoleBasedProduct
 from django.shortcuts import get_object_or_404
+from accounts.models import User, Wallet, WalletTransaction
+from products.models import StockInventory
 
-# Reseller can create
 class CreateOrderAPIView(generics.CreateAPIView):
-    serializer_class = OrderSerializer
+    serializer_class = OrderCreateSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def perform_create(self, serializer):
-        if self.request.user.role != 'reseller':
+    def create(self, request, *args, **kwargs):
+        if request.user.role != 'reseller':
             raise permissions.PermissionDenied("Only resellers can create orders.")
-        serializer.save(reseller=self.request.user)
-
-
-
-
-
-# Stockist can view and forward
-class StockistOrderListAPIView(generics.ListAPIView):
-    serializer_class = OrderSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return Order.objects.filter(stockist=self.request.user, status='pending')
-
-class ForwardOrderAPIView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, pk):
-        order = Order.objects.get(id=pk, stockist=request.user)
-        order.status = 'forwarded'
-        order.save()
-        return Response({"message": "Order forwarded to admin."})
+        
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        with transaction.atomic():
+            order = serializer.save(buyer=request.user)
+            
+            # Create order history
+            OrderHistory.objects.create(
+                order=order,
+                actor=request.user,
+                action='pending',
+                notes='Order created by reseller'
+            )
+            
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class MyOrdersPagination(PageNumberPagination):
-    page_size = 10  # or any number you prefer
+    page_size = 10
 
 class MyOrdersView(ListAPIView):
     serializer_class = OrderSerializer
@@ -72,20 +67,21 @@ class MyOrdersView(ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
- 
-        queryset = Order.objects.filter(created_by=user)
+        queryset = Order.objects.filter(Q(buyer=user) | Q(seller=user))
 
-        # Optional: Filter by status from query params
-        status = self.request.query_params.get('status')
-        if status:
-            if status =="received":
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            if status_filter == "received":
                 queryset = queryset.filter(status__in=['delivered', 'received'])
-            elif status == "all":
-                queryset = queryset.all()
+            elif status_filter == "all":
+                pass  # Return all orders
+            elif status_filter == "new":
+                queryset = queryset.filter(status="pending")
             else:
-                queryset = queryset.filter(status=status)
+                queryset = queryset.filter(status=status_filter)
 
-        return queryset
+        return queryset.order_by('-created_at')
+
 
 class VendorOrdersView(ListAPIView):
     serializer_class = OrderSerializer
@@ -94,15 +90,20 @@ class VendorOrdersView(ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
- 
-        queryset = Order.objects.filter(created_for=user)
+        
+       
+        queryset = Order.objects.filter(seller=user)
 
-        # Optional: Filter by status from query params
-        status = self.request.query_params.get('status')
-        if status:
-            queryset = queryset.filter(status=status)
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            if status_filter == "new":
+                queryset = queryset.filter(status="pending")
+            elif status_filter == "delivered":
+                queryset = queryset.filter(status='received')
+            else:
+                queryset = queryset.filter(status=status_filter)
 
-        return queryset
+        return queryset.order_by('-created_at')
 
 
 class BulkOrderCreateView(APIView):
@@ -110,7 +111,7 @@ class BulkOrderCreateView(APIView):
 
     def post(self, request):
         data = request.data
-        items_data = data.get("items")
+        items_data = data.get("items", [])
 
         if not isinstance(items_data, list) or not items_data:
             return Response({"message": "Invalid or empty 'items' list."}, status=400)
@@ -121,7 +122,7 @@ class BulkOrderCreateView(APIView):
             elif request.user.role == "admin":
                 order, total_price = OrderService.create_bulk_order(request.user, items_data)
             else:
-                return Response({"message": "You don’t have access to order items."}, status=400)
+                return Response({"message": "You don't have access to order items."}, status=400)
 
             return Response({
                 "message": "Order created successfully.",
@@ -135,50 +136,6 @@ class BulkOrderCreateView(APIView):
             return Response({"message": str(e)}, status=400)
 
 
-class StockistAcceptOrderView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, order_id):
-        try:
-            order = Order.objects.get(id=order_id, status='pending')
-
-            stockist = request.user
-            order.status = 'accepted'
-            order.stockist = stockist
-            order.save()
-
-            # Add funds to stockist's wallet
-            stockist.wallet_balance += order.total_price
-            stockist.save()
-
-            return Response({"message": "Order accepted and balance credited."})
-
-        except Order.DoesNotExist:
-            return Response({"error": "Order not found or not in pending state."}, status=404)
-
-
-class StockistCancelOrderView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, order_id):
-        try:
-            order = Order.objects.get(id=order_id, stockist=request.user, status='accepted')
-
-            # Refund to reseller
-            reseller = order.reseller
-            reseller.wallet_balance += order.total_price
-            reseller.save()
-
-            order.status = 'cancelled'
-            order.save()
-
-            return Response({"message": "Order cancelled, amount refunded to reseller."})
-
-        except Order.DoesNotExist:
-            return Response({"error": "Order not found or not accepted by this stockist."}, status=404)
-
-
-# Admin-specific filters
 class AdminOrderListView(APIView):
     permission_classes = [IsAdminRole]
 
@@ -190,8 +147,8 @@ class AdminOrderListView(APIView):
 
         today = timezone.now().date()
 
-        # Base queryset: orders belonging to the logged-in admin
-        base_qs = Order.objects.filter(created_for=request.user)
+        # Base queryset: orders where user is the seller
+        base_qs = Order.objects.filter(seller=request.user)
 
         # Apply filter type
         if filter_type == 'today':
@@ -205,10 +162,10 @@ class AdminOrderListView(APIView):
         if search_term:
             search_q = (
                 Q(id__icontains=search_term) |
-                Q(created_by__username__icontains=search_term) |
-                Q(created_by__email__icontains=search_term) |
-                Q(created_for__username__icontains=search_term) |
-                Q(created_for__email__icontains=search_term)
+                Q(buyer__username__icontains=search_term) |
+                Q(buyer__email__icontains=search_term) |
+                Q(seller__username__icontains=search_term) |
+                Q(seller__email__icontains=search_term)
             )
             orders = orders.filter(search_q)
 
@@ -219,14 +176,14 @@ class AdminOrderListView(APIView):
                 created_at__date__lte=end_date
             )
 
-        # Aggregate counts in a single DB hit
+        # Aggregate counts
         status_counts = (
             base_qs
             .values('status')
             .annotate(count=Count('id'))
         )
         counts_dict = {status: 0 for status in [
-            'new', 'accepted', 'ready_for_dispatch', 'dispatched',
+            'pending', 'accepted', 'ready_for_dispatch', 'dispatched',
             'delivered', 'rejected', 'cancelled'
         ]}
         for item in status_counts:
@@ -250,111 +207,74 @@ class AdminOrderListView(APIView):
         return response
 
 
-
-class AdminApproveRejectOrderAPIView(APIView):
-    permission_classes = [permissions.IsAdminUser]
-
-    def post(self, request, pk):
-        order = Order.objects.get(pk=pk)
-        action = request.data.get('action')  # 'approve' or 'reject'
-        if action == 'approve':
-            order.status = 'approved'
-        elif action == 'reject':
-            order.status = 'rejected'
-        else:
-            return Response({"error": "Invalid action"}, status=400)
-        order.save()
-        return Response({"message": f"Order {order.status}."})
-    
-
-class OrderSummaryView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request):
-        user = request.user
-        orders = Order.objects.filter(created_by=user)
-
-        status_counts = orders.values('status').annotate(count=Count('id'))
-        status_dict = {'All': orders.count(), 'Pending': 0, 'Approved': 0, 'Rejected': 0}
-        for entry in status_counts:
-            status_dict[entry['status']] = entry['count']
-
-        monthly_data = (
-            orders
-            .annotate(month=TruncMonth('created_at'))
-            .values('month')
-            .annotate(count=Count('id'))
-            .order_by('month')
-        )
-
-        labels = [entry['month'].strftime('%b %Y') for entry in monthly_data]
-        data = [entry['count'] for entry in monthly_data]
-
-        return Response({
-            'statusCounts': status_dict,
-            'monthlyOrders': {
-                'labels': labels,
-                'data': data,
-            }
-        })
-    
-
 class OrderDetailAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, order_id):
         try:
-            order = Order.objects.prefetch_related('items__product').get(id=order_id)
+            order = Order.objects.prefetch_related(
+                'items__product',
+                'items__variant'
+            ).get(id=order_id)
+            
+            # Check permissions
+            if not (request.user == order.buyer or request.user == order.seller or request.user.is_staff):
+                return Response(
+                    {"detail": "You do not have permission to view this order."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
         except Order.DoesNotExist:
             return Response({"detail": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = OrderDetailSerializer(order)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    
-class AdminProductOrderDetailAPIView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request, order_id):
-        
-        order = get_object_or_404(
-            Order.objects.prefetch_related(
-                'items__product',
-                'items__product_size',
-                'items__admin_product',
-                'items__admin_product_size'
-            ),
-            id=order_id
-        )
-        
-        # Check if user has permission to view this order
-        if not (request.user == order.created_by or request.user == order.created_for or request.user.is_staff):
-            return Response(
-                {"detail": "You do not have permission to view this order."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
         serializer = OrderDetailSerializer(order, context={'request': request})
-        return Response(serializer.data, status=status.HTTP_200_OK)   
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 class CancelOrderAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, order_id):
         order = get_object_or_404(Order, id=order_id)
-        
-        if order.status != 'new':
+        import pdb; pdb.set_trace()
+
+        if order.status != 'pending':
             return Response(
-                {"detail": "Only new orders can be cancelled."},
+                {"detail": "Only pending orders can be cancelled."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-            
-        if request.user != order.created_by and not request.user.is_staff:
+
+        if request.user != order.buyer and not request.user.is_staff:
             return Response(
                 {"detail": "You don't have permission to cancel this order."},
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # Create history record
+        # Revert stock quantities
+        for item in order.items.all():  # Assuming order has a related_name 'items'
+            try:
+                stock_inv = StockInventory.objects.get(
+                    user=order.seller,  # stock belongs to seller
+                    product=item.product,
+                    variant=getattr(item, 'variant', None)
+                )
+                # Add back the quantity
+                stock_inv.adjust_stock(
+                    change_quantity=item.quantity,
+                    action="RETURN",
+                    reference_id=order.id
+                )
+            except StockInventory.DoesNotExist:
+                # Optionally: create stock if missing
+                StockInventory.objects.create(
+                    user=order.seller,
+                    product=item.product,
+                    variant=getattr(item, 'variant', None),
+                    total_quantity=item.quantity,
+                    notes=f"Restocked due to cancellation of order {order.id}"
+                )
+
+        # Create order history
         OrderHistory.objects.create(
             order=order,
             actor=request.user,
@@ -363,11 +283,14 @@ class CancelOrderAPIView(APIView):
             previous_status=order.status
         )
 
+        # Update order status
         order.status = 'cancelled'
         order.save()
 
         serializer = OrderDetailSerializer(order, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
 
 class UpdateOrderStatusView(APIView):
     permission_classes = [IsAdminOrVendorRole]
@@ -378,308 +301,308 @@ class UpdateOrderStatusView(APIView):
         except Order.DoesNotExist:
             return Response({"message": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        if request.user != order.created_by and request.user != order.created_for:
+        # Check permissions
+        if request.user != order.seller and request.user != order.buyer:
             return Response({"message": "You are not authorized to update this order."}, status=status.HTTP_403_FORBIDDEN)
 
-        is_received = request.data.get('status') == 'received'
-        is_delivered = request.data.get('status') == 'delivered'
-        is_cancelled = request.data.get('status') == 'cancelled'
 
-        if request.data.get('status') == 'received' and request.user.role == 'admin':
-            request.data['status'] = 'delivered'
-
-        serializer = OrderStatusUpdateSerializer(order, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-
-            admin_user = User.objects.filter(role='admin').first()
-
-            # --- Notifications ---
-            if admin_user:
-                create_notification(
-                    user=admin_user,
-                    title="Order Status Updated",
-                    message=f"Order #{order.id} status updated to {serializer.validated_data.get('status', order.status)}.",
-                    notification_type="order status update",
-                    related_url=f"/orders/{order.id}/"
-                )
-
-            if is_received or is_delivered:
-                create_notification(
-                    user=order.created_for,
-                    title="Order Delivered Successfully",
-                    message=f"Your order #{order.id} has been delivered successfully.",
-                    notification_type="order status update",
-                    related_url=f"/orders/{order.id}/"
-                )
-                # ✅ Create Admin Product from Vendor's Product
-                self.create_admin_product(order, admin_user)
-
-            # --- Wallet handling ---
-            if serializer.validated_data.get('status') == 'delivered':
-                self.handle_wallet_transactions(order, admin_user)
-
-            if is_cancelled:
-                self.refund_order(order, admin_user)
-
-            return Response(serializer.data)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    # --- Refund handler ---
-    def refund_order(self, order, admin_user):
-        """Refund money back to buyer wallet if order cancelled"""
-        wallet = order.created_by.wallet  
-        refund_amount = order.total_price  
-
-        wallet.balance += refund_amount
-        wallet.save()
-
-        # Save a wallet transaction log
-        WalletTransaction.objects.create(
-            wallet=wallet,
-            amount=refund_amount,
-            transaction_type="CREDIT",
-            transaction_status="SUCCESS",
-            order_id=order.id,
-            user_id=order.created_for.unique_role_id,
-            description=f"Refund for cancelled order #{order.id}"
-        )
-
-        # Notify buyer
-        create_notification(
-            user=order.created_by,
-            title="Order Cancelled",
-            message=f"Your order #{order.id} was cancelled. ₹{refund_amount} refunded to your wallet.",
-            notification_type="order refund",
-            related_url=f"/wallet/"
-        )
-
-    def handle_wallet_transactions(self, order, admin_user):
-        transport_charges = order.transport_charges or 0
-        if transport_charges > 0:
-            try:
-                admin_wallet = Wallet.objects.get(user=admin_user)
-                user_wallet = Wallet.objects.get(user=order.created_for)
-
-                if admin_wallet.balance < transport_charges:
-                    raise ValidationError({"message": "Insufficient admin wallet balance."})
-
-                admin_wallet.balance -= transport_charges
-                user_wallet.balance += transport_charges
-                admin_wallet.save()
-                user_wallet.save()
-
-                WalletTransaction.objects.create(
-                    wallet=admin_wallet,
-                    transaction_type='DEBIT',
-                    amount=transport_charges,
-                    order_id=order.id,
-                    user_id=order.created_for.unique_role_id,
-                    description=f"Transport charges for Order #{order.id}",
-                    transaction_status='SUCCESS'
-                )
-                WalletTransaction.objects.create(
-                    wallet=user_wallet,
-                    transaction_type='CREDIT',
-                    amount=transport_charges,
-                    order_id=order.id,
-                    user_id=order.created_for.unique_role_id,
-                    description=f"Received transport charges for Order #{order.id}",
-                    transaction_status='RECEIVED'
-                )
-            except Wallet.DoesNotExist:
-                raise ValidationError({"message": "Admin or user wallet not found."})
-
-    @transaction.atomic
-    def create_admin_product(self, order, admin_user):
-        # Assuming order has order_items with product
-        
-        for item in order.items.all():
-            vendor_product = item.product
-
-            # Prevent duplicates if already copied
-            if AdminProduct.objects.filter(
-                source_product_id=vendor_product.id,
-                admin=admin_user
-            ).exists():
-                continue
-
-            admin_product = AdminProduct.objects.create(
-                name=vendor_product.name,
-                description=vendor_product.description,
-                short_description=vendor_product.short_description,
-                price=item.price,
-                weight=vendor_product.weight,
-                weight_unit=vendor_product.weight_unit,
-                dimensions=vendor_product.dimensions,
-                product_type=vendor_product.product_type,
-                currency=vendor_product.currency,
-                admin=admin_user,
-                original_vendor=vendor_product.owner,
-                source_product_id=vendor_product.id,
-                resale_price=item.price,  
-                quantity_available=item.quantity,
-                video_url=vendor_product.video_url,
-                is_active=True
-            )
-
-            # Copy product sizes
-            for size in vendor_product.sizes.all():
-                AdminProductSize.objects.create(
-                    admin_product=admin_product,
-                    size=size.size,
-                    unit=size.unit,
-                    price=size.price,
-                    is_default=size.is_default,
-                    is_active=size.is_active
-                )
-
-            # Copy product images
-            for img in vendor_product.images.all():
-                AdminProductImage.objects.create(
-                    admin_product=admin_product,
-                    image=img.image,
-                    alt_text=img.alt_text,
-                    is_featured=img.is_featured,
-                    is_default=img.is_default
-                )
-
-
-
-
- 
-
-class UpdateStockistResellerOrderStatusView(APIView):
-    permission_classes = [IsAdminStockistResellerRole]
-
-    def patch(self, request, pk):
-        
-        try:
-            order = Order.objects.get(pk=pk)
-        except Order.DoesNotExist:
-            return Response({"message": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        if request.user != order.created_by and request.user != order.created_for:
-            return Response({"message": "You are not authorized to update this order."}, status=status.HTTP_403_FORBIDDEN)
 
         new_status = request.data.get('status')
+
+        if new_status == "accepted":
+            self.handle_accepted_status(order, request.user)
+
+
+        if new_status == "received":
+            new_status = "delivered"
         note = request.data.get('note', '')
+      
 
         with transaction.atomic():
-            # Update order status
-            serializer = OrderStatusUpdateSerializer(order, data={'status': new_status, 'note': note}, partial=True)
-            if serializer.is_valid():
-                serializer.save()
+            previous_status = order.status
 
-                # Handle different status updates
-                if new_status == 'received' or new_status == 'delivered':
-                    self.handle_received_status(order, request.user)
-                    self.handle_delivered_status(order,request.user)
+            if new_status == 'cancelled':
+                # 1️⃣ Revert stock to seller
+                for item in order.items.all():  # assuming related_name='items'
+                    try:
+                        stock_inv = StockInventory.objects.get(
+                            user=order.seller,
+                            product=item.product,
+                            variant=getattr(item, 'variant', None)
+                        )
+                        stock_inv.adjust_stock(
+                            change_quantity=item.quantity,
+                            action="RETURN",
+                            reference_id=order.id
+                        )
+                    except StockInventory.DoesNotExist:
+                        # create stock if missing
+                        StockInventory.objects.create(
+                            user=order.seller,
+                            product=item.product,
+                            variant=getattr(item, 'variant', None),
+                            total_quantity=item.quantity,
+                            notes=f"Restocked due to order cancellation #{order.id}"
+                        )
 
-                # Create notifications
-                self.create_notifications(order, new_status, request.user)
+                # 2️⃣ Refund buyer wallet
+                try:
+                    buyer_wallet, _ = Wallet.objects.get_or_create(user=order.buyer)
+                    buyer_wallet.current_balance += order.total_price  # refund full order
+                    buyer_wallet.save()
 
-                return Response(serializer.data)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    WalletTransaction.objects.create(
+                        wallet=buyer_wallet,
+                        transaction_type='CREDIT',
+                        amount=order.total_price,
+                        description=f"Refund for cancelled Order #{order.id}",
+                        transaction_status='SUCCESS',
+                        order_id=order.id
+                    )
+                except Exception as e:
+                    print(f"Error refunding buyer: {str(e)}")
 
-    def handle_received_status(self, order, user):
-        if user.role == 'stockist':
-            for item in order.items.all():
-                if not item.admin_product:
-                    continue  # skip if no admin product
+                # Update order payment status
+                order.payment_status = "refunded"
+                order.note = "Order cancelled by customer"
 
-                stock_item, created = Inventory.objects.get_or_create(
-                    product=item.admin_product,
-                    product_size=item.admin_product_size,
-                    movement_type="IN",
-                    user=user,
-                    defaults={'quantity': item.quantity}
+                # 3️⃣ Notifications
+                create_notification(
+                    user=order.buyer,
+                    title="Order Cancelled & Refunded",
+                    message=f"Your order #{order.id} has been cancelled and amount refunded to your wallet.",
+                    notification_type="order_cancelled_refund",
+                    related_url=f"/orders/{order.id}/"
                 )
-                if not created:
-                    stock_item.quantity += item.quantity
-                    stock_item.save()
 
-    def handle_delivered_status(self, order,user):
+                create_notification(
+                    user=order.seller,
+                    title="Order Cancelled",
+                    message=f"Order #{order.id} has been cancelled by the customer. Stock has been added back to your inventory.",
+                    notification_type="order_cancelled_stock",
+                    related_url=f"/orders/{order.id}/"
+                )
 
-        if user and order.transport_charges and order.transport_charges > 0:
-            self.handle_wallet_transactions(order, user)
+            # Update order status
+            order.status = new_status
+            if new_status != 'cancelled':
+                order.note = note
+            order.save()
 
-    def handle_wallet_transactions(self, order, user):
-        transport_charges = order.transport_charges or 0
+            # Create history record
+            OrderHistory.objects.create(
+                order=order,
+                actor=request.user,
+                action=new_status,
+                notes=order.note,
+                previous_status=previous_status
+            )
+
+            # Handle delivered status
+            if new_status == 'delivered':
+                self.handle_delivered_status(order, request.user)
+
+            serializer = OrderSerializer(order)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def handle_delivered_status(self, order, user):
+        """Handle wallet transactions + role-based product/stock setup for delivered orders"""
+        # --- 1️⃣ Transport charges (already implemented) ---
+        if order.transport_charges and order.transport_charges > 0:
+            try:
+                buyer_wallet, _ = Wallet.objects.get_or_create(user=order.buyer)
+                seller_wallet, _ = Wallet.objects.get_or_create(user=order.seller)
+
+                transport_charges = order.transport_charges
+                if buyer_wallet.current_balance >= transport_charges:
+                    buyer_wallet.current_balance -= transport_charges
+                    seller_wallet.current_balance += transport_charges
+                    buyer_wallet.save()
+                    seller_wallet.save()
+
+                    WalletTransaction.objects.create(
+                        wallet=buyer_wallet,
+                        transaction_type='DEBIT',
+                        amount=transport_charges,
+                        description=f"Transport charges for Order #{order.id}",
+                        transaction_status='SUCCESS',
+                        order_id=order.id
+                    )
+                    WalletTransaction.objects.create(
+                        wallet=seller_wallet,
+                        transaction_type='CREDIT',
+                        amount=transport_charges,
+                        description=f"Received transport charges for Order #{order.id}",
+                        transaction_status='SUCCESS',
+                        order_id=order.id
+                    )
+                    order.payment_status = "paid"
+                else:
+                    WalletTransaction.objects.create(
+                        wallet=buyer_wallet,
+                        transaction_type='DEBIT',
+                        amount=transport_charges,
+                        description=f"Transport charges for Order #{order.id} (FAILED - insufficient balance)",
+                        transaction_status='FAILED',
+                        order_id=order.id
+                    )
+                    order.payment_status = "failed_shipping"
+                order.save(update_fields=["payment_status"])
+            except Exception as e:
+                print(f"Error processing transport charges: {str(e)}")
+                order.payment_status = "failed_shipping"
+                order.save(update_fields=["payment_status"])
+
+        # --- 2️⃣ Setup RoleBasedProduct, VariantPrice, StockInventory ---
+        for item in order.items.all():
+            product = item.product
+            variant = getattr(item, "variant", None)
+
+            # 🔹 Determine role from seller
+            buyerr = order.buyer  # buyer is the reseller/stockist
+            role = "admin"
+            if hasattr(buyerr, "profile"):
+                if buyerr.stockist_id:
+                    role = "stockist"
+                elif buyerr.reseller_id:
+                    role = "reseller"
+           
+
+            # --- RoleBasedProduct ---
+            rbp, created_rbp = RoleBasedProduct.objects.get_or_create(
+                product=product,
+                user=buyerr,
+                role=role,
+                defaults={"price": product.base_price if hasattr(product, "base_price") else None}
+            )
+            # attach variant if missing
+            if variant and variant not in rbp.variants.all():
+                rbp.variants.add(variant)
+
+            # --- ProductVariantPrice ---
+            if variant:
+                pvp, created_pvp = ProductVariantPrice.objects.get_or_create(
+                    product=product,
+                    variant=variant,
+                    user=buyerr,
+                    role=role,
+                    defaults={"price": item.unit_price, "discount": 0, "gst_percentage": 0}
+                )
+                if not created_pvp:
+                    # update latest price if changed
+                    pvp.price = item.unit_price
+                    pvp.save()
+
+            # --- StockInventory ---
+            stock_inv, created_stock = StockInventory.objects.get_or_create(
+                user=buyerr,
+                product=product,
+                variant=variant,
+                defaults={
+                    "total_quantity": item.quantity,
+                    "notes": f"Initial stock from Order #{order.id}"
+                }
+            )
+            if not created_stock:
+                stock_inv.adjust_stock(
+                    change_quantity=item.quantity,
+                    action="ADD",
+                    reference_id=order.id
+                )
+
+    def handle_accepted_status(self, order, user):
+        """Handle wallet transactions when order is accepted"""
         try:
-            user_wallet = Wallet.objects.get(user=user)
-            admin_wallet = Wallet.objects.get(user=order.created_for)
+            seller_wallet, _ = Wallet.objects.get_or_create(user=order.seller)
 
-            if user_wallet.balance < transport_charges:
-                raise ValidationError({"message": "Insufficient admin wallet balance."})
+            order_amount = order.total_price
 
-            user_wallet.balance -= transport_charges
-            admin_wallet.balance += transport_charges
-            admin_wallet.save()
-            user_wallet.save()
+            if seller_wallet:
+                seller_wallet.current_balance += order_amount
+                seller_wallet.save()
 
-            WalletTransaction.objects.create(
-                wallet=user_wallet,
-                transaction_type='DEBIT',
-                amount=transport_charges,
-                order_id=order.id,
-                user_id=order.created_for.unique_role_id,
-                description=f"Transport charges for Order #{order.id}",
-                transaction_status='SUCCESS'
-            )
-            WalletTransaction.objects.create(
-                wallet=admin_wallet,
-                transaction_type='CREDIT',
-                amount=transport_charges,
-                order_id=order.id,
-                user_id=order.created_by.unique_role_id,
-                description=f"Received transport charges for Order #{order.id}",
-                transaction_status='RECEIVED'
-            )
-        except Wallet.DoesNotExist:
-            raise ValidationError({"message": "Admin or user wallet not found."})
+                # Create seller CREDIT transaction
+                WalletTransaction.objects.create(
+                    wallet=seller_wallet,
+                    transaction_type="CREDIT",
+                    amount=order_amount,
+                    description=f"Received payment for Order #{order.id}",
+                    transaction_status="SUCCESS",
+                    order_id=order.id,
+                )
+
+                # Mark as paid
+                order.payment_status = "pending_shipping"
+                order.save(update_fields=["payment_status"])
+
+                # 🔔 Notifications
+                create_notification(
+                    user=order.seller,
+                    title="Payment Received",
+                    message=f"You have received {order_amount} for Order #{order.id}.",
+                    notification_type="order_payment_received",
+                    related_url=f"/orders/{order.id}/",
+                )
+                create_notification(
+                    user=order.buyer,
+                    title="Payment Successful",
+                    message=f"Your payment of {order_amount} for Order #{order.id} has been received by the seller.",
+                    notification_type="order_payment_success",
+                    related_url=f"/orders/{order.id}/",
+                )
+
+            else:
+                raise Exception("Seller wallet not found.")
+
+        except Exception as e:
+            print(f"Error processing order payment: {str(e)}")
+            order.payment_status = "failed"
+            order.save(update_fields=["payment_status"])
+
+
 
     def create_notifications(self, order, new_status, current_user):
-       
-        create_notification(
-            user=current_user,
-            title="Order Status Updated",
-            message=f"Order #{order.id} status updated to {new_status}.",
-            notification_type="order status update",
-            related_url=f"/orders/{order.id}/"
-        )
-
-        if new_status in ['received', 'delivered']:
+        """Create notifications for order status updates"""
+        if current_user != order.buyer:
             create_notification(
-                user=order.created_for,
-                title=f"Order {new_status.capitalize()} Successfully",
-                message=f"Your order #{order.id} has been {new_status} successfully.",
-                notification_type="order status update",
+                user=order.buyer,
+                title="Order Status Updated",
+                message=f"Your order #{order.id} status has been updated to {new_status}.",
+                notification_type="order_status_update",
                 related_url=f"/orders/{order.id}/"
             )
+
+        if current_user != order.seller:
+            create_notification(
+                user=order.seller,
+                title="Order Status Updated",
+                message=f"Order #{order.id} status has been updated to {new_status}.",
+                notification_type="order_status_update",
+                related_url=f"/orders/{order.id}/"
+            )
+
 
 class UpdateOrderDispatchStatusView(APIView):
     permission_classes = [IsAdminOrVendorRole]
     parser_classes = [MultiPartParser, FormParser]
 
     def patch(self, request, pk):
+      
         try:
             order = Order.objects.get(id=pk)
         except Order.DoesNotExist:
             return Response({"message": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # ✅ Role check for admin users
-        if getattr(request.user, "role", None) == "admin":
-            if order.created_for != request.user:
-                return Response(
-                    {"message": "You are not allowed to update this order."},
-                    status=status.HTTP_403_FORBIDDEN
-                )
+        # Check permissions - only seller can update dispatch info
+        if request.user != order.seller:
+            return Response(
+                {"message": "You are not allowed to update this order."},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         tracking_number = request.data.get('tracking_id')
 
-        # 🔍 Check if tracking number already exists (excluding this order)
+        # Check if tracking number already exists (excluding this order)
         if tracking_number and Order.objects.exclude(id=order.id).filter(tracking_number=tracking_number).exists():
             return Response(
                 {"message": "Tracking number already exists."},
@@ -701,17 +624,22 @@ class UpdateOrderDispatchStatusView(APIView):
         serializer = OrderDispatchSerializer(order, data=dispatch_info, partial=True)
         if serializer.is_valid():
             serializer.save()
+            
+            # Create history record
+            OrderHistory.objects.create(
+                order=order,
+                actor=request.user,
+                action='dispatched',
+                notes=f'Order dispatched with tracking number: {tracking_number}'
+            )
+            
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    
-
 
 class OrderHistoryListAPIView(generics.ListAPIView):
-    queryset = OrderHistory.objects.select_related(
-        'order', 'actor'
-    )
     serializer_class = OrderHistorySerializer
+    permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_fields = {
         'action': ['exact'],
@@ -721,51 +649,58 @@ class OrderHistoryListAPIView(generics.ListAPIView):
     ordering_fields = ['timestamp', 'action']
     ordering = ['-timestamp']
 
+    def get_queryset(self):
+        user = self.request.user
+        # Users can only see history of their own orders
+        return OrderHistory.objects.filter(
+            Q(order__buyer=user) | Q(order__seller=user)
+        ).select_related('order', 'actor')
 
-class ExportOrderHistoryExcelAPIView(generics.ListAPIView):
-    queryset = OrderHistory.objects.select_related('order', 'actor', 'order__product__brand', 'order__product__category', 'order__product__subcategory')
-    serializer_class = OrderHistorySerializer
 
-    def get(self, request, *args, **kwargs):
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="order_history.csv"'
-
-        writer = csv.writer(response)
-        writer.writerow([
-            'Sr No', 'Date', 'Name', 'Brand', 'Category', 'Subcategory',
-            'Qty', 'Actual Rate', 'Accepted Price', 'Status Received', 'Amount'
-        ])
-
-        for idx, history in enumerate(self.get_queryset(), start=1):
-            writer.writerow([
-                idx,
-                history.timestamp.strftime("%Y-%m-%d %H:%M"),
-                history.actor.username if history.actor else "",
-                getattr(history.order.product.brand, 'name', ''),
-                getattr(history.order.product.category, 'name', ''),
-                getattr(history.order.product.subcategory, 'name', ''),
-                getattr(history.order, 'quantity', ''),
-                getattr(history.order.product, 'actual_rate', ''),
-                getattr(history.order, 'accepted_price', ''),
-                history.action,
-                getattr(history.order, 'total_amount', ''),
-            ])
-
-        return response
-    
-
-class VendorSalesReportView(APIView):
-    permission_classes = [IsAdminOrVendorRole]
-    pagination_class = MyOrdersPagination
+class OrderSummaryView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         user = request.user
-        range_filter = request.query_params.get('range', 'today')
+        orders = Order.objects.filter(buyer=user)
+
+        status_counts = orders.values('status').annotate(count=Count('id'))
+        status_dict = {'All': orders.count()}
+        for entry in status_counts:
+            status_dict[entry['status']] = entry['count']
+
+        monthly_data = (
+            orders
+            .annotate(month=TruncMonth('created_at'))
+            .values('month')
+            .annotate(count=Count('id'))
+            .order_by('month')
+        )
+
+        labels = [entry['month'].strftime('%b %Y') for entry in monthly_data]
+        data = [entry['count'] for entry in monthly_data]
+
+        return Response({
+            'statusCounts': status_dict,
+            'monthlyOrders': {
+                'labels': labels,
+                'data': data,
+            }
+        })
+
+
+class SalesReportView(APIView):
+    permission_classes = [IsAdminOrVendorRole]
+
+    def get(self, request):
+        user = request.user
+        
+        range_filter = request.query_params.get('range', 'last_3_days')  # Default to last 3 days
         search_term = request.query_params.get('search', '')
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
 
-        # Date filtering
+        # Date filtering with last 3 days as default
         today = now().date()
         if start_date and end_date:
             try:
@@ -774,137 +709,243 @@ class VendorSalesReportView(APIView):
             except ValueError:
                 return Response({'error': 'Invalid date format'}, status=400)
         else:
-            if range_filter == 'last_month':
-                start_date = today - timedelta(days=30)
-            elif range_filter == 'this_week':
-                start_date = today - timedelta(days=7)
-            else:  # 'today'
+            if range_filter == 'today':
                 start_date = today
-            end_date = today
+                end_date = today
+            elif range_filter == 'last_3_days':
+                start_date = today - timedelta(days=2)  # Last 3 days including today
+                end_date = today
+            elif range_filter == 'this_week':
+                start_date = today - timedelta(days=6)  # Last 7 days
+                end_date = today
+            elif range_filter == 'last_month':
+                start_date = today - timedelta(days=30)
+                end_date = today
+            else:  # Default to last 3 days
+                start_date = today - timedelta(days=2)
+                end_date = today
 
-        # Base query - use __range for date filtering
-        sales = Sale.objects.filter(
+        print(Order.objects.filter(
             seller=user, 
-            sale_date__range=(start_date, end_date)
-        )
+            status='delivered').count())
+        orders = Order.objects.filter(
+            seller=user, 
+            status='delivered',
+            created_at__date__range=(start_date, end_date)
+        ).select_related('buyer').prefetch_related('items__product', 'items__variant')
+
+        # Calculate sales data from order items
+        sales_data = []
+        total_sales = Decimal('0.00')
+        total_quantity = 0
+        total_orders = orders.count()
+
+        for order in orders:
+            for item in order.items.all():
+                product_image = None
+                if item.product and item.product.images.exists():
+                    product_image = item.product.images.first().image.url
+                
+                sales_data.append({
+                    'id': f"{order.id}-{item.id}",
+                    'order_date': order.created_at,
+                    'product_name': item.product.name if item.product else 'N/A',
+                    'product_image': product_image,
+                    'variant_name': item.variant.name if item.variant else '-',
+                    'quantity': item.quantity,
+                    'unit_price': item.unit_price,
+                    'total_price': item.total,
+                    'order_id': order.id
+                })
+                total_sales += item.total
+                total_quantity += item.quantity
 
         # Search filtering
         if search_term:
-            sales = sales.filter(product__name__icontains=search_term)
-
-        # Search filtering
-        if search_term:
-            sales = sales.filter(product__name__icontains=search_term)
-
-        # Get summary stats for charts
-        summary_stats = sales.aggregate(
-            total_sales=Sum('total_price'),
-            total_quantity=Sum('quantity'),
-            total_orders=Count('order', distinct=True)
-        )
+            sales_data = [sale for sale in sales_data if search_term.lower() in sale['product_name'].lower()]
 
         # Get daily sales data for line chart
-        daily_sales = sales.values('sale_date').annotate(
-            daily_total=Sum('total_price'),
-            daily_quantity=Sum('quantity')
-        ).order_by('sale_date')
+        daily_sales = {}
+        for sale in sales_data:
+            date_str = sale['order_date'].strftime('%Y-%m-%d')
+            if date_str not in daily_sales:
+                daily_sales[date_str] = Decimal('0.00')
+            daily_sales[date_str] += sale['total_price']
 
-        # Get top products for bar chart
-        top_products = sales.values('product__name').annotate(
-            product_total=Sum('total_price'),
-            product_quantity=Sum('quantity')
-        ).order_by('-product_total')[:5]
+        daily_sales_list = [{
+            'sale_date__date': date,
+            'daily_total': float(total)
+        } for date, total in sorted(daily_sales.items())]
 
-        # Serialize data
-        serializer = SaleSerializer(
-            sales, 
-            many=True, 
-            context={'request': request}
-        )
+        # Get top products for bar chart (top 10)
+        product_sales = {}
+        for sale in sales_data:
+            product_key = sale['product_name']
+            if product_key not in product_sales:
+                product_sales[product_key] = Decimal('0.00')
+            product_sales[product_key] += sale['total_price']
+
+        top_products = [{
+            'product__name': product,
+            'product_total': float(total)
+        } for product, total in sorted(
+            product_sales.items(), 
+            key=lambda x: x[1], 
+            reverse=True
+        )[:10]]
+
+        summary_stats = {
+            'total_sales': float(total_sales),
+            'total_quantity': total_quantity,
+            'total_orders': total_orders
+        }
 
         response_data = {
-            'sales': serializer.data,
+            'sales': sales_data,
             'summary': summary_stats,
             'charts': {
-                'daily_sales': list(daily_sales),
-                'top_products': list(top_products)
+                'daily_sales': daily_sales_list,
+                'top_products': top_products
+            },
+            'filters': {
+                'start_date': start_date.strftime('%Y-%m-%d'),
+                'end_date': end_date.strftime('%Y-%m-%d'),
+                'range': range_filter
             }
         }
 
         return Response(response_data)
 
-class VendorSalesExportCSVView(APIView):
-    permission_classes = [IsVendorRole]
-
-    EXPORT_COLUMNS = [
-        ('order_date', 'Order Date'),
-        ('product_name', 'Product'),
-        ('product_size', 'Variant'),
-        ('quantity', 'Quantity'),
-        ('price', 'Unit Price'),
-        ('discount', 'Discount'),
-        ('total_price', 'Total Price'),
-    ]
-
-    def get_date_range(self, range_filter, start_date, end_date):
-        today = now().date()
-
-        if start_date and end_date:
-            try:
-                return (
-                    datetime.strptime(start_date, '%Y-%m-%d').date(),
-                    datetime.strptime(end_date, '%Y-%m-%d').date()
-                )
-            except ValueError:
-                raise ValueError("Invalid date format")
-
-        if range_filter == 'last_month':
-            return (today - timedelta(days=30), today)
-        elif range_filter == 'this_week':
-            return (today - timedelta(days=7), today)
-
-        return today, today  # default: today only
+class SalesExportCSVView(APIView):
+    permission_classes = [IsAdminOrVendorRole]
 
     def get(self, request):
         try:
             user = request.user
-            range_filter = request.query_params.get('range', 'today')
+            range_filter = request.query_params.get('range', 'last_3_days')
             search_term = request.query_params.get('search', '')
             start_date = request.query_params.get('start_date')
             end_date = request.query_params.get('end_date')
 
-            start_date, end_date = self.get_date_range(range_filter, start_date, end_date)
+            # Date filtering (same logic as VendorSalesReportView)
+            today = now().date()
+            if start_date and end_date:
+                try:
+                    start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+                    end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+                except ValueError:
+                    return Response({'error': 'Invalid date format'}, status=400)
+            else:
+                if range_filter == 'today':
+                    start_date = today
+                    end_date = today
+                elif range_filter == 'last_3_days':
+                    start_date = today - timedelta(days=2)
+                    end_date = today
+                elif range_filter == 'this_week':
+                    start_date = today - timedelta(days=6)
+                    end_date = today
+                elif range_filter == 'last_month':
+                    start_date = today - timedelta(days=30)
+                    end_date = today
+                else:
+                    start_date = today - timedelta(days=2)
+                    end_date = today
 
-            sales_query = Sale.objects.filter(
-                seller=user,
-                sale_date__range=(start_date, end_date)
-            )
+            # Get orders and prepare data
+            orders = Order.objects.filter(
+                seller=user, 
+                status='delivered',
+                created_at__date__range=(start_date, end_date)
+            ).prefetch_related('items__product', 'items__variant')
 
+            sales_data = []
+            for order in orders:
+                for item in order.items.all():
+                    sales_data.append({
+                        'order_date': order.created_at.strftime('%Y-%m-%d %H:%M'),
+                        'product_name': item.product.name if item.product else 'N/A',
+                        'variant_name': item.variant.name if item.variant else 'N/A',
+                        'quantity': item.quantity,
+                        'unit_price': str(item.unit_price),
+                        'total_price': str(item.total),
+                        'order_id': order.id
+                    })
+
+            # Search filtering
             if search_term:
-                sales_query = sales_query.filter(product__name__icontains=search_term)
+                sales_data = [sale for sale in sales_data if search_term.lower() in sale['product_name'].lower()]
 
-            serializer = SaleSerializer(sales_query, many=True, context={'request': request})
-            data = serializer.data
-
-            output = StringIO()
-            writer = csv.writer(output)
-
-            # Write header
-            writer.writerow([col[1] for col in self.EXPORT_COLUMNS])
-
-            # Write each sale row
-            for sale in data:
-                row = [sale.get(col[0], '') for col in self.EXPORT_COLUMNS]
-                writer.writerow(row)
-
-            output.seek(0)
-
-            filename = get_valid_filename(f"sales_report_{start_date}_to_{end_date}.csv")
-            response = HttpResponse(output.getvalue(), content_type='text/csv')
+            # Create CSV response
+            response = HttpResponse(content_type='text/csv')
+            filename = f"sales_report_{start_date}_to_{end_date}.csv"
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+            writer = csv.writer(response)
+            writer.writerow(['Order Date', 'Product', 'Variant', 'Quantity', 'Unit Price', 'Total Price', 'Order ID'])
+
+            for sale in sales_data:
+                writer.writerow([
+                    sale['order_date'],
+                    sale['product_name'],
+                    sale['variant_name'],
+                    sale['quantity'],
+                    sale['unit_price'],
+                    sale['total_price'],
+                    sale['order_id']
+                ])
+
             return response
 
-        except ValueError as e:
-            return Response({'error': str(e)}, status=400)
         except Exception as e:
             return Response({'error': f'Failed to generate report: {str(e)}'}, status=500)
+
+
+class StockistOrderManagementView(APIView):
+    permission_classes = [IsStockistRole]
+
+    def get(self, request):
+        """Get orders assigned to stockist"""
+        status_filter = request.query_params.get('status', 'pending')
+        
+        orders = Order.objects.filter(
+            seller=request.user,
+            status=status_filter
+        ).order_by('-created_at')
+        
+        serializer = OrderSerializer(orders, many=True)
+        return Response(serializer.data)
+
+    def patch(self, request, order_id):
+        """Update order status (accept/reject)"""
+        order = get_object_or_404(Order, id=order_id, seller=request.user)
+        
+        new_status = request.data.get('status')
+        if new_status not in ['accepted', 'rejected']:
+            return Response(
+                {"detail": "Invalid status. Use 'accepted' or 'rejected'."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        order.status = new_status
+        order.save()
+
+        # Create history record
+        OrderHistory.objects.create(
+            order=order,
+            actor=request.user,
+            action=new_status,
+            notes=request.data.get('note', '')
+        )
+
+        # Notify buyer
+        create_notification(
+            user=order.buyer,
+            title=f"Order {new_status.capitalize()}",
+            message=f"Your order #{order.id} has been {new_status} by the stockist.",
+            notification_type="order_status_update",
+            related_url=f"/orders/{order.id}/"
+        )
+
+        serializer = OrderSerializer(order)
+        return Response(serializer.data)

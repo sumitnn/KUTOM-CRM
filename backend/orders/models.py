@@ -1,53 +1,86 @@
-from django.db import models
+from decimal import Decimal, ROUND_HALF_UP
 import uuid
-# Create your models here.
+
 from django.conf import settings
-from products.models import Product ,ProductSize 
-from django.core.exceptions import ValidationError
-from django.db import transaction as db_transaction
+from django.core.validators import MinValueValidator
+from django.db import models, transaction as db_transaction
 from django.core.exceptions import ObjectDoesNotExist
-from accounts.models import Wallet, WalletTransaction
-from products.models import AdminProduct, AdminProductSize
 
-
+from products.models import Product, ProductVariant, RoleBasedProduct
 
 ORDER_STATUS_CHOICES = (
-    ('new', 'New Order'),                 # Order created
-    ('accepted', 'Accepted'),            # Approved by admin
-    ('rejected', 'Rejected'),            # Rejected by admin
-    ('ready_for_dispatch', 'Ready For Dispatch'),          # Ready for dispatch
-    ('dispatched', 'dispatched(Inprogress)'),        # Shipped
-    ('delivered', 'Delivered'),          # Received by destination
-    ('cancelled', 'Cancelled'),          # Cancelled
+    ('pending', 'Pending'),
+    ('accepted', 'Accepted'),
+    ('rejected', 'Rejected'),
+    ('ready_for_dispatch', 'Ready For Dispatch'),
+    ('dispatched', 'Dispatched (In Progress)'),
+    ('delivered', 'Delivered'),
+    ('cancelled', 'Cancelled'),
 )
 
+PAYMENT_STATUS_CHOICES = (
+    ('pending', 'Pending '),
+    ('partial', 'Partially Paid'),
+    ('pending_shipping', 'Pending Shipping Payment'),
+    ('paid', 'Paid'),
+    ('failed', 'Failed'),
+    ('failed_shipping', 'Failed Shipping Payment'),
+    ('refunded', 'Refunded'),
+)
+
+
 class Order(models.Model):
-    created_by = models.ForeignKey(
+    buyer = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='orders_created'
     )
-    created_for = models.ForeignKey(
+    seller = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='orders_for'
+        related_name='orders_received'
     )
 
     status = models.CharField(
-        max_length=20,
+        max_length=30,
         choices=ORDER_STATUS_CHOICES,
-        default='new'
+        default='pending'
+    )
+    
+    payment_status = models.CharField(
+        max_length=20,
+        choices=PAYMENT_STATUS_CHOICES,
+        default='pending'
     )
 
     note = models.TextField(blank=True, null=True)
     description = models.TextField(blank=True)
 
-    total_price = models.DecimalField(
-        max_digits=10,
+    subtotal = models.DecimalField(
+        max_digits=12,
         decimal_places=2,
-        default=0
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))]
+    )
+    total_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))]
+    )
+    gst_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))]
+    )
+    discount_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))]
     )
 
     expected_delivery_date = models.DateField(null=True, blank=True)
@@ -55,7 +88,12 @@ class Order(models.Model):
     # Transport & Dispatch Info
     courier_name = models.CharField(max_length=100, blank=True, null=True)
     tracking_number = models.CharField(max_length=100, blank=True, null=True)
-    transport_charges = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    transport_charges = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))]
+    )
     receipt = models.FileField(upload_to='order_receipts/', null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -63,15 +101,59 @@ class Order(models.Model):
 
     class Meta:
         ordering = ['-created_at']
-        verbose_name = 'Order'
-        verbose_name_plural = 'Orders'
+        indexes = [
+            models.Index(fields=['buyer', 'status']),
+            models.Index(fields=['seller', 'status']),
+            models.Index(fields=['created_at', 'status']),
+        ]
 
     def __str__(self):
-        return f"Order #{self.id}"
+        return f"Order #{self.id} - {self.buyer.username}"
 
-    def calculate_total(self):
-        self.total_price = sum(item.total for item in self.items.all()) + self.transport_charges
-        self.save()
+    def calculate_totals(self):
+        """
+        Recalculate all totals from order items + transport_charges.
+        Uses Decimal arithmetic and rounds to 2 decimals.
+        """
+        subtotal = Decimal('0.00')
+        gst_amount = Decimal('0.00')
+        discount_amount = Decimal('0.00')
+        
+        for item in self.items.all():
+            # item.total property returns Decimal
+            subtotal += Decimal(item.total)
+            gst_amount += Decimal(item.gst_amount or Decimal('0.00'))
+            discount_amount += Decimal(item.discount_amount or Decimal('0.00'))
+        
+        # Calculate final total
+        total = subtotal - discount_amount + gst_amount + Decimal(self.transport_charges or Decimal('0.00'))
+        
+        # Round to 2 decimal places
+        self.subtotal = subtotal.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.gst_amount = gst_amount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.discount_amount = discount_amount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.total_price = total.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        
+        self.save(update_fields=['subtotal', 'gst_amount', 'discount_amount', 'total_price', 'updated_at'])
+
+    def update_inventory(self, reverse=False):
+        """
+        Update inventory levels when order status changes
+        """
+        from products.models import StockInventory
+        
+        multiplier = -1 if reverse else 1
+        
+        for item in self.items.all():
+            if item.variant:
+                # Create inventory adjustment
+                StockInventory.objects.create(
+                    product=item.product,
+                    variant=item.variant,
+                    user=self.seller or self.buyer,
+                    new_quantity=multiplier * item.quantity,
+                    note=f"Order #{self.id} {'reversal' if reverse else 'fulfillment'}"
+                )
 
 
 class OrderItem(models.Model):
@@ -81,65 +163,114 @@ class OrderItem(models.Model):
         on_delete=models.CASCADE
     )
 
-    # Vendor product
+    # Product information
     product = models.ForeignKey(
         Product,
         on_delete=models.PROTECT,
-        related_name='order_items',
-        null=True,
-        blank=True
+        related_name='order_items'
     )
-    product_size = models.ForeignKey(
-        ProductSize,
+    variant = models.ForeignKey(
+        ProductVariant,
         on_delete=models.PROTECT,
-        verbose_name='Size',
         null=True,
         blank=True
     )
 
-    # Admin catalog product
-    admin_product = models.ForeignKey(
-        AdminProduct,
-        on_delete=models.PROTECT,
-        related_name='order_items',
-        null=True,
-        blank=True
-    )
-    admin_product_size = models.ForeignKey(
-        AdminProductSize,
-        on_delete=models.PROTECT,
-        verbose_name='Admin Size',
-        null=True,
-        blank=True
-    )
-
+    # Pricing information
     quantity = models.PositiveIntegerField(default=1)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    discount = models.DecimalField(
+    unit_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.00'))]
+    )
+    discount_percentage = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=0,
+        default=Decimal('0.00'),
         help_text='Discount in %'
     )
+    discount_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))]
+    )
+    gst_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text='GST in %'
+    )
+    gst_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))]
+    )
+
+    # Role-based pricing reference
+    role_based_product = models.ForeignKey(
+        RoleBasedProduct,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="Reference to the role-based pricing used for this item"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = 'Order Item'
         verbose_name_plural = 'Order Items'
+        indexes = [
+            models.Index(fields=['product', 'variant']),
+        ]
 
     def __str__(self):
-        if self.product:
-            return f"{self.quantity} x {self.product.name} ({self.product_size})"
-        elif self.admin_product:
-            return f"{self.quantity} x {self.admin_product.name} ({self.admin_product_size})"
-        return f"{self.quantity} x Unknown Product"
+        item_name = self.variant.name if self.variant else self.product.name
+        return f"{self.quantity} x {item_name}"
+
+    def save(self, *args, **kwargs):
+        # Calculate discount and GST amounts if not provided
+        if not self.discount_amount and self.discount_percentage > 0:
+            self.discount_amount = (self.unit_price * self.discount_percentage / Decimal('100.00')).quantize(
+                Decimal('0.01'), rounding=ROUND_HALF_UP
+            )
+        
+        if not self.gst_amount and self.gst_percentage > 0:
+            discounted_price = self.unit_price - self.discount_amount
+            self.gst_amount = (discounted_price * self.gst_percentage / Decimal('100.00')).quantize(
+                Decimal('0.01'), rounding=ROUND_HALF_UP
+            )
+        
+        super().save(*args, **kwargs)
+        
+        # Update order totals after saving
+        if self.order:
+            self.order.calculate_totals()
 
     @property
     def total(self):
-        if self.price is None or self.discount is None or self.quantity is None:
-            return 0
-        discounted_price = self.price * (1 - self.discount / 100)
-        return round(self.quantity * discounted_price, 2)
+        """
+        Compute total for this item: (unit_price - discount_amount + gst_amount) * quantity.
+        Returns Decimal rounded to 2 decimal places.
+        """
+        if self.unit_price is None or self.quantity is None:
+            return Decimal('0.00')
+        
+        # Calculate item total
+        unit_total = self.unit_price - self.discount_amount + self.gst_amount
+        total = unit_total * Decimal(self.quantity)
+        
+        return total.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
+    @property
+    def item_name(self):
+        """Get the display name for the item"""
+        if self.variant:
+            return f"{self.product.name} - {self.variant.name}"
+        return self.product.name
 
 
 class OrderHistory(models.Model):
@@ -156,26 +287,34 @@ class OrderHistory(models.Model):
         related_name='order_actions'
     )
     action = models.CharField(
-        max_length=20,
+        max_length=30,
         choices=ORDER_STATUS_CHOICES
     )
     notes = models.TextField(blank=True)
-    previous_status = models.CharField(max_length=20, blank=True, null=True)
-    current_status = models.CharField(max_length=20, blank=True, null=True)
+    previous_status = models.CharField(max_length=30, blank=True, null=True)
+    current_status = models.CharField(max_length=30, blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         verbose_name = 'Order History'
         verbose_name_plural = 'Order Histories'
         ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['order', 'timestamp']),
+        ]
 
     def __str__(self):
-        return f"Order #{self.order.id} - {self.get_action_display()} by {self.actor or 'System'}"
+        actor_str = str(self.actor) if self.actor else 'System'
+        return f"Order #{self.order.id} - {self.get_action_display()} by {actor_str}"
 
     def save(self, *args, **kwargs):
+        # If previous_status not provided, try to set from latest history for same order,
+        # otherwise fall back to current order.status
         if not self.previous_status:
             try:
-                previous_record = OrderHistory.objects.filter(order=self.order).exclude(id=self.id).latest('timestamp')
+                previous_record = OrderHistory.objects.filter(
+                    order=self.order
+                ).exclude(id=self.id).latest('timestamp')
                 self.previous_status = previous_record.current_status or previous_record.action
             except OrderHistory.DoesNotExist:
                 self.previous_status = self.order.status
@@ -183,105 +322,60 @@ class OrderHistory(models.Model):
         super().save(*args, **kwargs)
 
 
-class Sale(models.Model):
+class OrderPayment(models.Model):
+    PAYMENT_METHOD_CHOICES = (
+        ('cash', 'Cash'),
+        ('card', 'Credit/Debit Card'),
+        ('wallet', 'Wallet'),
+        ('bank_transfer', 'Bank Transfer'),
+        ('upi', 'UPI'),
+    )
+    
     order = models.ForeignKey(
         Order,
         on_delete=models.CASCADE,
-        related_name='sales'
+        related_name='payments'
     )
-
-    seller = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='sales'
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01'))]
     )
-    buyer = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='purchases'
+    payment_method = models.CharField(
+        max_length=20,
+        choices=PAYMENT_METHOD_CHOICES
     )
-
-    # Vendor product flow
-    product = models.ForeignKey(
-        Product,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='sales'
+    transaction_id = models.CharField(max_length=100, blank=True, null=True)
+    status = models.CharField(
+        max_length=20,
+        choices=PAYMENT_STATUS_CHOICES,
+        default='pending'
     )
-    product_size = models.ForeignKey(
-        ProductSize,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
-    )
-
-    # Admin product flow
-    admin_product = models.ForeignKey(
-        AdminProduct,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='admin_sales'
-    )
-    admin_product_size = models.ForeignKey(
-        AdminProductSize,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
-    )
-
-    quantity = models.PositiveIntegerField()
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    discount = models.DecimalField(max_digits=5, decimal_places=2, default=0)
-    total_price = models.DecimalField(max_digits=12, decimal_places=2)
-
-    sale_date = models.DateField(auto_now_add=True)
-    transaction_created = models.BooleanField(default=False)
-
-    class Meta:
-        ordering = ['-sale_date']
-
-    def __str__(self):
-        if self.product:
-            return f"{self.quantity} x {self.product.name} (₹{self.total_price})"
-        elif self.admin_product:
-            return f"{self.quantity} x {self.admin_product.name} (₹{self.total_price})"
-        return f"{self.quantity} items (₹{self.total_price})"
-    
-    
-class Inventory(models.Model):
-    MOVEMENT_TYPES = [
-        ("IN", "Stock In"),
-        ("OUT", "Stock Out"),
-    ]
-
-    product = models.ForeignKey(
-        AdminProduct,
-        on_delete=models.CASCADE,
-        related_name="inventory"
-    )
-    product_size = models.ForeignKey(
-       AdminProductSize,
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True
-    )
-    movement_type = models.CharField(max_length=10, choices=MOVEMENT_TYPES)
-    quantity = models.PositiveIntegerField()
-    note = models.TextField(blank=True)
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
-    )
+    notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering = ['-created_at']
+        verbose_name = 'Order Payment'
+        verbose_name_plural = 'Order Payments'
 
     def __str__(self):
-        return f"{self.movement_type} - {self.product} ({self.quantity})"
+        return f"Payment #{self.id} for Order #{self.order.id}"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        
+        # Update order payment status based on payments
+        total_paid = self.order.payments.filter(status='paid').aggregate(
+            total=models.Sum('amount')
+        )['total'] or Decimal('0.00')
+        
+        if total_paid >= self.order.total_price:
+            self.order.payment_status = 'paid'
+        elif total_paid > Decimal('0.00'):
+            self.order.payment_status = 'partial'
+        else:
+            self.order.payment_status = 'pending'
+        
+        self.order.save(update_fields=['payment_status', 'updated_at'])

@@ -124,6 +124,7 @@ export default function Profile() {
     company: profileData.company || defaultProfile.company
   } : defaultProfile;
 
+ 
   const handleCopy = (text) => {
     if (!text) return;
     navigator.clipboard.writeText(text);

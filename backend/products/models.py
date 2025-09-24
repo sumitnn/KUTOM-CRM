@@ -5,82 +5,96 @@ from accounts.models import User
 import uuid
 from decimal import Decimal
 
-class Brand(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-    logo = models.ImageField(upload_to='brands/logos/', blank=True, null=True)
-    description = models.TextField(blank=True)
-    is_active = models.BooleanField(default=True)
-    owner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='brands')
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return self.name
-
-class MainCategory(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-    image = models.ImageField(upload_to='main_categories/', null=True, blank=True)
+# Common abstract base model to reduce repetition
+class BaseModel(models.Model):
     owner = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
         blank=True,
-        related_name='main_categories'
+        related_name='%(class)ss'  # Dynamic related_name
     )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
+    
     class Meta:
-        verbose_name_plural = "Main Categories"
+        abstract = True  # This makes it an abstract base class
         ordering = ['-created_at']
 
-    def __str__(self):
-        return self.name
 
-class Category(models.Model):
+class Brand(BaseModel):
     name = models.CharField(max_length=100, unique=True)
-    main_category=models.ForeignKey(MainCategory,on_delete=models.SET_NULL,null=True, blank=True, related_name='categories')
-    owner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='categories')
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    logo = models.ImageField(upload_to='brands/logos/', blank=True, null=True)
+    description = models.TextField(blank=True)
 
-    class Meta:
-        verbose_name_plural = 'Categories'
-        ordering = ['-created_at']
+    class Meta(BaseModel.Meta):
+        pass  # Inherits ordering from BaseModel
 
     def __str__(self):
         return self.name
 
 
+class MainCategory(BaseModel):
+    name = models.CharField(max_length=100, unique=True)
+    image = models.ImageField(upload_to='main_categories/', null=True, blank=True)
 
-class SubCategory(models.Model):
-    category = models.ForeignKey(Category, on_delete=models.SET_NULL,null=True, blank=True, related_name='subcategories')
-    brand= models.ForeignKey(Brand, on_delete=models.SET_NULL, null=True, blank=True, related_name='subcategories')
-    owner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='subcategories')
+    class Meta(BaseModel.Meta):
+        verbose_name_plural = "Main Categories"
+
+    def __str__(self):
+        return self.name
+
+
+class Category(BaseModel):
+    name = models.CharField(max_length=100, unique=True)
+    main_category = models.ForeignKey(
+        MainCategory,
+        on_delete=models.SET_NULL,
+        null=True, 
+        blank=True, 
+        related_name='categories'
+    )
+
+    class Meta(BaseModel.Meta):
+        verbose_name_plural = 'Categories'
+
+    def __str__(self):
+        return self.name
+
+
+class SubCategory(BaseModel):
+    category = models.ForeignKey(
+        Category, 
+        on_delete=models.SET_NULL,
+        null=True, 
+        blank=True, 
+        related_name='subcategories'
+    )
+    brand = models.ForeignKey(
+        Brand, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='subcategories'
+    )
     name = models.CharField(max_length=100)
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
-    class Meta:
+    class Meta(BaseModel.Meta):
         verbose_name_plural = 'Sub Categories'
-        ordering = ['-created_at']
         unique_together = ['category', 'name']
 
     def __str__(self):
         return f"- {self.name}"
 
 
-
-class Tag(models.Model):
+class Tag(BaseModel):
     name = models.CharField(max_length=50, unique=True)
     slug = models.SlugField(max_length=50, unique=True, blank=True)
-    owner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='tags')
+
+    class Meta:
+        # Don't inherit BaseModel.Meta to avoid ordering by created_at if not needed
+        pass
 
     def __str__(self):
         return self.name
@@ -90,12 +104,26 @@ class Tag(models.Model):
             self.slug = slugify(self.name)
         super().save(*args, **kwargs)
 
-class Product(models.Model):
-    STATUS_CHOICES = [
-        ('draft', 'Draft'),
-        ('published', 'Published'),
-    ] 
-    
+
+class ProductFeatures(BaseModel):
+    name = models.CharField(max_length=50, unique=True)
+
+    def __str__(self):
+        return self.name
+
+
+class ProductImage(models.Model):
+    image = models.ImageField(upload_to='products/images/')
+    alt_text = models.CharField(max_length=150, blank=True)
+    is_featured = models.BooleanField(default=True)
+    is_default = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.alt_text}"
+
+
+class Product(BaseModel):
     PRODUCT_TYPE_CHOICES = [
         ('physical', 'Physical Product'),
         ('digital', 'Digital Product'),
@@ -114,9 +142,13 @@ class Product(models.Model):
         ('USD', 'US Dollar'),
         ('EUR', 'Euro'),
         ('GBP', 'British Pound'),
-        ('INR', 'Indian Rupee'),
-        ('JPY', 'Japanese Yen'),
+        ('INR', 'Indian Rupee')
     ]
+    
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('published', 'Published'),
+    ] 
 
     sku = models.CharField(max_length=50, unique=True, blank=True)
     name = models.CharField(max_length=255)
@@ -127,30 +159,23 @@ class Product(models.Model):
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
     subcategory = models.ForeignKey(SubCategory, on_delete=models.SET_NULL, null=True, blank=True)
     tags = models.ManyToManyField(Tag, blank=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
-    is_featured = models.BooleanField(default=True)
-    rating = models.DecimalField(max_digits=3, decimal_places=1, null=True, blank=True)
-    
-    # New fields from frontend data
+    features = models.ManyToManyField(ProductFeatures, blank=True)
+    images = models.ManyToManyField(ProductImage, blank=True, related_name='products')
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default='draft')
+    rating = models.DecimalField(max_digits=3, decimal_places=1, null=True, blank=True) 
     currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default='USD')
     weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     weight_unit = models.CharField(max_length=2, choices=WEIGHT_UNIT_CHOICES, default='kg')
     dimensions = models.CharField(max_length=100, blank=True, null=True)
     product_type = models.CharField(max_length=20, choices=PRODUCT_TYPE_CHOICES, default='physical')
-    shipping_info = models.TextField(blank=True, null=True)
     video_url = models.URLField(blank=True, null=True)
     warranty = models.CharField(max_length=100, blank=True, null=True)
-    content_embeds = models.TextField(blank=True, null=True)
-    features = models.JSONField(default=list)
-    gst_percentage=models.CharField(max_length=10, blank=True, null=True,default='0')
-    gst_tax=models.CharField(max_length=10, blank=True, null=True,default='0')  
-    
-    owner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
-    class Meta:
-        ordering = ['-created_at']
+    class Meta(BaseModel.Meta):
+        indexes = [
+            models.Index(fields=['status', 'is_active']),
+            models.Index(fields=['brand', 'category']),
+        ]
 
     def __str__(self):
         return self.name
@@ -162,217 +187,219 @@ class Product(models.Model):
             self.slug = slugify(self.name)
         super().save(*args, **kwargs)
 
-class ProductSize(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE,related_name='sizes')
-    size = models.CharField(max_length=50)
-    unit = models.CharField(max_length=20)
-    price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
+
+class ProductVariant(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='variants')
+    name = models.CharField(max_length=50)
+    sku = models.CharField(max_length=50, unique=True, blank=True)
     is_default = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['price']
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['product', 'is_active']),
+        ]
 
     def __str__(self):
-        return f"{self.product.name} - {self.size}{self.unit}"
-
-    def save(self, *args, **kwargs):
-        if self.is_default:
-            ProductSize.objects.filter(product=self.product).exclude(pk=self.pk).update(is_default=False)
-        super().save(*args, **kwargs)
-
-class ProductImage(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
-    image = models.ImageField(upload_to='products/images/')
-    alt_text = models.CharField(max_length=150, blank=True)
-    is_featured = models.BooleanField(default=True)
-    is_default= models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"Image for {self.product.name}"
-
-class ProductPriceTier(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='price_tiers')
-    size = models.ForeignKey(ProductSize, on_delete=models.CASCADE, related_name='price_tiers')
-    min_quantity = models.PositiveIntegerField(validators=[MinValueValidator(1)])
-    price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
-
-    class Meta:
-        ordering = ['min_quantity']
-        unique_together = ['size', 'min_quantity']
-
-    def __str__(self):
-        return f"{self.size.product.name} - {self.min_quantity}+ units: {self.price}"
-
-
-# admin products 
-class AdminProduct(models.Model):
-    name = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
-    short_description = models.TextField(blank=True)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    weight_unit = models.CharField(max_length=10, blank=True)
-    dimensions = models.CharField(max_length=100, blank=True)
-    product_type = models.CharField(max_length=20, blank=True)
-    currency = models.CharField(max_length=3, blank=True)
-    sku = models.CharField(max_length=50, unique=True, blank=True)
-    slug = models.SlugField(max_length=255, blank=True)
-
-    admin = models.ForeignKey(User, on_delete=models.CASCADE, related_name="admin_products")
-    original_vendor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-    source_product_id = models.IntegerField(null=True, blank=True)
-    video_url = models.URLField(blank=True, null=True)
-
-    resale_price = models.DecimalField(max_digits=10, decimal_places=2)
-    
-    quantity_available= models.PositiveIntegerField(default=0)
-    stock_status = models.CharField(max_length=20, choices=[('in_stock', 'In Stock'), ('out_of_stock', 'Out of Stock')], default='in_stock')
-
-    is_active = models.BooleanField(default=True)
-    brand = models.ForeignKey(Brand, on_delete=models.SET_NULL, null=True, blank=True)
-    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
-    subcategory = models.ForeignKey(SubCategory, on_delete=models.SET_NULL, null=True, blank=True)
-    tags = models.ManyToManyField(Tag, blank=True)
-
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"{self.name} (Admin Copy)"
+        return f"{self.name}"
     
     def save(self, *args, **kwargs):
         if not self.sku:
-            self.sku = f"PROD-{uuid.uuid4().hex[:8].upper()}"
-        if not self.slug:
-            self.slug = slugify(self.name)
-        if self.quantity_available < 10:
-            self.stock_status = 'out_of_stock'
+            self.sku = f"VAR-{uuid.uuid4().hex[:8].upper()}"
         super().save(*args, **kwargs)
 
-class AdminProductSize(models.Model):
-    admin_product = models.ForeignKey(AdminProduct, on_delete=models.CASCADE, related_name='sizes')
-    size = models.CharField(max_length=50)
-    unit = models.CharField(max_length=20)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    is_default = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=True)
 
+class ProductVariantPrice(models.Model):
+    ROLE_CHOICES = [
+        ('admin', 'Admin'), 
+        ('vendor', 'Vendor'), 
+        ('stockist', 'Stockist'), 
+        ('reseller', 'Reseller')
+    ]
+    
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='variant_prices')
+    variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, related_name='prices')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='variant_prices')
+    price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='vendor')
+    discount = models.IntegerField(default=0)
+    gst_percentage = models.IntegerField(default=0)
+    gst_tax = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Changed to Decimal
+    actual_price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], default=0)
+
+    class Meta:
+        unique_together = ['variant', 'role', 'user']
+        indexes = [
+            models.Index(fields=['variant', 'role']),
+        ]
+
+    def __str__(self):
+        return f"{self.product.name}"
+    
+    def save(self, *args, **kwargs):
+        # Calculate actual price with discount
+        if self.discount > 0:
+            discount_amount = (self.price * Decimal(self.discount)) / Decimal(100)
+            self.actual_price = self.price - discount_amount
+        else:
+            self.actual_price = self.price
+
+        # Calculate GST tax
+        if self.gst_percentage > 0:
+            gst_amount = (self.actual_price * Decimal(self.gst_percentage)) / Decimal(100)
+            self.gst_tax = gst_amount
+            self.actual_price += gst_amount
+        else:
+            self.gst_tax = Decimal(0)
+
+        super().save(*args, **kwargs)
+
+
+class ProductVariantBulkPrice(models.Model):
+    variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, related_name='bulk_prices')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='bulk_prices')
+    max_quantity = models.IntegerField(default=0)
+    price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def __str__(self):
-        return f"{self.admin_product.name} - {self.size}{self.unit}"
+    class Meta:
+        indexes = [
+            models.Index(fields=['variant', 'max_quantity']),
+        ]
 
-class AdminProductImage(models.Model):
-    admin_product = models.ForeignKey(AdminProduct, on_delete=models.CASCADE, related_name='images')
-    image = models.ImageField(upload_to='admin_products/images/')
-    alt_text = models.CharField(max_length=150, blank=True)
+
+# Role-Based Products - Consolidated into a single model
+class RoleBasedProduct(models.Model):
+    ROLE_CHOICES = [
+        ('admin', 'Admin'),
+        ('vendor', 'Vendor'),
+        ('stockist', 'Stockist'),
+        ('reseller', 'Reseller'),
+    ]
+    
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='role_based_products')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='role_based_products')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    variants = models.ManyToManyField(ProductVariant, blank=True, related_name='role_based_products')
     is_featured = models.BooleanField(default=True)
-    is_default = models.BooleanField(default=False)
-
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
-    def __str__(self):
-        return f"Image for {self.admin_product.name}"
+    class Meta:
+        unique_together = ['product', 'user', 'role']
+        indexes = [
+            models.Index(fields=['product', 'role', 'is_featured']),
+        ]
 
 
 class ProductCommission(models.Model):
-    admin_product = models.OneToOneField(
-        AdminProduct,
+    COMMISSION_TYPE_CHOICES = [
+        ('flat', 'Flat'), 
+        ('percent', 'Percentage')
+    ]
+    
+    role_product = models.OneToOneField(
+        RoleBasedProduct,
         on_delete=models.CASCADE,
-        related_name='commission'
+        related_name='commission',
+        limit_choices_to={'role': 'admin'}  # Only allow admin products
     )
-
     commission_type = models.CharField(
         max_length=10,
-        choices=[('flat', 'Flat'), ('percent', 'Percentage')],
+        choices=COMMISSION_TYPE_CHOICES,
         default='flat'
     )
-
     reseller_commission_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     stockist_commission_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     admin_commission_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-
     updated_at = models.DateTimeField(auto_now=True)
 
-    def calculate_margin(self):
-        """Margin = MRP - Vendor Price."""
-        return self.admin_product.price - self.admin_product.resale_price
 
-    def calculate_amount(self, value):
-        """Convert percentage to amount if needed."""
-        if self.commission_type == 'percent':
-            return (self.calculate_margin() * Decimal(value)) / Decimal(100)
-        return Decimal(value)
-
-    def clean(self):
-        """Validate commission distribution."""
-        reseller_amt = self.calculate_amount(self.reseller_commission_value)
-        stockist_amt = self.calculate_amount(self.stockist_commission_value)
-
-        if reseller_amt + stockist_amt > self.calculate_margin():
-            raise ValueError("Total commission cannot exceed the margin.")
-
-    def save(self, *args, **kwargs):
-        """Auto-calculate admin commission."""
-        self.clean()
-        reseller_amt = self.calculate_amount(self.reseller_commission_value)
-        stockist_amt = self.calculate_amount(self.stockist_commission_value)
-        self.admin_commission_value = self.calculate_margin() - (reseller_amt + stockist_amt)
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f"Commission for {self.admin_product.name}"
-
-
-class Stock(models.Model):
-    STATUS_CHOICES = [
-        ('in_stock', 'In Stock'),
-        ('out_of_stock', 'Out of Stock')
-    ]
-    
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='stocks')
-    size = models.ForeignKey(ProductSize, on_delete=models.SET_NULL, null=True, blank=True)
-
-    old_quantity = models.PositiveIntegerField(default=0)
-    new_quantity = models.PositiveIntegerField(default=0)
-
-    quantity = models.PositiveIntegerField(default=0)
-    rate = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
-    total_price = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='in_stock')
-    notes = models.TextField(blank=True)
+class StockInventory(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='inventories')
+    variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, related_name='inventories', null=True, blank=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='inventories')
+    total_quantity = models.IntegerField(default=0)
+    notes= models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    owner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='stocks')
 
     class Meta:
-        ordering = ['-created_at']
-        unique_together = ('product', 'size')
+        unique_together = ['product', 'variant', 'user']
+        indexes = [
+            models.Index(fields=['product', 'variant']),
+            models.Index(fields=['user', 'created_at']),
+        ]
+        verbose_name_plural = "Stock inventories"
 
     def __str__(self):
-        return f"{self.product.name} - {self.quantity} units"
+        return f"{self.product.name} - {self.total_quantity} units"
     
-    def save(self, *args, **kwargs):
-        if self.pk:  # Only apply logic on update
-            try:
-                previous = Stock.objects.get(pk=self.pk)
-                self.old_quantity = previous.quantity
-            except Stock.DoesNotExist:
-                self.old_quantity = 0
-            print("stock update model ")
+    def adjust_stock(self, change_quantity: int, action="ADJUST", reference_id=None):
+        """
+        Adjust stock and create history record.
+        change_quantity can be positive (add) or negative (deduct).
+        """
+        old_qty = self.total_quantity
+        new_qty = old_qty + change_quantity
 
-            # Update quantity based on previous and new
-            self.quantity = self.old_quantity + self.new_quantity
-            self.total_price = self.quantity * self.rate
-            self.status = 'out_of_stock' if self.quantity <= 10 else 'in_stock'
+        # ✅ Prevent negative stock
+        if new_qty < 0:
+            raise ValueError(f"Insufficient stock for {self.product.name} (Variant ID: {self.variant_id})")
 
-        super().save(*args, **kwargs)
+        # Update running balance
+        self.total_quantity = new_qty
+        self.save(update_fields=["total_quantity", "updated_at"])
 
+        # Create linked history entry
+        StockInventoryHistory.objects.create(
+            stock_inventory=self,
+            user=self.user,
+            old_quantity=old_qty,
+            change_quantity=change_quantity,
+            new_quantity=new_qty,
+            action=action,
+            reference_id=reference_id,
+        )
 
+        return self.total_quantity
+    
+class StockInventoryHistory(models.Model):
+    stock_inventory = models.ForeignKey(
+        StockInventory, on_delete=models.CASCADE, related_name="history"
+    )   
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="stock_history")
+
+    old_quantity = models.IntegerField()
+    change_quantity = models.IntegerField()  # +ve (add) or -ve (deduct)
+    new_quantity = models.IntegerField()
+
+    action = models.CharField(
+        max_length=50,
+        choices=[
+            ("ADD", "Stock Added"),
+            ("REMOVE", "Stock Removed"),
+            ("ORDER", "Stock Deducted for Order"),
+            ("RETURN", "Stock Returned"),
+            ("ADJUST", "Manual Adjustment"),
+        ],
+        default="ADJUST",
+    )
+    reference_id = models.CharField(max_length=100, null=True, blank=True)  # e.g., Order ID
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["stock_inventory", "user"]),
+            models.Index(fields=["user", "created_at"]),
+        ]
+        verbose_name_plural = "Stock Inventory History"
+
+    def __str__(self):
+        return f"| {self.change_quantity} | New: {self.new_quantity}"
 
