@@ -68,6 +68,12 @@ urlpatterns = [
 
     # me 
       path('me/', CurrentUserView.as_view(), name='current-user'),
+    # default stockist a
+    path('mark-default-stockist/<uuid:user_id>/', MarkDefaultStockistView.as_view(), name='mark_default_stockist'),
+    path('not-default-stockist/', StockistListExcludingDefaultView.as_view(), name='not-default-stockist'),
+
+    path('stockist-assignments/', StockistAssignmentView.as_view(), name='stockist-assignments'),
+    path('stockist-assignments/<uuid:reseller_id>/', StockistAssignmentView.as_view(), name='stockist-assignment-detail'),
 
 
 ]

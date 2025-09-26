@@ -6,6 +6,7 @@ import {
   clearCart,
 } from "../features/cart/cartSlice";
 import { useCreateBulkOrdersMutation } from "../features/order/orderApi";
+import { useCreateOrderRequestMutation } from "../features/order/orderRequest";
 import { FiTrash2, FiPlus, FiMinus, FiShoppingBag } from "react-icons/fi";
 import { TbTruckDelivery } from "react-icons/tb";
 import { BsShieldCheck } from "react-icons/bs";
@@ -15,13 +16,9 @@ import { Link } from "react-router-dom";
 const LazyImage = lazy(() => import("./LazyImage"));
 
 const calculateItemPrice = (item) => {
-  // If we have bulk prices in the variant
   if (item.variant?.bulk_prices?.length > 0) {
-    // Sort bulk prices by max_quantity in ascending order to find the best match
     const sortedBulkPrices = [...item.variant.bulk_prices].sort((a, b) => a.max_quantity - b.max_quantity);
     
-    // Find the appropriate bulk price based on quantity
-    // We want the highest tier that the quantity qualifies for
     let applicableBulkPrice = null;
     
     for (const bulkPrice of sortedBulkPrices) {
@@ -31,7 +28,6 @@ const calculateItemPrice = (item) => {
       }
     }
     
-    // If no tier found (quantity exceeds all), use the last (highest) tier
     if (!applicableBulkPrice && sortedBulkPrices.length > 0) {
       applicableBulkPrice = sortedBulkPrices[sortedBulkPrices.length - 1];
     }
@@ -41,7 +37,6 @@ const calculateItemPrice = (item) => {
     }
   }
   
-  // If no bulk pricing, use the variant price or regular price
   return item.variant?.product_variant_prices?.[0]?.price || item.price;
 };
 
@@ -49,22 +44,17 @@ const calculateGSTForItem = (item) => {
   const itemPrice = calculateItemPrice(item);
   const subtotal = Number(itemPrice) * (item.quantity || 1);
   
-  // Calculate GST based on either fixed amount or percentage
   let gstAmount = 0;
   
-  // Check if we have variant pricing with GST info
   if (item.variant?.product_variant_prices?.[0]) {
     const variantPricing = item.variant.product_variant_prices[0];
     
     if (variantPricing.gst_tax) {
-      // If fixed GST tax amount is provided
       gstAmount = Number(variantPricing.gst_tax) * (item.quantity || 1);
     } else if (variantPricing.gst_percentage) {
-      // If GST percentage is provided
       gstAmount = (subtotal * Number(variantPricing.gst_percentage)) / 100;
     }
   } else {
-    // Fallback to item-level GST if available
     if (item.gst_tax) {
       gstAmount = Number(item.gst_tax) * (item.quantity || 1);
     } else if (item.gst_percentage) {
@@ -78,24 +68,24 @@ const calculateGSTForItem = (item) => {
 const MyCart = ({ role }) => {
   const dispatch = useDispatch();
   const cartItems = useSelector((state) => state.cart.items);
-  const [placeBulkOrder, { isLoading }] = useCreateBulkOrdersMutation();
+  const user = useSelector((state) => state.auth.user);
+  
+  const [placeBulkOrder, { isLoading: isBulkOrderLoading }] = useCreateBulkOrdersMutation();
+  const [createOrderRequest, { isLoading: isOrderRequestLoading }] = useCreateOrderRequestMutation();
 
-  // Calculate subtotal (price of all items without GST and shipping)
+  const isLoading = isBulkOrderLoading || isOrderRequestLoading;
+
   const subtotal = cartItems.reduce(
     (acc, item) => acc + (calculateItemPrice(item) || 0) * (item.quantity || 1),
     0
   );
 
-  // Calculate total GST for all items
   const totalGST = cartItems.reduce(
     (acc, item) => acc + calculateGSTForItem(item),
     0
   );
 
-  // Calculate shipping cost
   const shippingCost = 0;
-
-  // Calculate final total
   const totalPrice = subtotal + shippingCost + totalGST;
 
   const handleQuantityChange = (id, newQuantity) => {
@@ -104,12 +94,9 @@ const MyCart = ({ role }) => {
 
     let bulkPrice = null;
     
-    // Determine the appropriate bulk price based on the new quantity
     if (item.variant?.bulk_prices?.length > 0) {
-      // Sort bulk prices by max_quantity in ascending order
       const sortedBulkPrices = [...item.variant.bulk_prices].sort((a, b) => a.max_quantity - b.max_quantity);
       
-      // Find the applicable bulk price
       let applicableBulkPrice = null;
       
       for (const bulkPrice of sortedBulkPrices) {
@@ -119,7 +106,6 @@ const MyCart = ({ role }) => {
         }
       }
       
-      // If no tier found (quantity exceeds all), use the last (highest) tier
       if (!applicableBulkPrice && sortedBulkPrices.length > 0) {
         applicableBulkPrice = sortedBulkPrices[sortedBulkPrices.length - 1];
       }
@@ -138,36 +124,57 @@ const MyCart = ({ role }) => {
 
   const handleCheckout = async () => {
     try {
-      const orderData = {
-        items: cartItems.map(({ id, quantity, variant, bulk_price, gst_tax, gst_percentage }) => ({
-          product_id: id,
-          quantity,
-          variant_id: variant?.id || null,
-          bulk_price_id: bulk_price?.id || null,
-          gst_tax: gst_tax || null,
-          gst_percentage: gst_percentage || null
-        })),
-        subtotal,
-        shipping: shippingCost,
-        gst: totalGST,
-        total: totalPrice,
-      };
+      if (role === "stockist") {
+        // For stockist: Create a single order request with multiple items
+        const orderRequestData = {
+          note: `Order request from ${user?.email}`,
+          items: cartItems.map((item) => ({
+            product: item.id,
+            variant: item.variant?.id || null,
+            quantity: item.quantity,
+            unit_price: calculateItemPrice(item),
+            total_price: (calculateItemPrice(item) * item.quantity),
+            gst_amount: calculateGSTForItem(item),
+            // Include any other required fields for OrderRequestItem
+          }))
+        };
 
-      await placeBulkOrder(orderData).unwrap();
+        await createOrderRequest(orderRequestData).unwrap();
+        toast.success("Order request submitted successfully! Waiting for admin approval.");
+      } else {
+        // For other roles: Use bulk orders
+        const orderData = {
+          items: cartItems.map(({ id, quantity, variant, bulk_price, gst_tax, gst_percentage }) => ({
+            product_id: id,
+            quantity,
+            variant_id: variant?.id || null,
+            bulk_price_id: bulk_price?.id || null,
+            gst_tax: gst_tax || null,
+            gst_percentage: gst_percentage || null
+          })),
+          subtotal,
+          shipping: shippingCost,
+          gst: totalGST,
+          total: totalPrice,
+        };
+
+        await placeBulkOrder(orderData).unwrap();
+        toast.success("Order placed successfully!");
+      }
+
+      // Clear cart after successful submission
       dispatch(clearCart());
-      toast.success("Order placed successfully!");
+      
     } catch (err) {
-      console.error(err);
-      toast.error(err?.data?.message || "Something went wrong.");
+      console.error("Checkout error:", err);
+      toast.error(err?.data?.message || err?.data?.error || "Something went wrong.");
     }
   };
 
-  // Helper function to get the base price (without any bulk discounts)
   const getBasePrice = (item) => {
     return item.variant?.product_variant_prices?.[0]?.price || item.price;
   };
 
-  // Helper function to get the current bulk price tier info
   const getBulkPriceInfo = (item) => {
     if (item.variant?.bulk_prices?.length > 0) {
       const sortedBulkPrices = [...item.variant.bulk_prices].sort((a, b) => a.max_quantity - b.max_quantity);
@@ -181,12 +188,45 @@ const MyCart = ({ role }) => {
         }
       }
       
-      // If no tier found (quantity exceeds all), use the last (highest) tier
       if (!applicableBulkPrice && sortedBulkPrices.length > 0) {
         applicableBulkPrice = sortedBulkPrices[sortedBulkPrices.length - 1];
       }
       
       return applicableBulkPrice;
+    }
+    return null;
+  };
+
+  const getCheckoutButtonText = () => {
+    if (isLoading) {
+      return (
+        <>
+          <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          Processing...
+        </>
+      );
+    }
+    
+    return role === "stockist" ? "Submit Order Request" : "Proceed to Checkout";
+  };
+
+  const getOrderTypeMessage = () => {
+    if (role === "stockist") {
+      return (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+          <div className="flex items-center">
+            <svg className="w-5 h-5 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+            <span className="text-blue-800 font-medium text-sm">
+              As a stockist, your order will be submitted as a request for admin approval.
+            </span>
+          </div>
+        </div>
+      );
     }
     return null;
   };
@@ -204,6 +244,11 @@ const MyCart = ({ role }) => {
                   <p className="text-gray-500 mt-1 font-medium">
                     {cartItems.length} {cartItems.length === 1 ? 'item' : 'items'}
                   </p>
+                  {role === "stockist" && (
+                    <span className="inline-block mt-1 bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">
+                      Stockist Mode - Requires Approval
+                    </span>
+                  )}
                 </div>
                 {cartItems.length > 0 && (
                   <button
@@ -233,12 +278,13 @@ const MyCart = ({ role }) => {
                 </div>
               ) : (
                 <div className="divide-y divide-gray-200">
+                  {getOrderTypeMessage()}
                   {cartItems.map((item) => {
                     const itemPrice = calculateItemPrice(item);
                     const basePrice = getBasePrice(item);
                     const bulkPriceInfo = getBulkPriceInfo(item);
                     const itemGST = calculateGSTForItem(item);
-                    const { id, name, price, quantity, image, variant, color, description } = item;
+                    const { id, name, quantity, image, variant, color, description } = item;
                     
                     return (
                       <div key={id} className="p-6 flex flex-col sm:flex-row group hover:bg-gray-50 transition-colors">
@@ -392,7 +438,14 @@ const MyCart = ({ role }) => {
             <div className="lg:w-1/3">
               <div className="bg-white shadow-sm rounded-xl overflow-hidden sticky top-6">
                 <div className="px-6 py-5 border-b border-gray-200">
-                  <h2 className="text-xl font-extrabold text-gray-900">Order Summary</h2>
+                  <h2 className="text-xl font-extrabold text-gray-900">
+                    {role === "stockist" ? "Order Request Summary" : "Order Summary"}
+                  </h2>
+                  {role === "stockist" && (
+                    <p className="text-sm text-blue-600 mt-1">
+                      Requires admin approval before processing
+                    </p>
+                  )}
                 </div>
 
                 <div className="px-6 py-4 space-y-4">
@@ -426,17 +479,7 @@ const MyCart = ({ role }) => {
                     } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors`}
                     onClick={handleCheckout}
                   >
-                    {isLoading ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Processing...
-                      </>
-                    ) : (
-                      'Proceed to Checkout'
-                    )}
+                    {getCheckoutButtonText()}
                   </button>
                   <div className="mt-4 flex justify-center">
                     <Link

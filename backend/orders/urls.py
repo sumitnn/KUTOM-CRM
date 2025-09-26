@@ -25,4 +25,14 @@ urlpatterns = [
     path('sales/vendor/', SalesReportView.as_view(), name='vendor-sales'),
     path('sales/vendor/export/', SalesExportCSVView.as_view(), name='vendor-sales-export'),
 
+     path('new-order-requests/', OrderRequestListCreateView.as_view(), name='order-request-list'),
+    path('order-requests/<int:pk>/', OrderRequestDetailView.as_view(), name='order-request-detail'),
+    path('order-requests/<int:pk>/update-status/', update_order_request_status, name='order-request-update-status'),
+    
+    # Requests by status
+    path('order-requests/status/<str:status>/', get_requests_by_status, name='order-requests-by-status'),
+
+    path('order-requests/report/', OrderRequestReportView.as_view(), name='order-requests-report'),
+    path('order-requests/export/', OrderRequestExportCSVView.as_view(), name='order-requests-export'),
+
 ]

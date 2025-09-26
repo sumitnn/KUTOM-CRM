@@ -1,7 +1,7 @@
 # accounts/signals.py
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from .models import User, Profile,Wallet,Company,ProfileApprovalStatus,Address,CommissionWallet
+from .models import User, Profile,Wallet,Company,ProfileApprovalStatus,Address
 import datetime
 from .utils import generate_unique_role_id
 
@@ -19,10 +19,7 @@ def create_user_wallet(sender, instance, created, **kwargs):
     if created:
         Wallet.objects.create(user=instance)
 
-@receiver(post_save, sender=User)
-def create_user_wallet(sender, instance, created, **kwargs):
-    if created and getattr(instance, "role", None) == "stockist" or getattr(instance, "role", None) == "reseller":
-        CommissionWallet.objects.create(user=instance)
+
 
 
 @receiver(post_save, sender=User)

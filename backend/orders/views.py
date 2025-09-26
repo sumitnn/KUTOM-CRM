@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from .models import *
 from .serializers import *
 from django.utils.timezone import now
-from accounts.permissions import IsAdminRole, IsStockistRole, IsVendorRole, IsAdminOrVendorRole, IsAdminStockistResellerRole
+from accounts.permissions import IsAdminRole, IsStockistRole, IsVendorRole, IsAdminOrVendorRole, IsAdminStockistResellerRole,IsAdminOrStockistRole
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import status
@@ -29,8 +29,13 @@ from accounts.utils import create_notification
 from rest_framework.parsers import MultiPartParser, FormParser
 from products.models import Product, ProductVariant, ProductVariantPrice, RoleBasedProduct
 from django.shortcuts import get_object_or_404
-from accounts.models import User, Wallet, WalletTransaction
+from accounts.models import User, Wallet, WalletTransaction, Notification
 from products.models import StockInventory
+from rest_framework import viewsets, status, filters
+from rest_framework.decorators import action
+from django.core.paginator import Paginator
+from rest_framework.decorators import api_view, permission_classes
+
 
 class CreateOrderAPIView(generics.CreateAPIView):
     serializer_class = OrderCreateSerializer
@@ -296,6 +301,7 @@ class UpdateOrderStatusView(APIView):
     permission_classes = [IsAdminOrVendorRole]
 
     def patch(self, request, pk):
+       
         try:
             order = Order.objects.get(pk=pk)
         except Order.DoesNotExist:
@@ -949,3 +955,538 @@ class StockistOrderManagementView(APIView):
 
         serializer = OrderSerializer(order)
         return Response(serializer.data)
+
+
+class OrderRequestListCreateView(APIView):
+    permission_classes = [IsAdminOrStockistRole]
+
+    def get(self, request):
+        user = request.user
+        queryset = (
+            OrderRequest.objects
+            .select_related('requested_by', 'target_user')
+            .prefetch_related('items')
+        )
+
+        # Filters
+        status_param = request.query_params.get("status")
+        email = request.query_params.get("user_email")
+
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+        if email:
+            queryset = queryset.filter(requested_by__email__icontains=email)
+
+        # Admins see all; others see only their requests
+        if not user.role=="admin":
+            queryset = queryset.filter(requested_by=user)
+
+        serializer = OrderRequestSerializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+
+        serializer = OrderRequestSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            order_request = serializer.save()
+            self._notify_admin(order_request)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def _notify_admin(self, order_request):
+        admin_user = User.objects.filter(role="admin").first()
+        if admin_user:
+            Notification.objects.create(
+                user=admin_user,
+                title="New Order Request",
+                message=f"New order request {order_request.request_id} from {order_request.requested_by.email}",
+                notification_type="order_request",
+            )
+
+
+# Order Request Detail, Update, Delete
+class OrderRequestDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAdminOrStockistRole]
+    serializer_class = OrderRequestDetailSerializer
+    queryset = OrderRequest.objects.select_related('requested_by', 'target_user').prefetch_related('items')
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role=="admin":
+            return self.queryset
+        return self.queryset.filter(requested_by=user)
+
+    def perform_update(self, serializer):
+        # Only allow status updates via update_status endpoint
+        if 'status' in serializer.validated_data:
+            raise serializers.ValidationError({"error": "Use update_status endpoint to change status"})
+        serializer.save()
+
+# Update Status Endpoint
+@api_view(['POST'])
+@permission_classes([IsAdminOrStockistRole])
+def update_order_request_status(request, pk):
+  
+    try:
+        order_request = OrderRequest.objects.get(pk=pk)
+    except OrderRequest.DoesNotExist:
+        return Response({"error": "Order request not found"}, status=404)
+    
+    # Check permissions
+    if not request.user.role=="admin" and order_request.requested_by != request.user:
+        return Response({"error": "Permission denied"}, status=403)
+    
+    serializer = OrderRequestStatusSerializer(order_request, data=request.data)
+    if serializer.is_valid():
+        new_status = serializer.validated_data['status']
+        old_status = order_request.status
+        
+        # Validate status change
+        if not request.user.role =="admin" and new_status == 'cancelled':
+            if old_status != 'pending':
+                return Response({"error": "Can only cancel pending requests"}, status=400)
+        elif not request.user.role == "admin":
+            return Response({"error": "Only admin can update status"}, status=403)
+        
+        with transaction.atomic():
+            order_request = serializer.save()
+            _handle_status_change(order_request, old_status, new_status,order_request.requested_by, order_request.target_user)
+        
+        return Response(OrderRequestSerializer(order_request).data)
+    
+    return Response(serializer.errors, status=400)
+
+def _handle_status_change(order_request, old_status, new_status,current_user, user):
+    total_amount = sum(item.total_price for item in order_request.items.all())
+    
+    if new_status == 'approved' and old_status == 'pending':
+        # Add amount to admin wallet
+        admin_wallet, _ = Wallet.objects.get_or_create(user=user)
+        admin_wallet.current_balance += total_amount
+        admin_wallet.save()
+        # Create refund transaction
+        WalletTransaction.objects.create(
+                wallet=admin_wallet,
+                transaction_type='CREDIT',
+                amount=total_amount,    
+                description=f"Order Request {order_request.request_id} By Stockist",
+                transaction_status='SUCCESS',
+                is_refund=False
+            )
+        Notification.objects.create(
+                user=current_user,
+                title="Your Order Request is Approved",
+                message=f"Your order request {order_request.request_id} is approved by Admin",
+                notification_type="order_request",
+            )
+        _update_inventory(order_request)
+        
+        
+        
+    elif new_status in ['rejected', 'cancelled'] and old_status == 'pending':
+        # Refund to stockist
+        if order_request.requestor_type == 'stockist':
+            wallet = Wallet.objects.get(user=order_request.requested_by)
+            wallet.current_balance += total_amount
+            wallet.save()
+
+            # Create refund transaction
+            WalletTransaction.objects.create(
+                wallet=wallet,
+                transaction_type='CREDIT',
+                amount=total_amount,    
+                description=f"Refund for Order Request {order_request.request_id}",
+                transaction_status='SUCCESS',
+                is_refund=True,
+            )
+            
+            if new_status == 'rejected':
+                Notification.objects.create(
+                    user=current_user,
+                    title="Your Order Request is Rejected",
+                    message=f"Your order request {order_request.request_id} is rejected by Admin",
+                    notification_type="order_request",
+                )
+            if new_status == 'cancelled':
+                Notification.objects.create(
+                    user=user,
+                    title="Order Request is Cancelled",
+                    message=f"order request {order_request.request_id} is cancelled by stockist",
+                    notification_type="order_request",
+                )
+
+def _update_inventory(order_request):
+    """
+    target_user → The admin whose stock will be reduced.
+    We also credit the stockist's inventory at the same time.
+    """
+
+    stockist_user = order_request.requested_by  # the buyer
+    target_user=order_request.target_user  # the admin whose stock will be reduced
+
+    for item in order_request.items.all():
+        # ---------------------------------------
+        # 1️⃣ Deduct from Admin Inventory
+        # ---------------------------------------
+        admin_stock= StockInventory.objects.get(
+            product=item.product.product,
+            variant=item.variant,
+            user=target_user
+            
+        )
+
+        admin_stock.adjust_stock(
+            change_quantity=-item.quantity,           # deduct
+            action="ORDER",
+            reference_id=f"OrderReq-{order_request.id}",
+        )
+
+        # ---------------------------------------
+        # 2️⃣ Add to Stockist Inventory
+        # ---------------------------------------
+        stockist_stock, _ = StockInventory.objects.get_or_create(
+            product=item.product.product,
+            variant=item.variant,
+            user=stockist_user,
+            defaults={"total_quantity": 0},
+        )
+
+        stockist_stock.adjust_stock(
+            change_quantity=item.quantity,           
+            action="ADD",
+            reference_id=f"OrderReq-{order_request.id}",
+        )
+
+# Get requests by status
+@api_view(['GET'])
+@permission_classes([IsAdminOrStockistRole])
+def get_requests_by_status(request, status):
+    user = request.user
+    queryset = OrderRequest.objects.select_related('requested_by', 'target_user').prefetch_related('items')
+    if not user.role=="admin":
+        queryset = queryset.filter(requested_by=user)
+    
+    if user.role=="admin":
+        queryset = queryset.exclude(status='cancelled')
+    
+    if status=="rejected" and not user.role=="admin":
+        queryset = queryset.filter(Q(status='rejected') | Q(status='cancelled'))
+    else:
+        queryset = queryset.filter(status=status)
+    
+    # Pagination
+    page = request.GET.get('page', 1)
+    page_size = request.GET.get('page_size', 10)
+    
+    paginator = Paginator(queryset, page_size)
+    page_obj = paginator.get_page(page)
+    
+    serializer = OrderRequestSerializer(page_obj, many=True)
+    
+    return Response({
+        'results': serializer.data,
+        'count': paginator.count,
+        'total_pages': paginator.num_pages,
+        'current_page': page_obj.number,
+    })
+
+# views.py
+# views.py
+class OrderRequestReportView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        user = request.user
+        
+        range_filter = request.query_params.get('range', 'last_3_days')
+        search_term = request.query_params.get('search', '')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        status_filter = request.query_params.get('status', 'approved')  # Default to approved
+
+        # Date filtering
+        today = now().date()
+        if start_date and end_date:
+            try:
+                start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+                end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+            except ValueError:
+                return Response({'error': 'Invalid date format'}, status=400)
+        else:
+            if range_filter == 'today':
+                start_date = today
+                end_date = today
+            elif range_filter == 'last_3_days':
+                start_date = today - timedelta(days=2)
+                end_date = today
+            elif range_filter == 'this_week':
+                start_date = today - timedelta(days=6)
+                end_date = today
+            elif range_filter == 'last_month':
+                start_date = today - timedelta(days=30)
+                end_date = today
+            else:
+                start_date = today - timedelta(days=2)
+                end_date = today
+
+        # Get order requests - for admin: target_user=user, for vendor: requested_by=user
+        if user.role in ['admin', 'super_admin']:
+            # Admin sees requests where they are the target
+            order_requests = OrderRequest.objects.filter(
+                target_user=user,
+                created_at__date__range=(start_date, end_date)
+            )
+        else:
+            # Vendor sees their own requests
+            order_requests = OrderRequest.objects.filter(
+                requested_by=user,
+                created_at__date__range=(start_date, end_date)
+            )
+
+        # Status filtering
+        if status_filter and status_filter != 'all':
+            order_requests = order_requests.filter(status=status_filter)
+
+        # Search filtering
+        if search_term:
+            order_requests = order_requests.filter(
+                Q(request_id__icontains=search_term) |
+                Q(requested_by__email__icontains=search_term) |
+                Q(requested_by__username__icontains=search_term) |
+                Q(note__icontains=search_term)
+            )
+
+        # Prefetch related items to avoid N+1 queries
+        order_requests = order_requests.select_related('requested_by', 'target_user').prefetch_related('items').order_by('-created_at')
+
+        # Prepare order request data
+        order_requests_data = []
+        total_requests = order_requests.count()
+        total_sales_amount = 0
+        total_items_quantity = 0
+        
+        status_counts = {
+            'pending': 0,
+            'approved': 0,
+            'rejected': 0,
+            'cancelled': 0
+        }
+
+        # Calculate sales amount by status
+        sales_by_status = {
+            'pending': 0,
+            'approved': 0,
+            'rejected': 0,
+            'cancelled': 0
+        }
+
+        for req in order_requests:
+            req_total_amount = req.total_amount
+            req_total_quantity = req.total_quantity
+            
+            total_sales_amount += req_total_amount
+            total_items_quantity += req_total_quantity
+            
+            status_counts[req.status] += 1
+            sales_by_status[req.status] += req_total_amount
+            
+            # Get items details
+            items_data = []
+            for item in req.items.all():
+                items_data.append({
+                    'product_name': item.product.product.name,
+                    'variant': item.variant.name if item.variant else 'No Variant',
+                    'quantity': item.quantity,
+                    'unit_price': float(item.unit_price),
+                    'total_price': float(item.total_price),
+                    'gst_percentage': float(item.gst_percentage),
+                    'discount_percentage': float(item.discount_percentage)
+                })
+            
+            order_requests_data.append({
+                'id': req.id,
+                'request_id': req.request_id,
+                'requested_by': {
+                    'id': req.requested_by.id,
+                    'name': req.requested_by.username or req.requested_by.email,
+                    'email': req.requested_by.email
+                },
+                'target_user': {
+                    'id': req.target_user.id if req.target_user else None,
+                    'name': req.target_user.username if req.target_user else 'System',
+                    'email': req.target_user.email if req.target_user else None
+                } if req.target_user else None,
+                'requestor_type': req.requestor_type,
+                'target_type': req.target_type,
+                'status': req.status,
+                'note': req.note,
+                'total_amount': float(req_total_amount),
+                'total_quantity': req_total_quantity,
+                'items': items_data,
+                'created_at': req.created_at,
+                'updated_at': req.updated_at
+            })
+
+        # Get daily requests data for line chart (including sales amount)
+        daily_requests = {}
+        daily_sales = {}
+        for req in order_requests:
+            date_str = req.created_at.strftime('%Y-%m-%d')
+            if date_str not in daily_requests:
+                daily_requests[date_str] = 0
+                daily_sales[date_str] = 0
+            daily_requests[date_str] += 1
+            daily_sales[date_str] += float(req.total_amount)
+
+        daily_requests_list = [{
+            'request_date': date,
+            'daily_count': count,
+            'daily_sales': daily_sales[date]
+        } for date, count in sorted(daily_requests.items())]
+
+        # Get status distribution for pie chart (including sales amount)
+        status_distribution = [{
+            'status': status,
+            'count': count,
+            'sales_amount': sales_by_status[status]
+        } for status, count in status_counts.items() if count > 0]
+
+        summary_stats = {
+            'total_requests': total_requests,
+            'total_sales_amount': float(total_sales_amount),
+            'total_items_quantity': total_items_quantity,
+            'average_order_value': round(float(total_sales_amount / total_requests) if total_requests > 0 else 0, 2),
+            'status_counts': status_counts,
+            'sales_by_status': sales_by_status,
+            'approval_rate': round((status_counts['approved'] / total_requests * 100) if total_requests > 0 else 0, 1)
+        }
+
+        response_data = {
+            'order_requests': order_requests_data,
+            'summary': summary_stats,
+            'charts': {
+                'daily_requests': daily_requests_list,
+                'status_distribution': status_distribution
+            },
+            'filters': {
+                'start_date': start_date.strftime('%Y-%m-%d'),
+                'end_date': end_date.strftime('%Y-%m-%d'),
+                'range': range_filter,
+                'status': status_filter
+            }
+        }
+
+        return Response(response_data)
+
+class OrderRequestExportCSVView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        try:
+            user = request.user
+            range_filter = request.query_params.get('range', 'last_3_days')
+            search_term = request.query_params.get('search', '')
+            start_date = request.query_params.get('start_date')
+            end_date = request.query_params.get('end_date')
+            status_filter = request.query_params.get('status', 'approved')
+
+            # Date filtering (same logic as OrderRequestReportView)
+            today = now().date()
+            if start_date and end_date:
+                try:
+                    start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+                    end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+                except ValueError:
+                    return Response({'error': 'Invalid date format'}, status=400)
+            else:
+                if range_filter == 'today':
+                    start_date = today
+                    end_date = today
+                elif range_filter == 'last_3_days':
+                    start_date = today - timedelta(days=2)
+                    end_date = today
+                elif range_filter == 'this_week':
+                    start_date = today - timedelta(days=6)
+                    end_date = today
+                elif range_filter == 'last_month':
+                    start_date = today - timedelta(days=30)
+                    end_date = today
+                else:
+                    start_date = today - timedelta(days=2)
+                    end_date = today
+
+            # Get order requests with prefetch for items
+            if user.role in ['admin', 'super_admin']:
+                order_requests = OrderRequest.objects.filter(
+                    target_user=user,
+                    created_at__date__range=(start_date, end_date)
+                )
+            else:
+                order_requests = OrderRequest.objects.filter(
+                    requested_by=user,
+                    created_at__date__range=(start_date, end_date)
+                ).prefetch_related('items')
+
+            if status_filter and status_filter != 'all':
+                order_requests = order_requests.filter(status=status_filter)
+
+            if search_term:
+                order_requests = order_requests.filter(
+                    Q(request_id__icontains=search_term) |
+                    Q(requested_by__email__icontains=search_term) |
+                    Q(note__icontains=search_term)
+                )
+
+            # Prefetch items to avoid N+1 queries
+            order_requests = order_requests.prefetch_related('items')
+
+            # Create CSV response
+            response = HttpResponse(content_type='text/csv')
+            filename = f"order_requests_report_{start_date}_to_{end_date}.csv"
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+            writer = csv.writer(response)
+            
+            # Updated headers with sales information
+            writer.writerow([
+                'Request ID', 
+                'Request Date', 
+                'Requested By', 
+                'Requestor Type', 
+                'Target Type', 
+                'Target User', 
+                'Status', 
+                'Total Amount',
+                'Total Quantity',
+                'Items Count',
+                'Notes', 
+                'Last Updated'
+            ])
+
+            for req in order_requests:
+                writer.writerow([
+                    req.request_id,
+                    req.created_at.strftime('%Y-%m-%d %H:%M'),
+                    req.requested_by.username or req.requested_by.email,
+                    req.get_requestor_type_display(),
+                    req.get_target_type_display(),
+                    req.target_user.username if req.target_user else 'System',
+                    req.get_status_display(),
+                    float(req.total_amount),  # Total amount
+                    req.total_quantity,      # Total quantity
+                    req.items.count(),       # Number of items
+                    req.note or '',
+                    req.updated_at.strftime('%Y-%m-%d %H:%M')
+                ])
+
+            # Add summary row
+            writer.writerow([])  # Empty row
+            writer.writerow(['SUMMARY'])
+            writer.writerow(['Total Requests:', order_requests.count()])
+            writer.writerow(['Total Sales Amount:', float(sum(req.total_amount for req in order_requests))])
+            writer.writerow(['Total Items Quantity:', sum(req.total_quantity for req in order_requests)])
+
+            return response
+
+        except Exception as e:
+            return Response({'error': f'Failed to generate report: {str(e)}'}, status=500)

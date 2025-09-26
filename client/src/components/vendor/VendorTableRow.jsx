@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+// components/vendor/VendorTableRow.jsx
+import React, { useState, useEffect } from 'react';
 import { 
   FaEye, 
   FaCheck, 
@@ -6,10 +7,14 @@ import {
   FaThumbsUp,
   FaIdCard,
   FaDotCircle,
-  FaInfoCircle
+  FaInfoCircle,
+  FaStar,
+  FaRegStar,
+  FaUserCheck
 } from 'react-icons/fa';
 import { format } from 'date-fns';
 import ProgressBar from '../ProgressBar';
+import { useGetStockistAssignmentQuery } from "../../features/stockist/stockistApi";
 
 export default function VendorTableRow({ 
   vendor, 
@@ -19,18 +24,37 @@ export default function VendorTableRow({
   onReview,
   onApprove,
   onReject,
+  onMarkDefaultStockist,
   onMarkKycCompleted,
-  onToggleStatus, // Add this new prop
+  onToggleStatus,
+  onAssignStockist,
   isLoadingAction,
   currentActionId,
   setShowKycModal,
-  setSelectedVendor
+  setSelectedVendor,
+  role
 }) {
   const [localLoading, setLocalLoading] = useState({
     approve: false,
     reject: false,
-    status: false
+    status: false,
+    default: false
   });
+
+  // Fetch stockist assignment data for resellers
+  const { 
+    data: assignmentData, 
+    isLoading: isLoadingAssignment,
+    refetch: refetchAssignment
+  } = useGetStockistAssignmentQuery(vendor.id, {
+    skip: !['active', 'suspended'].includes(activeTab) || role !== 'reseller'
+  });
+
+  useEffect(() => {
+    if (['active', 'suspended'].includes(activeTab) && role === 'reseller') {
+      refetchAssignment();
+    }
+  }, [vendor.id, activeTab, role, refetchAssignment]);
 
   const formattedDate = vendor.created_at 
     ? format(new Date(vendor.created_at), 'MMM dd, yyyy HH:mm') 
@@ -42,12 +66,14 @@ export default function VendorTableRow({
   const state = vendor.address?.state || 'N/A';
   const postalCode = vendor.address?.postal_code || 'N/A';
   const city = vendor.address?.city || 'N/A';
-  const userId = vendor.user?.id || vendor.id; // Fallback to vendor.id if user.id doesn't exist
+  const userId = vendor.user?.id || vendor.id;
   const FullKycApproved = vendor.profile?.kyc_verified;
   const completionPercentage = vendor?.completion_percentage || 0;
   const isKycButtonEnabled = completionPercentage >= 80;
+  const isDefaultStockist = vendor.is_default_user || false;
+  const assignedStockist = assignmentData?.stockist;
 
-  const handleAction = async (action, actionFn) => {
+  const handleAction = async (action, actionFn, ...args) => {
     if (action === 'kyc') {
       setSelectedVendor(vendor);
       setShowKycModal(true);
@@ -56,14 +82,18 @@ export default function VendorTableRow({
     
     setLocalLoading(prev => ({...prev, [action]: true}));
     try {
-      await actionFn(userId); // Pass user ID to action function
+      await actionFn(...args);
     } finally {
       setLocalLoading(prev => ({...prev, [action]: false}));
     }
   };
 
-  const getButtonState = (actionType) => {
-    const isLoading = isLoadingAction && currentActionId === userId;
+  const getButtonState = (actionType, id = null) => {
+    const isLoading = isLoadingAction && (
+      currentActionId === actionType || 
+      currentActionId === `default-${id}` ||
+      currentActionId === userId
+    );
     const isLocallyLoading = localLoading[actionType];
     return {
       loading: isLoading || isLocallyLoading,
@@ -101,15 +131,37 @@ export default function VendorTableRow({
     return (
       <button 
         className={`btn btn-sm btn-${isActiveTab ? 'warning' : 'success'} font-bold`}
-        onClick={() => onToggleStatus(userId)}
-        disabled={disabled || (isLoadingAction && currentActionId === 'status')}
+        onClick={() => handleAction('status', onToggleStatus, userId)}
+        disabled={disabled}
       >
-        {isLoadingAction && currentActionId === 'status' ? (
+        {loading ? (
           <span className="loading loading-spinner loading-xs"></span>
         ) : (
           <>
             {isActiveTab ? <FaDotCircle /> : <FaThumbsUp />}
             {isActiveTab ? 'In-Active' : 'Activate'}
+          </>
+        )}
+      </button>
+    );
+  };
+
+  const renderDefaultStockistButton = () => {
+    const { loading, disabled } = getButtonState('default', userId);
+    
+    return (
+      <button 
+        className={`btn btn-sm ${isDefaultStockist ? 'btn-warning' : 'btn-outline'} font-bold`}
+        onClick={() => handleAction('default', onMarkDefaultStockist, userId, !isDefaultStockist)}
+        disabled={disabled}
+        title={isDefaultStockist ? 'Remove as default stockist' : 'Set as default stockist'}
+      >
+        {loading ? (
+          <span className="loading loading-spinner loading-xs"></span>
+        ) : (
+          <>
+            {isDefaultStockist ? <FaStar className="text-yellow-500" /> : <FaRegStar />}
+            {isDefaultStockist ? 'Remove Default' : 'Mark Default'}
           </>
         )}
       </button>
@@ -144,12 +196,54 @@ export default function VendorTableRow({
         {!isKycButtonEnabled && (
           <div className="absolute left-1/2 transform -translate-x-1/2 bottom-full mb-2 hidden group-hover:block w-64 bg-gray-800 text-white text-xs rounded p-2 z-10">
             <div className="flex items-center">
-              <FaInfoCircle className="mr-1 " />
+              <FaInfoCircle className="mr-1" />
               Profile completion must be at least 80% to enable this button.
             </div>
           </div>
         )}
       </div>
+    );
+  };
+
+  const renderStockistAssignmentSection = () => {
+    if (role !== 'reseller' || !['active', 'suspended'].includes(activeTab)) {
+      return null;
+    }
+    
+    const stockistName = assignedStockist 
+      ? `${assignedStockist.username} (${assignedStockist.email})`
+      : 'Not Assigned';
+
+    return (
+      <>
+        <td className="px-2 py-3">
+          <div className="flex flex-col">
+            <span className={assignedStockist ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
+              {stockistName}
+            </span>
+            {assignedStockist && (
+              <span className="text-xs text-gray-500">
+                Assigned: {format(new Date(assignedStockist.assigned_at), 'MMM dd, yyyy')}
+              </span>
+            )}
+          </div>
+        </td>
+        <td className="px-2 py-3">
+          <button 
+            className="btn btn-sm btn-outline btn-primary font-bold"
+            onClick={() => onAssignStockist(vendor, assignedStockist)}
+            disabled={isLoadingAction || isLoadingAssignment}
+          >
+            {isLoadingAssignment ? (
+              <span className="loading loading-spinner loading-xs"></span>
+            ) : (
+              <>
+                <FaUserCheck /> {assignedStockist ? 'Change' : 'Assign'}
+              </>
+            )}
+          </button>
+        </td>
+      </>
     );
   };
 
@@ -237,6 +331,21 @@ export default function VendorTableRow({
             <td className="px-2 py-3">
               {city}, {state}, {postalCode}
             </td>
+            
+            {/* Stockist Assignment Columns - Only for reseller role */}
+            {role === 'reseller' && renderStockistAssignmentSection()}
+            
+            {/* Default Stockist Column - Only for stockist role */}
+            {role === 'stockist' && (
+              <td className="px-2 py-3 text-center">
+                {isDefaultStockist ? (
+                  <span className="badge badge-success badge-lg">True</span>
+                ) : (
+                  <span className="badge badge-secondary badge-lg">False</span>
+                )}
+              </td>
+            )}
+            
             <td className="px-2 py-3">
               <div className="flex flex-wrap gap-2">
                 <button 
@@ -249,6 +358,8 @@ export default function VendorTableRow({
                   <FaEye /> View
                 </button>
                 {renderStatusButton()}
+                {/* Default Stockist Button - Only for stockist role */}
+                {role === 'stockist' && renderDefaultStockistButton()}
               </div>
             </td>
           </>

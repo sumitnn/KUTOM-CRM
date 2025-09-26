@@ -355,11 +355,7 @@ class WalletSummaryView(APIView):
         except Wallet.DoesNotExist:
             return Response({'error': 'Wallet not found.'}, status=status.HTTP_404_NOT_FOUND)
         
-        try:
-            commission_wallet = CommissionWallet.objects.get(user=user)
-            commission_balance = commission_wallet.balance
-        except CommissionWallet.DoesNotExist:
-            commission_balance = Decimal('0.00')
+        
 
         # Calculate total sales from orders where user is the seller
         total_sales = Order.objects.filter(
@@ -375,7 +371,7 @@ class WalletSummaryView(APIView):
         data = {
             'current_balance': wallet.current_balance,
             'payout_balance': wallet.payout_balance,
-            'commission_balance': commission_balance,
+            'commission_balance': wallet.payout_balance,
             'total_sales': total_sales,
             'total_withdrawals': total_withdrawals
         }
@@ -749,12 +745,12 @@ class DashboardAPIView(APIView):
 
         # Wallet info
         wallet, created = Wallet.objects.get_or_create(user=user)
-        commission_wallet, created = CommissionWallet.objects.get_or_create(user=user)
+   
         
         wallet_data = {
             'balance': wallet.current_balance,
             'payout_balance': wallet.payout_balance,
-            'commission_balance': commission_wallet.balance,
+            'commission_balance': wallet.payout_balance,
             'total_sales': self.get_total_sales(user, date_from),
             'total_withdrawals': self.get_total_withdrawals(user, date_from),
         }
@@ -1158,3 +1154,141 @@ class AdminWithdrawalRequestDetailAPIView(APIView):
 
         serializer = AdminWithdrawalRequestSerializer(withdrawal)
         return Response(serializer.data)
+    
+class MarkDefaultStockistView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def post(self, request, user_id):
+        
+        try:
+            user = User.objects.get(id=user_id, role='stockist')
+
+            # If marking as default, first unmark any existing default stockist
+            if request.data.get('is_default', False):
+                User.objects.filter(role='stockist', is_default_user=True).update(is_default_user=False)
+
+            user.is_default_user = request.data.get('is_default', False)
+            user.save()
+
+            return Response({
+                'success': True,
+                'message': f'Stockist successfully {"marked as" if user.is_default_user else "unmarked from"} default user',
+                'is_default_user': user.is_default_user
+            })
+
+        except User.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': 'Stockist not found'
+            }, status=404)
+        
+class StockistListExcludingDefaultView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        stockists = User.objects.filter(role='stockist', is_default_user=False).values(
+            "id", "username", "email", "is_default_user"
+        )
+        return Response({
+            "success": True,
+            "stockists": list(stockists)
+        })
+    
+class StockistAssignmentView(APIView):
+    permission_classes = [IsAdminRole]
+    
+    def get(self, request, reseller_id=None):
+        if reseller_id:
+            # Get assigned stockist for a specific reseller
+            try:
+                assignment = StockistAssignment.objects.get(reseller_id=reseller_id)
+                stockist_data = {
+                    "id": assignment.stockist.id,
+                    "username": assignment.stockist.username,
+                    "email": assignment.stockist.email,
+                    "vendor_id": assignment.stockist.vendor_id,
+                    "assigned_at": assignment.assigned_at
+                }
+                return Response({
+                    "success": True,
+                    "stockist": stockist_data
+                })
+            except StockistAssignment.DoesNotExist:
+                return Response({
+                    "success": True,
+                    "stockist": None
+                })
+        else:
+            # Get all assignments
+            assignments = StockistAssignment.objects.select_related('reseller', 'stockist').all()
+            assignment_data = []
+            for assignment in assignments:
+                assignment_data.append({
+                    "reseller_id": assignment.reseller.id,
+                    "reseller_name": assignment.reseller.username,
+                    "reseller_email": assignment.reseller.email,
+                    "stockist_id": assignment.stockist.id,
+                    "stockist_name": assignment.stockist.username,
+                    "stockist_email": assignment.stockist.email,
+                    "assigned_at": assignment.assigned_at
+                })
+            return Response({
+                "success": True,
+                "assignments": assignment_data
+            })
+    
+    @transaction.atomic
+    def post(self, request):
+        reseller_id = request.data.get('reseller_id')
+        stockist_id = request.data.get('stockist_id')
+        
+        if not reseller_id or not stockist_id:
+            return Response({
+                "success": False,
+                "message": "Reseller ID and Stockist ID are required"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            reseller = User.objects.get(id=reseller_id, role='reseller')
+            stockist = User.objects.get(id=stockist_id, role='stockist')
+            
+            # Check if reseller already has an assignment
+            existing_assignment = StockistAssignment.objects.filter(reseller=reseller).first()
+            if existing_assignment:
+                existing_assignment.stockist = stockist
+                existing_assignment.save()
+                message = "Stockist assignment updated successfully"
+            else:
+                StockistAssignment.objects.create(reseller=reseller, stockist=stockist)
+                message = "Stockist assigned successfully"
+            
+            return Response({
+                "success": True,
+                "message": message
+            })
+            
+        except User.DoesNotExist:
+            return Response({
+                "success": False,
+                "message": "Reseller or Stockist not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def delete(self, request, reseller_id):
+        try:
+            assignment = StockistAssignment.objects.get(reseller_id=reseller_id)
+            assignment.delete()
+            return Response({
+                "success": True,
+                "message": "Stockist assignment removed successfully"
+            })
+        except StockistAssignment.DoesNotExist:
+            return Response({
+                "success": False,
+                "message": "Assignment not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+    

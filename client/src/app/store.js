@@ -24,6 +24,7 @@ import { newAccountApplicationApi } from "../features/newapplication/newAccountA
 import { salesApi } from "../features/sales/salesApi";
 import { commissionsApi } from "../features/commission/commissionApi";
 import { adminProductApi } from "../features/adminProduct/adminProductApi";
+import { orderRequestApi } from "../features/order/orderRequest";
 
 
 
@@ -50,7 +51,8 @@ export const store = configureStore({
         [newAccountApplicationApi.reducerPath]: newAccountApplicationApi.reducer,
         [salesApi.reducerPath]: salesApi.reducer,
         [commissionsApi.reducerPath]: commissionsApi.reducer,
-        [adminProductApi.reducerPath]:adminProductApi.reducer,
+        [adminProductApi.reducerPath]: adminProductApi.reducer,
+        [orderRequestApi.reducerPath]:orderRequestApi.reducer,
         
     },
     middleware: (getDefaultMiddleware) =>
@@ -70,6 +72,7 @@ export const store = configureStore({
             newAccountApplicationApi.middleware,
             salesApi.middleware,
             commissionsApi.middleware,
-            adminProductApi.middleware
+            adminProductApi.middleware,
+            orderRequestApi.middleware
         ),
 });

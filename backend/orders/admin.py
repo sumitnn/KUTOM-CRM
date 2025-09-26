@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Order, OrderItem, OrderHistory, OrderPayment
+from .models import Order, OrderItem, OrderHistory, OrderPayment,OrderRequest,OrderRequestItem
 
 
 class OrderItemInline(admin.TabularInline):
@@ -74,3 +74,25 @@ class OrderPaymentAdmin(admin.ModelAdmin):
     list_display = ('order', 'amount', 'payment_method', 'transaction_id', 'status', 'created_at')
     list_filter = ('payment_method', 'status', 'created_at')
     search_fields = ('order__id', 'transaction_id')
+
+class OrderRequestItemInline(admin.TabularInline):
+    model = OrderRequestItem
+    extra = 1
+    readonly_fields = ('total_price',)
+    autocomplete_fields = ['product']  # optional if you have many products
+
+@admin.register(OrderRequest)
+class OrderRequestAdmin(admin.ModelAdmin):
+    list_display = ('request_id', 'requested_by', 'requestor_type', 'target_type', 'target_user', 'status', 'created_at')
+    list_filter = ('status', 'requestor_type', 'target_type', 'created_at')
+    search_fields = ('request_id', 'requested_by__username', 'target_user__username', 'note')
+    readonly_fields = ('request_id', 'created_at', 'updated_at')
+    inlines = [OrderRequestItemInline]
+    autocomplete_fields = ['requested_by', 'target_user']  # optional for large user tables
+    ordering = ('-created_at',)
+
+@admin.register(OrderRequestItem)
+class OrderRequestItemAdmin(admin.ModelAdmin):
+    list_display = ('order_request', 'product', 'quantity', 'unit_price', 'total_price','variant','gst_percentage','discount_percentage')
+    list_filter = ('product',)
+    search_fields = ( 'order_request__request_id',)

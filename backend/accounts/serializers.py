@@ -19,11 +19,6 @@ class WalletSerializer(serializers.ModelSerializer):
         read_only_fields = ['user', 'current_balance', 'payout_balance']
 
 
-class CommissionWalletSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CommissionWallet
-        fields = ['id', 'balance']
-        read_only_fields = ['user', 'balance']
 
 
 class TopupRequestSerializer(serializers.ModelSerializer):
@@ -464,11 +459,11 @@ class AdminWithdrawalRequestSerializer(serializers.ModelSerializer):
 class StockistAssignmentSerializer(serializers.ModelSerializer):
     reseller = UserListSerializer(read_only=True)
     stockist = UserListSerializer(read_only=True)
-    state = StateSerializer(read_only=True)
+   
 
     class Meta:
         model = StockistAssignment
-        fields = ['id', 'reseller', 'stockist', 'state', 'assigned_at']
+        fields = ['id', 'reseller', 'stockist', 'assigned_at']
 
 
 class NewUserRegistrationSerializer(serializers.ModelSerializer):

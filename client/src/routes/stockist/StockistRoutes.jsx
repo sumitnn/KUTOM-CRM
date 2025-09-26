@@ -1,9 +1,11 @@
 import { lazy, Suspense } from "react";
 import { Route } from "react-router-dom";
-import React  from "react";
+import React from "react";
 
 
 // Lazy-loaded components
+const OrderRequestDetailsPage =lazy(() => import("../../pages/OrderRequestDetailsPage"));
+const OrderRequestPage =lazy(() => import("../../pages/OrderRequestPage"));
 const ProtectedRoute = lazy(() => import("../ProtectedRoutes"));
 const CommonProductListPage = lazy(() => import("../../pages/CommonProductListPage"));
 const CommonProductDetailPage = lazy(() => import("../../pages/CommonProductDetailPage"));
@@ -22,15 +24,11 @@ const CreateTopupRequest = lazy(() => import("../../pages/CreateTopupRequest"));
 const TopupRequestsList = lazy(() => import("../../pages/TopupRequestList"));
 const WithdrawlRequestsList = lazy(() => import("../../pages/WithdrawlRequestsList"));
 const CreateWithdrawalRequest = lazy(() => import("../../pages/CreateWithdrawalRequest"));
-
-// Error Boundary Component (simple version)
+const CommonMyStockPage = lazy(() => import("../../pages/CommonMyStockPage"));
+const Report = lazy(() => import("../../pages/Report"));
+// Error Boundary
 const ErrorBoundary = ({ children }) => {
   const [hasError, setHasError] = React.useState(false);
-
-  const handleOnError = (error, errorInfo) => {
-    console.error("Error caught by Error Boundary:", error, errorInfo);
-    setHasError(true);
-  };
 
   if (hasError) {
     return <div className="error-fallback">Something went wrong. Please try again later.</div>;
@@ -40,7 +38,8 @@ const ErrorBoundary = ({ children }) => {
 };
 
 const StockistRoutes = [
-  <Route element={<ProtectedRoute allowedRoles={["stockist"]} />} key="stockist">
+  // ✅ Protected routes that REQUIRE profile completion = 100%
+  <Route element={<ProtectedRoute allowedRoles={["stockist"]} checkProfileCompletion={true} />} key="stockist">
     {/* Dashboard */}
     <Route
       path="/stockist/dashboard"
@@ -56,26 +55,47 @@ const StockistRoutes = [
     />
 
     {/* Products */}
-    <Route 
-      path="/stockist/products" 
+    <Route
+      path="/stockist/products"
       element={
         <StockistMainLayout>
           <ErrorBoundary>
             <Suspense fallback={<Spinner />}>
-              <CommonProductListPage role="stockist"/>
+              <CommonProductListPage role="stockist" />
             </Suspense>
           </ErrorBoundary>
         </StockistMainLayout>
       }
     />
+      <Route
+      path="/stockist/my-stocks"
+      element={
+        <StockistMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <CommonMyStockPage role="stockist" />
+          </Suspense>
+        </StockistMainLayout>
+      }
+    />
     
-    <Route 
-      path="/stockist/products/:id" 
+    {/* Reports */}
+    <Route
+      path="/stockist/sales-report"
+      element={
+        <StockistMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <Report role="stockist" />
+          </Suspense>
+        </StockistMainLayout>
+      }
+    />
+    <Route
+      path="/stockist/products/:id"
       element={
         <StockistMainLayout>
           <ErrorBoundary>
             <Suspense fallback={<Spinner />}>
-              <CommonProductDetailPage role="stockist"/>
+              <CommonProductDetailPage role="stockist" />
             </Suspense>
           </ErrorBoundary>
         </StockistMainLayout>
@@ -83,8 +103,8 @@ const StockistRoutes = [
     />
 
     {/* Reseller Management */}
-    <Route 
-      path="/stockist/reseller" 
+    <Route
+      path="/stockist/reseller"
       element={
         <StockistMainLayout>
           <ErrorBoundary>
@@ -93,51 +113,75 @@ const StockistRoutes = [
             </Suspense>
           </ErrorBoundary>
         </StockistMainLayout>
-      } 
+      }
     />
 
-    {/* Order Management */}
-    <Route 
-      path="/stockist/orders" 
+    {/* order reqeust  */}
+      <Route
+      path="/stockist/my-order-request"
       element={
         <StockistMainLayout>
           <ErrorBoundary>
             <Suspense fallback={<Spinner />}>
-              <OrdersManagement role="stockist"/>
+              <OrderRequestPage role="stockist" />
             </Suspense>
           </ErrorBoundary>
         </StockistMainLayout>
-      } 
+      }
     />
-    
-    <Route 
-      path="/stockist/orders/:id" 
+  <Route
+      path="/stockist/order-requests-details/:id"
       element={
         <StockistMainLayout>
           <ErrorBoundary>
             <Suspense fallback={<Spinner />}>
-              <OrderDetailPage role="stockist"/>
+              <OrderRequestDetailsPage role="stockist" />
             </Suspense>
           </ErrorBoundary>
         </StockistMainLayout>
-      } 
+      }
+    />
+    {/* Orders */}
+    <Route
+      path="/stockist/orders"
+      element={
+        <StockistMainLayout>
+          <ErrorBoundary>
+            <Suspense fallback={<Spinner />}>
+              <OrdersManagement role="stockist" />
+            </Suspense>
+          </ErrorBoundary>
+        </StockistMainLayout>
+      }
+    />
+    <Route
+      path="/stockist/orders/:id"
+      element={
+        <StockistMainLayout>
+          <ErrorBoundary>
+            <Suspense fallback={<Spinner />}>
+              <OrderDetailPage role="stockist" />
+            </Suspense>
+          </ErrorBoundary>
+        </StockistMainLayout>
+      }
     />
 
     {/* Wallet */}
-    <Route 
-      path="/stockist/wallet" 
+    <Route
+      path="/stockist/wallet"
       element={
         <StockistMainLayout>
           <ErrorBoundary>
             <Suspense fallback={<Spinner />}>
-              <UserWalletPage role="stockist"/>
+              <UserWalletPage role="stockist" />
             </Suspense>
           </ErrorBoundary>
         </StockistMainLayout>
-      } 
+      }
     />
 
-    {/* Withdrawal */}
+    {/* Withdrawals */}
     <Route
       path="/stockist/withdrawl-request"
       element={
@@ -150,7 +194,6 @@ const StockistRoutes = [
         </StockistMainLayout>
       }
     />
-    
     <Route
       path="/stockist/my-withdrawl"
       element={
@@ -165,85 +208,83 @@ const StockistRoutes = [
     />
 
     {/* Topup */}
-    <Route 
-      path="/stockist/topup-request" 
+    <Route
+      path="/stockist/topup-request"
       element={
         <StockistMainLayout>
           <ErrorBoundary>
             <Suspense fallback={<Spinner />}>
-              <CreateTopupRequest role="stockist"/>
+              <CreateTopupRequest role="stockist" />
             </Suspense>
           </ErrorBoundary>
         </StockistMainLayout>
-      } 
+      }
+    />
+    <Route
+      path="/stockist/my-topup"
+      element={
+        <StockistMainLayout>
+          <ErrorBoundary>
+            <Suspense fallback={<Spinner />}>
+              <TopupRequestsList role="stockist" />
+            </Suspense>
+          </ErrorBoundary>
+        </StockistMainLayout>
+      }
     />
 
-    <Route 
-      path="/stockist/my-cart" 
+    {/* Cart */}
+    <Route
+      path="/stockist/my-cart"
       element={
         <StockistMainLayout>
           <ErrorBoundary>
             <Suspense fallback={<Spinner />}>
-              <MyCart role="stockist"/>
+              <MyCart role="stockist" />
             </Suspense>
           </ErrorBoundary>
         </StockistMainLayout>
-      } 
+      }
     />
+  </Route>,
 
-    <Route 
-      path="/stockist/my-topup" 
+  // ✅ Routes that IGNORE profile completion (always accessible)
+  <Route element={<ProtectedRoute allowedRoles={["stockist"]} checkProfileCompletion={false} />} key="stockist-no-profile-check">
+    <Route
+      path="/stockist/settings/profile"
       element={
         <StockistMainLayout>
           <ErrorBoundary>
             <Suspense fallback={<Spinner />}>
-              <TopupRequestsList role="stockist"/>
+              <Profile />
             </Suspense>
           </ErrorBoundary>
         </StockistMainLayout>
-      } 
+      }
     />
-    
-    {/* Settings */}
-    <Route 
-      path="/stockist/settings/profile" 
+    <Route
+      path="/stockist/settings/change-password"
       element={
         <StockistMainLayout>
           <ErrorBoundary>
             <Suspense fallback={<Spinner />}>
-              <Profile/>
+              <ChangePassword />
             </Suspense>
           </ErrorBoundary>
         </StockistMainLayout>
-      } 
+      }
     />
-    
-    <Route 
-      path="/stockist/settings/change-password" 
-      element={
-        <StockistMainLayout>
-          <ErrorBoundary>
-            <Suspense fallback={<Spinner />}>
-              <ChangePassword/>
-            </Suspense>
-          </ErrorBoundary>
-        </StockistMainLayout>
-      } 
-    />
-    
-    {/* Logout */}
-    <Route 
-      key="logout" 
-      path="/stockist/logout" 
+    <Route
+      path="/stockist/logout"
       element={
         <ErrorBoundary>
           <Suspense fallback={<Spinner />}>
-            <Logout/>
+            <Logout />
           </Suspense>
         </ErrorBoundary>
-      } 
+      }
     />
-  </Route>
+  </Route>,
 ];
 
 export default StockistRoutes;

@@ -772,10 +772,11 @@ class ProductCommissionAPIView(APIView):
             })
     
     def put(self, request, product_id):
+       
  
         try:
             role_product = RoleBasedProduct.objects.get(
-                product_id=product_id,
+                id=product_id,
                 user=request.user
             )
             
@@ -894,6 +895,7 @@ class StockListCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        
         user = request.user
         queryset = StockInventory.objects.filter(user=user)
         
@@ -910,9 +912,9 @@ class StockListCreateAPIView(APIView):
         if status =="new_stock":
             queryset = queryset.filter(created_at__date=datetime.now().date())
         elif status =="in_stock":
-            queryset = queryset.filter(total_quantity__gt=10)
+            queryset = queryset.filter(total_quantity__gt=5)
         elif status =="out_of_stock":
-            queryset = queryset.filter(total_quantity__lte=10)
+            queryset = queryset.filter(total_quantity__lte=5)
 
         serializer = StockInventorySerializer(queryset, many=True)
         return Response(serializer.data)
@@ -942,46 +944,51 @@ class AdminProductPagination(PageNumberPagination):
 
 
 class AdminProductListView(generics.ListAPIView):
-    serializer_class = ProductSerializer
+    serializer_class = ADMINRoleBasedProductSerializer
     pagination_class = AdminProductPagination
     permission_classes = [IsAdminStockistResellerRole]
     filter_backends = [DjangoFilterBackend, SearchFilter]
-    search_fields = ['name', 'sku', 'short_description']
+    search_fields = ['product__name', 'product__sku', 'product__short_description']
     filterset_fields = {
-        'brand': ['exact'],
-        'category': ['exact'],
-        'subcategory': ['exact'],
-        'is_active': ['exact'],
-        'status': ['exact'],
+        'product__brand': ['exact'],
+        'product__category': ['exact'],
+        'product__subcategory': ['exact'],
+        'product__is_active': ['exact'],
+        'product__status': ['exact'],
     }
-    
+
     def get_queryset(self):
-        queryset = Product.objects.select_related(
-            'brand', 'category', 'subcategory'
-        ).prefetch_related('images').filter(status='published')
-        
-        # Additional filters from query params
-        search = self.request.query_params.get('search', None)
-        category = self.request.query_params.get('category', None)
-        subcategory = self.request.query_params.get('subcategory', None)
-        brand = self.request.query_params.get('brand', None)
-        
+        queryset = RoleBasedProduct.objects.filter(
+            role="admin",
+            product__status="published"
+        ).select_related(
+            'product__brand', 'product__category', 'product__subcategory', 'user'
+        ).prefetch_related(
+            'product__images', 'product__role_based_products__commission'
+        )
+
+        # 🔎 filters
+        search = self.request.query_params.get('search')
+        category = self.request.query_params.get('category')
+        subcategory = self.request.query_params.get('subcategory')
+        brand = self.request.query_params.get('brand')
+
         if search:
             queryset = queryset.filter(
-                Q(name__icontains=search) |
-                Q(short_description__icontains=search) |
-                Q(sku__icontains=search)
+                Q(product__name__icontains=search) |
+                Q(product__short_description__icontains=search) |
+                Q(product__sku__icontains=search)
             )
-        
+
         if category:
-            queryset = queryset.filter(category_id=category)
-        
+            queryset = queryset.filter(product__category_id=category)
+
         if subcategory:
-            queryset = queryset.filter(subcategory_id=subcategory)
-        
+            queryset = queryset.filter(product__subcategory_id=subcategory)
+
         if brand:
-            queryset = queryset.filter(brand_id=brand)
-            
+            queryset = queryset.filter(product__brand_id=brand)
+
         return queryset.order_by('-created_at')
 
 

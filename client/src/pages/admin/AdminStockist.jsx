@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import {
   useFetchStockistsQuery,
   useUpdateStockistStatusMutation,
+  useMarkDefaultStockistMutation,
 } from "../../features/stockist/StockistApi";
 
 import {
@@ -71,6 +72,7 @@ export default function AdminStockist() {
   const [approveApplication] = useApproveAccountApplicationMutation();
   const [rejectApplication] = useRejectAccountApplicationMutation();
   const [UpdateKyc] = useUpdateUserAccountKycMutation();
+  const [markDefaultStockist] = useMarkDefaultStockistMutation();
 
   const isLoading = isLoadingApplications || isLoadingStockists;
 
@@ -101,21 +103,17 @@ export default function AdminStockist() {
   };
 
   const handleMarkKycCompleted = async (userId) => {
-  setIsLoadingAction(true);
-    
-
-  try {
-    await UpdateKyc({ userId }).unwrap();
-    toast.success('KYC marked as completed successfully');
-    refetchApplications();
-  } catch (err) {
-    toast.error(err?.data?.message || "Something went wrong while verifying KYC");
-  } finally {
-    setIsLoadingAction(false);
-   
-  }
-};
-
+    setIsLoadingAction(true);
+    try {
+      await UpdateKyc({ userId }).unwrap();
+      toast.success('KYC marked as completed successfully');
+      refetchApplications();
+    } catch (err) {
+      toast.error(err?.data?.message || "Something went wrong while verifying KYC");
+    } finally {
+      setIsLoadingAction(false);
+    }
+  };
 
   const handleApproveApplication = async (id, actionType = 'approve') => {
     setIsLoadingAction(true);
@@ -166,6 +164,21 @@ export default function AdminStockist() {
     }
   };
 
+  const handleMarkDefaultStockist = async (id, isDefault) => {
+    setIsLoadingAction(true);
+    setCurrentActionId(`default-${id}`);
+    try {
+      await markDefaultStockist({ id, is_default: isDefault }).unwrap();
+      toast.success(`Stockist ${isDefault ? 'marked as default' : 'removed from default'} successfully`);
+      refetchStockists();
+    } catch (err) {
+      toast.error(err?.data?.message || 'Failed to update default stockist status');
+    } finally {
+      setIsLoadingAction(false);
+      setCurrentActionId(null);
+    }
+  };
+
   return (
     <div className="p-2 md:p-4">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 gap-4">
@@ -186,6 +199,7 @@ export default function AdminStockist() {
             handleToggleStockistStatus(id);
           }
         }}
+        onMarkDefaultStockist={handleMarkDefaultStockist}
         onSearch={handleSearch}
         onRefresh={handleRefresh}
         isLoading={isLoading}

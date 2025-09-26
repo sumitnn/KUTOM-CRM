@@ -1,3 +1,4 @@
+// pages/AdminReseller.jsx
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import {
@@ -101,21 +102,17 @@ export default function AdminReseller() {
   };
 
   const handleMarkKycCompleted = async (userId) => {
-  setIsLoadingAction(true);
-    
-
-  try {
-    await UpdateKyc({ userId }).unwrap();
-    toast.success('KYC marked as completed successfully');
-    refetchApplications();
-  } catch (err) {
-    toast.error(err?.data?.message || "Something went wrong while verifying KYC");
-  } finally {
-    setIsLoadingAction(false);
-   
-  }
-};
-
+    setIsLoadingAction(true);
+    try {
+      await UpdateKyc({ userId }).unwrap();
+      toast.success('KYC marked as completed successfully');
+      refetchApplications();
+    } catch (err) {
+      toast.error(err?.data?.message || "Something went wrong while verifying KYC");
+    } finally {
+      setIsLoadingAction(false);
+    }
+  };
 
   const handleApproveApplication = async (id, actionType = 'approve') => {
     setIsLoadingAction(true);

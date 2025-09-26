@@ -138,7 +138,7 @@ class ProductVariantPriceSerializer(serializers.ModelSerializer):
 
 class ProductVariantSerializer(serializers.ModelSerializer):
     product_variant_prices = serializers.SerializerMethodField()
-    bulk_prices = ProductVariantBulkPriceSerializer(many=True, read_only=True)
+    bulk_prices = serializers.SerializerMethodField()  # changed to method
 
     class Meta:
         model = ProductVariant
@@ -154,8 +154,31 @@ class ProductVariantSerializer(serializers.ModelSerializer):
             return []
 
         user = request.user
-        queryset = obj.prices.filter(user=user)  # filter by current user
+        user_role = getattr(user, "role", None)
+
+        if user_role in ["stockist", "reseller"]:
+            # ✅ For stockists & resellers → show admin-set prices only
+            queryset = obj.prices.filter(user__role="admin")
+        else:
+            # ✅ For others → show prices set by themselves
+            queryset = obj.prices.filter(user=user)
+
         return ProductVariantPriceSerializer(queryset, many=True, context=self.context).data
+
+    def get_bulk_prices(self, obj):
+        request = self.context.get("request")
+        if not request or not hasattr(request, "user"):
+            return []
+
+        user_role = getattr(request.user, "role", None)
+
+        if user_role in ["stockist", "reseller"]:
+            # ❌ Hide bulk prices
+            return []
+        else:
+            # ✅ Show bulk prices for others
+            return ProductVariantBulkPriceSerializer(obj.bulk_prices.all(), many=True, context=self.context).data
+
 
 
 
@@ -281,8 +304,17 @@ class ADMINRoleBasedProductSerializer(serializers.ModelSerializer):
         if not request or not hasattr(request, "user"):
             return []
 
-        # only inventories for this product + current user
-        queryset = obj.product.inventories.filter(user=request.user)
+        user = request.user
+        user_role = getattr(user, "role", None)
+
+        if user_role in ["stockist", "reseller"]:
+            admin_user= User.objects.filter(role="admin").first()
+            # ✅ Stockist & Reseller → show inventories from admin
+            queryset = obj.product.inventories.filter(user=admin_user)
+        else:
+            # ✅ Others → show their own inventories
+            queryset = obj.product.inventories.filter(user=user)
+
         return StockInventorySerializer(queryset, many=True, context=self.context).data
 
     def get_commission(self, obj):

@@ -114,13 +114,6 @@ class Wallet(models.Model):
     def __str__(self):
         return f"{self.user.username} Wallet - ₹{self.current_balance}"
 
-class CommissionWallet(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='commission_wallet')
-    balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-
-    def __str__(self):
-        return f"{self.user.username} Wallet - ₹{self.balance}"
 
 class WalletTransaction(models.Model):
     TRANSACTION_TYPE_CHOICES = [
@@ -264,8 +257,7 @@ class StockistAssignment(models.Model):
     reseller = models.ForeignKey(User, on_delete=models.CASCADE, related_name="assigned_stockists")
     stockist = models.ForeignKey(User, on_delete=models.CASCADE, related_name="stockist_for_resellers")
     assigned_at = models.DateTimeField(auto_now_add=True)
-    state = models.ForeignKey(State, on_delete=models.SET_NULL, null=True, blank=True)
-
+ 
     def __str__(self):
         return f"Reseller {self.reseller.username} assigned to Stockist {self.stockist.username}"
 

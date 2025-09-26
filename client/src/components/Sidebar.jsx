@@ -60,9 +60,8 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         label: "Stockist",
         children: [
           { label: "Registration", path: "/admin/stockist" },
-          
-
-
+          { label: "Order Requests", path: "/admin/stockist-order-request" },
+          { label: "Sales & Reports", path: "/admin/stockist-sales-report" },
         ],
       },
        {
@@ -70,16 +69,15 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         label: "Reseller",
         children: [
           { label: "Registration", path: "/admin/reseller" },
+          { label: "Sales & Reports", path: "/admin/reseller-sales-report" },
           
-
-
         ],
       },
  {
         icon: <MdInventory />,
-        label: "Stock and Sales",
+        label: "Stock and Inventory",
         children: [
-          { label: "Sales & Reports", path: "/admin/sales-report" },
+          
           { label: "My Stock ", path: "/admin/my-stocks" },
           
        
@@ -121,19 +119,29 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
           { label: "My Reseller", path: "/stockist/reseller" },
         ],
       },
-      { icon: <RxDashboard />, label: "Products", path: "/stockist/products" },
+       {
+        icon: <TbCategoryPlus />,
+        label: "Products",
+        children: [
+          { label: "Market", path: "/stockist/products" },  
+        
+        ],
+      },
+     
       {
         icon: <MdInventory />,
         label: "Stock Management",
         children: [
-          { label: "My Stocks", path: "" },
-          { label: "Stocks Report", path: "" },
+          { label: "My Stocks", path: "/stockist/my-stocks" },
+          { label: "My Sales & Report", path: "/stockist/sales-report" },
         ],
       },{
         icon: <FaCodePullRequest />,
         label: "Order Management",
         children: [
-          { label: "My Orders", path: "/stockist/orders" },
+          // { label: "My Orders", path: "/stockist/orders" },
+          { label: "My Order Request", path: "/stockist/my-order-request" },
+          
         ],
       },{
         icon: <FaCodePullRequest />,

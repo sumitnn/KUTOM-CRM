@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import (
-    User, Profile, Wallet, CommissionWallet, WalletTransaction,
+    User, Profile, Wallet,  WalletTransaction,
     TopupRequest, WithdrawalRequest, State, District, Address,
     StockistAssignment, BroadcastMessage, Notification,
     Company, ProfileApprovalStatus
@@ -77,10 +77,7 @@ class WalletAdmin(admin.ModelAdmin):
     search_fields = ("user__email", "user__phone")
 
 
-@admin.register(CommissionWallet)
-class CommissionWalletAdmin(admin.ModelAdmin):
-    list_display = ("user", "balance")
-    search_fields = ("user__email", "user__phone")
+
 
 
 @admin.register(WalletTransaction)
@@ -127,9 +124,9 @@ class AddressAdmin(admin.ModelAdmin):
 
 @admin.register(StockistAssignment)
 class StockistAssignmentAdmin(admin.ModelAdmin):
-    list_display = ("reseller", "stockist", "state", "assigned_at")
+    list_display = ("reseller", "stockist", "assigned_at")
     search_fields = ("reseller__email", "stockist__email")
-    list_filter = ("state",)
+    
 
 
 @admin.register(BroadcastMessage)

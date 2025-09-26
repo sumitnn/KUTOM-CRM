@@ -379,3 +379,71 @@ class OrderPayment(models.Model):
             self.order.payment_status = 'pending'
         
         self.order.save(update_fields=['payment_status', 'updated_at'])
+
+
+class OrderRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    REQUESTOR_TYPE_CHOICES = [
+        ('reseller', 'Reseller'),
+        ('stockist', 'Stockist'),
+    ]
+
+    TARGET_TYPE_CHOICES = [
+        ('stockist', 'Stockist'),
+        ('admin', 'Admin'),
+    ]
+    request_id = models.CharField(max_length=40, unique=True, blank=True)
+
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='order_requests'
+    )
+    requestor_type = models.CharField(max_length=20, choices=REQUESTOR_TYPE_CHOICES)
+    target_type = models.CharField(max_length=20, choices=TARGET_TYPE_CHOICES)
+    target_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='incoming_requests'
+    )
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    note = models.TextField(blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.requested_by} → {self.target_type} ({self.status})"
+    
+    def save(self, *args, **kwargs):
+        if not self.request_id:
+            last_id = OrderRequest.objects.all().count() + 1
+            self.request_id = f"req_0000{str(last_id).zfill(3)}"
+        super().save(*args, **kwargs)
+    
+    @property
+    def total_amount(self):
+        """Calculate total amount including GST and discounts"""
+        return sum(item.total_price for item in self.items.all())
+    
+    @property
+    def total_quantity(self):
+        """Calculate total quantity of all items"""
+        return sum(item.quantity for item in self.items.all())
+
+class OrderRequestItem(models.Model):
+    order_request = models.ForeignKey(OrderRequest, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey(RoleBasedProduct, on_delete=models.CASCADE)
+    variant= models.ForeignKey(ProductVariant, on_delete=models.CASCADE, null=True, blank=True)
+    quantity = models.PositiveIntegerField()
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    total_price = models.DecimalField(max_digits=12, decimal_places=2)
+    gst_percentage = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    discount_percentage = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    
+
+    def __str__(self):
+        return f" {self.quantity}"

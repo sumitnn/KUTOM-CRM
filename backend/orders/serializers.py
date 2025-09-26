@@ -1,9 +1,11 @@
 from rest_framework import serializers
-from .models import Order, OrderItem, OrderHistory, OrderPayment
-from accounts.models import User, Address
-from products.models import Product, ProductImage, ProductVariant, RoleBasedProduct
+from .models import Order, OrderItem, OrderHistory, OrderPayment,OrderRequestItem,OrderRequest
+from accounts.models import User, Address, Wallet, WalletTransaction
+from products.models import Product, ProductImage, ProductVariant, RoleBasedProduct, ProductVariantPrice,ProductFeatures
 from decimal import Decimal
 from django.db.models import Sum
+from products.serializers import BrandSerializer, CategorySerializer, TagSerializer
+
 
 class UserBasicSerializer(serializers.ModelSerializer):
     role_based_id = serializers.SerializerMethodField()
@@ -263,3 +265,196 @@ class OrderPaymentCreateSerializer(serializers.ModelSerializer):
             )
         
         return data
+    
+class OrderRequestItemSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.product.name', read_only=True)
+    product_sku = serializers.CharField(source='product.product.sku', read_only=True)
+    product_type = serializers.CharField(source='product.product.product_type', read_only=True)
+
+    class Meta:
+        model = OrderRequestItem
+        fields = ['id', 'product', 'product_name','product_sku','product_type', 'quantity', 'unit_price', 'total_price', 'variant','gst_percentage','discount_percentage']
+        read_only_fields = ['total_price']
+
+# serializers.py
+
+class OrderRequestSerializer(serializers.ModelSerializer):
+    items = OrderRequestItemSerializer(many=True)
+    total_amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    requested_by=UserBasicSerializer(read_only=True)
+
+    class Meta:
+        model = OrderRequest
+        fields = [
+            'id', 'request_id', 'requested_by',
+            'requestor_type', 'target_type', 'target_user',
+            'status', 'note', 'items', 'total_amount',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['request_id', 'created_at', 'updated_at', 'total_amount']
+        extra_kwargs = {
+            "requested_by": {"required": False},
+            "requestor_type": {"required": False},
+            "target_type": {"required": False},
+        }
+
+    def create(self, validated_data):
+        
+        request_user = self.context["request"].user
+        items_data = validated_data.pop('items', [])
+        admin_user = User.objects.filter(role='admin').first()
+
+        total_amount = Decimal("0.00")
+
+        # Calculate secure prices
+        secure_items = []
+        for item_data in items_data:
+            variant= item_data.get("variant")
+            quantity = item_data.get("quantity", 1)
+            role_product= item_data.get("product")
+
+            try:
+                price_obj = ProductVariantPrice.objects.get(
+                    variant=variant,
+                    role="admin",
+                    product=role_product.product
+                )
+            except ProductVariantPrice.DoesNotExist:
+                raise serializers.ValidationError(
+                    {"error": f"No valid price found for variant {variant.id} and role admin"}
+                )
+
+            unit_price = price_obj.price
+            discount = price_obj.discount
+            gst_percentage = price_obj.gst_percentage
+
+            # Apply discount
+            discounted_price = unit_price - (unit_price * Decimal(discount) / 100)
+
+            # GST calculation
+            gst_tax = discounted_price * Decimal(gst_percentage) / 100
+            final_price = discounted_price + gst_tax
+
+            total_price = final_price * quantity
+            total_amount += total_price
+
+            secure_items.append({
+                "variant_id": variant.id,
+                "quantity": quantity,
+                "unit_price": unit_price,
+                "discount": discount,
+                "gst_percentage": gst_percentage,
+                "gst_tax": gst_tax,
+                "final_price": final_price,
+                "total_price": total_price,
+                "product_id": role_product.id
+            })
+
+        # Default values
+        validated_data['requested_by'] = request_user
+        validated_data['target_user'] = admin_user
+        validated_data.setdefault("requestor_type", "stockist")
+        validated_data.setdefault("target_type", "admin")
+
+        # Wallet check for stockists
+        if validated_data["requestor_type"] == "stockist":
+            wallet = Wallet.objects.select_for_update().get(user=request_user)
+            if wallet.current_balance < total_amount:
+                raise serializers.ValidationError(
+                    {"error": "Insufficient wallet balance"}
+                )
+            wallet.current_balance -= total_amount
+            wallet.save()
+        
+            
+
+        # Create order + secure items
+        order_request = OrderRequest.objects.create(**validated_data)
+        # Create wallet transaction for stockist
+        WalletTransaction.objects.create(
+                wallet=wallet,
+                transaction_type='DEBIT',
+                amount=total_amount,
+                description=f"Order Request #{order_request.id} placed",
+                transaction_status='SUCCESS',
+                order_id=order_request.id
+            )
+        
+        for item in secure_items:
+            OrderRequestItem.objects.create(
+                order_request=order_request,
+                variant_id=item["variant_id"],
+                quantity=item["quantity"],
+                unit_price=item["unit_price"],
+                discount_percentage=item["discount"],
+                gst_percentage=item["gst_percentage"],
+                total_price=item["total_price"],
+                product_id=item["product_id"]
+            )
+
+        return order_request
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['total_amount'] = sum(item.total_price for item in instance.items.all())
+        return representation
+
+
+class OrderRequestStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderRequest
+        fields = ['status']
+
+class OrderRequestProductSerializer(serializers.ModelSerializer):
+    brand = BrandSerializer(read_only=True)
+    category = CategorySerializer(read_only=True)
+    tags = TagSerializer(many=True, read_only=True)
+    features = serializers.SlugRelatedField(
+        many=True,
+        slug_field="name",
+        queryset=ProductFeatures.objects.all(),
+        required=False
+    )
+    images = ProductImageSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'name', 'slug', 'description', 'short_description',
+            'sku', 'is_active',  'weight', 'weight_unit',
+            'dimensions', 'currency', 'product_type', 'video_url', 'warranty',
+            'brand', 'category', 'tags', 'features', 'images'
+        ]
+
+class OrderRequestDetailItemSerializer(serializers.ModelSerializer):
+    product = OrderRequestProductSerializer(source='product.product',read_only=True)  # nested full product
+    variant = serializers.StringRelatedField()   # optional, to show variant name or implement a VariantSerializer
+
+    class Meta:
+        model = OrderRequestItem
+        fields = [
+            "id", "product", "quantity", "unit_price",
+            "total_price", "variant", "gst_percentage", "discount_percentage"
+        ]
+
+
+class OrderRequestDetailSerializer(serializers.ModelSerializer):
+    items = OrderRequestDetailItemSerializer(many=True, read_only=True)
+    total_amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    requested_by = UserBasicSerializer(read_only=True)  # your existing user serializer
+   
+
+    class Meta:
+        model = OrderRequest
+        fields = [
+            'id', 'request_id', 'requested_by', 'target_user',
+            'requestor_type', 'target_type', 'status', 'note',
+            'items', 'total_amount',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['request_id', 'created_at', 'updated_at', 'total_amount']
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['total_amount'] = sum(item.total_price for item in instance.items.all())
+        return representation

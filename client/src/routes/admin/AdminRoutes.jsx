@@ -1,13 +1,17 @@
 import { lazy, Suspense } from "react";
 import { Route } from "react-router-dom";
 
-// Components that don't need lazy loading (used in fallback or wrappers)
-import Spinner from "../../components/common/Spinner";
-import ProtectedRoute from "../ProtectedRoutes";
-import AdminMainLayout from "../../layout/admin/AdminMainLayout";
 
 
 // Lazy-loaded page components
+const OrderRequestReport = lazy(() => import("../../pages/OrderRequestReport"));
+const OrderRequestDetailsPage = lazy(() => import("../../pages/OrderRequestDetailsPage"));
+const OrderRequestPage = lazy(() => import("../../pages/OrderRequestPage"));
+const AdminMainLayout = lazy(() => import("../../layout/admin/AdminMainLayout"));
+const ProtectedRoute = lazy(() => import("../ProtectedRoutes"));
+const Spinner = lazy(() => import("../../components/common/Spinner"));
+
+
 const AdminMyProduct = lazy(() => import("../../pages/admin/AdminMyProduct"));
 const OrderDetailPage = lazy(() => import("../../pages/OrderDetailPage"));
 const AdminOrderRequestPage = lazy(() => import("../../pages/AdminOrderRequestPage"));
@@ -109,11 +113,42 @@ const AdminRoutes = [
     
     {/* Reports */}
     <Route
-      path="/admin/sales-report"
+      path="/admin/reseller-sales-report"
       element={
         <AdminMainLayout>
           <Suspense fallback={<Spinner />}>
             <Report role="admin" />
+          </Suspense>
+        </AdminMainLayout>
+      }
+    />
+     <Route
+      path="/admin/stockist-sales-report"
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <OrderRequestReport/>
+          </Suspense>
+        </AdminMainLayout>
+      }
+    />
+    {/* order reqeust  stockist*/}
+    <Route
+      path="/admin/stockist-order-request"
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <OrderRequestPage role="admin" />
+          </Suspense>
+        </AdminMainLayout>
+      }
+    />
+    <Route
+      path="/order-requests-details/:id"
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <OrderRequestDetailsPage role="admin" />
           </Suspense>
         </AdminMainLayout>
       }

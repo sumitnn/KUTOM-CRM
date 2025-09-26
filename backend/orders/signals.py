@@ -46,13 +46,11 @@ def handle_order_delivered(sender, instance, created, **kwargs):
             variant=item.variant,
             user=buyer,
             defaults={
-                "new_quantity": item.quantity,
+    
                 "total_quantity": item.quantity,
             }
         )
 
         if not created_inv:
-            # Update stock quantities
-            stock_inv.new_quantity = item.quantity
             stock_inv.total_quantity = stock_inv.total_quantity + item.quantity
             stock_inv.save()
