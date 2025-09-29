@@ -156,11 +156,11 @@ const AdminRoutes = [
 
     {/* Order Management */}
     <Route
-      path="/admin/order-requests"
+      path="/reseller/order-requests"
       element={
         <AdminMainLayout>
           <Suspense fallback={<Spinner />}>
-            <AdminOrderRequestPage />
+            <AdminOrderRequestPage  role="admin"/>
           </Suspense>
         </AdminMainLayout>
       }

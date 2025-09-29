@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from .models import *
 from .serializers import *
 from django.utils.timezone import now
-from accounts.permissions import IsAdminRole, IsStockistRole, IsVendorRole, IsAdminOrVendorRole, IsAdminStockistResellerRole,IsAdminOrStockistRole,IsStockistOrResellerRole
+from accounts.permissions import IsAdminRole, IsStockistRole, IsVendorRole, IsAdminOrVendorRole, IsAdminStockistResellerRole,IsAdminOrStockistRole,IsStockistOrResellerRole,IsAdminOrResellerRole
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import status
@@ -93,13 +93,11 @@ class MyOrdersView(ListAPIView):
 
 class VendorOrdersView(ListAPIView):
     serializer_class = OrderSerializer
-    permission_classes = [IsVendorRole]
+    permission_classes = [IsAdminOrVendorRole]
     pagination_class = MyOrdersPagination
 
     def get_queryset(self):
         user = self.request.user
-        
-       
         queryset = Order.objects.filter(seller=user)
 
         status_filter = self.request.query_params.get('status')
@@ -589,6 +587,8 @@ class UpdateOrderStatusView(APIView):
             )
 
 
+
+
 class UpdateOrderDispatchStatusView(APIView):
     permission_classes = [IsAdminOrVendorRole]
     parser_classes = [MultiPartParser, FormParser]
@@ -697,7 +697,7 @@ class OrderSummaryView(APIView):
 
 
 class SalesReportView(APIView):
-    permission_classes = [IsAdminOrVendorRole]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         user = request.user
@@ -732,9 +732,7 @@ class SalesReportView(APIView):
                 start_date = today - timedelta(days=2)
                 end_date = today
 
-        print(Order.objects.filter(
-            seller=user, 
-            status='delivered').count())
+       
         orders = Order.objects.filter(
             seller=user, 
             status='delivered',
@@ -1828,3 +1826,180 @@ class UpdateOrderRequestStatusView(APIView):
             #     action="ADD",
             #     reference_id=f"OrderReq-{order_request.id}",
             # )
+
+
+class ResellerOrderStatusMange(APIView):
+    permission_classes = [IsAdminOrResellerRole]
+
+    def patch(self, request, pk):
+        import pdb; pdb.set_trace()
+        try:
+            order = Order.objects.get(pk=pk)
+        except Order.DoesNotExist:
+            return Response({"message": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # --- Permission check ---
+        if request.user != order.seller and request.user != order.buyer:
+            return Response({"message": "You are not authorized to update this order."}, status=status.HTTP_403_FORBIDDEN)
+
+        new_status = request.data.get("status")
+        note = request.data.get("note", "")
+
+        # --- Special case: accepted ---
+        if new_status == "accepted":
+            order.payment_status = "pending_shipping"
+            order.save(update_fields=["payment_status"])
+            create_notification(
+                user=order.buyer,
+                title="Your Order is Approved by Admin",
+                message=f"Order #{order.id} has been accepted. Please prepare for dispatch.",
+                notification_type="order_accepted",
+                related_url=f"/orders/{order.id}/"
+            )
+
+        # --- Map "received" -> "delivered" ---
+        if new_status == "received":
+            new_status = "delivered"
+
+        with transaction.atomic():
+            previous_status = order.status
+            order.status = new_status
+            if new_status != "cancelled":
+                order.note = note
+            order.save()
+
+            # --- Order history log ---
+            OrderHistory.objects.create(
+                order=order,
+                actor=request.user,
+                action=new_status,
+                notes=order.note,
+                previous_status=previous_status
+            )
+
+            # --- Handle delivered ---
+            if new_status == "delivered":
+                self.handle_delivered_status(order, request.user)
+
+        # --- Send notifications ---
+        self.create_notifications(order, new_status, request.user)
+
+        serializer = OrderSerializer(order)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def handle_delivered_status(self, order, user):
+        """Handle wallet transactions + role-based product/stock setup for delivered orders"""
+        try:
+            with transaction.atomic():
+                # --- 1️⃣ Transport charges ---
+                if order.transport_charges and order.transport_charges > 0:
+                    buyer_wallet, _ = Wallet.objects.get_or_create(user=order.buyer)
+                    seller_wallet, _ = Wallet.objects.get_or_create(user=order.seller)
+                    transport_charges = order.transport_charges
+
+                    if buyer_wallet.current_balance >= transport_charges:
+                        buyer_wallet.current_balance -= transport_charges
+                        seller_wallet.current_balance += transport_charges
+                        buyer_wallet.save()
+                        seller_wallet.save()
+
+                        WalletTransaction.objects.create(
+                            wallet=buyer_wallet,
+                            transaction_type="DEBIT",
+                            amount=transport_charges,
+                            description=f"Transport charges for Order #{order.id}",
+                            transaction_status="SUCCESS",
+                            order_id=order.id
+                        )
+                        WalletTransaction.objects.create(
+                            wallet=seller_wallet,
+                            transaction_type="CREDIT",
+                            amount=transport_charges,
+                            description=f"Received transport charges for Order #{order.id}",
+                            transaction_status="SUCCESS",
+                            order_id=order.id
+                        )
+                        order.payment_status = "paid"
+                    else:
+                        WalletTransaction.objects.create(
+                            wallet=buyer_wallet,
+                            transaction_type="DEBIT",
+                            amount=transport_charges,
+                            description=f"Transport charges for Order #{order.id} (FAILED - insufficient balance)",
+                            transaction_status="FAILED",
+                            order_id=order.id
+                        )
+                        order.payment_status = "failed_shipping"
+
+                    order.save(update_fields=["payment_status"])
+
+                # --- 2️⃣ RoleBasedProduct / ProductVariantPrice / StockInventory ---
+                for item in order.items.all():
+                    product = item.product
+                    variant = getattr(item, "variant", None)
+                    buyer = order.buyer  
+
+                    # Determine role
+                    role = "reseller"
+                
+                    # RoleBasedProduct
+                    rbp, _ = RoleBasedProduct.objects.get_or_create(
+                        product=product,
+                        user=buyer,
+                        role=role,
+                        defaults={"price": getattr(product, "base_price", None)}
+                    )
+                    if variant and variant not in rbp.variants.all():
+                        rbp.variants.add(variant)
+
+                    # ProductVariantPrice
+                    if variant:
+                        pvp, created_pvp = ProductVariantPrice.objects.get_or_create(
+                            product=product,
+                            variant=variant,
+                            user=buyer,
+                            role=role,
+                            defaults={"price": item.unit_price, "discount": 0, "gst_percentage": 0}
+                        )
+                        if not created_pvp and pvp.price != item.unit_price:
+                            pvp.price = item.unit_price
+                            pvp.save()
+
+                    # StockInventory
+                    stock_inv, created_stock = StockInventory.objects.get_or_create(
+                        user=buyer,
+                        product=product,
+                        variant=variant,
+                        defaults={
+                            "total_quantity": item.quantity,
+                            "notes": f"Initial stock from Order #{order.id}"
+                        }
+                    )
+                    if not created_stock:
+                        stock_inv.adjust_stock(
+                            change_quantity=item.quantity,
+                            action="ADD",
+                            reference_id=order.id
+                        )
+        except Exception as e:
+            print(f"Error in handle_delivered_status: {str(e)}")
+
+    def create_notifications(self, order, new_status, current_user):
+        """Create notifications for order status updates"""
+        if current_user != order.buyer:
+            create_notification(
+                user=order.buyer,
+                title="Order Status Updated",
+                message=f"Your order #{order.id} status has been updated to {new_status}.",
+                notification_type="order_status_update",
+                related_url=f"/orders/{order.id}/"
+            )
+
+        if current_user != order.seller:
+            create_notification(
+                user=order.seller,
+                title="Order Status Updated",
+                message=f"Order #{order.id} status has been updated to {new_status}.",
+                notification_type="order_status_update",
+                related_url=f"/orders/{order.id}/"
+            )

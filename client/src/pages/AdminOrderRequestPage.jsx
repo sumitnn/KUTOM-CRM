@@ -1,48 +1,30 @@
 import { useState, lazy, Suspense, useEffect } from "react";
-import { 
-  FiFileText, 
-  FiCheck, 
-  FiX, 
-  FiTruck, 
-  FiPackage,
-  FiRefreshCw,
-  FiFilter,
-  FiSearch,
-  FiChevronDown,
-  FiChevronUp,
-  FiCalendar,
-  FiUser,
-  FiPhone,
-  FiMessageCircle,
-  FiMapPin,
-  FiBox
-} from "react-icons/fi";
+import { FiFileText, FiCheck, FiX, FiTruck, FiPackage, FiRefreshCw } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { 
-  useGetAdminOrdersQuery, 
-  useUpdateOrderStatusMutation,
-  useUpdateDispatchStatusMutation
+  useGetVendorOrdersQuery, 
+  useUpdateResellerOrderStatusMutation,
+  useUpdateDispatchStatusMutation 
 } from "../features/order/orderApi";
 import { toast } from "react-toastify";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 
 // Lazy-loaded components
 const Spinner = lazy(() => import('../components/common/Spinner'));
 const ErrorMessage = lazy(() => import('../components/common/ErrorMessage'));
+const OrderDetailsModal = lazy(() => import('../pages/OrderDetailsModal'));
 
-const AdminOrderRequestPage = () => {
+const AdminOrderRequestPage = ({ role }) => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("today");
+  const [activeTab, setActiveTab] = useState("new");
   const [page, setPage] = useState(1);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [dateRange, setDateRange] = useState([null, null]);
-  const [startDate, endDate] = dateRange;
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [statusNote, setStatusNote] = useState("");
   const [isDispatching, setIsDispatching] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
-  const [expandedRows, setExpandedRows] = useState(new Set());
+  const [showOrderDetails, setShowOrderDetails] = useState(false);
+  const [selectedOrderForDetails, setSelectedOrderForDetails] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [tabChanging, setTabChanging] = useState(false);
+  const [processingOrders, setProcessingOrders] = useState(new Set());
   
   // Dispatch form state
   const [dispatchForm, setDispatchForm] = useState({
@@ -53,50 +35,63 @@ const AdminOrderRequestPage = () => {
     receipt: null
   });
 
-  // Set default date range to today
-  useEffect(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    setDateRange([today, new Date()]);
-  }, []);
-
-  const { data: adminOrders, isLoading, isError, refetch } = useGetAdminOrdersQuery({
-    filter: activeTab,
-    page,
-    search: searchTerm,
-    start_date: startDate?.toISOString(),
-    end_date: endDate?.toISOString()
+  const { data: vendorOrders, isLoading, isError, refetch } = useGetVendorOrdersQuery({
+    status: activeTab,
+    page
   });
 
-  const [updateOrderStatus] = useUpdateOrderStatusMutation();
+  const [updateOrderStatus] = useUpdateResellerOrderStatusMutation();
   const [updateDispatchStatus] = useUpdateDispatchStatusMutation();
   
   const tabs = [
-    { id: "today", label: "Today's Orders", icon: <FiCalendar className="mr-1" /> },
-    { id: "all", label: "All Orders" },
     { id: "new", label: "New Orders" },
-    { id: "accepted", label: "Accepted" },
-    { id: "dispatched", label: "Dispatched" },
-    { id: "delivered", label: "Delivered" },
-    { id: "rejected", label: "Rejected" },
-    { id: "cancelled", label: "Cancelled" }
+    { id: "accepted", label: "Accepted Orders" },
+    { id: "rejected", label: "Rejected Orders" },
+    { id: "cancelled", label: "Cancelled Orders" },
+    { id: "dispatched", label: "Dispatched Orders" },
+    { id: "delivered", label: "Delivered Orders" },
   ];
 
-  const toggleRowExpansion = (orderId) => {
-    const newExpandedRows = new Set(expandedRows);
-    if (newExpandedRows.has(orderId)) {
-      newExpandedRows.delete(orderId);
-    } else {
-      newExpandedRows.add(orderId);
+  // Handle tab changes with loading state
+  useEffect(() => {
+    if (tabChanging) {
+      const timer = setTimeout(() => {
+        setTabChanging(false);
+      }, 500);
+      return () => clearTimeout(timer);
     }
-    setExpandedRows(newExpandedRows);
+  }, [vendorOrders, tabChanging]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refetch();
+      toast.success("Orders refreshed");
+    } catch (error) {
+      toast.error("Failed to refresh orders");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleTabChange = (tabId) => {
+    setTabChanging(true);
+    setActiveTab(tabId);
+    setPage(1);
   };
 
   const handleStatusUpdate = async (orderId, status) => {
+    if (status === 'dispatched') {
+      return;
+    }
+
     if (!statusNote && ['rejected', 'cancelled'].includes(status)) {
       toast.error("Please enter a note for this action");
       return;
     }
+
+    // Add to processing orders to disable button
+    setProcessingOrders(prev => new Set(prev).add(orderId));
 
     try {
       await updateOrderStatus({
@@ -104,12 +99,19 @@ const AdminOrderRequestPage = () => {
         status,
         note: statusNote
       }).unwrap();
-      toast.success(`Order status updated to ${status}`);
+      toast.success(`Order ${status} successfully`);
       setSelectedOrder(null);
       setStatusNote("");
       refetch();
     } catch (error) {
-      toast.error(error.data?.message || "Failed to update order status");
+      toast.error(error.data?.message||"Something Went Wrong");
+    } finally {
+      // Remove from processing orders
+      setProcessingOrders(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(orderId);
+        return newSet;
+      });
     }
   };
 
@@ -121,6 +123,8 @@ const AdminOrderRequestPage = () => {
       return;
     }
 
+    // Add to processing orders to disable button
+    setProcessingOrders(prev => new Set(prev).add(orderId));
     setIsDispatching(true);
 
     try {
@@ -156,6 +160,12 @@ const AdminOrderRequestPage = () => {
       toast.error(error.data?.message || "Failed to dispatch order");
     } finally {
       setIsDispatching(false);
+      // Remove from processing orders
+      setProcessingOrders(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(orderId);
+        return newSet;
+      });
     }
   };
 
@@ -193,27 +203,65 @@ const AdminOrderRequestPage = () => {
     );
   };
 
-  const clearFilters = () => {
-    setSearchTerm("");
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    setDateRange([today, new Date()]);
-    setActiveTab("today");
+  const handleViewOrderDetails = (order) => {
+    setSelectedOrderForDetails(order);
+    setShowOrderDetails(true);
   };
 
-  const formatAddress = (address) => {
-    if (!address) return "No address provided";
-    
-    const parts = [
-      address.street_address,
-      address.city,
-      address.district,
-      address.state,
-      address.postal_code,
-      address.country
-    ].filter(part => part && part.trim() !== "");
-    
-    return parts.join(", ") || "Address incomplete";
+  // Transform API order data to match the OrderDetailsModal format
+  const transformOrderForModal = (order) => {
+    return {
+      id: order.id,
+      date: order.created_at,
+      buyer: {
+        id: order.buyer?.id || '',
+        name: order.buyer?.username || 'N/A',
+        email: order.buyer?.email || 'N/A',
+        address: order.buyer?.address || {
+          street_address: null,
+          city: null,
+          state: "",
+          district: "",
+          postal_code: null,
+          country: "India"
+        },
+        phone: order.buyer?.phone || 'N/A',
+        whatsapp: order.buyer?.whatsapp || 'N/A'
+      },
+      seller: {
+        id: order.seller?.id || '',
+        name: order.seller?.username || 'N/A',
+        email: order.seller?.email || 'N/A',
+        roleId: order.seller?.role_based_id || 'N/A',
+        phone: order.seller?.phone || 'N/A'
+      },
+      items: order.items?.map(item => ({
+        id: item.id,
+        productId: item.product?.id,
+        productName: item.product?.name,
+        size: item.variant?.name,
+        quantity: item.quantity,
+        price: item.unit_price,
+        discount: item.discount || "0.00",
+        gstAmount: item.gst_amount || "0.00",
+        total: (parseFloat(item.unit_price) * item.quantity - parseFloat(item.discount || 0)).toString()
+      })) || [],
+      totalAmount: order.total_price,
+      subtotal: order.subtotal || order.total_price,
+      gstAmount: order.gst_amount || "0.00",
+      discountAmount: order.discount_amount || "0.00",
+      status: order.status,
+      statusDisplay: order.status_display,
+      paymentStatus: order.payment_status,
+      paymentStatusDisplay: order.payment_status_display,
+      description: order.description || "Order placed",
+      courier_name: order.courier_name,
+      tracking_number: order.tracking_number,
+      transport_charges: order.transport_charges || "0.00",
+      expected_delivery_date: order.expected_delivery_date,
+      receipt: order.receipt,
+      note: order.note || ""
+    };
   };
 
   return (
@@ -221,96 +269,45 @@ const AdminOrderRequestPage = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-gray-800">Order Requests</h1>
-          <p className="text-sm text-gray-500 font-bold">Manage all received order requests by customer</p>
+          <h1 className="text-2xl font-extrabold text-gray-800">Orders Management</h1>
+          <p className="text-sm text-gray-500 font-bold">Manage your orders</p>
         </div>
         
-        <div className="flex gap-2">
-          <button 
-            className="btn btn-ghost gap-2"
-            onClick={refetch}
-            disabled={isLoading}
-          >
-            <FiRefreshCw className={isLoading ? "animate-spin" : ""} />
-            {isLoading ? 'Refreshing...' : 'Refresh'}
-          </button>
-          <button 
-            className="btn btn-outline gap-2"
-            onClick={() => setShowFilters(!showFilters)}
-          >
-            <FiFilter />
-            Filters
-            {showFilters ? <FiChevronUp /> : <FiChevronDown />}
-          </button>
-        </div>
+        <button 
+          className="btn btn-ghost gap-2"
+          onClick={handleRefresh}
+          disabled={isLoading || isRefreshing}
+        >
+          {isRefreshing ? (
+            <>
+              <FiRefreshCw className="animate-spin" />
+              Refreshing...
+            </>
+          ) : isLoading ? (
+            'Loading...'
+          ) : (
+            <>
+              <FiRefreshCw />
+              Refresh
+            </>
+          )}
+        </button>
       </div>
 
-      {/* Filters Section */}
-      {showFilters && (
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-6 border border-gray-100">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text">Search Orders</span>
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search by ID, customer, vendor..."
-                  className="input input-bordered w-full pl-10"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <FiSearch className="absolute left-3 top-3 text-gray-400" />
-              </div>
-            </div>
-            
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text">Date Range</span>
-              </label>
-              <DatePicker
-                selectsRange={true}
-                startDate={startDate}
-                endDate={endDate}
-                onChange={(update) => setDateRange(update)}
-                isClearable={true}
-                placeholderText="Select date range"
-                className="input input-bordered w-full"
-              />
-            </div>
-            
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text">Status</span>
-              </label>
-              <select
-                className="select select-bordered w-full"
-                value={activeTab}
-                onChange={(e) => {
-                  setActiveTab(e.target.value);
-                  setPage(1);
-                }}
-              >
-                {tabs.map((tab) => (
-                  <option key={tab.id} value={tab.id}>{tab.label}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          
-          <div className="flex justify-end mt-4">
-            <button 
-              onClick={clearFilters}
-              className="btn btn-ghost btn-sm"
-            >
-              Clear Filters
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Tabs */}
+      <div className="md:hidden mb-4">
+        <select 
+          className="select select-bordered w-full"
+          value={activeTab}
+          onChange={(e) => handleTabChange(e.target.value)}
+          disabled={tabChanging}
+        >
+          {tabs.map((tab) => (
+            <option key={tab.id} value={tab.id}>{tab.label}</option>
+          ))}
+        </select>
+      </div>
+      
       <div className="hidden md:flex border-b border-gray-200 mb-6 overflow-x-auto">
         {tabs.map((tab) => (
           <button
@@ -320,56 +317,40 @@ const AdminOrderRequestPage = () => {
                 ? "border-b-2 border-primary text-primary"
                 : "text-gray-500 hover:text-gray-700"
             }`}
-            onClick={() => {
-              setActiveTab(tab.id);
-              setPage(1);
-            }}
+            onClick={() => handleTabChange(tab.id)}
+            disabled={tabChanging}
           >
-            {tab.icon && tab.icon}
+            {tabChanging && activeTab === tab.id && (
+              <span className="loading loading-spinner loading-xs mr-2"></span>
+            )}
             {tab.label}
-            {adminOrders?.counts?.[tab.id] ? (
-              <span className="ml-1 bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
-                {adminOrders.counts[tab.id]}
-              </span>
-            ) : null}
           </button>
         ))}
       </div>
 
-      {/* Mobile Tabs */}
-      <div className="md:hidden mb-4">
-        <select 
-          className="select select-bordered w-full"
-          value={activeTab}
-          onChange={(e) => {
-            setActiveTab(e.target.value);
-            setPage(1);
-          }}
-        >
-          {tabs.map((tab) => (
-            <option key={tab.id} value={tab.id}>
-              {tab.label} 
-              {adminOrders?.counts?.[tab.id] ? ` (${adminOrders.counts[tab.id]})` : ''}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* Loading overlay for tab changes */}
+      {tabChanging && (
+        <div className="absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center z-10 rounded-lg">
+          <span className="loading loading-spinner loading-lg text-primary"></span>
+        </div>
+      )}
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <Suspense fallback={<div>Loading...</div>}>
-          {isLoading ? (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative">
+        <Suspense fallback={<div className="flex justify-center items-center p-8"><Spinner /></div>}>
+          {isLoading || tabChanging ? (
             <div className="flex justify-center items-center p-8">
               <Spinner />
             </div>
           ) : isError ? (
             <div className="text-center py-8">
-              <ErrorMessage message="Failed to load orders" />
+              <ErrorMessage message="Failed to load vendor orders" />
               <button 
                 className="btn btn-sm btn-outline mt-4" 
                 onClick={refetch}
+                disabled={isRefreshing}
               >
-                Retry
+                {isRefreshing ? 'Retrying...' : 'Retry'}
               </button>
             </div>
           ) : (
@@ -378,195 +359,119 @@ const AdminOrderRequestPage = () => {
                 <table className="table w-full">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="w-12"></th>
                       <th className="w-12">#</th>
                       <th>Order ID</th>
                       <th>Date</th>
-                      <th>Customer Details</th>
-                      <th>Customer Address</th>
-                      <th>Amount</th>
+                      <th>Customer</th>
+                      <th>Product Info</th>
+                      <th>Qty</th>
+                      <th>Price</th>
+                      <th>Total</th>
                       <th>Status</th>
                       <th className="text-center">Actions</th>
                     </tr>
                   </thead>
                   
                   <tbody>
-                    {adminOrders?.results?.length > 0 ? (
-                      adminOrders.results.map((order, index) => (
-                        <>
-                          <tr key={order.id} className="hover:bg-gray-50">
-                            <td>
-                              <button
-                                onClick={() => toggleRowExpansion(order.id)}
-                                className="btn btn-xs btn-ghost"
-                              >
-                                {expandedRows.has(order.id) ? <FiChevronUp /> : <FiChevronDown />}
-                              </button>
-                            </td>
-                            <td className="font-medium">{index + 1 + (page - 1) * 10}</td>
-                            <td className="font-medium">#{order.id}</td>
-                            <td className="font-medium">
-                              {formatDate(order.created_at)}
-                            </td>
-                            <td>
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-1">
-                                  <FiUser className="text-gray-400" size={14} />
-                                  <span className="font-medium">{order.buyer?.username}</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <FiPhone className="text-gray-400" size={14} />
-                                  <span className="text-sm">{order.buyer?.phone || 'N/A'}</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <FiMessageCircle className="text-gray-400" size={14} />
-                                  <span className="text-sm">{order.buyer?.whatsapp_number || 'N/A'}</span>
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                  ID: {order.buyer?.role_based_id}
-                                </div>
+                    {vendorOrders?.results?.length > 0 ? (
+                      vendorOrders.results.map((order, index) => (
+                        <tr key={order.id} className="hover:bg-gray-50">
+                          <td className="font-medium">{index + 1 + (page - 1) * 10}</td>
+                          <td className="font-medium">#{order.id}</td>
+                          <td className="font-medium">
+                            {formatDate(order.created_at)}
+                          </td>
+                          <td className="font-medium">
+                            <div className="flex items-center gap-2">
+                              <div>
+                                <div className="font-medium">{order.buyer?.username}</div>
+                                <div className="text-xs text-gray-500">{order.buyer?.email}</div>
                               </div>
-                            </td>
-                            <td className="max-w-xs">
-                              <div className="flex items-start gap-1">
-                                <FiMapPin className="text-gray-400 mt-0.5 flex-shrink-0" size={14} />
-                                <span className="text-sm line-clamp-2">
-                                  {formatAddress(order.buyer?.address)}
-                                </span>
+                            </div>
+                          </td>
+                          <td className="font-medium">
+                            <div className="space-y-1">
+                              <div>{order.items[0]?.product?.name}</div>
+                              <div className="text-xs space-y-1">
+                                <div>SKU: {order.items[0]?.product?.sku}</div>
+                                <div>ID: {order.items[0]?.product?.id}</div>
+                                <div>Category: {order.items[0]?.product?.category_name}</div>
+                                <div>Brand: {order.items[0]?.product?.brand_name}</div>
+                                <div>Size: {order.items[0]?.variant?.name}</div>
                               </div>
-                            </td>
-                            <td className="font-medium">
-                              {formatCurrency(order.total_price)}
-                            </td>
-                            <td>
-                              <span className={`badge ${
-                                order.status === 'new' || order.status === 'pending' ? 'badge-info' :
-                                order.status === 'accepted' ? 'badge-primary' :
-                                order.status === 'ready_for_dispatch' ? 'badge-secondary' :
-                                order.status === 'dispatched' ? 'badge-warning' :
-                                order.status === 'delivered' ? 'badge-success' :
-                                'badge-error'
-                              }`}>
-                                {order.status.replace('_', ' ')}
-                              </span>
-                            </td>
-                            <td>
-                              <div className="flex justify-center gap-2">
-                                <button 
-                                  className="btn btn-xs btn-ghost hover:bg-blue-50 gap-1 font-bold cursor-pointer" 
-                                  onClick={() => navigate(`/admin/orders-request/${order.id}/`)}
-                                >
-                                  <FiFileText className="text-blue-600 font-bold" size={14} />
-                                  View
-                                </button>
-                                
-                                {order.status === "new" && (
-                                  <>
-                                    <button 
-                                      className="btn btn-xs btn-success gap-1"
-                                      onClick={() => handleStatusUpdate(order.id, 'accepted')}
-                                    >
+                            </div>
+                          </td>
+                          <td className="text-center font-medium">
+                            {order.items.reduce((total, item) => total + item.quantity, 0)}
+                          </td>
+                          <td className="font-medium">
+                            {formatCurrency(order.items[0]?.unit_price)}
+                          </td>
+                          <td className="font-medium">
+                            {formatCurrency(order.total_price)}
+                          </td>
+                          <td className="font-medium">
+                            <span className={`badge badge-sm ${
+                              order.status === 'delivered' ? 'badge-success' :
+                              order.status === 'rejected' || order.status === 'cancelled' ? 'badge-error' :
+                              order.status === 'accepted' ? 'badge-primary' :
+                              order.status === 'dispatched' ? 'badge-secondary' :
+                              'badge-warning'
+                            }`}>
+                              {order.status_display}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="flex justify-center gap-2">
+                              {activeTab === "new" && (
+                                <>
+                                  <button 
+                                    className="btn btn-xs btn-success gap-1"
+                                    onClick={() => handleStatusUpdate(order.id, 'accepted')}
+                                    disabled={processingOrders.has(order.id)}
+                                  >
+                                    {processingOrders.has(order.id) ? (
+                                      <span className="loading loading-spinner loading-xs"></span>
+                                    ) : (
                                       <FiCheck size={14} />
-                                      Accept
-                                    </button>
-                                    <button 
-                                      className="btn btn-xs btn-error gap-1"
-                                      onClick={() => setSelectedOrder(order)}
-                                    >
-                                      <FiX size={14} />
-                                      Reject
-                                    </button>
-                                  </>
-                                )}
-                                
-                                {order.status === "accepted" && (
-                                  <button 
-                                    className="btn btn-xs btn-primary gap-1"
-                                    onClick={() => setSelectedOrder(order)}
-                                  >
-                                    <FiTruck size={14} />
-                                    Dispatch
+                                    )}
+                                    Accept
                                   </button>
-                                )}
-                                
-                                {order.status === "ready_for_dispatch" && (
-                                  <button 
-                                    className="btn btn-xs btn-secondary gap-1"
-                                    onClick={() => setSelectedOrder(order)}
-                                  >
-                                    <FiPackage size={14} />
-                                    Mark Dispatched
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                          
-                          {/* Expanded Row for Product Details */}
-                          {expandedRows.has(order.id) && (
-                            <tr className="bg-gray-50">
-                              <td colSpan="9" className="p-4">
-                                <div className="space-y-3">
-                                  <h4 className="font-bold text-gray-700 flex items-center gap-2">
-                                    <FiBox />
-                                    Product Details
-                                  </h4>
-                                  <div className="grid gap-3">
-                                    {order.items.map((item, itemIndex) => (
-                                      <div key={itemIndex} className="bg-white rounded-lg p-4 border border-gray-200">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                          <div>
-                                            <p className="text-sm text-gray-500">Product Name</p>
-                                            <p className="font-medium">{item.product?.name || 'N/A'}</p>
-                                          </div>
-                                          <div>
-                                            <p className="text-sm text-gray-500">Variant</p>
-                                            <p className="font-medium">{item.variant?.name || 'N/A'}</p>
-                                          </div>
-                                          <div>
-                                            <p className="text-sm text-gray-500">Category</p>
-                                            <p className="font-medium">{item.product?.category_name || 'N/A'}</p>
-                                          </div>
-                                          <div>
-                                            <p className="text-sm text-gray-500">Brand</p>
-                                            <p className="font-medium">{item.product?.brand_name || 'N/A'}</p>
-                                          </div>
-                                          <div>
-                                            <p className="text-sm text-gray-500">Quantity</p>
-                                            <p className="font-medium">{item.quantity}</p>
-                                          </div>
-                                          <div>
-                                            <p className="text-sm text-gray-500">Unit Price</p>
-                                            <p className="font-medium">{formatCurrency(item.unit_price)}</p>
-                                          </div>
-                                          <div>
-                                            <p className="text-sm text-gray-500">SKU</p>
-                                            <p className="font-medium">{item.product?.sku || 'N/A'}</p>
-                                          </div>
-                                          <div>
-                                            <p className="text-sm text-gray-500">Total</p>
-                                            <p className="font-medium text-green-600">{formatCurrency(item.total)}</p>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </>
+                                  
+                                </>
+                              )}
+                              {activeTab === "accepted" && (
+                                <button 
+                                  className="btn btn-xs btn-primary gap-1"
+                                  onClick={() => setSelectedOrder(order)}
+                                  disabled={processingOrders.has(order.id)}
+                                >
+                                  <FiTruck size={14} />
+                                  Dispatch
+                                </button>
+                              )}
+                              <button 
+                                className="btn btn-xs btn-ghost hover:bg-blue-50 gap-1 font-bold cursor-pointer" 
+                                onClick={() => handleViewOrderDetails(order)}
+                                disabled={processingOrders.has(order.id)}
+                              >
+                                <FiFileText className="text-blue-600 font-bold" size={14} />
+                                View Details
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="9" className="text-center py-8">
+                        <td colSpan="10" className="text-center py-8">
                           <div className="flex flex-col items-center justify-center gap-2">
                             <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                             </svg>
                             <h3 className="text-lg font-medium text-gray-700">No orders found</h3>
                             <p className="text-gray-500">
-                              {activeTab === 'all' ? 'No orders available' : 
+                              {activeTab === 'new' ? 'No new orders available' : 
                                `No ${tabs.find(t => t.id === activeTab)?.label.toLowerCase()} available`}
                             </p>
                           </div>
@@ -578,17 +483,17 @@ const AdminOrderRequestPage = () => {
               </div>
               
               {/* Pagination */}
-              {adminOrders?.count > 0 && (
+              {vendorOrders?.count > 0 && (
                 <div className="flex flex-col sm:flex-row justify-between items-center p-4 border-t border-gray-100 gap-4">
                   <div className="text-sm text-gray-500">
                     Showing <span className="font-medium">{(page - 1) * 10 + 1}</span> to{' '}
-                    <span className="font-medium">{(page - 1) * 10 + (adminOrders.results?.length || 0)}</span> of{' '}
-                    <span className="font-medium">{adminOrders.count}</span> entries
+                    <span className="font-medium">{(page - 1) * 10 + (vendorOrders.results?.length || 0)}</span> of{' '}
+                    <span className="font-medium">{vendorOrders.count}</span> entries
                   </div>
                   <div className="join">
                     <button 
                       className="join-item btn btn-sm" 
-                      disabled={page === 1 || !adminOrders.previous}
+                      disabled={page === 1 || !vendorOrders.previous || tabChanging}
                       onClick={() => setPage(p => Math.max(1, p - 1))}
                     >
                       «
@@ -596,7 +501,7 @@ const AdminOrderRequestPage = () => {
                     <button className="join-item btn btn-sm btn-active">{page}</button>
                     <button 
                       className="join-item btn btn-sm" 
-                      disabled={!adminOrders.next}
+                      disabled={!vendorOrders.next || tabChanging}
                       onClick={() => setPage(p => p + 1)}
                     >
                       »
@@ -617,7 +522,6 @@ const AdminOrderRequestPage = () => {
               <h3 className="text-xl font-bold text-gray-800">
                 {selectedOrder.status === 'new' ? 'Reject Order' : 
                  selectedOrder.status === 'accepted' ? 'Dispatch Order' : 
-                 selectedOrder.status === 'ready_for_dispatch' ? 'Mark as Dispatched' :
                  'Order Details'}
               </h3>
               <button 
@@ -632,12 +536,13 @@ const AdminOrderRequestPage = () => {
                   });
                 }} 
                 className="btn btn-sm btn-circle btn-ghost"
+                disabled={isDispatching}
               >
                 <FiX size={20} />
               </button>
             </div>
             
-            {(selectedOrder.status === 'accepted' || selectedOrder.status === 'ready_for_dispatch') ? (
+            {selectedOrder.status === 'accepted' ? (
               <div className="space-y-6">
                 {/* Order Summary Card */}
                 <div className="bg-gray-50 rounded-lg p-4">
@@ -665,15 +570,15 @@ const AdminOrderRequestPage = () => {
                     {selectedOrder.items.map((item, index) => (
                       <div key={index} className="flex items-start gap-4 p-3 bg-white rounded border border-gray-100">
                         <div className="flex-1">
-                          <p className="font-medium">{item.product?.name || item.admin_product?.name || 'Unknown Product'}</p>
+                          <p className="font-medium">{item.product.name}</p>
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2 text-sm">
                             <div>
                               <p className="text-gray-500">SKU</p>
-                              <p>{item.product?.sku || item.admin_product?.sku || 'N/A'}</p>
+                              <p>{item.product.sku || 'N/A'}</p>
                             </div>
                             <div>
                               <p className="text-gray-500">Size</p>
-                              <p>{item.product_size?.size || item.admin_product_size?.size || 'N/A'}</p>
+                              <p>{item.variant?.name || 'N/A'}</p>
                             </div>
                             <div>
                               <p className="text-gray-500">Quantity</p>
@@ -681,7 +586,7 @@ const AdminOrderRequestPage = () => {
                             </div>
                             <div>
                               <p className="text-gray-500">Price</p>
-                              <p>{formatCurrency(item.price)}</p>
+                              <p>{formatCurrency(item.unit_price)}</p>
                             </div>
                           </div>
                         </div>
@@ -690,172 +595,147 @@ const AdminOrderRequestPage = () => {
                   </div>
                 </div>
 
-                {/* Customer/Vendor Card */}
+                {/* Customer Card */}
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="font-bold text-lg mb-3 text-gray-700">Customer & Vendor Information</h4>
+                  <h4 className="font-bold text-lg mb-3 text-gray-700">Customer Information</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <h5 className="font-medium mb-2 text-gray-600">Customer Details</h5>
+                      <h5 className="font-medium mb-2 text-gray-600">Contact Details</h5>
                       <div className="space-y-2">
                         <p>
                           <span className="text-gray-500 text-sm">Name: </span>
-                          {selectedOrder.created_by?.username || 'N/A'}
+                          {selectedOrder.buyer?.username || 'N/A'}
                         </p>
                         <p>
                           <span className="text-gray-500 text-sm">Email: </span>
-                          {selectedOrder.created_by?.email || 'N/A'}
+                          {selectedOrder.buyer?.email || 'N/A'}
                         </p>
                         <p>
                           <span className="text-gray-500 text-sm">Phone: </span>
-                          {selectedOrder.created_by?.phone || 'N/A'}
+                          {selectedOrder.buyer?.phone || 'N/A'}
                         </p>
                       </div>
                     </div>
                     <div>
-                      <h5 className="font-medium mb-2 text-gray-600">Vendor Details</h5>
-                      <div className="space-y-2">
-                        <p>
-                          <span className="text-gray-500 text-sm">Name: </span>
-                          {selectedOrder.created_for?.username || 'N/A'}
-                        </p>
-                        <p>
-                          <span className="text-gray-500 text-sm">ID: </span>
-                          {selectedOrder.created_for?.role_based_id || 'N/A'}
-                        </p>
-                        <p>
-                          <span className="text-gray-500 text-sm">Email: </span>
-                          {selectedOrder.created_for?.email || 'N/A'}
-                        </p>
-                      </div>
+                      <h5 className="font-medium mb-2 text-gray-600">Shipping Address</h5>
+                      {selectedOrder.buyer?.address ? (
+                        <div className="space-y-2">
+                          <p>{selectedOrder.buyer.address.street_address || 'N/A'}</p>
+                          <p>
+                            {selectedOrder.buyer.address.city}, 
+                            {selectedOrder.buyer.address.district && ` ${selectedOrder.buyer.address.district},`}
+                            {selectedOrder.buyer.address.state && ` ${selectedOrder.buyer.address.state},`}
+                          </p>
+                          <p>
+                            {selectedOrder.buyer.address.postal_code && `${selectedOrder.buyer.address.postal_code},`}
+                            {selectedOrder.buyer.address.country}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-gray-500">No address provided</p>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 {/* Dispatch Form */}
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="font-bold text-lg mb-3 text-gray-700">
-                    {selectedOrder.status === 'ready_for_dispatch' ? 'Dispatch Confirmation' : 'Dispatch Information'}
-                  </h4>
-                  {selectedOrder.status === 'ready_for_dispatch' ? (
-                    <div className="space-y-4">
-                      <div className="alert alert-info">
-                        <div>
-                          <span>This order is marked as ready for dispatch. Confirm that it has been shipped.</span>
-                        </div>
-                      </div>
-                      <div className="form-control">
-                        <label className="label">
-                          <span className="label-text font-medium">Tracking ID (Optional)</span>
-                        </label>
-                        <input
-                          type="text"
-                          name="tracking_id"
-                          value={dispatchForm.tracking_id}
-                          onChange={handleDispatchFormChange}
-                          className="input input-bordered w-full"
-                          placeholder="Enter tracking number if available"
-                        />
-                      </div>
-                      <div className="form-control">
-                        <label className="label">
-                          <span className="label-text font-medium">Notes</span>
-                        </label>
-                        <textarea 
-                          className="textarea textarea-bordered h-24" 
-                          placeholder="Enter any additional notes..."
-                          value={statusNote}
-                          onChange={(e) => setStatusNote(e.target.value)}
-                        ></textarea>
-                      </div>
+                  <h4 className="font-bold text-lg mb-3 text-gray-700">Dispatch Information</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="form-control">
+                      <label className="label">
+                        <span className="label-text font-medium">Courier Name <span className="text-red-500">*</span></span>
+                      </label>
+                      <input
+                        type="text"
+                        name="courier_name"
+                        value={dispatchForm.courier_name}
+                        onChange={handleDispatchFormChange}
+                        className="input input-bordered w-full"
+                        placeholder="e.g. FedEx, UPS, DHL"
+                        required
+                        disabled={isDispatching}
+                      />
                     </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="form-control">
-                        <label className="label">
-                          <span className="label-text font-medium">Courier Name <span className="text-red-500">*</span></span>
-                        </label>
-                        <input
-                          type="text"
-                          name="courier_name"
-                          value={dispatchForm.courier_name}
-                          onChange={handleDispatchFormChange}
-                          className="input input-bordered w-full"
-                          placeholder="e.g. FedEx, UPS, DHL"
-                          required
-                        />
-                      </div>
-                      <div className="form-control">
-                        <label className="label">
-                          <span className="label-text font-medium">Tracking ID <span className="text-red-500">*</span></span>
-                        </label>
-                        <input
-                          type="text"
-                          name="tracking_id"
-                          value={dispatchForm.tracking_id}
-                          onChange={handleDispatchFormChange}
-                          className="input input-bordered w-full"
-                          placeholder="Enter tracking number"
-                          required
-                        />
-                      </div>
-                      <div className="form-control">
-                        <label className="label">
-                          <span className="label-text font-medium">Shipping Cost <span className="text-red-500">*</span></span>
-                        </label>
-                        <input
-                          type="number"
-                          name="transport_charges"
-                          value={dispatchForm.transport_charges}
-                          onChange={handleDispatchFormChange}
-                          className="input input-bordered w-full"
-                          placeholder="Enter shipping cost"
-                          min="0"
-                          step="0.01"
-                          required
-                        />
-                      </div>
-                      <div className="form-control">
-                        <label className="label">
-                          <span className="label-text font-medium">Order Delivery Date <span className="text-red-500">*</span></span>
-                        </label>
-                        <input
-                          type="date"
-                          name="delivery_date"
-                          value={dispatchForm.delivery_date}
-                          onChange={handleDispatchFormChange}
-                          className="input input-bordered w-full"
-                          required
-                          min={new Date().toISOString().split('T')[0]}
-                        />
-                      </div>
-                      <div className="form-control md:col-span-2">
-                        <label className="label">
-                          <span className="label-text font-medium">Shipping Receipt (Optional)</span>
-                        </label>
-                        <input
-                          type="file"
-                          name="receipt"
-                          onChange={handleDispatchFormChange}
-                          className="file-input file-input-bordered w-full"
-                          accept=".pdf,.jpg,.jpeg,.png"
-                        />
-                        <label className="label">
-                          <span className="label-text-alt">Upload receipt or proof of shipment</span>
-                        </label>
-                      </div>
-                      <div className="form-control md:col-span-2">
-                        <label className="label">
-                          <span className="label-text font-medium">Notes</span>
-                        </label>
-                        <textarea 
-                          className="textarea textarea-bordered h-24" 
-                          placeholder="Enter any additional notes for this dispatch..."
-                          value={statusNote}
-                          onChange={(e) => setStatusNote(e.target.value)}
-                        ></textarea>
-                      </div>
+                    <div className="form-control">
+                      <label className="label">
+                        <span className="label-text font-medium">Tracking ID <span className="text-red-500">*</span></span>
+                      </label>
+                      <input
+                        type="text"
+                        name="tracking_id"
+                        value={dispatchForm.tracking_id}
+                        onChange={handleDispatchFormChange}
+                        className="input input-bordered w-full"
+                        placeholder="Enter tracking number"
+                        required
+                        disabled={isDispatching}
+                      />
                     </div>
-                  )}
+                    <div className="form-control">
+                      <label className="label">
+                        <span className="label-text font-medium">Shipping Cost <span className="text-red-500">*</span></span>
+                      </label>
+                      <input
+                        type="number"
+                        name="transport_charges"
+                        value={dispatchForm.transport_charges}
+                        onChange={handleDispatchFormChange}
+                        className="input input-bordered w-full"
+                        placeholder="Enter shipping cost"
+                        min="0"
+                        step="0.01"
+                        required
+                        disabled={isDispatching}
+                      />
+                    </div>
+                    <div className="form-control">
+                      <label className="label">
+                        <span className="label-text font-medium">Delivery Date <span className="text-red-500">*</span></span>
+                      </label>
+                     <input
+                    type="date"
+                    name="delivery_date"
+                    value={dispatchForm.delivery_date}
+                    onChange={handleDispatchFormChange}
+                    className="input input-bordered w-full"
+                    required
+                    min={new Date(new Date().setDate(new Date().getDate() - 6))
+                      .toISOString()
+                      .split("T")[0]}
+                    max={new Date().toISOString().split("T")[0]}
+                    disabled={isDispatching}
+                  />
+                    </div>
+                    <div className="form-control md:col-span-2">
+                      <label className="label">
+                        <span className="label-text font-medium">Shipping Receipt (Optional)</span>
+                      </label>
+                      <input
+                        type="file"
+                        name="receipt"
+                        onChange={handleDispatchFormChange}
+                        className="file-input file-input-bordered w-full"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        disabled={isDispatching}
+                      />
+                      <label className="label">
+                        <span className="label-text-alt">Upload receipt or proof of shipment</span>
+                      </label>
+                    </div>
+                    <div className="form-control md:col-span-2">
+                      <label className="label">
+                        <span className="label-text font-medium">Notes</span>
+                      </label>
+                      <textarea 
+                        className="textarea textarea-bordered h-24" 
+                        placeholder="Enter any additional notes for this dispatch..."
+                        value={statusNote}
+                        onChange={(e) => setStatusNote(e.target.value)}
+                        disabled={isDispatching}
+                      ></textarea>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4">
@@ -871,28 +751,22 @@ const AdminOrderRequestPage = () => {
                       });
                     }}
                     className="btn btn-ghost"
+                    disabled={isDispatching}
                   >
                     Cancel
                   </button>
                   <button 
-                    onClick={() => selectedOrder.status === 'ready_for_dispatch' ? 
-                      handleStatusUpdate(selectedOrder.id, 'dispatched') : 
-                      handleDispatch(selectedOrder.id)}
+                    onClick={() => handleDispatch(selectedOrder.id)}
                     className="btn btn-primary"
-                    disabled={
-                      selectedOrder.status === 'ready_for_dispatch' ? false :
-                      !isDispatchFormValid() || isDispatching
-                    }
+                    disabled={!isDispatchFormValid() || isDispatching}
                   >
                     {isDispatching ? (
                       <>
                         <span className="loading loading-spinner"></span>
-                        Processing...
+                        Dispatching...
                       </>
                     ) : (
-                      selectedOrder.status === 'ready_for_dispatch' ? 
-                        "Confirm Dispatch" : 
-                        "Save Dispatch Info"
+                      "Confirm Dispatch"
                     )}
                   </button>
                 </div>
@@ -901,18 +775,14 @@ const AdminOrderRequestPage = () => {
               <div className="space-y-4">
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h4 className="font-bold text-lg mb-2 text-gray-700">Order #{selectedOrder.id}</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-gray-500">Order Date</p>
                       <p className="font-medium">{formatDate(selectedOrder.created_at)}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Status</p>
-                      <p className="font-medium capitalize">{selectedOrder.status.replace('_', ' ')}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Total Amount</p>
-                      <p className="font-medium">{formatCurrency(selectedOrder.total_price)}</p>
+                      <p className="font-medium capitalize">{selectedOrder.status_display}</p>
                     </div>
                   </div>
                 </div>
@@ -923,7 +793,7 @@ const AdminOrderRequestPage = () => {
                     {selectedOrder.items.map((item, index) => (
                       <div key={index} className="flex items-start gap-4 p-3 bg-white rounded border border-gray-100">
                         <div className="flex-1">
-                          <p className="font-medium">{item.product?.name || item.admin_product?.name || 'Unknown Product'}</p>
+                          <p className="font-medium">{item.product.name}</p>
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2 text-sm">
                             <div>
                               <p className="text-gray-500">Quantity</p>
@@ -931,11 +801,11 @@ const AdminOrderRequestPage = () => {
                             </div>
                             <div>
                               <p className="text-gray-500">Price</p>
-                              <p>{formatCurrency(item.price)}</p>
+                              <p>{formatCurrency(item.unit_price)}</p>
                             </div>
                             <div>
                               <p className="text-gray-500">Total</p>
-                              <p>{formatCurrency(item.price * item.quantity)}</p>
+                              <p>{formatCurrency(item.unit_price * item.quantity)}</p>
                             </div>
                           </div>
                         </div>
@@ -944,20 +814,25 @@ const AdminOrderRequestPage = () => {
                   </div>
                 </div>
 
-                {selectedOrder.status === 'new' && (
+                {(selectedOrder.status === 'new' || selectedOrder.status === 'accepted') && (
                   <div className="form-control">
                     <label className="label">
                       <span className="label-text font-medium">
-                        Reason for Rejection
+                        {selectedOrder.status === 'new' ? 'Reason for Rejection' : 'Dispatch Notes'}
                         <span className="text-red-500">*</span>
                       </span>
                     </label>
                     <textarea 
                       className="textarea textarea-bordered h-24" 
-                      placeholder="Please provide reason for rejecting this order..."
+                      placeholder={
+                        selectedOrder.status === 'new' 
+                          ? "Please provide reason for rejecting this order..."
+                          : "Enter any notes about this dispatch..."
+                      }
                       value={statusNote}
                       onChange={(e) => setStatusNote(e.target.value)}
                       required
+                      disabled={processingOrders.has(selectedOrder.id)}
                     ></textarea>
                   </div>
                 )}
@@ -966,6 +841,7 @@ const AdminOrderRequestPage = () => {
                   <button 
                     onClick={() => setSelectedOrder(null)}
                     className="btn btn-ghost"
+                    disabled={processingOrders.has(selectedOrder.id)}
                   >
                     Cancel
                   </button>
@@ -973,9 +849,16 @@ const AdminOrderRequestPage = () => {
                     <button 
                       onClick={() => handleStatusUpdate(selectedOrder.id, 'rejected')}
                       className="btn btn-error"
-                      disabled={!statusNote}
+                      disabled={!statusNote || processingOrders.has(selectedOrder.id)}
                     >
-                      Confirm Rejection
+                      {processingOrders.has(selectedOrder.id) ? (
+                        <>
+                          <span className="loading loading-spinner loading-xs"></span>
+                          Processing...
+                        </>
+                      ) : (
+                        "Confirm Rejection"
+                      )}
                     </button>
                   )}
                 </div>
@@ -984,8 +867,26 @@ const AdminOrderRequestPage = () => {
           </div>
         </div>
       )}
+
+      {/* Order Details Modal */}
+      {showOrderDetails && selectedOrderForDetails && (
+        <Suspense fallback={
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6">
+              <span className="loading loading-spinner loading-lg"></span>
+            </div>
+          </div>
+        }>
+          <OrderDetailsModal 
+            order={transformOrderForModal(selectedOrderForDetails)} 
+            onClose={() => {
+              setShowOrderDetails(false);
+              setSelectedOrderForDetails(null);
+            }} 
+          />
+        </Suspense>
+      )}
     </div>
   );
 };
-
 export default AdminOrderRequestPage;

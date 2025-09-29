@@ -437,11 +437,12 @@ class ProductListCreateAPIView(APIView):
         return Response(serializer.data)
 
     def post(self, request):
-        data = request.data.copy()
-
+      
+        data = request.data
+        
         if "short_description" in data and len(data["short_description"]) > 450:
             data["short_description"] = data["short_description"][:450]
-        print(data)
+        
         serializer = ProductCreateSerializer(data=data, context={"request": request})
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

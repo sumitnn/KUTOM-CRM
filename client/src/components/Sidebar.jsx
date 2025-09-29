@@ -70,6 +70,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         children: [
           { label: "Registration", path: "/admin/reseller" },
           { label: "Sales & Reports", path: "/admin/reseller-sales-report" },
+          { label: "Order Requests", path: "/reseller/order-requests"}
           
         ],
       },
@@ -84,7 +85,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         ]
       },
 
-      { icon: <SiBrandfolder />, label: "Order Requests", path: "/admin/order-requests" },
+      
       { icon: <SiBrandfolder />, label: "Brands", path: "/admin/brand" },
       { icon: <TbCategoryPlus />, label: "Category", path: "/admin/categories" },
       { icon: <TbCategoryMinus />, label: "Sub-Category", path: "/admin/subcategories" },
