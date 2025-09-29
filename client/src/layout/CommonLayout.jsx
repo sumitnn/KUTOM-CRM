@@ -98,8 +98,9 @@ const CommonLayout = ({ children }) => {
   const ROLES = [
     { value: "", label: "Select a role", disabled: true },
     { value: "vendor", label: "Vendor" },
-    { value: "reseller", label: "Reseller" },
     { value: "stockist", label: "Stockist" },
+    { value: "reseller", label: "Reseller" },
+    
   ];
 
   // Handlers

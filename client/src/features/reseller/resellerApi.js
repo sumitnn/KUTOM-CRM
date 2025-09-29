@@ -1,4 +1,3 @@
-
 import { createApi } from '@reduxjs/toolkit/query/react';
 import axiosBaseQuery from '../../utils/axiosBaseQuery';
 
@@ -6,11 +5,18 @@ export const resellerApi = createApi({
     reducerPath: 'resellerApi',
     baseQuery: axiosBaseQuery({ baseUrl: import.meta.env.VITE_BACKEND_API_URL }),
     endpoints: (builder) => ({
-        fetchReseller: builder.query({
-            query: () => ({
-                url: '/users-list/?role=reseller',
+        fetchResellers: builder.query({
+            query: (params = {}) => ({
+                url: '/users-list/',
                 method: 'GET',
+                params: {
+                    role: 'reseller',
+                    ...(params.status && { status: params.status }),
+                    ...(params.search && { search: params.search }),
+                    ...(params.search_type && { search_type: params.search_type }),
+                },
             }),
+            providesTags: ['Reseller']
         }),
         fetchMyReseller: builder.query({
             query: () => ({
@@ -32,6 +38,13 @@ export const resellerApi = createApi({
                 data,
             }),
         }),
+        updateResellerStatus: builder.mutation({
+            query: ({ id, data }) => ({
+                url: `/update-user-status/${id}/`,
+                method: 'PUT',
+                data,
+            }),
+        }),
         deleteReseller: builder.mutation({
             query: (id) => ({
                 url: `/delete-user/${id}/`,
@@ -43,9 +56,10 @@ export const resellerApi = createApi({
 });
 
 export const {
-    useFetchResellerQuery,
+    useFetchResellersQuery,
+    useFetchMyResellerQuery,
     useCreateResellerMutation,
     useUpdateResellerMutation,
+    useUpdateResellerStatusMutation,
     useDeleteResellerMutation,
-    useFetchMyResellerQuery,
 } = resellerApi;

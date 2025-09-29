@@ -6,7 +6,7 @@ import axiosBaseQuery from '../../utils/axiosBaseQuery';
 export const stocksApi = createApi({
     reducerPath: 'stocksApi',
     baseQuery: axiosBaseQuery({ baseUrl: import.meta.env.VITE_BACKEND_API_URL }),
-    tagTypes: ['Stocks'],
+    tagTypes: ['Stocks','StockHistory'],
     endpoints: (builder) => ({
         getStocks: builder.query({
             query: ({ status, page = 1, pageSize = 10 }) => ({
@@ -14,6 +14,20 @@ export const stocksApi = createApi({
                 method: "GET"
             }),
             providesTags: ['Stocks'],
+        }),
+        getAdminStocks: builder.query({
+            query: ({ status, page = 1, pageSize = 10 }) => ({
+                url: `/admin-stocks/?status=${status}&page=${page}&page_size=${pageSize}`,
+                method: "GET"
+            }),
+            providesTags: ['AdminStocks'],
+        }),
+        getStockHistory: builder.query({
+            query: (stockId) => ({
+                url: `/stocks/${stockId}/history/`,
+                method: "GET"
+            }),
+            providesTags: ['StockHistory'],
         }),
 
         createStock: builder.mutation({
@@ -40,4 +54,6 @@ export const {
     useGetStocksQuery,
     useCreateStockMutation,
     useUpdateStockMutation,
+    useGetAdminStocksQuery,
+    useGetStockHistoryQuery
 } = stocksApi;

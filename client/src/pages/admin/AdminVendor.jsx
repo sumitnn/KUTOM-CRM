@@ -189,6 +189,7 @@ export default function AdminVendor() {
         isLoading={isLoading}
         isLoadingAction={isLoadingAction}
         currentActionId={currentActionId}
+        role="vendor"
       />
 
       {rejectModalOpen && (

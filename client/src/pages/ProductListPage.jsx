@@ -16,18 +16,20 @@ import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const getProductImage = (prod) => {
-  if (prod.images && prod.images.length > 0) {
-    const defaultImg = prod.images.find((img) => img.is_default);
-    const featuredImg = prod.images.find((img) => img.is_featured);
-    return defaultImg?.image || featuredImg?.image || prod.images[0].image;
+  const productDetail = prod.product_detail || {};
+  if (productDetail.images && productDetail.images.length > 0) {
+    const defaultImg = productDetail.images.find((img) => img.is_default);
+    const featuredImg = productDetail.images.find((img) => img.is_featured);
+    return defaultImg?.image || featuredImg?.image || productDetail.images[0].image;
   }
   return "/placeholder.png";
 };
 
-const getDefaultPrice = (sizes) => {
-  if (!sizes || sizes.length === 0) return '0.00';
-  const defaultSize = sizes.find(size => size.is_default) || sizes[0];
-  return defaultSize.price || '0.00';
+const getDefaultPrice = (variants) => {
+  if (!variants || variants.length === 0) return '0.00';
+  const defaultVariant = variants.find(variant => variant.is_default) || variants[0];
+  const bulkPrice = defaultVariant.bulk_prices?.[0];
+  return bulkPrice?.price || '0.00';
 };
 
 const copyToClipboard = (text) => {
@@ -50,7 +52,7 @@ const ProductListPage = ({ role }) => {
 
   // API calls
   const {
-    data: products = [],
+    data: apiResponse = [],
     isLoading,
     isError,
     refetch,
@@ -60,6 +62,20 @@ const ProductListPage = ({ role }) => {
     subCategory: selectedSubCategory,
     brand: selectedBrand,
   });
+
+  // Extract products from the API response
+  const products = apiResponse.map(item => ({
+    ...item,
+    // Add product_detail information to the main object for easier access
+    ...item.product_detail,
+    // Keep the original API structure accessible
+    product_detail: item.product_detail,
+    variants_detail: item.variants_detail,
+    user_name: item.user_name,
+    user_unique_id: item.user_unique_id,
+    role: item.role,
+    is_featured: item.is_featured
+  }));
 
   const { data: categories = [] } = useGetCategoriesQuery();
   const { data: subcategories = [] } = useGetSubcategoriesByCategoryQuery(selectedCategory, {
@@ -95,34 +111,28 @@ const ProductListPage = ({ role }) => {
   };
 
   const handleAddToCart = (prod) => {
-    const defaultSize = prod.sizes && prod.sizes.length > 0 ? prod.sizes[0] : null;
+    // Get the default variant or first variant
+    const defaultVariant = prod.variants_detail?.find(variant => variant.is_default) || prod.variants_detail?.[0];
     
-    const isAlreadyInCart = cartItems.some(item => 
-      item.id === prod.id && 
-      (!item.size || (item.size && item.size.id === defaultSize?.id))
-    );
+    // Get price from variant pricing or fallback
+    const variantPrice = defaultVariant?.bulk_prices?.[0];
+    const price = variantPrice?.price || prod.price || 0;
+
+    const isAlreadyInCart = cartItems.some((item) => item.id === prod.id);
 
     if (isAlreadyInCart) {
       toast.info("Item already in cart.");
       return;
     }
 
-    let priceTier = null;
-    if (defaultSize?.price_tiers?.length > 0) {
-      const sortedTiers = [...defaultSize.price_tiers].sort((a, b) => b.min_quantity - a.min_quantity);
-      priceTier = sortedTiers.find(tier => 1 >= tier.min_quantity) || null;
-    }
-
     dispatch(
       addItem({
         id: prod.id,
         name: prod.name,
-        price: priceTier ? priceTier.price : (defaultSize?.price || 0),
+        price: Number(price),
         quantity: 1,
-        image: getProductImage(prod),
-        size: defaultSize,
-        shipping_info: prod.shipping_info,
-        price_tier: priceTier
+        image: getProductImage(prod) || "/placeholder.png",
+        variantId: defaultVariant?.id // Include variant ID if needed
       })
     );
 
@@ -432,7 +442,7 @@ const ProductListPage = ({ role }) => {
                     {/* Price and Rating */}
                     <div className="flex justify-between items-center mb-3">
                       <div className="text-lg font-bold text-green-600">
-                       ₹{getDefaultPrice(prod.sizes)}
+                       ₹{getDefaultPrice(prod.variants_detail)}
                       </div>
                       {prod.rating && (
                         <div className="badge badge-success gap-1 text-xs">
@@ -452,24 +462,24 @@ const ProductListPage = ({ role }) => {
                         <span>{prod.warranty || '0'} {prod.warranty === '1' ? 'year' : 'years'}</span>
                       </div>
                       <div className="flex items-center gap-1 col-span-2">
-                        <span className="font-semibold text-gray-700">Shipping:</span>
-                        <span>{prod.shipping_info || 'Calculated at checkout'}</span>
+                        <span className="font-semibold text-gray-700">Vendor:</span>
+                        <span>{prod.user_name || 'Unknown'}</span>
                       </div>
                     </div>
 
-                    {/* Sizes */}
-                    {prod.sizes && prod.sizes.length > 0 && (
+                    {/* Variants */}
+                    {prod.variants_detail && prod.variants_detail.length > 0 && (
                       <div className="mb-4">
-                        <div className="text-xs font-semibold text-gray-900 mb-1">Available Sizes:</div>
+                        <div className="text-xs font-semibold text-gray-900 mb-1">Available Variants:</div>
                         <div className="flex flex-wrap gap-1">
-                          {prod.sizes.slice(0, 3).map((size) => (
-                            <span key={size.id} className="badge badge-outline text-xs">
-                              {size.size} {size.unit}
+                          {prod.variants_detail.slice(0, 3).map((variant) => (
+                            <span key={variant.id} className="badge badge-outline text-xs">
+                              {variant.name}
                             </span>
                           ))}
-                          {prod.sizes.length > 3 && (
+                          {prod.variants_detail.length > 3 && (
                             <span className="badge badge-ghost text-xs">
-                              +{prod.sizes.length - 3} more
+                              +{prod.variants_detail.length - 3} more
                             </span>
                           )}
                         </div>
@@ -498,7 +508,7 @@ const ProductListPage = ({ role }) => {
                               e.stopPropagation();
                               handleAddToCart(prod);
                             }}
-                            disabled={prod.status === 'draft' || prod.is_featured === false}
+                            disabled={prod.status === 'draft' || !prod.is_featured}
                           >
                             Add to Cart
                           </button>

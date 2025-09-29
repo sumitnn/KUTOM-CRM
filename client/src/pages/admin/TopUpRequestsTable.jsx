@@ -61,7 +61,7 @@ const TopUpRequestsTable = () => {
 
   // Filter and search logic (now client-side since API might not support search)
   const filteredRequests = requests.filter((req) => {
-    const matchesSearch = req.user?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const matchesSearch = req.user?.username.toLowerCase().includes(searchTerm.toLowerCase()) || 
                          req.amount?.toString().includes(searchTerm) ||
                          req.status?.toLowerCase().includes(searchTerm.toLowerCase());
     
@@ -165,7 +165,7 @@ const TopUpRequestsTable = () => {
             </div>
             
             <select
-              className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="border border-gray-300 rounded-lg cursor-pointer px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
             >
@@ -238,12 +238,12 @@ const TopUpRequestsTable = () => {
                   {paginatedRequests.map((req) => (
                     <tr key={req.id} className="hover:bg-gray-50 transition-colors duration-150">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{req.user}</div>
-                        <div className="text-xs text-gray-500 sm:hidden">{req.role || "N/A"}</div>
+                        <div className="text-sm font-medium text-gray-900">{req.user?.username}</div>
+                        <div className="text-xs text-gray-500 sm:hidden">{req.user?.role || "N/A"}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap hidden sm:table-cell">
                         <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 capitalize">
-                          {req.role || "N/A"}
+                          {req.user?.role || "N/A"}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -254,9 +254,9 @@ const TopUpRequestsTable = () => {
                       <td className="px-6 py-4 whitespace-nowrap hidden md:table-cell">
                         <button
                           onClick={() => openModal(req.screenshot)}
-                          className="inline-flex items-center px-2.5 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                          className="inline-flex items-center cursor-pointer px-2.5 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
                         >
-                          <FiImage className="mr-1" /> View
+                          <FiImage className="mr-1 " /> View
                         </button>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
@@ -270,19 +270,19 @@ const TopUpRequestsTable = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end space-x-2">
-                          {req.status === "PENDING" && (
+                          {req.status === "pending" && (
                             <>
                               <button
                                 onClick={() => handleApprove(req.id)}
                                 disabled={updating}
-                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none disabled:opacity-50"
+                                className="inline-flex items-center cursor-pointer px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none disabled:opacity-50"
                               >
                                 <FiCheck className="mr-1" /> Approve
                               </button>
                               <button
                                 onClick={() => setRejectModal({ open: true, requestId: req.id })}
                                 disabled={updating}
-                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none disabled:opacity-50"
+                                className="inline-flex items-center cursor-pointer px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none disabled:opacity-50"
                               >
                                 <FiXCircle className="mr-1" /> Reject
                               </button>

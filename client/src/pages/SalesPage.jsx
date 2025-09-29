@@ -1,5 +1,5 @@
-import { useState, lazy, Suspense } from "react";
-import { FiFileText, FiCheck, FiX, FiTruck, FiPackage } from "react-icons/fi";
+import { useState, lazy, Suspense, useEffect } from "react";
+import { FiFileText, FiCheck, FiX, FiTruck, FiPackage, FiRefreshCw } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { 
   useGetVendorOrdersQuery, 
@@ -11,6 +11,7 @@ import { toast } from "react-toastify";
 // Lazy-loaded components
 const Spinner = lazy(() => import('../components/common/Spinner'));
 const ErrorMessage = lazy(() => import('../components/common/ErrorMessage'));
+const OrderDetailsModal = lazy(() => import('../pages/OrderDetailsModal'));
 
 const SalesPage = ({ role }) => {
   const navigate = useNavigate();
@@ -19,6 +20,11 @@ const SalesPage = ({ role }) => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [statusNote, setStatusNote] = useState("");
   const [isDispatching, setIsDispatching] = useState(false);
+  const [showOrderDetails, setShowOrderDetails] = useState(false);
+  const [selectedOrderForDetails, setSelectedOrderForDetails] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [tabChanging, setTabChanging] = useState(false);
+  const [processingOrders, setProcessingOrders] = useState(new Set());
   
   // Dispatch form state
   const [dispatchForm, setDispatchForm] = useState({
@@ -46,6 +52,34 @@ const SalesPage = ({ role }) => {
     { id: "delivered", label: "Delivered Orders" },
   ];
 
+  // Handle tab changes with loading state
+  useEffect(() => {
+    if (tabChanging) {
+      const timer = setTimeout(() => {
+        setTabChanging(false);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [vendorOrders, tabChanging]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refetch();
+      toast.success("Orders refreshed");
+    } catch (error) {
+      toast.error("Failed to refresh orders");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleTabChange = (tabId) => {
+    setTabChanging(true);
+    setActiveTab(tabId);
+    setPage(1);
+  };
+
   const handleStatusUpdate = async (orderId, status) => {
     if (status === 'dispatched') {
       return;
@@ -55,6 +89,9 @@ const SalesPage = ({ role }) => {
       toast.error("Please enter a note for this action");
       return;
     }
+
+    // Add to processing orders to disable button
+    setProcessingOrders(prev => new Set(prev).add(orderId));
 
     try {
       await updateOrderStatus({
@@ -68,6 +105,13 @@ const SalesPage = ({ role }) => {
       refetch();
     } catch (error) {
       toast.error(error.data?.message||"Something Went Wrong");
+    } finally {
+      // Remove from processing orders
+      setProcessingOrders(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(orderId);
+        return newSet;
+      });
     }
   };
 
@@ -79,6 +123,8 @@ const SalesPage = ({ role }) => {
       return;
     }
 
+    // Add to processing orders to disable button
+    setProcessingOrders(prev => new Set(prev).add(orderId));
     setIsDispatching(true);
 
     try {
@@ -114,6 +160,12 @@ const SalesPage = ({ role }) => {
       toast.error(error.data?.message || "Failed to dispatch order");
     } finally {
       setIsDispatching(false);
+      // Remove from processing orders
+      setProcessingOrders(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(orderId);
+        return newSet;
+      });
     }
   };
 
@@ -151,6 +203,67 @@ const SalesPage = ({ role }) => {
     );
   };
 
+  const handleViewOrderDetails = (order) => {
+    setSelectedOrderForDetails(order);
+    setShowOrderDetails(true);
+  };
+
+  // Transform API order data to match the OrderDetailsModal format
+  const transformOrderForModal = (order) => {
+    return {
+      id: order.id,
+      date: order.created_at,
+      buyer: {
+        id: order.buyer?.id || '',
+        name: order.buyer?.username || 'N/A',
+        email: order.buyer?.email || 'N/A',
+        address: order.buyer?.address || {
+          street_address: null,
+          city: null,
+          state: "",
+          district: "",
+          postal_code: null,
+          country: "India"
+        },
+        phone: order.buyer?.phone || 'N/A',
+        whatsapp: order.buyer?.whatsapp || 'N/A'
+      },
+      seller: {
+        id: order.seller?.id || '',
+        name: order.seller?.username || 'N/A',
+        email: order.seller?.email || 'N/A',
+        roleId: order.seller?.role_based_id || 'N/A',
+        phone: order.seller?.phone || 'N/A'
+      },
+      items: order.items?.map(item => ({
+        id: item.id,
+        productId: item.product?.id,
+        productName: item.product?.name,
+        size: item.variant?.name,
+        quantity: item.quantity,
+        price: item.unit_price,
+        discount: item.discount || "0.00",
+        gstAmount: item.gst_amount || "0.00",
+        total: (parseFloat(item.unit_price) * item.quantity - parseFloat(item.discount || 0)).toString()
+      })) || [],
+      totalAmount: order.total_price,
+      subtotal: order.subtotal || order.total_price,
+      gstAmount: order.gst_amount || "0.00",
+      discountAmount: order.discount_amount || "0.00",
+      status: order.status,
+      statusDisplay: order.status_display,
+      paymentStatus: order.payment_status,
+      paymentStatusDisplay: order.payment_status_display,
+      description: order.description || "Order placed",
+      courier_name: order.courier_name,
+      tracking_number: order.tracking_number,
+      transport_charges: order.transport_charges || "0.00",
+      expected_delivery_date: order.expected_delivery_date,
+      receipt: order.receipt,
+      note: order.note || ""
+    };
+  };
+
   return (
     <div className="px-4 py-8 max-w-8xl mx-auto">
       {/* Header */}
@@ -162,10 +275,22 @@ const SalesPage = ({ role }) => {
         
         <button 
           className="btn btn-ghost gap-2"
-          onClick={refetch}
-          disabled={isLoading}
+          onClick={handleRefresh}
+          disabled={isLoading || isRefreshing}
         >
-          {isLoading ? 'Refreshing...' : 'Refresh'}
+          {isRefreshing ? (
+            <>
+              <FiRefreshCw className="animate-spin" />
+              Refreshing...
+            </>
+          ) : isLoading ? (
+            'Loading...'
+          ) : (
+            <>
+              <FiRefreshCw />
+              Refresh
+            </>
+          )}
         </button>
       </div>
 
@@ -174,10 +299,8 @@ const SalesPage = ({ role }) => {
         <select 
           className="select select-bordered w-full"
           value={activeTab}
-          onChange={(e) => {
-            setActiveTab(e.target.value);
-            setPage(1);
-          }}
+          onChange={(e) => handleTabChange(e.target.value)}
+          disabled={tabChanging}
         >
           {tabs.map((tab) => (
             <option key={tab.id} value={tab.id}>{tab.label}</option>
@@ -189,25 +312,33 @@ const SalesPage = ({ role }) => {
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            className={`px-4 py-2 font-medium cursor-pointer text-sm whitespace-nowrap ${
+            className={`px-4 py-2 font-medium cursor-pointer text-sm whitespace-nowrap flex items-center ${
               activeTab === tab.id
                 ? "border-b-2 border-primary text-primary"
                 : "text-gray-500 hover:text-gray-700"
             }`}
-            onClick={() => {
-              setActiveTab(tab.id);
-              setPage(1);
-            }}
+            onClick={() => handleTabChange(tab.id)}
+            disabled={tabChanging}
           >
+            {tabChanging && activeTab === tab.id && (
+              <span className="loading loading-spinner loading-xs mr-2"></span>
+            )}
             {tab.label}
           </button>
         ))}
       </div>
 
+      {/* Loading overlay for tab changes */}
+      {tabChanging && (
+        <div className="absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center z-10 rounded-lg">
+          <span className="loading loading-spinner loading-lg text-primary"></span>
+        </div>
+      )}
+
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <Suspense fallback={<div>Loading...</div>}>
-          {isLoading ? (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative">
+        <Suspense fallback={<div className="flex justify-center items-center p-8"><Spinner /></div>}>
+          {isLoading || tabChanging ? (
             <div className="flex justify-center items-center p-8">
               <Spinner />
             </div>
@@ -217,8 +348,9 @@ const SalesPage = ({ role }) => {
               <button 
                 className="btn btn-sm btn-outline mt-4" 
                 onClick={refetch}
+                disabled={isRefreshing}
               >
-                Retry
+                {isRefreshing ? 'Retrying...' : 'Retry'}
               </button>
             </div>
           ) : (
@@ -252,8 +384,8 @@ const SalesPage = ({ role }) => {
                           <td className="font-medium">
                             <div className="flex items-center gap-2">
                               <div>
-                                <div className="font-medium">{order.created_by?.username}</div>
-                                <div className="text-xs text-gray-500">{order.created_by?.email}</div>
+                                <div className="font-medium">{order.buyer?.username}</div>
+                                <div className="text-xs text-gray-500">{order.buyer?.email}</div>
                               </div>
                             </div>
                           </td>
@@ -265,7 +397,7 @@ const SalesPage = ({ role }) => {
                                 <div>ID: {order.items[0]?.product?.id}</div>
                                 <div>Category: {order.items[0]?.product?.category_name}</div>
                                 <div>Brand: {order.items[0]?.product?.brand_name}</div>
-                                <div>Size: {order.items[0]?.product_size}</div>
+                                <div>Size: {order.items[0]?.variant?.name}</div>
                               </div>
                             </div>
                           </td>
@@ -273,7 +405,7 @@ const SalesPage = ({ role }) => {
                             {order.items.reduce((total, item) => total + item.quantity, 0)}
                           </td>
                           <td className="font-medium">
-                            {formatCurrency(order.items[0]?.price)}
+                            {formatCurrency(order.items[0]?.unit_price)}
                           </td>
                           <td className="font-medium">
                             {formatCurrency(order.total_price)}
@@ -284,9 +416,9 @@ const SalesPage = ({ role }) => {
                               order.status === 'rejected' || order.status === 'cancelled' ? 'badge-error' :
                               order.status === 'accepted' ? 'badge-primary' :
                               order.status === 'dispatched' ? 'badge-secondary' :
-                              'badge-ghost'
+                              'badge-warning'
                             }`}>
-                              {order.status}
+                              {order.status_display}
                             </span>
                           </td>
                           <td>
@@ -296,13 +428,19 @@ const SalesPage = ({ role }) => {
                                   <button 
                                     className="btn btn-xs btn-success gap-1"
                                     onClick={() => handleStatusUpdate(order.id, 'accepted')}
+                                    disabled={processingOrders.has(order.id)}
                                   >
-                                    <FiCheck size={14} />
+                                    {processingOrders.has(order.id) ? (
+                                      <span className="loading loading-spinner loading-xs"></span>
+                                    ) : (
+                                      <FiCheck size={14} />
+                                    )}
                                     Accept
                                   </button>
                                   <button 
                                     className="btn btn-xs btn-error gap-1"
                                     onClick={() => setSelectedOrder(order)}
+                                    disabled={processingOrders.has(order.id)}
                                   >
                                     <FiX size={14} />
                                     Reject
@@ -313,20 +451,20 @@ const SalesPage = ({ role }) => {
                                 <button 
                                   className="btn btn-xs btn-primary gap-1"
                                   onClick={() => setSelectedOrder(order)}
+                                  disabled={processingOrders.has(order.id)}
                                 >
                                   <FiTruck size={14} />
                                   Dispatch
                                 </button>
                               )}
-                              {activeTab !== "accepted" && activeTab !== "cancelled" && (
-                                <button 
-                                  className="btn btn-xs btn-ghost hover:bg-blue-50 gap-1 font-bold cursor-pointer" 
-                                  onClick={() => navigate(`/vendor/my-sales/${order.id}`)}
-                                >
-                                  <FiFileText className="text-blue-600 font-bold" size={14} />
-                                  View Order Details
-                                </button>
-                              )}
+                              <button 
+                                className="btn btn-xs btn-ghost hover:bg-blue-50 gap-1 font-bold cursor-pointer" 
+                                onClick={() => handleViewOrderDetails(order)}
+                                disabled={processingOrders.has(order.id)}
+                              >
+                                <FiFileText className="text-blue-600 font-bold" size={14} />
+                                View Details
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -362,7 +500,7 @@ const SalesPage = ({ role }) => {
                   <div className="join">
                     <button 
                       className="join-item btn btn-sm" 
-                      disabled={page === 1 || !vendorOrders.previous}
+                      disabled={page === 1 || !vendorOrders.previous || tabChanging}
                       onClick={() => setPage(p => Math.max(1, p - 1))}
                     >
                       «
@@ -370,7 +508,7 @@ const SalesPage = ({ role }) => {
                     <button className="join-item btn btn-sm btn-active">{page}</button>
                     <button 
                       className="join-item btn btn-sm" 
-                      disabled={!vendorOrders.next}
+                      disabled={!vendorOrders.next || tabChanging}
                       onClick={() => setPage(p => p + 1)}
                     >
                       »
@@ -405,6 +543,7 @@ const SalesPage = ({ role }) => {
                   });
                 }} 
                 className="btn btn-sm btn-circle btn-ghost"
+                disabled={isDispatching}
               >
                 <FiX size={20} />
               </button>
@@ -446,7 +585,7 @@ const SalesPage = ({ role }) => {
                             </div>
                             <div>
                               <p className="text-gray-500">Size</p>
-                              <p>{item.product_size || 'N/A'}</p>
+                              <p>{item.variant?.name || 'N/A'}</p>
                             </div>
                             <div>
                               <p className="text-gray-500">Quantity</p>
@@ -454,7 +593,7 @@ const SalesPage = ({ role }) => {
                             </div>
                             <div>
                               <p className="text-gray-500">Price</p>
-                              <p>{formatCurrency(item.price)}</p>
+                              <p>{formatCurrency(item.unit_price)}</p>
                             </div>
                           </div>
                         </div>
@@ -472,31 +611,31 @@ const SalesPage = ({ role }) => {
                       <div className="space-y-2">
                         <p>
                           <span className="text-gray-500 text-sm">Name: </span>
-                          {selectedOrder.created_by?.username || 'N/A'}
+                          {selectedOrder.buyer?.username || 'N/A'}
                         </p>
                         <p>
                           <span className="text-gray-500 text-sm">Email: </span>
-                          {selectedOrder.created_by?.email || 'N/A'}
+                          {selectedOrder.buyer?.email || 'N/A'}
                         </p>
                         <p>
                           <span className="text-gray-500 text-sm">Phone: </span>
-                          {selectedOrder.created_by?.phone || 'N/A'}
+                          {selectedOrder.buyer?.phone || 'N/A'}
                         </p>
                       </div>
                     </div>
                     <div>
                       <h5 className="font-medium mb-2 text-gray-600">Shipping Address</h5>
-                      {selectedOrder.created_by?.address ? (
+                      {selectedOrder.buyer?.address ? (
                         <div className="space-y-2">
-                          <p>{selectedOrder.created_by.address.street_address || 'N/A'}</p>
+                          <p>{selectedOrder.buyer.address.street_address || 'N/A'}</p>
                           <p>
-                            {selectedOrder.created_by.address.city}, 
-                            {selectedOrder.created_by.address.district && ` ${selectedOrder.created_by.address.district},`}
-                            {selectedOrder.created_by.address.state && ` ${selectedOrder.created_by.address.state},`}
+                            {selectedOrder.buyer.address.city}, 
+                            {selectedOrder.buyer.address.district && ` ${selectedOrder.buyer.address.district},`}
+                            {selectedOrder.buyer.address.state && ` ${selectedOrder.buyer.address.state},`}
                           </p>
                           <p>
-                            {selectedOrder.created_by.address.postal_code && `${selectedOrder.created_by.address.postal_code},`}
-                            {selectedOrder.created_by.address.country}
+                            {selectedOrder.buyer.address.postal_code && `${selectedOrder.buyer.address.postal_code},`}
+                            {selectedOrder.buyer.address.country}
                           </p>
                         </div>
                       ) : (
@@ -522,6 +661,7 @@ const SalesPage = ({ role }) => {
                         className="input input-bordered w-full"
                         placeholder="e.g. FedEx, UPS, DHL"
                         required
+                        disabled={isDispatching}
                       />
                     </div>
                     <div className="form-control">
@@ -536,6 +676,7 @@ const SalesPage = ({ role }) => {
                         className="input input-bordered w-full"
                         placeholder="Enter tracking number"
                         required
+                        disabled={isDispatching}
                       />
                     </div>
                     <div className="form-control">
@@ -552,11 +693,12 @@ const SalesPage = ({ role }) => {
                         min="0"
                         step="0.01"
                         required
+                        disabled={isDispatching}
                       />
                     </div>
                     <div className="form-control">
                       <label className="label">
-                        <span className="label-text font-medium">Expected Delivery Date <span className="text-red-500">*</span></span>
+                        <span className="label-text font-medium">Delivery Date <span className="text-red-500">*</span></span>
                       </label>
                       <input
                         type="date"
@@ -566,6 +708,7 @@ const SalesPage = ({ role }) => {
                         className="input input-bordered w-full"
                         required
                         min={new Date().toISOString().split('T')[0]}
+                        disabled={isDispatching}
                       />
                     </div>
                     <div className="form-control md:col-span-2">
@@ -578,6 +721,7 @@ const SalesPage = ({ role }) => {
                         onChange={handleDispatchFormChange}
                         className="file-input file-input-bordered w-full"
                         accept=".pdf,.jpg,.jpeg,.png"
+                        disabled={isDispatching}
                       />
                       <label className="label">
                         <span className="label-text-alt">Upload receipt or proof of shipment</span>
@@ -592,6 +736,7 @@ const SalesPage = ({ role }) => {
                         placeholder="Enter any additional notes for this dispatch..."
                         value={statusNote}
                         onChange={(e) => setStatusNote(e.target.value)}
+                        disabled={isDispatching}
                       ></textarea>
                     </div>
                   </div>
@@ -610,6 +755,7 @@ const SalesPage = ({ role }) => {
                       });
                     }}
                     className="btn btn-ghost"
+                    disabled={isDispatching}
                   >
                     Cancel
                   </button>
@@ -640,7 +786,7 @@ const SalesPage = ({ role }) => {
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Status</p>
-                      <p className="font-medium capitalize">{selectedOrder.status}</p>
+                      <p className="font-medium capitalize">{selectedOrder.status_display}</p>
                     </div>
                   </div>
                 </div>
@@ -659,11 +805,11 @@ const SalesPage = ({ role }) => {
                             </div>
                             <div>
                               <p className="text-gray-500">Price</p>
-                              <p>{formatCurrency(item.price)}</p>
+                              <p>{formatCurrency(item.unit_price)}</p>
                             </div>
                             <div>
                               <p className="text-gray-500">Total</p>
-                              <p>{formatCurrency(item.price * item.quantity)}</p>
+                              <p>{formatCurrency(item.unit_price * item.quantity)}</p>
                             </div>
                           </div>
                         </div>
@@ -690,6 +836,7 @@ const SalesPage = ({ role }) => {
                       value={statusNote}
                       onChange={(e) => setStatusNote(e.target.value)}
                       required
+                      disabled={processingOrders.has(selectedOrder.id)}
                     ></textarea>
                   </div>
                 )}
@@ -698,6 +845,7 @@ const SalesPage = ({ role }) => {
                   <button 
                     onClick={() => setSelectedOrder(null)}
                     className="btn btn-ghost"
+                    disabled={processingOrders.has(selectedOrder.id)}
                   >
                     Cancel
                   </button>
@@ -705,9 +853,16 @@ const SalesPage = ({ role }) => {
                     <button 
                       onClick={() => handleStatusUpdate(selectedOrder.id, 'rejected')}
                       className="btn btn-error"
-                      disabled={!statusNote}
+                      disabled={!statusNote || processingOrders.has(selectedOrder.id)}
                     >
-                      Confirm Rejection
+                      {processingOrders.has(selectedOrder.id) ? (
+                        <>
+                          <span className="loading loading-spinner loading-xs"></span>
+                          Processing...
+                        </>
+                      ) : (
+                        "Confirm Rejection"
+                      )}
                     </button>
                   )}
                 </div>
@@ -716,8 +871,26 @@ const SalesPage = ({ role }) => {
           </div>
         </div>
       )}
+
+      {/* Order Details Modal */}
+      {showOrderDetails && selectedOrderForDetails && (
+        <Suspense fallback={
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6">
+              <span className="loading loading-spinner loading-lg"></span>
+            </div>
+          </div>
+        }>
+          <OrderDetailsModal 
+            order={transformOrderForModal(selectedOrderForDetails)} 
+            onClose={() => {
+              setShowOrderDetails(false);
+              setSelectedOrderForDetails(null);
+            }} 
+          />
+        </Suspense>
+      )}
     </div>
   );
 };
-
 export default SalesPage;

@@ -6,6 +6,7 @@ class IsAdminRole(BasePermission):
 
 class IsVendorRole(BasePermission):
     def has_permission(self, request,view):
+        print(request.user.role)
         return bool(request.user and request.user.is_authenticated and request.user.role == 'vendor')
     
 
@@ -25,6 +26,12 @@ class IsAdminOrStockistRole(BasePermission):
         return request.user and request.user.is_authenticated and (
             getattr(request.user, 'role', None) == 'admin' or getattr(request.user, 'role', None) == 'stockist'
         )
+
+class IsAdminStockistResellerRole(BasePermission):
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and (
+            getattr(request.user, 'role', None) == 'admin' or getattr(request.user, 'role', None) == 'stockist' or getattr(request.user, 'role', None) == 'reseller'
+        )
     
 class IsAdminOrVendorRole(BasePermission):
     def has_permission(self, request, view):
@@ -32,3 +39,8 @@ class IsAdminOrVendorRole(BasePermission):
             getattr(request.user, 'role', None) == 'admin' or getattr(request.user, 'role', None) == 'vendor'
         )
     
+class IsStockistOrResellerRole(BasePermission):
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and (
+            getattr(request.user, 'role', None) == 'stockist' or getattr(request.user, 'role', None) == 'reseller'
+        )

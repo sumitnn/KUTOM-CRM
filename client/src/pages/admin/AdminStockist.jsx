@@ -2,94 +2,219 @@ import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import {
   useFetchStockistsQuery,
-  useCreateStockistMutation,
-  useUpdateStockistMutation,
-  useDeleteStockistMutation,
-} from '../../features/stockist/stockistApi';
-import StockistCardList from '../../components/stockist/StockistCardList';
-import CreateStockistModal from '../../components/stockist/CreateStockistModal';
+  useUpdateStockistStatusMutation,
+  useMarkDefaultStockistMutation,
+} from "../../features/stockist/StockistApi";
 
-const AdminStockist = () => {
-  const { data: stockist = [], isLoading, refetch } = useFetchStockistsQuery();
-  const [createStockist, { isLoading: creating }] = useCreateStockistMutation();
-  const [updateStockist] = useUpdateStockistMutation();
-  const [deleteStockist] = useDeleteStockistMutation();
+import {
+  useGetAllAccountApplicationsQuery,
+  useApproveAccountApplicationMutation,
+  useRejectAccountApplicationMutation,
+  useUpdateUserAccountKycMutation
+} from "../../features/newapplication/newAccountApplicationApi";
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [error, setError] = useState(null);
+import VendorTable from '../../components/vendor/VendorTable';
+import RejectReasonModal from '../../components/RejectReasonModal';
 
-  const handleAddStockist = async (stockistData) => {
-    setError(null);
+const statusTabs = [
+  { id: 'new', label: 'New Request' },
+  { id: 'pending', label: 'Processing' },
+  { id: 'rejected', label: 'Rejected' },
+  { id: 'active', label: 'Active' },
+  { id: 'suspended', label: 'Inactive' },
+];
+
+export default function AdminStockist() {
+  const [activeTab, setActiveTab] = useState('new');
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [selectedApplication, setSelectedApplication] = useState(null);
+  const [searchParams, setSearchParams] = useState({
+    searchTerm: '',
+    searchType: 'email'
+  });
+  const [isLoadingAction, setIsLoadingAction] = useState(false);
+  const [currentActionId, setCurrentActionId] = useState(null);
+
+  // Application APIs (new, pending, rejected)
+  const { 
+    data: applications = [], 
+    isLoading: isLoadingApplications, 
+    refetch: refetchApplications 
+  } = useGetAllAccountApplicationsQuery(
+    ['new', 'pending', 'rejected'].includes(activeTab) 
+      ? { 
+          status: activeTab,
+          search: searchParams.searchTerm,
+          search_type: searchParams.searchType,
+          role: 'stockist'
+        } 
+      : null,
+    { skip: !['new', 'pending', 'rejected'].includes(activeTab) }
+  );
+
+  // Stockist APIs (active, suspended)
+  const { 
+    data: stockists = [], 
+    isLoading: isLoadingStockists, 
+    refetch: refetchStockists 
+  } = useFetchStockistsQuery(
+    ['active', 'suspended'].includes(activeTab)
+      ? { 
+          status: activeTab,
+          search: searchParams.searchTerm,
+          search_type: searchParams.searchType
+        }
+      : null,
+    { skip: !['active', 'suspended'].includes(activeTab) }
+  );
+
+  const [updateStockist] = useUpdateStockistStatusMutation();
+  const [approveApplication] = useApproveAccountApplicationMutation();
+  const [rejectApplication] = useRejectAccountApplicationMutation();
+  const [UpdateKyc] = useUpdateUserAccountKycMutation();
+  const [markDefaultStockist] = useMarkDefaultStockistMutation();
+
+  const isLoading = isLoadingApplications || isLoadingStockists;
+
+  const getCurrentData = () => {
+    if (['new', 'pending', 'rejected'].includes(activeTab)) {
+      return applications;
+    }
+    return stockists;
+  };
+
+  const handleSearch = (searchTerm, searchType) => {
+    setSearchParams({ searchTerm, searchType });
+  };
+
+  const handleRefresh = async (id) => {
     try {
-      await createStockist(stockistData).unwrap();
-      toast.success('stockist created successfully!');
-      setModalOpen(false);
-      refetch();
+      if (id === 'all') {
+        if (['new', 'pending', 'rejected'].includes(activeTab)) {
+          await refetchApplications();
+        } else {
+          await refetchStockists();
+        }
+        toast.success('Data refreshed successfully');
+      }
     } catch (err) {
-      console.error('Create vendor error:', err);
-
-      // Extract error message from the nested message.email array
-      const errorMessage =
-        err?.data?.message?.email?.[0] ||
-        err?.data?.message ||
-        err?.error ||
-        'Failed to create stockist';
-
-      setError(errorMessage);
-      toast.error(errorMessage);
+      toast.error('Failed to refresh data');
     }
   };
 
-  const handleEditStockist = async (id, data) => {
+  const handleMarkKycCompleted = async (userId) => {
+    setIsLoadingAction(true);
     try {
-      await updateStockist({ id, data }).unwrap();
-      toast.success('stockist updated successfully!');
-      refetch();
+      await UpdateKyc({ userId }).unwrap();
+      toast.success('KYC marked as completed successfully');
+      refetchApplications();
     } catch (err) {
-      console.error('Update stockist error:', err);
-      toast.error('Failed to update stockist');
+      toast.error(err?.data?.message || "Something went wrong while verifying KYC");
+    } finally {
+      setIsLoadingAction(false);
     }
   };
 
-  const handleDeleteStockist = async (id) => {
+  const handleApproveApplication = async (id, actionType = 'approve') => {
+    setIsLoadingAction(true);
+    setCurrentActionId(actionType);
     try {
-      await deleteStockist(id).unwrap();
-      toast.success('Stockist deleted successfully!');
-      refetch();
+      await approveApplication(id).unwrap();
+      toast.success(actionType === 'kyc' 
+        ? 'KYC marked as completed successfully' 
+        : 'Application Status Updated');
+      refetchApplications();
     } catch (err) {
-      console.error('Delete stockist error:', err);
-      toast.error('Failed to delete stockist');
+      toast.error(err?.data?.message || "Something went wrong");
+    } finally {
+      setIsLoadingAction(false);
+      setCurrentActionId(null);
+    }
+  };
+
+  const handleRejectApplication = async (id, reason) => {
+    setIsLoadingAction(true);
+    setCurrentActionId('reject');
+    try {
+      await rejectApplication({ id, reason }).unwrap();
+      toast.success('Application rejected!');
+      setRejectModalOpen(false);
+      refetchApplications();
+    } catch (err) {
+      toast.error(err?.data?.message || 'Failed to reject application');
+    } finally {
+      setIsLoadingAction(false);
+      setCurrentActionId(null);
+    }
+  };
+
+  const handleToggleStockistStatus = async (id) => {
+    setIsLoadingAction(true);
+    setCurrentActionId('status');
+    try {
+      const newStatus = activeTab === 'active' ? 'suspended' : 'active';
+      await updateStockist({ id, data: { status: newStatus } }).unwrap();
+      toast.success("User Profile Status Updated");
+      refetchStockists();
+    } catch (err) {
+      toast.error('Failed to update stockist status');
+    } finally {
+      setIsLoadingAction(false);
+      setCurrentActionId(null);
+    }
+  };
+
+  const handleMarkDefaultStockist = async (id, isDefault) => {
+    setIsLoadingAction(true);
+    setCurrentActionId(`default-${id}`);
+    try {
+      await markDefaultStockist({ id, is_default: isDefault }).unwrap();
+      toast.success(`Stockist ${isDefault ? 'marked as default' : 'removed from default'} successfully`);
+      refetchStockists();
+    } catch (err) {
+      toast.error(err?.data?.message || 'Failed to update default stockist status');
+    } finally {
+      setIsLoadingAction(false);
+      setCurrentActionId(null);
     }
   };
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">All Stockist ({stockist.length})</h1>
-        <button className="btn btn-primary" onClick={() => setModalOpen(true)}>
-          + Create New Stockist
-        </button>
+    <div className="p-2 md:p-4">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 gap-4">
+        <h1 className="text-xl md:text-2xl font-bold">Stockist Management</h1>
       </div>
 
-      {isLoading ? (
-        <div>Loading...</div>
-      ) : (
-        <StockistCardList stockist={stockist} onEdit={handleEditStockist} onDelete={handleDeleteStockist} />
-      )}
+      <VendorTable 
+        data={getCurrentData()}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onApprove={handleApproveApplication}
+        MarkFullKyc={handleMarkKycCompleted}
+        onReject={(id) => {
+          if (['new', 'pending', 'rejected'].includes(activeTab)) {
+            setSelectedApplication(id);
+            setRejectModalOpen(true);
+          } else {
+            handleToggleStockistStatus(id);
+          }
+        }}
+        onMarkDefaultStockist={handleMarkDefaultStockist}
+        onSearch={handleSearch}
+        onRefresh={handleRefresh}
+        isLoading={isLoading}
+        isLoadingAction={isLoadingAction}
+        currentActionId={currentActionId}
+        role="stockist"
+      />
 
-      {modalOpen && (
-        <CreateStockistModal
-          onClose={() => {
-            setModalOpen(false);
-            setError(null);
-          }}
-          onAddVendor={handleAddStockist}
-          loading={creating}
-          error={error}
+      {rejectModalOpen && (
+        <RejectReasonModal
+          onClose={() => setRejectModalOpen(false)}
+          onSubmit={(reason) => handleRejectApplication(selectedApplication, reason)}
+          isLoading={isLoadingAction && currentActionId === 'reject'}
         />
       )}
     </div>
   );
-};
-
-export default AdminStockist;
+}

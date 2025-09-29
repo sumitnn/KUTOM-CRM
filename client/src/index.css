@@ -9,3 +9,7 @@
 *{
     font-family: 'Roboto', 'sans-serif';
 }
+.triangle-down {
+  width: 0;
+  height: 0;
+}

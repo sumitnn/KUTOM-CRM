@@ -14,13 +14,17 @@ const ProductDetailsPage = ({ role }) => {
   const dispatch = useDispatch();
   const cartItems = useSelector((state) => state.cart.items);
 
-  const { data: product, error, isLoading } = useGetProductByIdQuery(id);
-  const [selectedSize, setSelectedSize] = useState(null);
+  const { data: productData, error, isLoading } = useGetProductByIdQuery(id);
+  const [selectedVariant, setSelectedVariant] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [mainImage, setMainImage] = useState(null);
   const [zoom, setZoom] = useState(false);
   const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 });
-  const [selectedTier, setSelectedTier] = useState(null);
+  const [selectedBulkPrice, setSelectedBulkPrice] = useState(null);
+
+  // Extract product and variants from the response
+  const product = productData?.product_detail;
+  const variants = productData?.variants_detail || [];
 
   useEffect(() => {
     if (product) {
@@ -29,36 +33,37 @@ const ProductDetailsPage = ({ role }) => {
           product.images?.[0]?.image ||
           "/placeholder.png"
       );
-      if (product.sizes?.length) {
-        const defaultSize = product.sizes.find((s) => s.is_default) || product.sizes[0];
-        setSelectedSize(defaultSize);
-        if (defaultSize?.price_tiers?.length > 0) {
-          setSelectedTier(defaultSize.price_tiers[0]);
+      if (variants.length > 0) {
+        const defaultVariant = variants.find((v) => v.is_default) || variants[0];
+        setSelectedVariant(defaultVariant);
+        if (defaultVariant?.bulk_prices?.length > 0) {
+          // Sort bulk prices by max_quantity to find the appropriate tier
+          const sortedBulkPrices = [...defaultVariant.bulk_prices].sort((a, b) => a.max_quantity - b.max_quantity);
+          setSelectedBulkPrice(sortedBulkPrices[0]);
         }
       }
     }
-  }, [product]);
+  }, [product, variants]);
 
   useEffect(() => {
-    if (selectedSize?.price_tiers?.length > 0) {
-      // Sort tiers by min_quantity in descending order to find the first matching tier
-      const sortedTiers = [...selectedSize.price_tiers].sort((a, b) => b.min_quantity - a.min_quantity);
-      const matchingTier = sortedTiers.find(tier => quantity >= tier.min_quantity);
-      setSelectedTier(matchingTier || null);
+    if (selectedVariant?.bulk_prices?.length > 0) {
+      // Sort bulk prices by max_quantity to find the first matching tier
+      const sortedBulkPrices = [...selectedVariant.bulk_prices].sort((a, b) => a.max_quantity - b.max_quantity);
+      const matchingBulkPrice = sortedBulkPrices.find(bulk => quantity <= bulk.max_quantity);
+      setSelectedBulkPrice(matchingBulkPrice || null);
     } else {
-      setSelectedTier(null);
+      setSelectedBulkPrice(null);
     }
-  }, [quantity, selectedSize]);
+  }, [quantity, selectedVariant]);
 
-const getEmbedUrl = (url) => {
-  if (!url) return null;
+  const getEmbedUrl = (url) => {
+    if (!url) return null;
 
-  const regex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{11})/;
-  const match = url.match(regex);
+    const regex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{11})/;
+    const match = url.match(regex);
 
-  return match ? `https://www.youtube.com/embed/${match[1]}` : null;
-};
-
+    return match ? `https://www.youtube.com/embed/${match[1]}` : null;
+  };
 
   const handleZoom = (e) => {
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
@@ -68,14 +73,14 @@ const getEmbedUrl = (url) => {
   };
 
   const inCart = cartItems.some(
-    (item) => item.id === product?.id && item.size?.id === selectedSize?.id
+    (item) => item.id === product?.id && item.variant?.id === selectedVariant?.id
   );
 
   const calculatePrice = () => {
-    if (selectedTier) {
-      return selectedTier.price;
+    if (selectedBulkPrice) {
+      return selectedBulkPrice.price;
     }
-    return selectedSize?.price || product?.price || 0;
+    return product?.price || 0;
   };
 
   const handleQuantityChange = (e) => {
@@ -84,8 +89,8 @@ const getEmbedUrl = (url) => {
   };
 
   const handleAddToCart = () => {
-    if (!selectedSize) {
-      toast.warning("Select a size before adding to cart.");
+    if (!selectedVariant) {
+      toast.warning("Select a variant before adding to cart.");
       return;
     }
 
@@ -101,9 +106,8 @@ const getEmbedUrl = (url) => {
         price: calculatePrice(),
         quantity,
         image: mainImage,
-        size: selectedSize,
-        shipping_info: product.shipping_info,
-        price_tier: selectedTier
+        variant: selectedVariant,
+        bulk_price: selectedBulkPrice,
       })
     );
 
@@ -163,101 +167,97 @@ const getEmbedUrl = (url) => {
           </div>
           
           {/* Video Section */}
- 
-
-{product.video_url && getEmbedUrl(product.video_url) && (
-  <div className="mt-6">
-    <h3 className="text-lg font-bold mb-2">Product Video</h3>
-    <div className="aspect-w-16 aspect-h-9">
-      <iframe
-        src={getEmbedUrl(product.video_url)}
-        className="w-full h-64 rounded-md border-0"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowFullScreen
-        title="Product video"
-      />
-    </div>
-  </div>
-)}
-
-
+          {product.video_url && getEmbedUrl(product.video_url) && (
+            <div className="mt-6">
+              <h3 className="text-lg font-bold mb-2">Product Video</h3>
+              <div className="aspect-w-16 aspect-h-9">
+                <iframe
+                  src={getEmbedUrl(product.video_url)}
+                  className="w-full h-64 rounded-md border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  title="Product video"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Product Details */}
         <div className="space-y-4">
           <h1 className="text-3xl font-extrabold text-gray-800">{product.name}</h1>
-          <p className="text-gray-600">SKU: {product.sku}</p>
+          <p className="text-gray-600">SKU: <strong>{product.sku}</strong></p>
 
           <div className="text-2xl font-extrabold text-green-600">
             ₹{calculatePrice()}
-            {selectedTier && (
+            {selectedBulkPrice && (
               <span className="ml-2 text-sm text-gray-500 line-through">
-                ₹{selectedSize?.price}
+                ₹{product.price}
               </span>
             )}
-            {selectedTier && (
+            {selectedBulkPrice && (
               <div className="text-sm text-green-600 mt-1">
-                Bulk discount applied ({selectedTier.min_quantity}+ units)
+                Bulk discount applied (up to {selectedBulkPrice.max_quantity} units)
               </div>
             )}
           </div>
 
-          {product.sizes?.length > 0 && (
+          {variants.length > 0 && (
             <div>
-              <p className="font-semibold text-gray-700 mb-1">Available Sizes</p>
+              <p className="font-semibold text-gray-700 mb-1">Available Variants</p>
               <div className="flex flex-wrap gap-2">
-                {product.sizes.map((size) => (
+                {variants.map((variant) => (
                   <button
-                    key={size.id}
+                    key={variant.id}
                     onClick={() => {
-                      setSelectedSize(size);
-                      if (size.price_tiers?.length > 0) {
-                        // Find the appropriate tier based on current quantity
-                        const sortedTiers = [...size.price_tiers].sort((a, b) => b.min_quantity - a.min_quantity);
-                        const matchingTier = sortedTiers.find(tier => quantity >= tier.min_quantity);
-                        setSelectedTier(matchingTier || null);
+                      setSelectedVariant(variant);
+                      if (variant.bulk_prices?.length > 0) {
+                        // Find the appropriate bulk price based on current quantity
+                        const sortedBulkPrices = [...variant.bulk_prices].sort((a, b) => a.max_quantity - b.max_quantity);
+                        const matchingBulkPrice = sortedBulkPrices.find(bulk => quantity <= bulk.max_quantity);
+                        setSelectedBulkPrice(matchingBulkPrice || null);
                       } else {
-                        setSelectedTier(null);
+                        setSelectedBulkPrice(null);
                       }
                     }}
-                    disabled={!size.is_active}
+                    disabled={!variant.is_active}
                     className={`px-3 py-1 rounded-md text-sm font-bold border cursor-pointer ${
-                      selectedSize?.id === size.id
+                      selectedVariant?.id === variant.id
                         ? "bg-primary text-white border-primary"
                         : "border-gray-300 hover:border-gray-500"
-                    } ${!size.is_active ? "opacity-50 cursor-not-allowed" : ""}`}
+                    } ${!variant.is_active ? "opacity-50 cursor-not-allowed" : ""}`}
                   >
-                    {size.size} {size.unit && `(${size.unit})`} – ₹{size.price}
+                    {variant.name} – ₹{variant.bulk_prices?.[0]?.price || product.price}
                   </button>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Price Tiers (Admin only) */}
-          {selectedSize?.price_tiers?.length > 0 && (
+          {/* Bulk Prices */}
+          {selectedVariant?.bulk_prices?.length > 0 && (
             <div className="mt-4">
               <p className="font-semibold text-gray-700 mb-1">Bulk Pricing</p>
               <div className="bg-gray-50 p-3 rounded-md">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left pb-2 font-bold">Quantity</th>
+                      <th className="text-left pb-2 font-bold">Max Quantity</th>
                       <th className="text-right pb-2 font-bold">Price</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {[...selectedSize.price_tiers]
-                      .sort((a, b) => a.min_quantity - b.min_quantity)
-                      .map((tier) => (
+                    {[...selectedVariant.bulk_prices]
+                      .sort((a, b) => a.max_quantity - b.max_quantity)
+                      .map((bulk) => (
                         <tr 
-                          key={tier.id} 
+                          key={bulk.id} 
                           className={`${
-                            selectedTier?.id === tier.id ? 'bg-blue-50 font-bold' : ''
+                            selectedBulkPrice?.id === bulk.id ? 'bg-blue-50 font-bold' : ''
                           }`}
                         >
-                          <td className="py-2 font-extrabold">{tier.min_quantity}+</td>
-                          <td className="text-right font-bold">₹{tier.price}</td>
+                          <td className="py-2 font-extrabold">Up to {bulk.max_quantity}</td>
+                          <td className="text-right font-bold">₹{bulk.price}</td>
                         </tr>
                       ))}
                   </tbody>
@@ -273,7 +273,7 @@ const getEmbedUrl = (url) => {
               <button
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
                 className="btn btn-sm btn-outline"
-                disabled={product.status === "draft" || !product.is_featured}
+                disabled={product.status === "draft" || !productData?.is_featured}
               >
                 <FiMinus />
               </button>
@@ -287,7 +287,7 @@ const getEmbedUrl = (url) => {
               <button
                 onClick={() => setQuantity(quantity + 1)}
                 className="btn btn-sm btn-outline"
-                disabled={product.status === "draft" || !product.is_featured}
+                disabled={product.status === "draft" || !productData?.is_featured}
               >
                 <FiPlus />
               </button>
@@ -301,22 +301,20 @@ const getEmbedUrl = (url) => {
                 onClick={handleAddToCart}
                 className="btn btn-primary"
                 disabled={
-                  !selectedSize ||
-                  selectedSize.quantity === 0 ||
+                  !selectedVariant ||
                   product.status === "draft" ||
-                  !product.is_featured
+                  !productData?.is_featured
                 }
               >
-                {selectedSize?.quantity === 0
-                  ? "Out of Stock"
-                  : product.status === "draft" || !product.is_featured
+                {product.status === "draft" || !productData?.is_featured
                   ? "Unavailable"
                   : "Add to Cart"}
               </button>
               <button
+                onClick={handleAddToCart}
                 className="btn btn-secondary"
                 disabled={
-                  !selectedSize || product.status === "draft" || !product.is_featured
+                  !selectedVariant || product.status === "draft" || !productData?.is_featured
                 }
               >
                 Buy Now
@@ -353,10 +351,16 @@ const getEmbedUrl = (url) => {
               <div><strong>Subcategory:</strong> {product.subcategory_name || "N/A"}</div>
               <div><strong>Weight:</strong> {product.weight} {product.weight_unit}</div>
               <div><strong>Dimensions:</strong> {product.dimensions}</div>
-              <div><strong>Shipping Info:</strong> {product.shipping_info || "N/A"}</div>
-              <div><strong>Status:</strong> {product.status || "N/A"}</div>
+              <div><strong>Status:</strong> {product.status_display || product.status || "N/A"}</div>
               <div><strong>Rating:</strong> {product.rating ? `${product.rating} ★` : "Not rated"}</div>
               <div><strong>Product Created:</strong> {new Date(product.created_at).toLocaleString()}</div>
+              {selectedVariant && (
+                <>
+                  <div><strong>Variant:</strong> {selectedVariant.name}</div>
+                  <div><strong>Variant SKU:</strong> {selectedVariant.sku}</div>
+                </>
+              )}
+              <div><strong>Vendor:</strong> {productData?.user_name || "N/A"}</div>
             </div>
           </div>
         </div>

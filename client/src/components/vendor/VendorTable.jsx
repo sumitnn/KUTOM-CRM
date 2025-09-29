@@ -1,6 +1,8 @@
+// components/vendor/VendorTable.jsx
 import React, { useState, lazy, Suspense } from 'react';
 import VendorTableRow from './VendorTableRow';
 import { FaSync } from 'react-icons/fa';
+import StockistAssignmentModal from '../StockistAssignmentModal';
 
 const ViewVendorModal = lazy(() => import('./ViewVendorModal'));
 const ProfileReviewModal = lazy(() => import('../ProfileReviewModal'));
@@ -20,12 +22,14 @@ export default function VendorTable({
   setActiveTab,
   onApprove, 
   onReject,
+  onMarkDefaultStockist,
   onSearch,
   onRefresh,
   isLoading,
   isLoadingAction,
   currentActionId,
-  MarkFullKyc
+  MarkFullKyc,
+  role
 }) {
   const [viewVendor, setViewVendor] = useState(null);
   const [reviewVendor, setReviewVendor] = useState(null);
@@ -33,6 +37,11 @@ export default function VendorTable({
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchType, setSearchType] = useState('email');
+  
+  // Stockist Assignment Modal State
+  const [assignmentModalOpen, setAssignmentModalOpen] = useState(false);
+  const [selectedReseller, setSelectedReseller] = useState(null);
+  const [currentStockist, setCurrentStockist] = useState(null);
 
   const handleSearch = () => {
     onSearch(searchTerm, searchType);
@@ -47,14 +56,31 @@ export default function VendorTable({
     onRefresh('all');
   };
 
- const handleConfirmKyc = async () => {
+  const handleConfirmKyc = async () => {
     if (selectedVendor) {
-      await MarkFullKyc(selectedVendor.user?.id); 
+      await MarkFullKyc(selectedVendor?.id); 
       setShowKycModal(false);
     }
   };
 
+  const handleAssignStockist = (reseller, currentStockist = null) => {
+    setSelectedReseller(reseller);
+    setCurrentStockist(currentStockist);
+    setAssignmentModalOpen(true);
+  };
+
   const getTableHeaders = () => {
+    const getRoleIdLabel = () => {
+      switch (role) {
+        case 'stockist':
+          return 'Stockist ID';
+        case 'reseller':
+          return 'Reseller ID';
+        default:
+          return 'Vendor ID';
+      }
+    };
+
     switch (activeTab) {
       case 'new':
         return ['Sr.No', 'Created Date', 'Full Name', 'Email', 'Phone Number', 'Actions'];
@@ -64,7 +90,29 @@ export default function VendorTable({
         return ['Sr.No', 'Created Date', 'Email', 'Full Name', 'Phone', 'Actions'];
       case 'active':
       case 'suspended':
-        return ['Vendor ID', 'Created Date', 'Name', 'Email', 'Phone', 'Business', 'Location', 'Actions'];
+        const headers = [
+          getRoleIdLabel(), 
+          'Created Date',
+          'Name',
+          'Email',
+          'Phone',
+          'Business',
+          'Location',
+        ];
+        
+        // Add Stockist Assignment columns only for reseller role
+        if (role === 'reseller') {
+          headers.push('Assigned Stockist');
+          headers.push('Stockist Action');
+        }
+        
+        // Add 'Default Stockist' column only for stockist role
+        if (role === 'stockist') {
+          headers.push('Default Stockist');
+        }
+        
+        headers.push('Actions');
+        return headers;
       default:
         return [];
     }
@@ -155,8 +203,7 @@ export default function VendorTable({
                   </td>
                 </tr>
               ) : data.length > 0 ? (
-                  data.map((item, index) => (
-                  
+                data.map((item, index) => (
                   <VendorTableRow
                     key={item.id}
                     vendor={item}
@@ -166,21 +213,25 @@ export default function VendorTable({
                     onReview={() => setReviewVendor(item)}
                     onApprove={onApprove}
                     onReject={onReject}
-                        onMarkKycCompleted={() => {
-              setSelectedVendor(item);
-              setShowKycModal(true);
-            }}
+                    onMarkDefaultStockist={onMarkDefaultStockist}
+                    onToggleStatus={onReject}
+                    onMarkKycCompleted={() => {
+                      setSelectedVendor(item);
+                      setShowKycModal(true);
+                    }}
+                    onAssignStockist={handleAssignStockist}
                     onRefresh={onRefresh}
                     isLoadingAction={isLoadingAction}
                     currentActionId={currentActionId}
                     setShowKycModal={setShowKycModal}
                     setSelectedVendor={setSelectedVendor}
+                    role={role}
                   />
                 ))
               ) : (
                 <tr>
                   <td colSpan={getTableHeaders().length} className="text-center py-8 text-gray-500">
-                    No {activeTab === 'new' ? 'applications' : 'vendors'} found
+                    No {activeTab === 'new' ? 'applications' : role } found
                   </td>
                 </tr>
               )}
@@ -200,17 +251,32 @@ export default function VendorTable({
         {reviewVendor && (
           <ProfileReviewModal
             vendor={reviewVendor}
+            role={role}
             onClose={() => setReviewVendor(null)}
           />
         )}
         {showKycModal && (
-        <KycConfirmationModal
-          onConfirm={handleConfirmKyc}
-          onCancel={() => setShowKycModal(false)}
-          isLoading={isLoadingAction && currentActionId === selectedVendor?.user?.id}
+          <KycConfirmationModal
+            onConfirm={handleConfirmKyc}
+            onCancel={() => setShowKycModal(false)}
+            isLoading={isLoadingAction && currentActionId === selectedVendor?.user?.id}
+          />
+        )}
+      </Suspense>
+
+      {/* Stockist Assignment Modal */}
+      {assignmentModalOpen && (
+        <StockistAssignmentModal
+          isOpen={assignmentModalOpen}
+          onClose={() => {
+            setAssignmentModalOpen(false);
+            setSelectedReseller(null);
+            setCurrentStockist(null);
+          }}
+          reseller={selectedReseller}
+          currentStockist={currentStockist}
         />
       )}
-      </Suspense>
     </div>
   );
 }

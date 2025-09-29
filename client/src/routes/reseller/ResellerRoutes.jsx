@@ -1,25 +1,32 @@
 import { lazy, Suspense } from "react";
 import { Route } from "react-router-dom";
-import ProtectedRoute from "../ProtectedRoutes";
-import ResellerMainLayout from "../../layout/reseller/ResellerMainLayout";
-import Spinner from "../../components/common/Spinner"; // Make sure you have this component
+
+
 
 // Lazy-loaded components
+const ResellerOrderRequestDetail = lazy(() => import("../../pages/ResellerOrderRequestDetail"));
+const ResellerOrderRequestPage = lazy(() => import("../../pages/ResellerOrderRequestPage"));
+const Spinner = lazy(() => import("../../components/common/Spinner"));
+const ResellerMainLayout = lazy(() => import("../../layout/reseller/ResellerMainLayout"));
+const ProtectedRoute = lazy(() => import("../ProtectedRoutes"));
 const ResellerDashboard = lazy(() => import("../../pages/reseller/ResellerDashboard"));
 const Logout = lazy(() => import("../../pages/Logout"));
-const ProductListPage = lazy(() => import("../../pages/ProductListPage"));
+const CommonProductListPage = lazy(() => import("../../pages/CommonProductListPage"));
 const OrdersManagement = lazy(() => import("../../pages/OrdersManagement"));
 const UserWalletPage = lazy(() => import("../../pages/UserWalletPage"));
 const MyCart = lazy(() => import("../../pages/MyCart"));
-const ProductDetailsPage = lazy(() => import("../../pages/ProductDetailPage"));
+const CommonProductDetailPage = lazy(() => import("../../pages/CommonProductDetailPage"));
 const Profile = lazy(() => import("../../pages/common/Profile"));
 const ChangePassword = lazy(() => import("../../components/auths/ChangePassword"));
 const OrderDetailPage = lazy(() => import("../../pages/OrderDetailPage"));
 const CreateTopupRequest = lazy(() => import("../../pages/CreateTopupRequest"));
 const TopupRequestsList = lazy(() => import("../../pages/TopupRequestList"));
+const WithdrawlRequestsList = lazy(() => import("../../pages/WithdrawlRequestsList"));
+const CreateWithdrawalRequest = lazy(() => import("../../pages/CreateWithdrawalRequest"));
 
 const ResellerRoutes = [
-  <Route element={<ProtectedRoute allowedRoles={["reseller"]} />} key="reseller">
+  // ✅ Routes that REQUIRE profile completion (100%)
+  <Route element={<ProtectedRoute allowedRoles={["reseller"]} checkProfileCompletion={true} />} key="reseller">
     {/* Dashboard */}
     <Route
       path="/reseller/dashboard"
@@ -31,128 +38,174 @@ const ResellerRoutes = [
         </ResellerMainLayout>
       }
     />
-    
+
     {/* Products */}
-    <Route 
-      path="/reseller/products" 
+    <Route
+      path="/reseller/products"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
-            <ProductListPage role="reseller"/>
+            <CommonProductListPage role="reseller" />
           </Suspense>
         </ResellerMainLayout>
       }
     />
-    <Route 
-      path="/reseller/products/:id" 
+    <Route
+      path="/reseller/products/:id"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
-            <ProductDetailsPage role="reseller"/>
+            <CommonProductDetailPage role="reseller" />
           </Suspense>
         </ResellerMainLayout>
       }
     />
 
     {/* Orders */}
-    <Route 
-      path="/reseller/orders" 
+    <Route
+      path="/reseller/orders"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
-            <OrdersManagement role="reseller"/>
+            <OrdersManagement role="reseller" />
           </Suspense>
         </ResellerMainLayout>
-      } 
+      }
     />
-    <Route 
-      path="/reseller/orders/:id" 
+    <Route
+      path="/reseller/orders/:id"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
             <OrderDetailPage role="reseller" />
           </Suspense>
         </ResellerMainLayout>
-      } 
+      }
     />
-    
+
+    {/* order request  */}
+    <Route
+      path="/reseller/my-order-request"
+      element={
+        <ResellerMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <ResellerOrderRequestPage role="reseller"/>
+          </Suspense>
+        </ResellerMainLayout>
+      }
+    />
+    <Route
+      path="/reseller/my-order-request/:id"
+      element={
+        <ResellerMainLayout>
+          <Suspense fallback={<Spinner />}>
+           
+            <ResellerOrderRequestDetail role="reseller"/>
+          </Suspense>
+        </ResellerMainLayout>
+      }
+    />
+
+    {/* Withdrawal */}
+    <Route
+      path="/reseller/withdrawl-request"
+      element={
+        <ResellerMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <CreateWithdrawalRequest role="reseller" />
+          </Suspense>
+        </ResellerMainLayout>
+      }
+    />
+    <Route
+      path="/reseller/my-withdrawl"
+      element={
+        <ResellerMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <WithdrawlRequestsList role="reseller" />
+          </Suspense>
+        </ResellerMainLayout>
+      }
+    />
+
     {/* Topup */}
-    <Route 
-      path="/reseller/topup-request" 
+    <Route
+      path="/reseller/topup-request"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
-            <CreateTopupRequest/>
+            <CreateTopupRequest role="reseller" />
           </Suspense>
         </ResellerMainLayout>
-      } 
+      }
     />
-    <Route 
-      path="/reseller/my-topup" 
+    <Route
+      path="/reseller/my-topup"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
-            <TopupRequestsList role="reseller"/>
+            <TopupRequestsList role="reseller" />
           </Suspense>
         </ResellerMainLayout>
-      } 
+      }
     />
 
     {/* Wallet */}
-    <Route 
-      path="/reseller/wallet" 
+    <Route
+      path="/reseller/wallet"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
-            <UserWalletPage/>
+            <UserWalletPage role="reseller" />
           </Suspense>
         </ResellerMainLayout>
-      } 
-    />
-    <Route 
-      path="/reseller/my-cart" 
-      element={
-        <ResellerMainLayout>
-          <Suspense fallback={<Spinner />}>
-            <MyCart/>
-          </Suspense>
-        </ResellerMainLayout>
-      } 
-    />
-    
-    {/* Settings */}
-    <Route 
-      path="reseller/settings/profile" 
-      element={
-        <ResellerMainLayout>
-          <Suspense fallback={<Spinner />}>
-            <Profile/>
-          </Suspense>
-        </ResellerMainLayout>
-      } 
-    />
-    <Route 
-      path="reseller/settings/change-password" 
-      element={
-        <ResellerMainLayout>
-          <Suspense fallback={<Spinner />}>
-            <ChangePassword/>
-          </Suspense>
-        </ResellerMainLayout>
-      } 
+      }
     />
 
-    {/* Logout */}
-    <Route 
-      key="logout" 
-      path="/reseller/logout" 
+    {/* Cart */}
+    <Route
+      path="/reseller/my-cart"
+      element={
+        <ResellerMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <MyCart role="reseller"/>
+          </Suspense>
+        </ResellerMainLayout>
+      }
+    />
+  </Route>,
+
+  // ✅ Routes that IGNORE profile completion (always accessible)
+  <Route element={<ProtectedRoute allowedRoles={["reseller"]} checkProfileCompletion={false} />} key="reseller-no-profile-check">
+    <Route
+      path="/reseller/settings/profile"
+      element={
+        <ResellerMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <Profile />
+          </Suspense>
+        </ResellerMainLayout>
+      }
+    />
+    <Route
+      path="/reseller/settings/change-password"
+      element={
+        <ResellerMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <ChangePassword />
+          </Suspense>
+        </ResellerMainLayout>
+      }
+    />
+    <Route
+      path="/reseller/logout"
       element={
         <Suspense fallback={<Spinner />}>
-          <Logout/>
+          <Logout />
         </Suspense>
-      } 
+      }
     />
-  </Route>
+  </Route>,
 ];
 
 export default ResellerRoutes;

@@ -37,7 +37,7 @@ urlpatterns = [
 
     # withdrawal request
     
-    path('withdrawl-request/', WithdrawlRequestListCreateView.as_view(), name='withdrawl-request'),
+    path('withdrawl-request/', WithdrawalRequestListCreateView.as_view(), name='withdrawl-request'),
 
     # State and District related APIs
     path('states/', StateListView.as_view(), name='state-list'),
@@ -54,10 +54,10 @@ urlpatterns = [
     path('dashboard-summary/', DashboardAPIView.as_view(), name='dashboard-summary'),
 
     # user application Apis 
-    path('apply/', NewAccountApplicationCreateView.as_view(), name='apply'),
-    path('applications/', NewAccountApplicationListView.as_view(), name='list-applications'),
-    path('applications/<int:pk>/approve/', ApproveApplicationView.as_view(), name='approve-application'),
-    path('applications/<int:pk>/reject/', RejectApplicationView.as_view(), name='reject-application'),
+    path('apply/', NewUserCreationView.as_view(), name='apply'),
+    path('applications/', NewUserApplicationListView.as_view(), name='list-applications'),
+    path('applications/<uuid:pk>/approve/', ApproveApplicationView.as_view(), name='approve-application'),
+    path('applications/<uuid:pk>/reject/', RejectNewUserApplicationView.as_view(), name='reject-application'),
     path('update-profile-status/<uuid:user_id>/', UpdateApprovalStatusView.as_view(), name='update-profile-approval-status'),
     path('get-profile-status/<uuid:user_id>/', GetProfileApprovalStatusView.as_view(), name='get-profile-approval-status'),
 
@@ -68,6 +68,12 @@ urlpatterns = [
 
     # me 
       path('me/', CurrentUserView.as_view(), name='current-user'),
+    # default stockist a
+    path('mark-default-stockist/<uuid:user_id>/', MarkDefaultStockistView.as_view(), name='mark_default_stockist'),
+    path('not-default-stockist/', StockistListExcludingDefaultView.as_view(), name='not-default-stockist'),
+
+    path('stockist-assignments/', StockistAssignmentView.as_view(), name='stockist-assignments'),
+    path('stockist-assignments/<uuid:reseller_id>/', StockistAssignmentView.as_view(), name='stockist-assignment-detail'),
 
 
 ]
