@@ -9,13 +9,13 @@ const RedirectIfAuthenticatedRoute = ({ children }) => {
 
   switch (user.role) {
     case "admin":
-      return <Navigate to="/admin/dashboard" />;
+      return <Navigate to="/dashboard" />;
     case "vendor":
-      return <Navigate to="/vendor/dashboard" />;
+      return <Navigate to="/dashboard" />;
     case "stockist":
-      return <Navigate to="/stockist/dashboard" />;
+      return <Navigate to="/dashboard" />;
     case "reseller":
-      return <Navigate to="/reseller/dashboard" />;
+      return <Navigate to="/dashboard" />;
     default:
       return <Navigate to="/" />;
   }

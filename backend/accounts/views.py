@@ -558,17 +558,44 @@ class ProfileView(APIView):
             return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+class AssignedResellersPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
 class AssignedResellersView(APIView):
     permission_classes = [IsStockistRole]
 
     def get(self, request):
         assigned_reseller_ids = StockistAssignment.objects.filter(
             stockist=request.user
-        ).values_list('reseller_id', flat=True)
+        ).values_list("reseller_id", flat=True)
 
-        addresses = Address.objects.filter(user__id__in=assigned_reseller_ids)
-        serializer = AddressWithUserAndProfileSerializer(addresses, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        addresses = (
+            Address.objects.filter(user__id__in=assigned_reseller_ids)
+            .select_related("user", "state", "district")
+        )
+
+        # ✅ Filters
+        state = request.query_params.get("state")
+        district = request.query_params.get("district")
+        postal_code = request.query_params.get("postal_code")
+
+        if state:
+            addresses = addresses.filter(state_id=state)
+        if district:
+            addresses = addresses.filter(district_id=district)
+        if postal_code:
+            addresses = addresses.filter(postal_code=postal_code)
+
+        # ✅ Pagination
+        paginator = AssignedResellersPagination()
+        page = paginator.paginate_queryset(addresses, request)
+
+        serializer = AssignedResellerSerializer(page, many=True)
+
+        return paginator.get_paginated_response(serializer.data)
 
 
 class BroadcastMessageListCreateAPIView(APIView):

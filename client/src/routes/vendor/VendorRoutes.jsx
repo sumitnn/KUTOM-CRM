@@ -33,7 +33,7 @@ const VendorRoutes = [
   <Route element={<ProtectedRoute allowedRoles={["vendor"]} checkProfileCompletion={true} />} key="vendor">
     {/* Dashboard */}
     <Route
-      path="/vendor/dashboard"
+      path="/dashboard"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -45,7 +45,7 @@ const VendorRoutes = [
     
     {/* Brand */}
     <Route
-      path="/vendor/brand"
+      path="/brand"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -57,7 +57,7 @@ const VendorRoutes = [
     
     {/* Category */}
     <Route
-      path="/vendor/categories"
+      path="/categories"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -69,7 +69,7 @@ const VendorRoutes = [
 
     {/* Products */}
     <Route
-      path="/vendor/products"
+      path="/products"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -80,7 +80,7 @@ const VendorRoutes = [
     />
     
     <Route
-      path="/vendor/requested-products"
+      path="/requested-products"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -92,7 +92,7 @@ const VendorRoutes = [
     
     {/* Sales */}
     <Route
-      path="/vendor/my-sales"
+      path="/my-sales"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -115,7 +115,7 @@ const VendorRoutes = [
     
     {/* Stocks */}
     <Route
-      path="/vendor/my-stocks"
+      path="/my-stocks"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -127,7 +127,7 @@ const VendorRoutes = [
     
     {/* Report */}
     <Route
-      path="/vendor/sales-report"
+      path="/sales-report"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -151,7 +151,7 @@ const VendorRoutes = [
     
     {/* Create Product */}
     <Route
-      path="/vendor/create-product"
+      path="/create-product"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -175,7 +175,7 @@ const VendorRoutes = [
     
     {/* Withdrawal */}
     <Route
-      path="/vendor/withdrawl-request"
+      path="/withdrawl-request"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -186,7 +186,7 @@ const VendorRoutes = [
     />
     
     <Route
-      path="/vendor/my-withdrawl"
+      path="/my-withdrawl-history"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -198,7 +198,7 @@ const VendorRoutes = [
     
     {/* Wallet */}
     <Route
-      path="/vendor/wallet"
+      path="/my-wallet"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>

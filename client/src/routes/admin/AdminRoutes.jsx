@@ -43,7 +43,7 @@ const AdminRoutes = [
   <Route key="admin" element={<ProtectedRoute allowedRoles={["admin"]} />}>
     {/* Dashboard */}
     <Route 
-      path="/admin/dashboard" 
+      path="/dashboard" 
       element={
         <AdminMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -55,7 +55,7 @@ const AdminRoutes = [
 
     {/* Brand Routes */}
     <Route 
-      path="/admin/create-brand" 
+      path="/create-brand" 
       element={
         <AdminMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -65,7 +65,7 @@ const AdminRoutes = [
       }
     />
     <Route
-      path="/admin/brand"
+      path="/brand"
       element={
         <AdminMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -77,7 +77,7 @@ const AdminRoutes = [
     
     {/* Category Routes */}
     <Route
-      path="/admin/categories"
+      path="/categories"
       element={
         <AdminMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -89,7 +89,7 @@ const AdminRoutes = [
     
     {/* Subcategory Routes */}
     <Route 
-      path="/admin/subcategories" 
+      path="/subcategories" 
       element={
         <AdminMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -101,7 +101,7 @@ const AdminRoutes = [
 
     {/* Stock Management */}
     <Route
-      path="/admin/my-stocks"
+      path="/my-stocks"
       element={
         <AdminMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -238,7 +238,7 @@ const AdminRoutes = [
       }
     />
    <Route 
-      path="/admin/my-products" 
+      path="/my-products" 
       element={
         <AdminMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -261,7 +261,7 @@ const AdminRoutes = [
 
     {/* Financial Management */}
     <Route 
-      path="/admin/wallet" 
+      path="/my-wallet" 
       element={
         <AdminMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -271,7 +271,7 @@ const AdminRoutes = [
       } 
     />
     <Route 
-      path="/admin/topup" 
+      path="/topup" 
       element={
         <AdminMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -281,7 +281,7 @@ const AdminRoutes = [
       } 
     />
     <Route 
-      path="/admin/withdrawal-request" 
+      path="/withdrawal-request" 
       element={
         <AdminMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -293,7 +293,7 @@ const AdminRoutes = [
 
     {/* User Management */}
     <Route 
-      path="/admin/vendor" 
+      path="/vendor" 
       element={
         <AdminMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -303,7 +303,7 @@ const AdminRoutes = [
       } 
     />
     <Route 
-      path="/admin/stockist" 
+      path="/stockist" 
       element={
         <AdminMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -313,7 +313,7 @@ const AdminRoutes = [
       } 
     />
     <Route 
-      path="/admin/reseller" 
+      path="/reseller" 
       element={
         <AdminMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -325,7 +325,7 @@ const AdminRoutes = [
 
     {/* Shopping Cart */}
     <Route 
-      path="/admin/my-cart" 
+      path="/my-cart" 
       element={
         <AdminMainLayout>
           <Suspense fallback={<Spinner />}>

@@ -45,7 +45,7 @@ const StockistRoutes = [
   <Route element={<ProtectedRoute allowedRoles={["stockist"]} checkProfileCompletion={true} />} key="stockist">
     {/* Dashboard */}
     <Route
-      path="/stockist/dashboard"
+      path="/dashboard"
       element={
         <StockistMainLayout>
           <ErrorBoundary>
@@ -59,7 +59,7 @@ const StockistRoutes = [
 
     {/* Products */}
     <Route
-      path="/stockist/products"
+      path="/products"
       element={
         <StockistMainLayout>
           <ErrorBoundary>
@@ -71,7 +71,7 @@ const StockistRoutes = [
       }
     />
       <Route
-      path="/stockist/my-stocks"
+      path="/my-stocks"
       element={
         <StockistMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -83,7 +83,7 @@ const StockistRoutes = [
     
     {/* Reports */}
     <Route
-      path="/stockist/sales-report"
+      path="/sales-report"
       element={
         <StockistMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -107,7 +107,7 @@ const StockistRoutes = [
 
     {/* Reseller Management */}
     <Route
-      path="/stockist/reseller"
+      path="/assigned-reseller"
       element={
         <StockistMainLayout>
           <ErrorBoundary>
@@ -121,7 +121,7 @@ const StockistRoutes = [
 
     {/* order reqeust  */}
       <Route
-      path="/stockist/my-order-request"
+      path="/my-order-request"
       element={
         <StockistMainLayout>
           <ErrorBoundary>
@@ -147,7 +147,7 @@ const StockistRoutes = [
 
     {/* network order request  */}
     <Route
-      path="/reseller/order-request"
+      path="/reseller-order-request"
       element={
         <StockistMainLayout>
           <ErrorBoundary>
@@ -198,7 +198,7 @@ const StockistRoutes = [
 
     {/* Wallet */}
     <Route
-      path="/stockist/wallet"
+      path="/my-wallet"
       element={
         <StockistMainLayout>
           <ErrorBoundary>
@@ -212,7 +212,7 @@ const StockistRoutes = [
 
     {/* Withdrawals */}
     <Route
-      path="/stockist/withdrawl-request"
+      path="/withdrawl-request"
       element={
         <StockistMainLayout>
           <ErrorBoundary>
@@ -224,7 +224,7 @@ const StockistRoutes = [
       }
     />
     <Route
-      path="/stockist/my-withdrawl"
+      path="/my-withdrawl-history"
       element={
         <StockistMainLayout>
           <ErrorBoundary>
@@ -238,7 +238,7 @@ const StockistRoutes = [
 
     {/* Topup */}
     <Route
-      path="/stockist/topup-request"
+      path="/topup-request"
       element={
         <StockistMainLayout>
           <ErrorBoundary>
@@ -250,7 +250,7 @@ const StockistRoutes = [
       }
     />
     <Route
-      path="/stockist/my-topup"
+      path="/my-topup-request"
       element={
         <StockistMainLayout>
           <ErrorBoundary>
@@ -264,7 +264,7 @@ const StockistRoutes = [
 
     {/* Cart */}
     <Route
-      path="/stockist/my-cart"
+      path="/my-cart"
       element={
         <StockistMainLayout>
           <ErrorBoundary>
