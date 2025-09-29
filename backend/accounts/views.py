@@ -700,30 +700,6 @@ class WithdrawalRequestListCreateView(generics.ListCreateAPIView):
             return WithdrawalRequest.objects.all().order_by('-created_at')
         return WithdrawalRequest.objects.filter(user=user).order_by('-created_at')
 
-    def perform_create(self, serializer):
-        user = self.request.user
-        amount = serializer.validated_data['amount']
-        
-        # Check wallet balance
-        wallet = Wallet.objects.get(user=user)
-        if wallet.current_balance < amount:
-            raise serializers.ValidationError("Insufficient wallet balance")
-        
-        # Deduct amount from wallet
-        wallet.current_balance -= amount
-        wallet.save()
-        
-        # Create wallet transaction
-        WalletTransaction.objects.create(
-            wallet=wallet,
-            transaction_type='DEBIT',
-            amount=amount,
-            description="Withdrawal request",
-            transaction_status='PENDING'
-        )
-        
-        serializer.save(user=user, wallet=wallet)
-
 
 class UserPaymentDetailsView(generics.RetrieveUpdateAPIView):
     serializer_class = UserPaymentDetailsSerializer

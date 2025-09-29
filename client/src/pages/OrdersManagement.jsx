@@ -94,8 +94,8 @@ const OrdersManagement = ({ role }) => {
       .filter(
         (order) =>
           order.created_for?.username?.toLowerCase().includes(search.toLowerCase()) ||
-          order.id.toString().toLowerCase().includes(search.toLowerCase())
-      .slice(0, visibleCount));
+          order.id
+     );
   }, [data, search, visibleCount]);
 
   const todaysOrders = React.useMemo(() => {

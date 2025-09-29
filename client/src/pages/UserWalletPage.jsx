@@ -149,7 +149,7 @@ const UserWalletPage = ({ role }) => {
       </div>
       <div className="stat-title text-white font-extrabold text-lg tracking-wide">YOUR EARNINGS</div>
       <div className="stat-value text-white text-3xl md:text-4xl animate-pulse">
-                  {summaryData?.total_earnings}
+                  {summaryData?.payout_balance}
       </div>
       <div className="stat-desc flex items-center mt-2">
         <span className="inline-block bg-white bg-opacity-20 rounded-full px-3 py-1 text-sm font-semibold text-black mr-2">
