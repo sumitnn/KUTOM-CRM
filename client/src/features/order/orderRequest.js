@@ -5,7 +5,7 @@ import axiosBaseQuery from '../../utils/axiosBaseQuery';
 export const orderRequestApi = createApi({
     reducerPath: 'orderRequestApi',
     baseQuery: axiosBaseQuery({ baseUrl: import.meta.env.VITE_BACKEND_API_URL }),
-    tagTypes: ['OrderRequest','StockistOrderRequests'],
+    tagTypes: ['OrderRequest', 'StockistOrderRequests','ResellerOrderRequest'],
     endpoints: (builder) => ({
         // Get all order requests with filters and pagination
         getOrderRequests: builder.query({
@@ -30,13 +30,28 @@ export const orderRequestApi = createApi({
                 url: `/order-requests/status/${status}/?page=${page}&page_size=${page_size}`,
                 method: 'GET',
             }),
-            providesTags: ['OrderRequest'],
+            providesTags: ['OrderRequest','StockistOrderRequests'],
+        }),
+
+        getResellerOrderRequestsByStatus: builder.query({
+            query: ({ status, page = 1, page_size = 10 }) => ({
+                url: `/reseller-order-requests/status/${status}/?page=${page}&page_size=${page_size}`,
+                method: 'GET',
+            }),
+            providesTags: ['OrderRequest', 'ResellerOrderRequest'],
         }),
 
         // Get specific order request details
         getOrderRequestById: builder.query({
             query: (id) => ({
                 url: `/order-requests/${id}/`,
+                method: 'GET',
+            }),
+            providesTags: (result, error, id) => [{ type: 'OrderRequest', id }],
+        }),
+        getResellerOrderRequestById: builder.query({
+            query: (id) => ({
+                url: `/reseller-order-requests/${id}/`,
                 method: 'GET',
             }),
             providesTags: (result, error, id) => [{ type: 'OrderRequest', id }],
@@ -49,7 +64,15 @@ export const orderRequestApi = createApi({
                 method: 'POST',
                 data: orderRequestData,
             }),
-            invalidatesTags: ['OrderRequest'],
+            invalidatesTags: ['StockistOrderRequests'],
+        }),
+        createOrderRequestReseller: builder.mutation({
+            query: (orderRequestData) => ({
+                url: '/reseller-order-requests/',
+                method: 'POST',
+                data: orderRequestData,
+            }),
+            invalidatesTags: ['ResellerOrderRequest'],
         }),
 
         // Update order request status (approve/reject/cancel)
@@ -62,6 +85,17 @@ export const orderRequestApi = createApi({
             invalidatesTags: (result, error, { id }) => [
                 'OrderRequest',
                 { type: 'OrderRequest', id }
+            ],
+        }),
+        updateResellerOrderRequestStatus: builder.mutation({
+            query: ({ id, status }) => ({
+                url: `/reseller-order-requests/${id}/update-status/`,
+                method: 'POST',
+                data: { status },
+            }),
+            invalidatesTags: (result, error, { id }) => [
+                'ResellerOrderRequest',
+                { type: 'ResellerOrderRequest', id }
             ],
         }),
 
@@ -136,6 +170,10 @@ export const {
     useDeleteOrderRequestMutation,
     useGetOrderRequestsReportQuery,
     useExportOrderRequestsMutation,
+    useCreateOrderRequestResellerMutation,
+    useGetResellerOrderRequestsByStatusQuery,
+    useGetResellerOrderRequestByIdQuery,
+    useUpdateResellerOrderRequestStatusMutation
 
 } = orderRequestApi;
 

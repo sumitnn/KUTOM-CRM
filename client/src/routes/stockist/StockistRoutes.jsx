@@ -3,6 +3,9 @@ import { Route } from "react-router-dom";
 import React from "react";
 
 
+
+const ResellerOrderRequestDetail =lazy(() => import("../../pages/ResellerOrderRequestDetail"));
+const ResellerOrderRequestPage =lazy(() => import("../../pages/ResellerOrderRequestPage"));
 // Lazy-loaded components
 const OrderRequestDetailsPage =lazy(() => import("../../pages/OrderRequestDetailsPage"));
 const OrderRequestPage =lazy(() => import("../../pages/OrderRequestPage"));
@@ -136,6 +139,32 @@ const StockistRoutes = [
           <ErrorBoundary>
             <Suspense fallback={<Spinner />}>
               <OrderRequestDetailsPage role="stockist" />
+            </Suspense>
+          </ErrorBoundary>
+        </StockistMainLayout>
+      }
+    />
+
+    {/* network order request  */}
+    <Route
+      path="/reseller/order-request"
+      element={
+        <StockistMainLayout>
+          <ErrorBoundary>
+            <Suspense fallback={<Spinner />}>
+              <ResellerOrderRequestPage role="stockist" />
+            </Suspense>
+          </ErrorBoundary>
+        </StockistMainLayout>
+      }
+    />
+     <Route
+      path="/reseller/order-request/:id"
+      element={
+        <StockistMainLayout>
+          <ErrorBoundary>
+            <Suspense fallback={<Spinner />}>
+              <ResellerOrderRequestDetail role="stockist"/>
             </Suspense>
           </ErrorBoundary>
         </StockistMainLayout>

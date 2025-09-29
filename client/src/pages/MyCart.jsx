@@ -6,7 +6,7 @@ import {
   clearCart,
 } from "../features/cart/cartSlice";
 import { useCreateBulkOrdersMutation } from "../features/order/orderApi";
-import { useCreateOrderRequestMutation } from "../features/order/orderRequest";
+import { useCreateOrderRequestMutation, useCreateOrderRequestResellerMutation } from "../features/order/orderRequest";
 import { FiTrash2, FiPlus, FiMinus, FiShoppingBag } from "react-icons/fi";
 import { TbTruckDelivery } from "react-icons/tb";
 import { BsShieldCheck } from "react-icons/bs";
@@ -69,11 +69,13 @@ const MyCart = ({ role }) => {
   const dispatch = useDispatch();
   const cartItems = useSelector((state) => state.cart.items);
   const user = useSelector((state) => state.auth.user);
+  console.log(cartItems)
   
   const [placeBulkOrder, { isLoading: isBulkOrderLoading }] = useCreateBulkOrdersMutation();
   const [createOrderRequest, { isLoading: isOrderRequestLoading }] = useCreateOrderRequestMutation();
+  const [createOrderRequestReseller, { isLoading: isResellerOrderRequestLoading }] = useCreateOrderRequestResellerMutation();
 
-  const isLoading = isBulkOrderLoading || isOrderRequestLoading;
+  const isLoading = isBulkOrderLoading || isOrderRequestLoading || isResellerOrderRequestLoading;
 
   const subtotal = cartItems.reduce(
     (acc, item) => acc + (calculateItemPrice(item) || 0) * (item.quantity || 1),
@@ -124,13 +126,13 @@ const MyCart = ({ role }) => {
 
   const handleCheckout = async () => {
     try {
-      if (role === "stockist") {
-        // For stockist: Create a single order request with multiple items
+      if (role === "stockist" || role === "reseller") {
+        // For stockist and reseller: Create a single order request with multiple items
         const orderRequestData = {
-          note: `Order request from ${user?.email}`,
+          note: `Order request from ${user?.email} (${role})`,
           items: cartItems.map((item) => ({
             product: item.id,
-            variant: item.variant?.id || null,
+            variant: item.variant?.id || item.size?.id ,
             quantity: item.quantity,
             unit_price: calculateItemPrice(item),
             total_price: (calculateItemPrice(item) * item.quantity),
@@ -139,8 +141,13 @@ const MyCart = ({ role }) => {
           }))
         };
 
-        await createOrderRequest(orderRequestData).unwrap();
-        toast.success("Order request submitted successfully! Waiting for admin approval.");
+        if (role === "stockist") {
+          await createOrderRequest(orderRequestData).unwrap();
+          toast.success("Order request submitted successfully! Waiting for admin approval.");
+        } else if (role === "reseller") {
+          await createOrderRequestReseller(orderRequestData).unwrap();
+          toast.success("Order request submitted successfully! Waiting for stockist approval.");
+        }
       } else {
         // For other roles: Use bulk orders
         const orderData = {
@@ -210,23 +217,74 @@ const MyCart = ({ role }) => {
       );
     }
     
-    return role === "stockist" ? "Submit Order Request" : "Proceed to Checkout";
+    if (role === "stockist") {
+      return "Submit Order Request";
+    } else if (role === "reseller") {
+      return "Submit Order Request";
+    } else {
+      return "Proceed to Checkout";
+    }
   };
 
   const getOrderTypeMessage = () => {
-    if (role === "stockist") {
+    if (role === "stockist" || role === "reseller") {
+      const roleName = role === "stockist" ? "Stockist" : "Reseller";
+      const bgColor = role === "stockist" ? "blue" : "purple";
+      
       return (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+        <div className={`bg-${bgColor}-50 border border-${bgColor}-200 rounded-lg p-3 mb-4`}>
           <div className="flex items-center">
-            <svg className="w-5 h-5 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+            <svg className={`w-5 h-5 text-${bgColor}-600 mr-2`} fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
             </svg>
-            <span className="text-blue-800 font-medium text-sm">
-              As a stockist, your order will be submitted as a request for admin approval.
-            </span>
+            <span className={`text-${bgColor}-800 font-medium text-sm`}>
+          {role === "stockist" ? (
+            `As a stockist, your order will be submitted as a request for admin approval.`
+          ) : role=== "reseller" ? (
+            `As a reseller, your order will be submitted as a request for stockist approval.` // Replace with your text
+          ) : (
+            `As a admin, your order will be submitted as a request for vendor approval. ` // Default text if role is something else
+          )}
+        </span>
           </div>
         </div>
       );
+    }
+    return null;
+  };
+
+  const getRoleBadge = () => {
+    if (role === "stockist") {
+      return (
+        <span className="inline-block mt-1 bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">
+          Stockist Mode - Requires Approval
+        </span>
+      );
+    } else if (role === "reseller") {
+      return (
+        <span className="inline-block mt-1 bg-purple-100 text-purple-800 text-xs font-medium px-2 py-1 rounded-full">
+          Reseller Mode - Requires Approval
+        </span>
+      );
+    }
+    return null;
+  };
+
+  const getOrderSummaryTitle = () => {
+    if (role === "stockist") {
+      return "Order Request Summary";
+    } else if (role === "reseller") {
+      return "Reseller Order Summary";
+    } else {
+      return "Order Summary";
+    }
+  };
+
+  const getOrderSummaryNote = () => {
+    if (role === "stockist") {
+      return "Requires admin approval before processing";
+    } else if (role === "reseller") {
+      return "Requires stockist approval before processing";
     }
     return null;
   };
@@ -244,11 +302,7 @@ const MyCart = ({ role }) => {
                   <p className="text-gray-500 mt-1 font-medium">
                     {cartItems.length} {cartItems.length === 1 ? 'item' : 'items'}
                   </p>
-                  {role === "stockist" && (
-                    <span className="inline-block mt-1 bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">
-                      Stockist Mode - Requires Approval
-                    </span>
-                  )}
+                  {getRoleBadge()}
                 </div>
                 {cartItems.length > 0 && (
                   <button
@@ -439,11 +493,11 @@ const MyCart = ({ role }) => {
               <div className="bg-white shadow-sm rounded-xl overflow-hidden sticky top-6">
                 <div className="px-6 py-5 border-b border-gray-200">
                   <h2 className="text-xl font-extrabold text-gray-900">
-                    {role === "stockist" ? "Order Request Summary" : "Order Summary"}
+                    {getOrderSummaryTitle()}
                   </h2>
-                  {role === "stockist" && (
+                  {getOrderSummaryNote() && (
                     <p className="text-sm text-blue-600 mt-1">
-                      Requires admin approval before processing
+                      {getOrderSummaryNote()}
                     </p>
                   )}
                 </div>

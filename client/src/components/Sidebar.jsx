@@ -117,6 +117,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         label: "My Network",
         children: [
           { label: "My Reseller", path: "/stockist/reseller" },
+          { label: "Order Request", path: "/reseller/order-request" },
         ],
       },
        {
@@ -177,6 +178,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         icon: <FaCodePullRequest />,
         label: "Order Management",
         children: [
+          { label: "Order Request", path: "/reseller/my-order-request" },
           { label: "My Orders", path: "/reseller/orders" },
         ],
       },{
@@ -194,7 +196,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
           { label: "Withdrawal Request History", path: "/reseller/my-withdrawl" },
         ],
       },
-      { icon: <MdProductionQuantityLimits />, label: "My Cart", path: "/reseller/my-cart" },
+      
       { icon: <CiWallet />, label: "My Wallet", path: "/reseller/wallet" },
       {
         icon: <MdProductionQuantityLimits />,

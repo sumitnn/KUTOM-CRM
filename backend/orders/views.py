@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from .models import *
 from .serializers import *
 from django.utils.timezone import now
-from accounts.permissions import IsAdminRole, IsStockistRole, IsVendorRole, IsAdminOrVendorRole, IsAdminStockistResellerRole,IsAdminOrStockistRole
+from accounts.permissions import IsAdminRole, IsStockistRole, IsVendorRole, IsAdminOrVendorRole, IsAdminStockistResellerRole,IsAdminOrStockistRole,IsStockistOrResellerRole
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import status
@@ -122,9 +122,7 @@ class BulkOrderCreateView(APIView):
             return Response({"message": "Invalid or empty 'items' list."}, status=400)
 
         try:
-            if request.user.role in ["stockist", "reseller"]:
-                order, total_price = OrderService.create_bulk_order_from_admin(request.user, items_data)
-            elif request.user.role == "admin":
+            if request.user.role == "admin":
                 order, total_price = OrderService.create_bulk_order(request.user, items_data)
             else:
                 return Response({"message": "You don't have access to order items."}, status=400)
@@ -1167,7 +1165,7 @@ def get_requests_by_status(request, status):
         queryset = queryset.filter(requested_by=user)
     
     if user.role=="admin":
-        queryset = queryset.exclude(status='cancelled')
+        queryset = queryset.filter(target_user=user).exclude(status='cancelled')
     
     if status=="rejected" and not user.role=="admin":
         queryset = queryset.filter(Q(status='rejected') | Q(status='cancelled'))
@@ -1490,3 +1488,340 @@ class OrderRequestExportCSVView(APIView):
 
         except Exception as e:
             return Response({'error': f'Failed to generate report: {str(e)}'}, status=500)
+        
+
+
+class ResellerOrderRequestListCreateView(APIView):
+    permission_classes = [IsStockistOrResellerRole]
+
+    def get(self, request):
+        user = request.user
+        queryset = (
+            OrderRequest.objects
+            .select_related('requested_by', 'target_user')
+            .prefetch_related('items')
+        )
+
+        # Filters
+        status_param = request.query_params.get("status")
+        email = request.query_params.get("user_email")
+
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+        if email:
+            queryset = queryset.filter(requested_by__email__icontains=email)
+
+        if user.role=="stockist":
+            queryset = queryset.filter(target_user=user)
+        
+        if user.role=="reseller":
+            queryset = queryset.filter(requested_by=user)
+
+        serializer = ResellerOrderRequestSerializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        
+        serializer = ResellerOrderRequestSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            order_request = serializer.save()
+            self._notify_stockist(order_request)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def _notify_stockist(self, order_request):
+        stockist_user = (
+            StockistAssignment.objects.filter(reseller=order_request.requested_by)
+            .select_related("stockist")
+            .last()
+        )
+
+        stockist_user = stockist_user.stockist if stockist_user else (
+            User.objects.filter(role="stockist", is_default_user=True).last()
+        )
+        if stockist_user:
+            Notification.objects.create(
+                user=stockist_user,
+                title="New Order Request",
+                message=f"New order request {order_request.request_id} from {order_request.requested_by.email}",
+                notification_type="order_request",
+            )
+
+@api_view(['GET'])
+@permission_classes([IsStockistOrResellerRole])
+def get_reseller_order_requests_by_status(request, status):
+    user = request.user
+    queryset = OrderRequest.objects.select_related('requested_by', 'target_user').prefetch_related('items')
+    if not user.role=="stockist":
+        queryset = queryset.filter(requested_by=user)
+    
+    if user.role=="stockist":
+        queryset = queryset.filter(target_user=user).exclude(status='cancelled')
+    
+    if status=="rejected" and not user.role=="stockist":
+        queryset = queryset.filter(Q(status='rejected') | Q(status='cancelled'))
+    else:
+        queryset = queryset.filter(status=status)
+    
+    # Pagination
+    page = request.GET.get('page', 1)
+    page_size = request.GET.get('page_size', 10)
+    
+    paginator = Paginator(queryset, page_size)
+    page_obj = paginator.get_page(page)
+    
+    serializer = ResellerOrderRequestSerializer(page_obj, many=True)
+    
+    return Response({
+        'results': serializer.data,
+        'count': paginator.count,
+        'total_pages': paginator.num_pages,
+        'current_page': page_obj.number,
+    })
+
+
+class ResellerOrderRequestDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsStockistOrResellerRole]
+    serializer_class = OrderRequestDetailSerializer
+    queryset = OrderRequest.objects.select_related('requested_by', 'target_user').prefetch_related('items')
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role=="stockist":
+            return self.queryset
+        return self.queryset.filter(requested_by=user)
+
+    def perform_update(self, serializer):
+        # Only allow status updates via update_status endpoint
+        if 'status' in serializer.validated_data:
+            raise serializers.ValidationError({"error": "Use update_status endpoint to change status"})
+        serializer.save()
+
+
+class UpdateOrderRequestStatusView(APIView):
+    permission_classes = [IsStockistOrResellerRole]
+
+    def post(self, request, pk):
+        import pdb; pdb.set_trace()
+        try:
+            order_request = OrderRequest.objects.get(pk=pk)
+        except OrderRequest.DoesNotExist:
+            return Response({"error": "Order request not found"}, status=404)
+
+        # Check permissions
+        if not request.user.role == "stockist" and order_request.requested_by != request.user:
+            return Response({"error": "Permission denied"}, status=403)
+
+        serializer = OrderRequestStatusSerializer(order_request, data=request.data)
+        if serializer.is_valid():
+            new_status = serializer.validated_data['status']
+            old_status = order_request.status
+
+            # Validate status change
+            if not request.user.role == "stockist" and new_status == 'cancelled':
+                if old_status != 'pending':
+                    return Response({"error": "Can only cancel pending requests"}, status=400)
+            elif not request.user.role == "stockist":
+                return Response({"error": "Only stockist can update status"}, status=403)
+
+            with transaction.atomic():
+                order_request = serializer.save()
+                self._handle_status_change(
+                    order_request,
+                    old_status,
+                    new_status,
+                    order_request.requested_by,
+                    order_request.target_user
+                )
+
+            return Response(ResellerOrderRequestSerializer(order_request).data)
+
+        return Response(serializer.errors, status=400)
+
+    @classmethod
+    def _handle_status_change(cls, order_request, old_status, new_status, current_user, user):
+        total_amount = sum(item.total_price for item in order_request.items.all())
+
+        if new_status == 'approved' and old_status == 'pending':
+            # Add amount to admin wallet
+            admin_wallet, _ = Wallet.objects.get_or_create(user=user)
+            admin_wallet.current_balance += total_amount
+            admin_wallet.save()
+
+            WalletTransaction.objects.create(
+                wallet=admin_wallet,
+                transaction_type='CREDIT',
+                amount=total_amount,
+                description=f"Order Request {order_request.request_id} By Reseller",
+                transaction_status='SUCCESS',
+                is_refund=False
+            )
+
+            Notification.objects.create(
+                user=current_user,
+                title="Your Order Request is Approved",
+                message=f"Your order request {order_request.request_id} is approved by Stockist",
+                notification_type="order_request",
+            )
+
+            cls._update_inventory(order_request)
+
+        elif new_status in ['rejected', 'cancelled'] and old_status == 'pending':
+            if order_request.requestor_type == 'reseller':
+                wallet = Wallet.objects.get(user=order_request.requested_by)
+                wallet.current_balance += total_amount
+                wallet.save()
+
+                WalletTransaction.objects.create(
+                    wallet=wallet,
+                    transaction_type='CREDIT',
+                    amount=total_amount,
+                    description=f"Refund for Order Request {order_request.request_id}",
+                    transaction_status='SUCCESS',
+                    is_refund=True,
+                )
+
+                if new_status == 'rejected':
+                    Notification.objects.create(
+                        user=current_user,
+                        title="Your Order Request is Rejected",
+                        message=f"Your order request {order_request.request_id} is rejected by Stockist",
+                        notification_type="order_request",
+                    )
+                if new_status == 'cancelled':
+                    Notification.objects.create(
+                        user=user,
+                        title="Order Request is Cancelled",
+                        message=f"Order request {order_request.request_id} is cancelled by Reseller",
+                        notification_type="order_request",
+                    )
+
+    @classmethod
+    def _update_inventory(cls, order_request):
+        reseller_user = order_request.requested_by  # buyer (reseller)
+        target_user = order_request.target_user     # stockist 
+        admin_user = User.objects.filter(role="admin").first()  # admin 
+        import pdb; pdb.set_trace()
+
+        validated_items = []
+        total_price = 0
+
+        with transaction.atomic():
+            # ✅ Step 1: Preload all stock records in one query
+            stock_map = {
+                (s.product_id, s.variant_id): s
+                for s in StockInventory.objects.select_for_update().filter(
+                    user=target_user,
+                    product__in=[i.product.product for i in order_request.items.all()],
+                    variant__in=[i.variant for i in order_request.items.all()],
+                )
+            }
+
+            # ✅ Step 2: Validate and deduct in one pass
+            for item in order_request.items.all():
+                key = (item.product.product.id, item.variant.id)
+                admin_stock = stock_map.get(key)
+
+                if not admin_stock:
+                    raise ValueError(f"No stock found for {item.product.product} - {item.variant}")
+
+                if admin_stock.total_quantity < item.quantity:
+                    raise ValueError(
+                        f"Not enough stock for {item.product.product} - {item.variant}. "
+                        f"Available: {admin_stock.total_quantity}, Requested: {item.quantity}"
+                    )
+
+                # Deduct immediately
+                admin_stock.adjust_stock(
+                    change_quantity=-item.quantity,
+                    action="ORDER",
+                    reference_id=f"OrderReq-{order_request.id}",
+                )
+
+                validated_items.append({
+                    "product": item.product.product,
+                    "variant": item.variant,
+                    "quantity": item.quantity,
+                    "unit_price": item.unit_price,
+                    "discount_percentage": item.discount_percentage,
+                    "gst_percentage": item.gst_percentage,
+                })
+
+                total_price += item.unit_price * item.quantity
+
+            # ✅ Step 3: Create the Order
+            order = Order.objects.create(
+                buyer=reseller_user,
+                seller=admin_user,
+                total_price=total_price,
+                status="pending",
+                description="Bulk order placed by reseller",
+            )
+
+            # ✅ Step 4: Create Order History
+            OrderHistory.objects.create(
+                order=order,
+                actor=reseller_user,
+                action="pending",
+                notes="Bulk order placed.",
+            )
+
+            # ✅ Step 5: Bulk create Order Items
+            order_items = [
+                OrderItem(
+                    order=order,
+                    product=item["product"],
+                    variant=item["variant"],
+                    quantity=item["quantity"],
+                    unit_price=item["unit_price"],
+                    discount_percentage=item["discount_percentage"],
+                    gst_percentage=item["gst_percentage"],
+                    role_based_product=RoleBasedProduct.objects.filter(
+                        product=item["product"],
+                        user=reseller_user,
+                        role=reseller_user.role
+                    ).first(),
+                )
+                for item in validated_items
+            ]
+            OrderItem.objects.bulk_create(order_items)
+
+            # ✅ Step 6: Send Notification
+            create_notification(
+                user=reseller_user,
+                title="Order Placed Successfully",
+                message=f"Your order #{order.id} has been Approved successfully!",
+                notification_type="order",
+                related_url=f"/orders/{order.id}/",
+            )
+            create_notification(
+                user=admin_user,
+                title="New Order Placed by Reseller",
+                message=f"New order #{order.id} has been placed by {reseller_user.email}",
+                notification_type="order",
+                related_url=f"/orders/{order.id}/",
+            )
+
+        return order
+        
+
+            
+
+
+
+
+
+
+# 2️⃣ Add to reseller Inventory
+            # stockist_stock, _ = StockInventory.objects.get_or_create(
+            #     product=item.product.product,
+            #     variant=item.variant,
+            #     user=stockist_user,
+            #     defaults={"total_quantity": 0},
+            # )
+
+            # stockist_stock.adjust_stock(
+            #     change_quantity=item.quantity,
+            #     action="ADD",
+            #     reference_id=f"OrderReq-{order_request.id}",
+            # )

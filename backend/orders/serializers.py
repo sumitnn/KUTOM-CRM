@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Order, OrderItem, OrderHistory, OrderPayment,OrderRequestItem,OrderRequest
-from accounts.models import User, Address, Wallet, WalletTransaction
+from accounts.models import User, Address, Wallet, WalletTransaction,StockistAssignment
 from products.models import Product, ProductImage, ProductVariant, RoleBasedProduct, ProductVariantPrice,ProductFeatures
 from decimal import Decimal
 from django.db.models import Sum
@@ -458,3 +458,133 @@ class OrderRequestDetailSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         representation['total_amount'] = sum(item.total_price for item in instance.items.all())
         return representation
+
+
+class ResellerOrderRequestSerializer(serializers.ModelSerializer):
+    items = OrderRequestItemSerializer(many=True)
+    total_amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    requested_by=UserBasicSerializer(read_only=True)
+
+    class Meta:
+        model = OrderRequest
+        fields = [
+            'id', 'request_id', 'requested_by',
+            'requestor_type', 'target_type', 'target_user',
+            'status', 'note', 'items', 'total_amount',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['request_id', 'created_at', 'updated_at', 'total_amount']
+        extra_kwargs = {
+            "requested_by": {"required": False},
+            "requestor_type": {"required": False},
+            "target_type": {"required": False},
+        }
+
+    def create(self, validated_data):
+        
+        request_user = self.context["request"].user
+        items_data = validated_data.pop('items', [])
+        stockist_user = (
+            StockistAssignment.objects.filter(reseller=request_user)
+            .select_related("stockist")
+            .last()
+        )
+
+        stockist_user = stockist_user.stockist if stockist_user else (
+            User.objects.filter(role="stockist", is_default_user=True).last()
+        )
+        
+        total_amount = Decimal("0.00")
+
+        # Calculate secure prices
+        secure_items = []
+        for item_data in items_data:
+            variant= item_data.get("variant")
+            quantity = item_data.get("quantity", 1)
+            role_product= item_data.get("product")
+
+            try:
+                price_obj = ProductVariantPrice.objects.get(
+                    variant=variant,
+                    role="admin",
+                    product=role_product.product
+                )
+            except ProductVariantPrice.DoesNotExist:
+                raise serializers.ValidationError(
+                    {"error": f"No valid price found for variant {variant.id} and role admin"}
+                )
+
+            unit_price = price_obj.price
+            discount = price_obj.discount
+            gst_percentage = price_obj.gst_percentage
+
+            # Apply discount
+            discounted_price = unit_price - (unit_price * Decimal(discount) / 100)
+
+            # GST calculation
+            gst_tax = discounted_price * Decimal(gst_percentage) / 100
+            final_price = discounted_price + gst_tax
+
+            total_price = final_price * quantity
+            total_amount += total_price
+
+            secure_items.append({
+                "variant_id": variant.id,
+                "quantity": quantity,
+                "unit_price": unit_price,
+                "discount": discount,
+                "gst_percentage": gst_percentage,
+                "gst_tax": gst_tax,
+                "final_price": final_price,
+                "total_price": total_price,
+                "product_id": role_product.id
+            })
+
+        # Default values
+        validated_data['requested_by'] = request_user
+        validated_data['target_user'] = stockist_user
+        validated_data.setdefault("requestor_type", "reseller")
+        validated_data.setdefault("target_type", "stockist")
+
+        # Wallet check for stockists
+        if validated_data["requestor_type"] == "reseller":
+            wallet = Wallet.objects.select_for_update().get(user=request_user)
+            if wallet.current_balance < total_amount:
+                raise serializers.ValidationError(
+                    {"error": "Insufficient wallet balance"}
+                )
+            wallet.current_balance -= total_amount
+            wallet.save()
+        
+            
+        # Create order + secure items
+        order_request = OrderRequest.objects.create(**validated_data)
+        # Create wallet transaction for stockist
+        WalletTransaction.objects.create(
+                wallet=wallet,
+                transaction_type='DEBIT',
+                amount=total_amount,
+                description=f"Order Request #{order_request.id} placed",
+                transaction_status='SUCCESS',
+                order_id=order_request.id
+            )
+        
+        for item in secure_items:
+            OrderRequestItem.objects.create(
+                order_request=order_request,
+                variant_id=item["variant_id"],
+                quantity=item["quantity"],
+                unit_price=item["unit_price"],
+                discount_percentage=item["discount"],
+                gst_percentage=item["gst_percentage"],
+                total_price=item["total_price"],
+                product_id=item["product_id"]
+            )
+
+        return order_request
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['total_amount'] = sum(item.total_price for item in instance.items.all())
+        return representation
+

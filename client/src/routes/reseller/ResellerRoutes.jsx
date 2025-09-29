@@ -1,7 +1,11 @@
 import { lazy, Suspense } from "react";
 import { Route } from "react-router-dom";
 
+
+
 // Lazy-loaded components
+const ResellerOrderRequestDetail = lazy(() => import("../../pages/ResellerOrderRequestDetail"));
+const ResellerOrderRequestPage = lazy(() => import("../../pages/ResellerOrderRequestPage"));
 const Spinner = lazy(() => import("../../components/common/Spinner"));
 const ResellerMainLayout = lazy(() => import("../../layout/reseller/ResellerMainLayout"));
 const ProtectedRoute = lazy(() => import("../ProtectedRoutes"));
@@ -79,6 +83,29 @@ const ResellerRoutes = [
       }
     />
 
+    {/* order request  */}
+    <Route
+      path="/reseller/my-order-request"
+      element={
+        <ResellerMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <ResellerOrderRequestPage role="reseller"/>
+          </Suspense>
+        </ResellerMainLayout>
+      }
+    />
+    <Route
+      path="/reseller/my-order-request/:id"
+      element={
+        <ResellerMainLayout>
+          <Suspense fallback={<Spinner />}>
+           
+            <ResellerOrderRequestDetail role="reseller"/>
+          </Suspense>
+        </ResellerMainLayout>
+      }
+    />
+
     {/* Withdrawal */}
     <Route
       path="/reseller/withdrawl-request"
@@ -141,7 +168,7 @@ const ResellerRoutes = [
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
-            <MyCart />
+            <MyCart role="reseller"/>
           </Suspense>
         </ResellerMainLayout>
       }

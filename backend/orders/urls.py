@@ -26,11 +26,15 @@ urlpatterns = [
     path('sales/vendor/export/', SalesExportCSVView.as_view(), name='vendor-sales-export'),
 
      path('new-order-requests/', OrderRequestListCreateView.as_view(), name='order-request-list'),
+     path('reseller-order-requests/', ResellerOrderRequestListCreateView.as_view(), name='reseller-order-request-list'),
     path('order-requests/<int:pk>/', OrderRequestDetailView.as_view(), name='order-request-detail'),
+    path('reseller-order-requests/<int:pk>/', ResellerOrderRequestDetailView.as_view(), name='reseller-order-request-detail'),
     path('order-requests/<int:pk>/update-status/', update_order_request_status, name='order-request-update-status'),
+    path('reseller-order-requests/<int:pk>/update-status/', UpdateOrderRequestStatusView.as_view(), name='reseller-order-request-update-status'),
     
     # Requests by status
     path('order-requests/status/<str:status>/', get_requests_by_status, name='order-requests-by-status'),
+    path('reseller-order-requests/status/<str:status>/', get_reseller_order_requests_by_status, name='reseller-order-requests-by-status'),
 
     path('order-requests/report/', OrderRequestReportView.as_view(), name='order-requests-report'),
     path('order-requests/export/', OrderRequestExportCSVView.as_view(), name='order-requests-export'),
