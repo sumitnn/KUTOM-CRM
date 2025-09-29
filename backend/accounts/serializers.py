@@ -65,61 +65,52 @@ class WithdrawalRequestSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = self.context['request'].user
-        amount = validated_data['amount']
+        amount = validated_data.get('amount')
 
-        if amount <= 0:
-            raise ValidationError({
-                "status": False,
-                "message": "Amount must be greater than zero"
-            })
+        if amount is None or amount <= 0:
+            raise ValidationError({"status": False, "message": "Amount must be greater than zero"})
 
-        # Choose which wallet to use based on role
-        if user.role in ["stockist", "reseller"]:
-            wallet = getattr(user, "commission_wallet", None)
-        else:
-            wallet = getattr(user, "wallet", None)
-
+        # Get the user's wallet
+        wallet = getattr(user, "wallet", None)
         if wallet is None:
-            raise ValidationError({
-                "status": False,
-                "message": "Wallet not found"
-            })
+            raise ValidationError({"status": False, "message": "Wallet not found"})
 
-        if wallet.current_balance < amount:
-            raise ValidationError({
-                "status": False,
-                "message": "Insufficient wallet balance"
-            })
+        # Choose balance field based on role
+        balance_field = 'payout_balance' if user.role in ["stockist", "reseller"] else 'current_balance'
 
-        # Deduct from chosen wallet
-        wallet.current_balance -= amount
-        wallet.save()
+        if getattr(wallet, balance_field) < amount:
+            raise ValidationError({"status": False, "message": "Insufficient wallet balance"})
 
-        # Attach wallet and user to the withdrawal request
-        validated_data['wallet'] = wallet
-        validated_data['user'] = user
+        with transaction.atomic():
+            # Deduct from wallet
+            setattr(wallet, balance_field, getattr(wallet, balance_field) - amount)
+            wallet.save()
 
-        withdrawal = super().create(validated_data)
+            # Attach wallet and user
+            validated_data['wallet'] = wallet
+            validated_data['user'] = user
 
-        # Create transaction for withdrawal
-        WalletTransaction.objects.create(
-            wallet=wallet,
-            transaction_type='DEBIT',
-            amount=amount,
-            description=f"Withdrawal request #{withdrawal.id}",
-            transaction_status='PENDING'
-        )
+            withdrawal = super().create(validated_data)
 
-        # Notify admin
-        admin_user = User.objects.filter(role="admin").first()
-        if admin_user:
-            create_notification(
-                user=admin_user,
-                title="New Withdrawal Request",
-                message=f"A new withdrawal request of {amount} has been made by {user.username}.",
-                notification_type='withdrawal request',
-                related_url=''
+            # Create wallet transaction
+            WalletTransaction.objects.create(
+                wallet=wallet,
+                transaction_type='DEBIT',
+                amount=amount,
+                description=f"Withdrawal request #{withdrawal.id}",
+                transaction_status='PENDING'
             )
+
+            # Notify admin
+            admin_user = User.objects.filter(role="admin").first()
+            if admin_user:
+                create_notification(
+                    user=admin_user,
+                    title="New Withdrawal Request",
+                    message=f"A new withdrawal request of {amount} has been made by {user.username}.",
+                    notification_type='withdrawal request',
+                    related_url=''
+                )
 
         return withdrawal
 

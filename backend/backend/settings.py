@@ -89,7 +89,7 @@ if DEBUG:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+            'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
         }
     }
 else:
@@ -101,9 +101,13 @@ else:
             'PASSWORD': config('AWS_DATABASE_PASSWORD'),
             'HOST': config('AWS_DATABASE_HOST'),
             'PORT': config('AWS_DATABASE_PORT'),
+            'OPTIONS': {
+                'connect_timeout': 30,  # increase to 30 seconds
+                'read_timeout': 60,     # wait for query results
+                'write_timeout': 60,    # wait for sending data
+            },
         }
     }
-
 
 
 # Password validation

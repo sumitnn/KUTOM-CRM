@@ -10,7 +10,12 @@ import {
   FiSearch,
   FiChevronDown,
   FiChevronUp,
-  FiCalendar
+  FiCalendar,
+  FiUser,
+  FiPhone,
+  FiMessageCircle,
+  FiMapPin,
+  FiBox
 } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { 
@@ -37,6 +42,7 @@ const AdminOrderRequestPage = () => {
   const [statusNote, setStatusNote] = useState("");
   const [isDispatching, setIsDispatching] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [expandedRows, setExpandedRows] = useState(new Set());
   
   // Dispatch form state
   const [dispatchForm, setDispatchForm] = useState({
@@ -70,12 +76,21 @@ const AdminOrderRequestPage = () => {
     { id: "all", label: "All Orders" },
     { id: "new", label: "New Orders" },
     { id: "accepted", label: "Accepted" },
-   
     { id: "dispatched", label: "Dispatched" },
     { id: "delivered", label: "Delivered" },
     { id: "rejected", label: "Rejected" },
     { id: "cancelled", label: "Cancelled" }
   ];
+
+  const toggleRowExpansion = (orderId) => {
+    const newExpandedRows = new Set(expandedRows);
+    if (newExpandedRows.has(orderId)) {
+      newExpandedRows.delete(orderId);
+    } else {
+      newExpandedRows.add(orderId);
+    }
+    setExpandedRows(newExpandedRows);
+  };
 
   const handleStatusUpdate = async (orderId, status) => {
     if (!statusNote && ['rejected', 'cancelled'].includes(status)) {
@@ -186,13 +201,28 @@ const AdminOrderRequestPage = () => {
     setActiveTab("today");
   };
 
+  const formatAddress = (address) => {
+    if (!address) return "No address provided";
+    
+    const parts = [
+      address.street_address,
+      address.city,
+      address.district,
+      address.state,
+      address.postal_code,
+      address.country
+    ].filter(part => part && part.trim() !== "");
+    
+    return parts.join(", ") || "Address incomplete";
+  };
+
   return (
     <div className="px-4 py-8 max-w-8xl mx-auto">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-gray-800">Order Requests</h1>
-          <p className="text-sm text-gray-500 font-bold">Manage all recieved order request by customer</p>
+          <p className="text-sm text-gray-500 font-bold">Manage all received order requests by customer</p>
         </div>
         
         <div className="flex gap-2">
@@ -348,11 +378,12 @@ const AdminOrderRequestPage = () => {
                 <table className="table w-full">
                   <thead className="bg-gray-50">
                     <tr>
+                      <th className="w-12"></th>
                       <th className="w-12">#</th>
                       <th>Order ID</th>
                       <th>Date</th>
-                      <th>Customer</th>
-                      <th>Role</th>
+                      <th>Customer Details</th>
+                      <th>Customer Address</th>
                       <th>Amount</th>
                       <th>Status</th>
                       <th className="text-center">Actions</th>
@@ -362,98 +393,173 @@ const AdminOrderRequestPage = () => {
                   <tbody>
                     {adminOrders?.results?.length > 0 ? (
                       adminOrders.results.map((order, index) => (
-                        <tr key={order.id} className="hover:bg-gray-50">
-                          <td className="font-medium">{index + 1 + (page - 1) * 10}</td>
-                          <td className="font-medium">#{order.id}</td>
-                          <td className="font-medium">
-                            {formatDate(order.created_at)}
-                          </td>
-                          <td>
-                            <div className="flex items-center gap-2">
-                              <div>
-                                <div className="font-medium">{order.created_by?.username}</div>
-                                <div className="text-xs text-gray-500">{order.created_by?.email}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td>
-                            <div className="flex items-center gap-2">
-                              <div>
-                                <div className="font-medium">{order.created_for?.username}</div>
-                                <div className="text-xs text-gray-500">ID: {order.created_for?.role_based_id}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="font-medium">
-                            {formatCurrency(order.total_price)}
-                          </td>
-                          <td>
-                            <span className={`badge ${
-                              order.status === 'new' ? 'badge-info' :
-                              order.status === 'accepted' ? 'badge-primary' :
-                              order.status === 'ready_for_dispatch' ? 'badge-secondary' :
-                              order.status === 'dispatched' ? 'badge-warning' :
-                              order.status === 'delivered' ? 'badge-success' :
-                              'badge-error'
-                            }`}>
-                              {order.status.replace('_', ' ')}
-                            </span>
-                          </td>
-                          <td>
-                            <div className="flex justify-center gap-2">
-                              <button 
-                                className="btn btn-xs btn-ghost hover:bg-blue-50 gap-1 font-bold cursor-pointer" 
-                                onClick={() => navigate(`/admin/orders-request/${order.id}/`)}
+                        <>
+                          <tr key={order.id} className="hover:bg-gray-50">
+                            <td>
+                              <button
+                                onClick={() => toggleRowExpansion(order.id)}
+                                className="btn btn-xs btn-ghost"
                               >
-                                <FiFileText className="text-blue-600 font-bold" size={14} />
-                                View
+                                {expandedRows.has(order.id) ? <FiChevronUp /> : <FiChevronDown />}
                               </button>
-                              
-                              {order.status === "new" && (
-                                <>
+                            </td>
+                            <td className="font-medium">{index + 1 + (page - 1) * 10}</td>
+                            <td className="font-medium">#{order.id}</td>
+                            <td className="font-medium">
+                              {formatDate(order.created_at)}
+                            </td>
+                            <td>
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1">
+                                  <FiUser className="text-gray-400" size={14} />
+                                  <span className="font-medium">{order.buyer?.username}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <FiPhone className="text-gray-400" size={14} />
+                                  <span className="text-sm">{order.buyer?.phone || 'N/A'}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <FiMessageCircle className="text-gray-400" size={14} />
+                                  <span className="text-sm">{order.buyer?.whatsapp_number || 'N/A'}</span>
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  ID: {order.buyer?.role_based_id}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="max-w-xs">
+                              <div className="flex items-start gap-1">
+                                <FiMapPin className="text-gray-400 mt-0.5 flex-shrink-0" size={14} />
+                                <span className="text-sm line-clamp-2">
+                                  {formatAddress(order.buyer?.address)}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="font-medium">
+                              {formatCurrency(order.total_price)}
+                            </td>
+                            <td>
+                              <span className={`badge ${
+                                order.status === 'new' || order.status === 'pending' ? 'badge-info' :
+                                order.status === 'accepted' ? 'badge-primary' :
+                                order.status === 'ready_for_dispatch' ? 'badge-secondary' :
+                                order.status === 'dispatched' ? 'badge-warning' :
+                                order.status === 'delivered' ? 'badge-success' :
+                                'badge-error'
+                              }`}>
+                                {order.status.replace('_', ' ')}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="flex justify-center gap-2">
+                                <button 
+                                  className="btn btn-xs btn-ghost hover:bg-blue-50 gap-1 font-bold cursor-pointer" 
+                                  onClick={() => navigate(`/admin/orders-request/${order.id}/`)}
+                                >
+                                  <FiFileText className="text-blue-600 font-bold" size={14} />
+                                  View
+                                </button>
+                                
+                                {order.status === "new" && (
+                                  <>
+                                    <button 
+                                      className="btn btn-xs btn-success gap-1"
+                                      onClick={() => handleStatusUpdate(order.id, 'accepted')}
+                                    >
+                                      <FiCheck size={14} />
+                                      Accept
+                                    </button>
+                                    <button 
+                                      className="btn btn-xs btn-error gap-1"
+                                      onClick={() => setSelectedOrder(order)}
+                                    >
+                                      <FiX size={14} />
+                                      Reject
+                                    </button>
+                                  </>
+                                )}
+                                
+                                {order.status === "accepted" && (
                                   <button 
-                                    className="btn btn-xs btn-success gap-1"
-                                    onClick={() => handleStatusUpdate(order.id, 'accepted')}
-                                  >
-                                    <FiCheck size={14} />
-                                    Accept
-                                  </button>
-                                  <button 
-                                    className="btn btn-xs btn-error gap-1"
+                                    className="btn btn-xs btn-primary gap-1"
                                     onClick={() => setSelectedOrder(order)}
                                   >
-                                    <FiX size={14} />
-                                    Reject
+                                    <FiTruck size={14} />
+                                    Dispatch
                                   </button>
-                                </>
-                              )}
-                              
-                              {order.status === "accepted" && (
-                                <button 
-                                  className="btn btn-xs btn-primary gap-1"
-                                  onClick={() => setSelectedOrder(order)}
-                                >
-                                  <FiTruck size={14} />
-                                  Dispatch
-                                </button>
-                              )}
-                              
-                              {order.status === "ready_for_dispatch" && (
-                                <button 
-                                  className="btn btn-xs btn-secondary gap-1"
-                                  onClick={() => setSelectedOrder(order)}
-                                >
-                                  <FiPackage size={14} />
-                                  Mark Dispatched
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
+                                )}
+                                
+                                {order.status === "ready_for_dispatch" && (
+                                  <button 
+                                    className="btn btn-xs btn-secondary gap-1"
+                                    onClick={() => setSelectedOrder(order)}
+                                  >
+                                    <FiPackage size={14} />
+                                    Mark Dispatched
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                          
+                          {/* Expanded Row for Product Details */}
+                          {expandedRows.has(order.id) && (
+                            <tr className="bg-gray-50">
+                              <td colSpan="9" className="p-4">
+                                <div className="space-y-3">
+                                  <h4 className="font-bold text-gray-700 flex items-center gap-2">
+                                    <FiBox />
+                                    Product Details
+                                  </h4>
+                                  <div className="grid gap-3">
+                                    {order.items.map((item, itemIndex) => (
+                                      <div key={itemIndex} className="bg-white rounded-lg p-4 border border-gray-200">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                          <div>
+                                            <p className="text-sm text-gray-500">Product Name</p>
+                                            <p className="font-medium">{item.product?.name || 'N/A'}</p>
+                                          </div>
+                                          <div>
+                                            <p className="text-sm text-gray-500">Variant</p>
+                                            <p className="font-medium">{item.variant?.name || 'N/A'}</p>
+                                          </div>
+                                          <div>
+                                            <p className="text-sm text-gray-500">Category</p>
+                                            <p className="font-medium">{item.product?.category_name || 'N/A'}</p>
+                                          </div>
+                                          <div>
+                                            <p className="text-sm text-gray-500">Brand</p>
+                                            <p className="font-medium">{item.product?.brand_name || 'N/A'}</p>
+                                          </div>
+                                          <div>
+                                            <p className="text-sm text-gray-500">Quantity</p>
+                                            <p className="font-medium">{item.quantity}</p>
+                                          </div>
+                                          <div>
+                                            <p className="text-sm text-gray-500">Unit Price</p>
+                                            <p className="font-medium">{formatCurrency(item.unit_price)}</p>
+                                          </div>
+                                          <div>
+                                            <p className="text-sm text-gray-500">SKU</p>
+                                            <p className="font-medium">{item.product?.sku || 'N/A'}</p>
+                                          </div>
+                                          <div>
+                                            <p className="text-sm text-gray-500">Total</p>
+                                            <p className="font-medium text-green-600">{formatCurrency(item.total)}</p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="8" className="text-center py-8">
+                        <td colSpan="9" className="text-center py-8">
                           <div className="flex flex-col items-center justify-center gap-2">
                             <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>

@@ -112,14 +112,24 @@ class AddressSerializer(serializers.ModelSerializer):
 class UserWithAddressSerializer(serializers.ModelSerializer):
     address = serializers.SerializerMethodField()
     whatsapp_number = serializers.CharField(source='profile.whatsapp_number', read_only=True)
+    role_based_id = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'address', 'phone', 'whatsapp_number']
+        fields = ['id', 'username', 'email', 'address', 'phone', 'whatsapp_number',"role_based_id"]
 
     def get_address(self, obj):
         address = getattr(obj, "address", None)  
         return AddressSerializer(address).data if address else {}
+    
+    def get_role_based_id(self, obj):
+        if hasattr(obj, 'vendor_id') and obj.role == 'vendor':
+            return obj.vendor_id
+        elif hasattr(obj, 'stockist_id') and obj.role == 'stockist':
+            return obj.stockist_id
+        elif hasattr(obj, 'reseller_id') and obj.role == 'reseller':
+            return obj.reseller_id
+        return None
 
 
 class OrderSerializer(serializers.ModelSerializer):

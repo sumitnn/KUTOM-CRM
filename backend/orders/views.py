@@ -72,7 +72,10 @@ class MyOrdersView(ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = Order.objects.filter(Q(buyer=user) | Q(seller=user))
+        if user.role =="admin":
+            queryset = Order.objects.filter(Q(buyer=user))
+        else:
+            queryset = Order.objects.filter(Q(buyer=user) | Q(seller=user))
 
         status_filter = self.request.query_params.get('status')
         if status_filter:
@@ -221,7 +224,7 @@ class OrderDetailAPIView(APIView):
             ).get(id=order_id)
             
             # Check permissions
-            if not (request.user == order.buyer or request.user == order.seller or request.user.is_staff):
+            if not (request.user == order.buyer or request.user == order.seller or request.user.role =="admin"):
                 return Response(
                     {"detail": "You do not have permission to view this order."},
                     status=status.HTTP_403_FORBIDDEN
@@ -1602,7 +1605,7 @@ class UpdateOrderRequestStatusView(APIView):
     permission_classes = [IsStockistOrResellerRole]
 
     def post(self, request, pk):
-        import pdb; pdb.set_trace()
+        
         try:
             order_request = OrderRequest.objects.get(pk=pk)
         except OrderRequest.DoesNotExist:
@@ -1641,11 +1644,11 @@ class UpdateOrderRequestStatusView(APIView):
     @classmethod
     def _handle_status_change(cls, order_request, old_status, new_status, current_user, user):
         total_amount = sum(item.total_price for item in order_request.items.all())
-
+        import pdb; pdb.set_trace()
         if new_status == 'approved' and old_status == 'pending':
             # Add amount to admin wallet
             admin_wallet, _ = Wallet.objects.get_or_create(user=user)
-            admin_wallet.current_balance += total_amount
+            admin_wallet.payout_balance += total_amount
             admin_wallet.save()
 
             WalletTransaction.objects.create(
