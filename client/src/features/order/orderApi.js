@@ -68,6 +68,13 @@ export const orderApi = createApi({
                 data: { status,note },
             }),
         }),
+        updateResellerOrderStatus: builder.mutation({
+            query: ({ orderId, status, note }) => ({
+                url: `/reseller-order-status/${orderId}/`,
+                method: 'PATCH',
+                data: { status, note },
+            }),
+        }),
         updateStockistResellerOrderStatus: builder.mutation({
             query: ({ orderId, status, note }) => ({
                 url: `/common-orders-update-status/${orderId}/`,
@@ -140,5 +147,6 @@ export const {
     useUpdateDispatchStatusMutation,
     useGetAdminProductOrderByIdQuery,
     useCancelOrderMutation,
-    useUpdateStockistResellerOrderStatusMutation
+    useUpdateStockistResellerOrderStatusMutation,
+    useUpdateResellerOrderStatusMutation
 } = orderApi;

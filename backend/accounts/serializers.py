@@ -572,3 +572,31 @@ class UserStatusUpdateSerializer(serializers.ModelSerializer):
         if value not in [choice[0] for choice in User.Status_CHOICES]:
             raise serializers.ValidationError("Invalid status")
         return value
+    
+class AssignedResellerSerializer(serializers.ModelSerializer):
+    rolebased_id = serializers.SerializerMethodField()
+    state = serializers.CharField(source="state.name", read_only=True)
+    district = serializers.CharField(source="district.name", read_only=True)
+
+    class Meta:
+        model = Address
+        fields = [
+            "user", "street_address", "city", "state", "district",
+            "postal_code", "country", "rolebased_id"
+        ]
+
+    def get_rolebased_id(self, obj):
+        user = obj.user
+        return user.reseller_id
+
+    def to_representation(self, instance):
+        """Override to include user details cleanly"""
+        data = super().to_representation(instance)
+        user = instance.user
+        data["user"] = {
+            "id": str(user.id),
+            "email": user.email,
+            "username": user.username,
+            "role": user.role,
+        }
+        return data

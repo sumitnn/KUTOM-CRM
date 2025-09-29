@@ -16,6 +16,7 @@ urlpatterns = [
 
     path('orders/summary/', OrderSummaryView.as_view(), name='order-summary'),
      path('orders-update-status/<int:pk>/', UpdateOrderStatusView.as_view(), name='update-order-status'),
+     path('reseller-order-status/<int:pk>/', ResellerOrderStatusMange.as_view(), name='reseller-order-status'),
      path('common-orders-update-status/<int:pk>/', UpdateOrderStatusView.as_view(), name='update-stockist-reseller-order-status'),
      path('orders/<int:pk>/dispatch/', UpdateOrderDispatchStatusView.as_view(), name='update-order-dispatch-status'),
 

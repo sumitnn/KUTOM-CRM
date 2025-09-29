@@ -3,7 +3,9 @@ import { Route } from "react-router-dom";
 
 
 
+
 // Lazy-loaded components
+const CommonMyStockPage = lazy(() => import("../../pages/CommonMyStockPage"));
 const ResellerOrderRequestDetail = lazy(() => import("../../pages/ResellerOrderRequestDetail"));
 const ResellerOrderRequestPage = lazy(() => import("../../pages/ResellerOrderRequestPage"));
 const Spinner = lazy(() => import("../../components/common/Spinner"));
@@ -29,7 +31,7 @@ const ResellerRoutes = [
   <Route element={<ProtectedRoute allowedRoles={["reseller"]} checkProfileCompletion={true} />} key="reseller">
     {/* Dashboard */}
     <Route
-      path="/reseller/dashboard"
+      path="/dashboard"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -41,7 +43,7 @@ const ResellerRoutes = [
 
     {/* Products */}
     <Route
-      path="/reseller/products"
+      path="/products"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -51,7 +53,7 @@ const ResellerRoutes = [
       }
     />
     <Route
-      path="/reseller/products/:id"
+      path="/products/:id"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -63,7 +65,7 @@ const ResellerRoutes = [
 
     {/* Orders */}
     <Route
-      path="/reseller/orders"
+      path="/my-orders"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -85,7 +87,7 @@ const ResellerRoutes = [
 
     {/* order request  */}
     <Route
-      path="/reseller/my-order-request"
+      path="/my-order-request"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -95,7 +97,7 @@ const ResellerRoutes = [
       }
     />
     <Route
-      path="/reseller/my-order-request/:id"
+      path="/my-order-request/:id"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -106,9 +108,22 @@ const ResellerRoutes = [
       }
     />
 
+    {/* stock and Inventory */}
+     <Route
+      path="/my-stocks"
+      element={
+        <ResellerMainLayout>
+          <Suspense fallback={<Spinner />}>
+           
+            <CommonMyStockPage role="reseller"/>
+          </Suspense>
+        </ResellerMainLayout>
+      }
+    />
+
     {/* Withdrawal */}
     <Route
-      path="/reseller/withdrawl-request"
+      path="/withdrawl-request"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -118,7 +133,7 @@ const ResellerRoutes = [
       }
     />
     <Route
-      path="/reseller/my-withdrawl"
+      path="/my-withdrawl-history"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -130,7 +145,7 @@ const ResellerRoutes = [
 
     {/* Topup */}
     <Route
-      path="/reseller/topup-request"
+      path="/topup-request"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -140,7 +155,7 @@ const ResellerRoutes = [
       }
     />
     <Route
-      path="/reseller/my-topup"
+      path="/my-topup"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -152,7 +167,7 @@ const ResellerRoutes = [
 
     {/* Wallet */}
     <Route
-      path="/reseller/wallet"
+      path="/my-wallet"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -164,7 +179,7 @@ const ResellerRoutes = [
 
     {/* Cart */}
     <Route
-      path="/reseller/my-cart"
+      path="/my-cart"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
