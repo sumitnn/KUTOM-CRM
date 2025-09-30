@@ -93,20 +93,19 @@ if DEBUG:
     }
 else:
     DATABASES = {
-        'default': {
-            'ENGINE': config('AWS_DATABASE_ENGINE', default='django.db.backends.mysql'),
-            'NAME': config('AWS_DATABASE_NAME'),
-            'USER': config('AWS_DATABASE_USER'),
-            'PASSWORD': config('AWS_DATABASE_PASSWORD'),
-            'HOST': config('AWS_DATABASE_HOST'),
-            'PORT': config('AWS_DATABASE_PORT'),
-            'OPTIONS': {
-                'connect_timeout': 30,  # increase to 30 seconds
-                'read_timeout': 60,     # wait for query results
-                'write_timeout': 60,    # wait for sending data
-            },
-        }
+    'default': {
+        'ENGINE': config('AWS_DATABASE_ENGINE', default='django.db.backends.postgresql'),
+        'NAME': config('AWS_DATABASE_NAME'),
+        'USER': config('AWS_DATABASE_USER'),
+        'PASSWORD': config('AWS_DATABASE_PASSWORD'),
+        'HOST': config('AWS_DATABASE_HOST'),
+        'PORT': config('AWS_DATABASE_PORT'),
+        'OPTIONS': {
+            'connect_timeout': 30,  # PostgreSQL supports this option
+        },
     }
+    }
+
 
 
 # Password validation
