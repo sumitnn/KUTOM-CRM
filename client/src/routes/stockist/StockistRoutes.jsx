@@ -45,7 +45,7 @@ const StockistRoutes = [
   <Route element={<ProtectedRoute allowedRoles={["stockist"]} checkProfileCompletion={true} />} key="stockist">
     {/* Dashboard */}
     <Route
-      path="/dashboard"
+      path="/stockist/dashboard"
       element={
         <StockistMainLayout>
           <ErrorBoundary>

@@ -43,7 +43,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
 
   const navItemsByRole = {
     admin: [
-      { icon: <FaTachometerAlt />, label: "Dashboard", path: "/dashboard" },
+      { icon: <FaTachometerAlt />, label: "Dashboard", path: "/admin/dashboard" },
       {
         icon: <FaUsersGear />,
         label: "Vendor",
@@ -109,9 +109,10 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
       
       { icon: <MdProductionQuantityLimits />, label: "My Cart", path: "/my-cart" },
       { icon: <CiWallet />, label: "Wallet", path: "/my-wallet" },
+      { icon: <CiWallet />, label: "Announcements", path: "/announcements" },
     ],
     stockist: [
-      { icon: <MdSpaceDashboard />, label: "Dashboard", path: "/dashboard" },
+      { icon: <MdSpaceDashboard />, label: "Dashboard", path: "/stockist/dashboard" },
      
       {
         icon: <FaUsersGear />,
@@ -164,7 +165,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
       { icon: <CiWallet />, label: "Wallet & Transactions", path: "/my-wallet" },
     ],
     reseller: [
-      { icon: <MdSpaceDashboard />, label: "Dashboard", path: "/dashboard" },
+      { icon: <MdSpaceDashboard />, label: "Dashboard", path: "/reseller/dashboard" },
       { icon: <RxDashboard />, label: "Product (Market)", path: "/products" },
       {
         icon: <FaCodePullRequest />,
@@ -207,7 +208,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
       },
     ],
     vendor: [
-      { icon: <MdSpaceDashboard />, label: "Dashboard", path: "/dashboard" },
+      { icon: <MdSpaceDashboard />, label: "Dashboard", path: "/vendor/dashboard" },
       
       {
         icon: <SiBrandfolder />,

@@ -30,7 +30,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from products.models import Product, ProductVariant, ProductVariantPrice, RoleBasedProduct
 from django.shortcuts import get_object_or_404
 from accounts.models import User, Wallet, WalletTransaction, Notification
-from products.models import StockInventory
+from products.models import StockInventory,ProductCommission
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from django.core.paginator import Paginator
@@ -1702,7 +1702,7 @@ class UpdateOrderRequestStatusView(APIView):
         reseller_user = order_request.requested_by  # buyer (reseller)
         target_user = order_request.target_user     # stockist 
         admin_user = User.objects.filter(role="admin").first()  # admin 
-        import pdb; pdb.set_trace()
+     
 
         validated_items = []
         total_price = 0
@@ -1779,8 +1779,8 @@ class UpdateOrderRequestStatusView(APIView):
                     gst_percentage=item["gst_percentage"],
                     role_based_product=RoleBasedProduct.objects.filter(
                         product=item["product"],
-                        user=reseller_user,
-                        role=reseller_user.role
+                        user=admin_user,
+                        role=admin_user.role
                     ).first(),
                 )
                 for item in validated_items
@@ -1847,8 +1847,6 @@ class ResellerOrderStatusMange(APIView):
 
         # --- Special case: accepted ---
         if new_status == "accepted":
-            order.payment_status = "pending_shipping"
-            order.save(update_fields=["payment_status"])
             create_notification(
                 user=order.buyer,
                 title="Your Order is Approved by Admin",
@@ -1856,6 +1854,8 @@ class ResellerOrderStatusMange(APIView):
                 notification_type="order_accepted",
                 related_url=f"/orders/{order.id}/"
             )
+            order.payment_status = "pending_shipping"
+            order.save(update_fields=["payment_status"])
 
         # --- Map "received" -> "delivered" ---
         if new_status == "received":
@@ -1880,6 +1880,7 @@ class ResellerOrderStatusMange(APIView):
             # --- Handle delivered ---
             if new_status == "delivered":
                 self.handle_delivered_status(order, request.user)
+                self.commission_on_delivery(order)
 
         # --- Send notifications ---
         self.create_notifications(order, new_status, request.user)
@@ -2003,3 +2004,89 @@ class ResellerOrderStatusMange(APIView):
                 notification_type="order_status_update",
                 related_url=f"/orders/{order.id}/"
             )
+
+    def commission_on_delivery(self, order):
+        """Handle commission distribution on order delivery"""
+        try:
+            with transaction.atomic():
+                total_reseller_commission = 0
+                total_stockist_commission = 0
+
+                for item in order.items.all():
+                    quantity = item.quantity
+
+                    # Fetch commission entry
+                    commission_entry = ProductCommission.objects.filter(
+                        product=item.product,
+                        variant=item.variant
+                    ).first()
+
+                    if not commission_entry:
+                        continue
+
+                    # Assume your ProductCommission model has fields:
+                    # reseller_commission_per_qty, stockist_commission_per_qty
+                    reseller_commission = quantity * getattr(commission_entry, "reseller_commission_value", 0)
+                    stockist_commission = quantity * getattr(commission_entry, "stockist_commission_value", 0)
+
+                    total_reseller_commission += reseller_commission
+                    total_stockist_commission += stockist_commission
+
+                # --- Credit reseller ---
+                if total_reseller_commission > 0:
+                    reseller_wallet, _ = Wallet.objects.get_or_create(user=order.buyer)
+                    reseller_wallet.payout_balance += total_reseller_commission
+                    reseller_wallet.save()
+
+                    WalletTransaction.objects.create(
+                        wallet=reseller_wallet,
+                        transaction_type="CREDIT",
+                        amount=total_reseller_commission,
+                        description=f"Reseller commission from Admin for Order #{order.id}",
+                        transaction_status="SUCCESS",
+                        order_id=order.id
+                    )
+
+                    create_notification(
+                        user=order.buyer,
+                        title="Commission Earned",
+                        message=f"You have earned a reseller commission of {total_reseller_commission:.2f} from Order #{order.id}.",
+                        notification_type="commission",
+                        related_url=f"/wallet/"
+                    )
+
+                # --- Credit stockist ---
+                if total_stockist_commission > 0:
+                    stockist_user = (
+                        StockistAssignment.objects
+                        .filter(reseller=order.buyer)
+                        .select_related("stockist")
+                        .last()
+                    )
+                    stockist_user = stockist_user.stockist if stockist_user else User.objects.filter(
+                        role="stockist", is_default_user=True
+                    ).last()
+
+                    if stockist_user:
+                        stockist_wallet, _ = Wallet.objects.get_or_create(user=stockist_user)
+                        stockist_wallet.payout_balance += total_stockist_commission
+                        stockist_wallet.save()
+
+                        WalletTransaction.objects.create(
+                            wallet=stockist_wallet,
+                            transaction_type="CREDIT",
+                            amount=total_stockist_commission,
+                            description=f"Stockist commission from Order #{order.id}",
+                            transaction_status="SUCCESS",
+                            order_id=order.id
+                        )
+
+                        create_notification(
+                            user=stockist_user,
+                            title="Commission Earned",
+                            message=f"You have earned a stockist commission of {total_stockist_commission:.2f} from Order #{order.id}.",
+                            notification_type="commission",
+                            related_url=f"/wallet/"
+                        )
+        except Exception as e:
+            print(f"Error in commission_on_delivery: {str(e)}")

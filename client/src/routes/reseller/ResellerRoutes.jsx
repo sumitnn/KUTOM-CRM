@@ -31,7 +31,7 @@ const ResellerRoutes = [
   <Route element={<ProtectedRoute allowedRoles={["reseller"]} checkProfileCompletion={true} />} key="reseller">
     {/* Dashboard */}
     <Route
-      path="/dashboard"
+      path="/reseller/dashboard"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
