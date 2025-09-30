@@ -372,13 +372,13 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 px-4 py-3 border border-slate-600 rounded-xl text-slate-300 hover:bg-slate-700 transition-all duration-200 font-medium"
+                className="flex-1 px-4 cursor-pointer py-3 border border-slate-600 rounded-xl text-slate-300 hover:bg-slate-700 transition-all duration-200 font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmLogout}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-200 font-medium shadow-lg shadow-red-500/25"
+                className="flex-1 px-4 py-3  cursor-pointer bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-200 font-medium shadow-lg shadow-red-500/25"
               >
                 Logout
               </button>
