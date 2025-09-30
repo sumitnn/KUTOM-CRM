@@ -1,6 +1,6 @@
 // EditAnnouncementModal.jsx
 import React, { useState, useEffect } from 'react';
-import { useUpdateAnnouncementMutation } from './announcementApi';
+import { useUpdateAnnouncementMutation } from '../../features/announcement/announcementApi';
 import {
   Dialog,
   DialogTitle,
