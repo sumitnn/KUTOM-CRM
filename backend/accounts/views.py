@@ -603,19 +603,25 @@ class BroadcastMessageListCreateAPIView(APIView):
 
     def get(self, request):
         role = getattr(request.user, 'role', None)
-        visible_to_filter = Q(visible_to="all")
-        
-        if role == 'stockist':
-            visible_to_filter |= Q(visible_to="stockist")
-        elif role == 'reseller':
-            visible_to_filter |= Q(visible_to="reseller")
-        elif role == 'vendor':
-            visible_to_filter |= Q(visible_to="vendor")
 
-        messages = BroadcastMessage.objects.filter(
-            is_active=True
-        ).filter(visible_to_filter).order_by('-created_at')
-        
+        if role == 'admin':
+            # Admin sees all announcements (active + inactive)
+            messages = BroadcastMessage.objects.all().order_by('-created_at')
+        else:
+            # Other roles see only active + role-specific announcements
+            visible_to_filter = Q(visible_to="all")
+
+            if role == 'stockist':
+                visible_to_filter |= Q(visible_to="stockist")
+            elif role == 'reseller':
+                visible_to_filter |= Q(visible_to="reseller")
+            elif role == 'vendor':
+                visible_to_filter |= Q(visible_to="vendor")
+
+            messages = BroadcastMessage.objects.filter(
+                is_active=True
+            ).filter(visible_to_filter).order_by('-created_at')
+
         serializer = BroadcastMessageSerializer(messages, many=True)
         return Response(serializer.data)
 

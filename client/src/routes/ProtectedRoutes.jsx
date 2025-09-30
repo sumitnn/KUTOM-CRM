@@ -9,7 +9,7 @@ const ProtectedRoute = ({ allowedRoles, checkProfileCompletion = false }) => {
   
   // Check allowed roles first
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={`/${user.role}/dashboard`} replace />;
   }
   
 

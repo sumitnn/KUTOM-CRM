@@ -33,7 +33,7 @@ const VendorRoutes = [
   <Route element={<ProtectedRoute allowedRoles={["vendor"]} checkProfileCompletion={true} />} key="vendor">
     {/* Dashboard */}
     <Route
-      path="/dashboard"
+      path="/vendor/dashboard"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
