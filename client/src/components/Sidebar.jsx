@@ -101,91 +101,91 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         icon: <FaUsersGear />,
         label: "My Network",
         children: [
-          { label: "Assigned Reseller", path: "/assigned-reseller" },
-          { label: "Order Request(Reseller)", path: "/reseller-order-request" },
+          { label: "Assigned Reseller", path: "/stockist/assigned-reseller" },
+          { label: "Order Request(Reseller)", path: "/stockist/reseller-order-request" },
         ],
       },
       {
         icon: <TbCategoryPlus />,
         label: "Products",
         children: [
-          { label: "Market", path: "/products" },
+          { label: "Market", path: "/stockist/products" },
         ],
       },
       {
         icon: <MdInventory />,
         label: "Stock Management",
         children: [
-          { label: "My Stocks", path: "/my-stocks" },
-          { label: "My Sales & Report", path: "/sales-report" },
+          { label: "My Stocks", path: "/stockist/my-stocks" },
+          { label: "My Sales & Report", path: "/stockist/sales-report" },
         ],
       },
       {
         icon: <FaCodePullRequest />,
         label: "Order Management",
         children: [
-          { label: "My Order Request", path: "/my-order-request" },
+          { label: "My Order Request", path: "/stockist/my-order-request" },
         ],
       },
       {
         icon: <FaCodePullRequest />,
         label: "Topup Management",
         children: [
-          { label: "Create Topup Requests", path: "/topup-request" },
-          { label: "Topup Request History", path: "/my-topup-request" },
+          { label: "Create Topup Requests", path: "/stockist/topup-request" },
+          { label: "Topup Request History", path: "/stockist/my-topup-request" },
         ],
       },
       {
         icon: <FaCodePullRequest />,
         label: "Withdrawl Management",
         children: [
-          { label: "Withdrawal Request", path: "/withdrawl-request" },
-          { label: "Withdrawal Request History", path: "/my-withdrawl-history" },
+          { label: "Withdrawal Request", path: "/stockist/withdrawl-request" },
+          { label: "Withdrawal Request History", path: "/stockist/my-withdrawl-history" },
         ],
       },
-      { icon: <MdProductionQuantityLimits />, label: "My Cart", path: "/my-cart" },
-      { icon: <CiWallet />, label: "Wallet & Transactions", path: "/my-wallet" },
+      { icon: <MdProductionQuantityLimits />, label: "My Cart", path: "/stockist/my-cart" },
+      { icon: <CiWallet />, label: "Wallet & Transactions", path: "/stockist/my-wallet" },
     ],
     reseller: [
       { icon: <MdSpaceDashboard />, label: "Dashboard", path: "/reseller/dashboard" },
-      { icon: <RxDashboard />, label: "Product (Market)", path: "/products" },
+      { icon: <RxDashboard />, label: "Product (Market)", path: "/reseller/products" },
       {
         icon: <FaCodePullRequest />,
         label: "Order Management",
         children: [
-          { label: "Order Request", path: "/my-order-request" },
-          { label: "My Orders", path: "/my-orders" },
+          { label: "Order Request", path: "/reseller/my-order-request" },
+          { label: "My Orders", path: "/reseller/my-orders" },
         ],
       },
       {
         icon: <FaCodePullRequest />,
         label: "Topup Requests",
         children: [
-          { label: "Create Topup Requests", path: "/topup-request" },
-          { label: "Topup Request History", path: "/my-topup" },
+          { label: "Create Topup Requests", path: "/reseller/topup-request" },
+          { label: "Topup Request History", path: "/reseller/my-topup" },
         ],
       },
       {
         icon: <FaCodePullRequest />,
         label: "Withdrawl Requests",
         children: [
-          { label: "Withdrawal Request", path: "/withdrawl-request" },
-          { label: "Withdrawal Request History", path: "/my-withdrawl-history" },
+          { label: "Withdrawal Request", path: "/reseller/withdrawl-request" },
+          { label: "Withdrawal Request History", path: "/reseller/my-withdrawl-history" },
         ],
       },
       {
         icon: <MdInventory />,
         label: "Stock Management",
         children: [
-          { label: "My Stocks & Inventory", path: "/my-stocks" },
+          { label: "My Stocks & Inventory", path: "/reseller/my-stocks" },
         ],
       },
-      { icon: <CiWallet />, label: "My Wallet", path: "/my-wallet" },
+      { icon: <CiWallet />, label: "My Wallet", path: "/reseller/my-wallet" },
       {
         icon: <MdProductionQuantityLimits />,
         label: "My Cart",
         children: [
-          { label: "Cart", path: "/my-cart" },
+          { label: "Cart", path: "/reseller/my-cart" },
         ],
       },
     ],
@@ -195,40 +195,40 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
         icon: <SiBrandfolder />,
         label: "Brand",
         children: [
-          { label: "Company", path: "/brand" },
-          { label: "Category", path: "/categories" },
+          { label: "Company", path: "/vendor/brand" },
+          { label: "Category", path: "/vendor/categories" },
         ],
       },
       {
         icon: <TbCategoryPlus />,
         label: "Production",
         children: [
-          { label: "Products", path: "/products" },
-          { label: "Product Requests", path: "/requested-products" },
+          { label: "Products", path: "/vendor/products" },
+          { label: "Product Requests", path: "/vendor/requested-products" },
         ],
       },
       {
         icon: <RxDashboard />,
         label: "Business",
         children: [
-          { label: "Orders", path: "/my-sales" },
+          { label: "Orders", path: "/vendor/my-sales" },
         ],
       },
       {
         icon: <MdInventory />,
         label: "Accounts",
         children: [
-          { label: "Sales & Reports", path: "/sales-report" },
-          { label: "Stock", path: "/my-stocks" },
+          { label: "Sales & Reports", path: "/vendor/sales-report" },
+          { label: "Stock", path: "/vendor/my-stocks" },
         ],
       },
       {
         icon: <CiWallet />,
         label: "Wallet",
         children: [
-          { label: "Balance & Transactions", path: "/my-wallet" },
-          { label: "Withdrawal Request", path: "/withdrawl-request" },
-          { label: "Withdrawal Request History", path: "/my-withdrawl-history" },
+          { label: "Balance & Transactions", path: "/vendor/my-wallet" },
+          { label: "Withdrawal Request", path: "/vendor/withdrawl-request" },
+          { label: "Withdrawal Request History", path: "/vendor/my-withdrawl-history" },
         ],
       }
     ]

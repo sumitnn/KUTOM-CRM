@@ -288,7 +288,7 @@ export default function ProfileReviewModal({ vendor, onClose ,role}) {
     const reason = approvalStatus[`${tab}Reason`];
 
     return (
-      <div className="space-y-4 md:space-y-6">
+      <div className="space-y-4 md:space-y-6 ">
         <h4 className="text-lg md:text-xl font-bold text-primary">{currentTab.title}</h4>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-6">
@@ -344,6 +344,7 @@ export default function ProfileReviewModal({ vendor, onClose ,role}) {
   if (isLoading) {
     return (
       <div className="modal modal-open">
+        <div className="modal-backdrop backdrop-blur-sm"></div>
         <div className="modal-box flex flex-col items-center justify-center">
           <Suspense fallback={<div>Loading...</div>}>
             <Spinner fullScreen={false} />
@@ -356,6 +357,7 @@ export default function ProfileReviewModal({ vendor, onClose ,role}) {
   if (isError) {
     return (
       <div className="modal modal-open">
+        <div className="modal-backdrop backdrop-blur-sm"></div>
         <div className="modal-box">
           <Suspense fallback={<div>Loading error component...</div>}>
             <ErrorMessage 
@@ -375,7 +377,11 @@ export default function ProfileReviewModal({ vendor, onClose ,role}) {
 
   return (
     <>
+      {/* Main Modal with Backdrop Blur */}
       <div className="modal modal-open">
+        {/* Backdrop with blur effect */}
+        <div className="modal-backdrop backdrop-blur-sm bg-black/30"></div>
+        
         <div className="modal-box w-11/12 max-w-5xl max-h-[90vh] flex flex-col p-2 md:p-6">
           <div className="flex justify-between items-center mb-4 md:mb-6">
             <h3 className="font-bold text-lg md:text-2xl text-primary">{role} details</h3>
@@ -388,39 +394,39 @@ export default function ProfileReviewModal({ vendor, onClose ,role}) {
           </div>
           
           {/* Tabs */}
-        <div className="flex flex-nowrap overflow-x-auto pb-2 mb-4 md:mb-6">
-  <div
-    className="tabs tabs-boxed bg-base-200 flex-nowrap whitespace-nowrap"
-    style={{ minHeight: '5rem' }} 
-  >
-    {TAB_KEYS.map((tab) => {
-      const status = approvalStatus[tab];
-      return (
-        <button 
-          key={tab}
-          className={`tab text-xs md:text-sm font-semibold h-10 px-4 flex-shrink-0 ${
-            activeTab === tab ? 'tab-active' : ''
-          } ${
-            status === 'approved'
-              ? '!bg-green-100 !text-green-800 border-green-300'
-              : status === 'rejected'
-              ? '!bg-red-100 !text-red-800 border-red-300'
-              : ''
-          }`}
-          onClick={() => setActiveTab(tab)}
-          disabled={isSubmitting}
-        >
-          {tab.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}
-          {status !== 'pending' && (
-            <span className="ml-1">
-              {status === 'approved' ? '✓' : '✗'}
-            </span>
-          )}
-        </button>
-      );
-    })}
-  </div>
-</div>
+          <div className="flex flex-nowrap overflow-x-auto pb-2 mb-4 md:mb-6">
+            <div
+              className="tabs tabs-boxed bg-base-200 flex-nowrap whitespace-nowrap"
+              style={{ minHeight: '5rem' }} 
+            >
+              {TAB_KEYS.map((tab) => {
+                const status = approvalStatus[tab];
+                return (
+                  <button 
+                    key={tab}
+                    className={`tab text-xs md:text-sm font-semibold h-10 px-4 flex-shrink-0 ${
+                      activeTab === tab ? 'tab-active' : ''
+                    } ${
+                      status === 'approved'
+                        ? '!bg-green-100 !text-green-800 border-green-300'
+                        : status === 'rejected'
+                        ? '!bg-red-100 !text-red-800 border-red-300'
+                        : ''
+                    }`}
+                    onClick={() => setActiveTab(tab)}
+                    disabled={isSubmitting}
+                  >
+                    {tab.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}
+                    {status !== 'pending' && (
+                      <span className="ml-1">
+                        {status === 'approved' ? '✓' : '✗'}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           
           {/* Tab Content */}
           <div className="flex-grow overflow-y-auto p-1 md:p-4">
@@ -477,9 +483,12 @@ export default function ProfileReviewModal({ vendor, onClose ,role}) {
         </div>
       </div>
 
-      {/* File Preview Modal */}
+      {/* File Preview Modal with Backdrop Blur */}
       {previewItem && (
         <div className="modal modal-open">
+          {/* Backdrop with blur effect for preview modal */}
+          <div className="modal-backdrop backdrop-blur-md bg-black/40"></div>
+          
           <div className="modal-box w-11/12 max-w-5xl max-h-screen">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-bold text-lg md:text-xl">{previewItem.title}</h3>

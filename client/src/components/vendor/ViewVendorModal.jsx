@@ -404,75 +404,80 @@ export default function ViewVendorModal({ user, onClose }) {
 
   return (
     <AnimatePresence>
-      <motion.dialog 
-        open 
-        className="modal modal-bottom sm:modal-middle"
-        variants={backdropVariants}
-        initial="hidden"
-        animate="visible"
-        exit="hidden"
-      >
-        <motion.div 
-          className="modal-box max-w-5xl w-full max-h-screen p-0 overflow-hidden"
-          variants={modalVariants}
+      {/* Main modal container with backdrop blur */}
+      <div className="modal modal-open">
+        {/* Backdrop with blur effect */}
+        <div className="modal-backdrop backdrop-blur-sm bg-black/30"></div>
+        
+        <motion.dialog 
+          open 
+          className="modal modal-bottom sm:modal-middle bg-transparent"
+          variants={backdropVariants}
           initial="hidden"
           animate="visible"
-          exit="exit"
+          exit="hidden"
         >
-          <div className="flex justify-between items-center p-6 border-b border-base-300 bg-base-200">
-            <h3 className="text-2xl font-bold text-primary">Vendor Details</h3>
-            <motion.button 
-              onClick={onClose} 
-              className="btn btn-circle btn-sm btn-ghost"
-              aria-label="Close modal"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </motion.button>
-          </div>
+          <motion.div 
+            className="modal-box max-w-5xl w-full max-h-screen p-0 overflow-hidden relative z-50"
+            variants={modalVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+          >
+            <div className="flex justify-between items-center p-6 border-b border-base-300 bg-base-200">
+              <h3 className="text-2xl font-bold text-primary">Vendor Details</h3>
+              <motion.button 
+                onClick={onClose} 
+                className="btn btn-circle btn-sm btn-ghost"
+                aria-label="Close modal"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </motion.button>
+            </div>
 
-          <div className="px-6 pt-4 bg-base-200">
-            <div className="tabs tabs-boxed bg-base-200 p-1 overflow-x-auto">
-              <div className="flex space-x-1">
-                {tabs.map(tab => (
-                  <motion.button
-                    key={tab.id}
-                    className={`tab flex-1 whitespace-nowrap ${activeTab === tab.id ? 'tab-active bg-base-100 text-primary' : ''}`}
-                    onClick={() => setActiveTab(tab.id)}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    {tab.label}
-                  </motion.button>
-                ))}
+            <div className="px-6 pt-4 bg-base-200">
+              <div className="tabs tabs-boxed bg-base-200 p-1 overflow-x-auto">
+                <div className="flex space-x-1">
+                  {tabs.map(tab => (
+                    <motion.button
+                      key={tab.id}
+                      className={`tab flex-1 whitespace-nowrap ${activeTab === tab.id ? 'tab-active bg-base-100 text-primary' : ''}`}
+                      onClick={() => setActiveTab(tab.id)}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      {tab.label}
+                    </motion.button>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="p-6 max-h-[calc(100vh-220px)] overflow-y-auto">
-            <AnimatePresence mode="wait">
-              {renderTabContent()}
-            </AnimatePresence>
-          </div>
+            <div className="p-6 max-h-[calc(100vh-220px)] overflow-y-auto">
+              <AnimatePresence mode="wait">
+                {renderTabContent()}
+              </AnimatePresence>
+            </div>
 
-          <div className="modal-action mt-2 p-6 border-t border-base-300">
-            <motion.button 
-              className="btn btn-outline" 
-              onClick={onClose}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Close
-            </motion.button>
-          </div>
-        </motion.div>
-        <form method="dialog" className="modal-backdrop">
-          <button onClick={onClose}>close</button>
-        </form>
-      </motion.dialog>
+            <div className="modal-action mt-2 p-6 border-t border-base-300">
+              <motion.button 
+                className="btn btn-outline" 
+                onClick={onClose}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Close
+              </motion.button>
+            </div>
+          </motion.div>
+          
+          {/* Remove the form method="dialog" since we're using custom backdrop */}
+        </motion.dialog>
+      </div>
     </AnimatePresence>
   );
 }

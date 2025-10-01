@@ -252,7 +252,7 @@ export default function VendorTableRow({
       case 'new':
         return (
           <>
-            <td className="px-2 py-3">{index + 1}</td>
+            <td className="px-2 py-3 font-bold"># {index + 1}</td>
             <td className="px-2 py-3">{formattedDate}</td>
             <td className="px-2 py-3">{fullName}</td>
             <td className="px-2 py-3">{vendor.email}</td>
@@ -268,7 +268,7 @@ export default function VendorTableRow({
       case 'pending':
         return (
           <>
-            <td className="px-2 py-3">{index + 1}</td>
+            <td className="px-2 py-3 font-bold"># {index + 1}</td>
             <td className="px-2 py-3">{formattedDate}</td>
             <td className="px-2 py-3">{fullName}</td>
             <td className="px-2 py-3">{vendor.email}</td>
@@ -296,7 +296,7 @@ export default function VendorTableRow({
       case 'rejected':
         return (
           <>
-            <td className="px-2 py-3">{index + 1}</td>
+            <td className="px-2 py-3 font-bold"># {index + 1}</td>
             <td className="px-2 py-3">{formattedDate}</td>
             <td className="px-2 py-3">{vendor.email}</td>
             <td className="px-2 py-3">{fullName}</td>

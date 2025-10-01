@@ -292,7 +292,6 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 
 class BroadcastMessageSerializer(serializers.ModelSerializer):
-    admin_name = serializers.CharField(source='admin.username', read_only=True)
     visible_to_display = serializers.CharField(source='get_visible_to_display', read_only=True)
     priority_display = serializers.CharField(source='get_priority_display', read_only=True)
 

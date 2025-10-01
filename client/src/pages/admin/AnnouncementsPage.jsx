@@ -1,11 +1,17 @@
 // AnnouncementsPage.jsx
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import {
   useGetAnnouncementsQuery,
   useDeleteAnnouncementMutation,
 } from '../../features/announcement/announcementApi';
-import CreateAnnouncementModal from './CreateAnnounceMentModal';
-import EditAnnouncementModal from './EditAnnouncementModal';
+
+const CreateAnnouncementModal = lazy(() =>
+  import('./CreateAnnouncementModal')
+);
+const EditAnnouncementModal = lazy(() =>
+  import('./EditAnnouncementModal')
+);
+
 import {
   Box,
   Container,
@@ -71,15 +77,14 @@ const AnnouncementsPage = () => {
     }
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+  const formatDate = (dateString) =>
+    new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
     });
-  };
 
   if (isLoading) {
     return (
@@ -250,16 +255,25 @@ const AnnouncementsPage = () => {
         )}
       </Grid>
 
-      {/* Modals */}
-      <CreateAnnouncementModal
-        open={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-      />
-      <EditAnnouncementModal
-        open={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
-        announcement={selectedAnnouncement}
-      />
+      {/* Modals (lazy + Suspense) */}
+      {createModalOpen && (
+        <Suspense fallback={<div>Loading Create Modal...</div>}>
+          <CreateAnnouncementModal
+            open={createModalOpen}
+            onClose={() => setCreateModalOpen(false)}
+          />
+        </Suspense>
+      )}
+
+      {editModalOpen && (
+        <Suspense fallback={<div>Loading Edit Modal...</div>}>
+          <EditAnnouncementModal
+            open={editModalOpen}
+            onClose={() => setEditModalOpen(false)}
+            announcement={selectedAnnouncement}
+          />
+        </Suspense>
+      )}
     </Container>
   );
 };

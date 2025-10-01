@@ -19,7 +19,7 @@ from django.utils.encoding import force_bytes, force_str
 from datetime import datetime
 from rest_framework.decorators import api_view
 from django.db.models import Sum, Q, Count
-from datetime import timedelta, timezone
+from datetime import timedelta
 from orders.models import Order, OrderItem
 from rest_framework.pagination import PageNumberPagination
 from products.models import *
@@ -30,7 +30,7 @@ from django.db.models import Sum, F, DecimalField, ExpressionWrapper
 from .utils import create_notification
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
-
+from django.utils import timezone
 
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 10
@@ -56,6 +56,7 @@ class LoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+       
         email = request.data.get('email')
         password = request.data.get('password')
         
@@ -603,24 +604,33 @@ class BroadcastMessageListCreateAPIView(APIView):
 
     def get(self, request):
         role = getattr(request.user, 'role', None)
+        current_time = timezone.now()
 
         if role == 'admin':
-            # Admin sees all announcements (active + inactive)
             messages = BroadcastMessage.objects.all().order_by('-created_at')
         else:
-            # Other roles see only active + role-specific announcements
-            visible_to_filter = Q(visible_to="all")
+            # Initialize the filter
+            visible_to_filter = Q()
 
+            # Apply role-specific visibility logic
             if role == 'stockist':
-                visible_to_filter |= Q(visible_to="stockist")
+                visible_to_filter |= Q(visible_to="stockist") | Q(visible_to="all")
             elif role == 'reseller':
-                visible_to_filter |= Q(visible_to="reseller")
+                visible_to_filter |= Q(visible_to="reseller") | Q(visible_to="all")
             elif role == 'vendor':
-                visible_to_filter |= Q(visible_to="vendor")
-
-            messages = BroadcastMessage.objects.filter(
-                is_active=True
-            ).filter(visible_to_filter).order_by('-created_at')
+                visible_to_filter |= Q(visible_to="vendor") | Q(visible_to="all")
+            else:
+                # If role is unrecognized, return empty queryset
+                messages = BroadcastMessage.objects.none()
+            if role in ['stockist', 'reseller', 'vendor']:
+                # Filter for active announcements that are within their time range (if specified)
+                messages = BroadcastMessage.objects.filter(
+                    is_active=True
+                ).filter(visible_to_filter).filter(
+                    Q(start_time__isnull=True) | Q(start_time__lte=current_time)
+                ).filter(
+                    Q(end_time__isnull=True) | Q(end_time__gte=current_time)
+                ).order_by('-created_at')
 
         serializer = BroadcastMessageSerializer(messages, many=True)
         return Response(serializer.data)
@@ -1025,7 +1035,7 @@ class VerifyUserKYCView(APIView):
             approval = ProfileApprovalStatus.objects.get(user=profile.user)
             if approval.calculate_completion() < 60:
                 return Response({
-                    "message": "60% profile completion is required for KYC verification.",
+                    "message": "80% profile completion is required for KYC verification.",
                     "status": False
                 }, status=status.HTTP_400_BAD_REQUEST)
         except ProfileApprovalStatus.DoesNotExist:
@@ -1047,7 +1057,7 @@ class VerifyUserKYCView(APIView):
         user.status='active_user'
         user.is_profile_completed=True
         user.save()
-
+        
         create_notification(
             user=profile.user,
             title="KYC Verified",
