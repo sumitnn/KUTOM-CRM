@@ -43,7 +43,7 @@ const ResellerRoutes = [
 
     {/* Products */}
     <Route
-      path="/products"
+      path="/reseller/products"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -65,7 +65,7 @@ const ResellerRoutes = [
 
     {/* Orders */}
     <Route
-      path="/my-orders"
+      path="/reseller/my-orders"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -87,7 +87,7 @@ const ResellerRoutes = [
 
     {/* order request  */}
     <Route
-      path="/my-order-request"
+      path="/reseller/my-order-request"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -97,7 +97,7 @@ const ResellerRoutes = [
       }
     />
     <Route
-      path="/my-order-request/:id"
+      path="/reseller/my-order-request/:id"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -110,7 +110,7 @@ const ResellerRoutes = [
 
     {/* stock and Inventory */}
      <Route
-      path="/my-stocks"
+      path="/reseller/my-stocks"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -123,7 +123,7 @@ const ResellerRoutes = [
 
     {/* Withdrawal */}
     <Route
-      path="/withdrawl-request"
+      path="/reseller/withdrawl-request"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -133,7 +133,7 @@ const ResellerRoutes = [
       }
     />
     <Route
-      path="/my-withdrawl-history"
+      path="/reseller/my-withdrawl-history"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -145,7 +145,7 @@ const ResellerRoutes = [
 
     {/* Topup */}
     <Route
-      path="/topup-request"
+      path="/reseller/topup-request"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -155,7 +155,7 @@ const ResellerRoutes = [
       }
     />
     <Route
-      path="/my-topup"
+      path="/reseller/my-topup"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -167,7 +167,7 @@ const ResellerRoutes = [
 
     {/* Wallet */}
     <Route
-      path="/my-wallet"
+      path="/reseller/my-wallet"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -179,7 +179,7 @@ const ResellerRoutes = [
 
     {/* Cart */}
     <Route
-      path="/my-cart"
+      path="/reseller/my-cart"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>

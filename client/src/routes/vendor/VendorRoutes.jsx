@@ -45,7 +45,7 @@ const VendorRoutes = [
     
     {/* Brand */}
     <Route
-      path="/brand"
+      path="/vendor/brand"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -57,7 +57,7 @@ const VendorRoutes = [
     
     {/* Category */}
     <Route
-      path="/categories"
+      path="/vendor/categories"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -69,7 +69,7 @@ const VendorRoutes = [
 
     {/* Products */}
     <Route
-      path="/products"
+      path="/vendor/products"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -80,7 +80,7 @@ const VendorRoutes = [
     />
     
     <Route
-      path="/requested-products"
+      path="/vendor/requested-products"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -92,7 +92,7 @@ const VendorRoutes = [
     
     {/* Sales */}
     <Route
-      path="/my-sales"
+      path="/vendor/my-sales"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -115,7 +115,7 @@ const VendorRoutes = [
     
     {/* Stocks */}
     <Route
-      path="/my-stocks"
+      path="/vendor/my-stocks"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -127,7 +127,7 @@ const VendorRoutes = [
     
     {/* Report */}
     <Route
-      path="/sales-report"
+      path="/vendor/sales-report"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -151,7 +151,7 @@ const VendorRoutes = [
     
     {/* Create Product */}
     <Route
-      path="/create-product"
+      path="/vendor/create-product"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -175,7 +175,7 @@ const VendorRoutes = [
     
     {/* Withdrawal */}
     <Route
-      path="/withdrawl-request"
+      path="/vendor/withdrawl-request"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -186,7 +186,7 @@ const VendorRoutes = [
     />
     
     <Route
-      path="/my-withdrawl-history"
+      path="/vendor/my-withdrawl-history"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -198,7 +198,7 @@ const VendorRoutes = [
     
     {/* Wallet */}
     <Route
-      path="/my-wallet"
+      path="/vendor/my-wallet"
       element={
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>

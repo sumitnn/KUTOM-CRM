@@ -3,7 +3,7 @@ import React, { useState, lazy, Suspense } from 'react';
 import VendorTableRow from './VendorTableRow';
 import { FaSync } from 'react-icons/fa';
 import StockistAssignmentModal from '../StockistAssignmentModal';
-
+import ModalPortal from '../ModalPortal'; 
 const ViewVendorModal = lazy(() => import('./ViewVendorModal'));
 const ProfileReviewModal = lazy(() => import('../ProfileReviewModal'));
 const KycConfirmationModal = lazy(() => import('../KycConfirmationModal'));
@@ -241,41 +241,50 @@ export default function VendorTable({
       </div>
 
       {/* Modals */}
-      <Suspense fallback={<div className="loading loading-spinner loading-md"></div>}>
+       <Suspense fallback={<div className="loading loading-spinner loading-md"></div>}>
         {viewVendor && (
-          <ViewVendorModal 
-            user={viewVendor} 
-            onClose={() => setViewVendor(null)} 
-          />
+          <ModalPortal>
+            <ViewVendorModal 
+              user={viewVendor} 
+              onClose={() => setViewVendor(null)} 
+            />
+          </ModalPortal>
         )}
         {reviewVendor && (
-          <ProfileReviewModal
-            vendor={reviewVendor}
-            role={role}
-            onClose={() => setReviewVendor(null)}
-          />
+          <ModalPortal>
+            <ProfileReviewModal
+              vendor={reviewVendor}
+              role={role}
+              onClose={() => setReviewVendor(null)}
+            />
+          </ModalPortal>
         )}
         {showKycModal && (
-          <KycConfirmationModal
-            onConfirm={handleConfirmKyc}
-            onCancel={() => setShowKycModal(false)}
-            isLoading={isLoadingAction && currentActionId === selectedVendor?.user?.id}
-          />
+          <ModalPortal>
+            <KycConfirmationModal
+              onConfirm={handleConfirmKyc}
+              onCancel={() => setShowKycModal(false)}
+              isLoading={isLoadingAction && currentActionId === selectedVendor?.user?.id}
+            />
+          </ModalPortal>
         )}
       </Suspense>
 
-      {/* Stockist Assignment Modal */}
+ 
+      {/* Stockist Assignment Modal with Portal */}
       {assignmentModalOpen && (
-        <StockistAssignmentModal
-          isOpen={assignmentModalOpen}
-          onClose={() => {
-            setAssignmentModalOpen(false);
-            setSelectedReseller(null);
-            setCurrentStockist(null);
-          }}
-          reseller={selectedReseller}
-          currentStockist={currentStockist}
-        />
+        <ModalPortal>
+          <StockistAssignmentModal
+            isOpen={assignmentModalOpen}
+            onClose={() => {
+              setAssignmentModalOpen(false);
+              setSelectedReseller(null);
+              setCurrentStockist(null);
+            }}
+            reseller={selectedReseller}
+            currentStockist={currentStockist}
+          />
+        </ModalPortal>
       )}
     </div>
   );

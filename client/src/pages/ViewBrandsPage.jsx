@@ -16,6 +16,7 @@ import {
   useCreateBrandMutation
 } from '../features/brand/brandApi';
 import { useGetCurrentUserQuery } from '../features/auth/authApi';
+import ModalPortal from '../components/ModalPortal'; // Import ModalPortal
 
 // Lazy-loaded components
 const Spinner = lazy(() => import('../components/common/Spinner'));
@@ -331,230 +332,136 @@ const ViewBrandsPage = () => {
         )}
       </div>
 
-      {/* Edit Modal */}
+      {/* Edit Modal with ModalPortal */}
       {selectedBrand && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 relative max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => {
-                setSelectedBrand(null);
-                setLogoPreview(null);
-              }}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-            >
-              <FiX className="h-6 w-6 font-bold hover:cursor-pointer" />
-            </button>
-            
-            <h2 className="text-2xl font-extrabold mb-6 text-gray-900">Edit Brand</h2>
-
-            <div className="flex flex-col items-center space-y-4 mb-6">
-              <div className="relative">
-                <ImageLoader
-                  src={
-                    logoPreview || 
-                    (selectedBrand.logo ? selectedBrand.logo : "https://onno.spagreen.net/demo/public/default-image/default-1080x1000.png")
-                  }
-                  alt="Brand Logo"
-                  className="w-28 h-28 rounded-full border-2 border-white shadow-md object-cover"
-                />
-                <label className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition">
-                  <input
-                    id="logo"
-                    name="file"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleLogoChange}
-                    className="hidden"
-                  />
-                  <FiUpload className="h-4 w-4" />
-                </label>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Brand Name *</label>
-                <input
-                  id="brandname"
-                  name="brandname"
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  value={selectedBrand.name}
-                  onChange={(e) => setSelectedBrand(prev => ({ ...prev, name: e.target.value }))}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
-                <textarea
-                  id="description"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  rows={4}
-                  value={selectedBrand.description}
-                  onChange={(e) => setSelectedBrand(prev => ({ ...prev, description: e.target.value }))}
-                />
-              </div>
-
-              <div className="flex items-center">
-                <label htmlFor="isactive" className="flex items-center cursor-pointer select-none">
-                  <div className="relative">
-                    <input
-                      id="isactive"
-                      type="checkbox"
-                      className="sr-only"
-                      checked={selectedBrand.is_active}
-                      onChange={(e) =>
-                        setSelectedBrand((prev) => ({
-                          ...prev,
-                          is_active: e.target.checked,
-                        }))
-                      }
-                    />
-                    <div
-                      className={`w-10 h-6 sm:w-12 sm:h-7 rounded-full transition-colors duration-300 ${
-                        selectedBrand.is_active ? "bg-blue-600" : "bg-gray-300"
-                      }`}
-                    ></div>
-                    <div
-                      className={`absolute top-0.5 left-0.5 w-5 h-5 sm:w-6 sm:h-6 bg-white rounded-full shadow-md transform transition-transform duration-300 ${
-                        selectedBrand.is_active ? "translate-x-4 sm:translate-x-5" : ""
-                      }`}
-                    ></div>
-                  </div>
-                  <span className="ml-3 text-sm sm:text-base text-gray-700 font-bold">Is Active</span>
-                </label>
-              </div>
-            </div>
-
-            <div className="mt-8 flex justify-end gap-3">
-  <button
-    onClick={() => {
-      setSelectedBrand(null);
-      setLogoPreview(null);
-      
+        <ModalPortal>
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 relative max-h-[90vh] overflow-y-auto">
+              <button
+                onClick={() => {
+                  setSelectedBrand(null);
+                  setLogoPreview(null);
                 }}
-                disabled = { brandupdating }
-    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition cursor-pointer"
-  >
-    Cancel
-  </button>
-  <button
-    onClick={handleUpdate}
-    className={`px-4 py-2 text-white font-bold rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 transition flex items-center justify-center gap-2 h-10 ${
-      brandupdating
-        ? 'bg-green-400 cursor-not-allowed'
-        : 'bg-green-600 hover:bg-green-700 cursor-pointer'
-    }`}
-    disabled={brandupdating}
-  >
-    {brandupdating ? "Updating..." : <><FiCheckCircle /> Update</>}
-  </button>
-</div>
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+              >
+                <FiX className="h-6 w-6 font-bold hover:cursor-pointer" />
+              </button>
+              
+              <h2 className="text-2xl font-extrabold mb-6 text-gray-900">Edit Brand</h2>
+
+              <div className="flex flex-col items-center space-y-4 mb-6">
+                <div className="relative">
+                  <ImageLoader
+                    src={
+                      logoPreview || 
+                      (selectedBrand.logo ? selectedBrand.logo : "https://onno.spagreen.net/demo/public/default-image/default-1080x1000.png")
+                    }
+                    alt="Brand Logo"
+                    className="w-28 h-28 rounded-full border-2 border-white shadow-md object-cover"
+                  />
+                  <label className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition">
+                    <input
+                      id="logo"
+                      name="file"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoChange}
+                      className="hidden"
+                    />
+                    <FiUpload className="h-4 w-4" />
+                  </label>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Brand Name *</label>
+                  <input
+                    id="brandname"
+                    name="brandname"
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    value={selectedBrand.name}
+                    onChange={(e) => setSelectedBrand(prev => ({ ...prev, name: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
+                  <textarea
+                    id="description"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    rows={4}
+                    value={selectedBrand.description}
+                    onChange={(e) => setSelectedBrand(prev => ({ ...prev, description: e.target.value }))}
+                  />
+                </div>
+
+                <div className="flex items-center">
+                  <label htmlFor="isactive" className="flex items-center cursor-pointer select-none">
+                    <div className="relative">
+                      <input
+                        id="isactive"
+                        type="checkbox"
+                        className="sr-only"
+                        checked={selectedBrand.is_active}
+                        onChange={(e) =>
+                          setSelectedBrand((prev) => ({
+                            ...prev,
+                            is_active: e.target.checked,
+                          }))
+                        }
+                      />
+                      <div
+                        className={`w-10 h-6 sm:w-12 sm:h-7 rounded-full transition-colors duration-300 ${
+                          selectedBrand.is_active ? "bg-blue-600" : "bg-gray-300"
+                        }`}
+                      ></div>
+                      <div
+                        className={`absolute top-0.5 left-0.5 w-5 h-5 sm:w-6 sm:h-6 bg-white rounded-full shadow-md transform transition-transform duration-300 ${
+                          selectedBrand.is_active ? "translate-x-4 sm:translate-x-5" : ""
+                        }`}
+                      ></div>
+                    </div>
+                    <span className="ml-3 text-sm sm:text-base text-gray-700 font-bold">Is Active</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="mt-8 flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setSelectedBrand(null);
+                    setLogoPreview(null);
+                  }}
+                  disabled = { brandupdating }
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdate}
+                  className={`px-4 py-2 text-white font-bold rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 transition flex items-center justify-center gap-2 h-10 ${
+                    brandupdating
+                      ? 'bg-green-400 cursor-not-allowed'
+                      : 'bg-green-600 hover:bg-green-700 cursor-pointer'
+                  }`}
+                  disabled={brandupdating}
+                >
+                  {brandupdating ? "Updating..." : <><FiCheckCircle /> Update</>}
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
-      {/* Create Brand Modal */}
+      {/* Create Brand Modal with ModalPortal */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 relative max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => {
-                setIsCreateModalOpen(false);
-                setLogoPreview(null);
-                setNewBrand({
-                  name: "",
-                  description: "",
-                  is_active: false,
-                  logoFile: null
-                });
-              }}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-            >
-              <FiX className="h-6 w-6 font-bold hover:cursor-pointer" />
-            </button>
-            
-            <h2 className="text-2xl font-extrabold mb-6 text-gray-900">Create New Brand</h2>
-
-            <div className="flex flex-col items-center space-y-4 mb-6">
-              <div className="relative">
-                <ImageLoader
-                  src={
-                    logoPreview || 
-                    "https://onno.spagreen.net/demo/public/default-image/default-1080x1000.png"
-                  }
-                  alt="Brand Logo"
-                  className="w-28 h-28 rounded-full border-2 border-white shadow-md object-cover"
-                />
-                <label className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition">
-                  <input
-                    id="logo"
-                    name="file"
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleLogoChange(e, true)}
-                    className="hidden"
-                  />
-                  <FiUpload className="h-4 w-4" />
-                </label>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Brand Name *</label>
-                <input
-                  id="brandname"
-                  name="brandname"
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  value={newBrand.name}
-                  onChange={(e) => setNewBrand(prev => ({ ...prev, name: e.target.value }))}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
-                <textarea
-                  id="description"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  rows={4}
-                  value={newBrand.description}
-                  onChange={(e) => setNewBrand(prev => ({ ...prev, description: e.target.value }))}
-                />
-              </div>
-
-              <div className="flex items-center">
-                <label htmlFor="isactive" className="flex items-center cursor-pointer">
-                  <div className="relative">
-                    <input
-                      id="isactive"
-                      type="checkbox"
-                      className="sr-only"
-                      checked={newBrand.is_active}
-                      onChange={(e) =>
-                        setNewBrand((prev) => ({ ...prev, is_active: e.target.checked }))
-                      }
-                    />
-                    <div
-                      className={`block w-14 h-8 rounded-full ${
-                        newBrand.is_active ? "bg-blue-600" : "bg-gray-300"
-                      }`}
-                    ></div>
-                    <div
-                      className={`dot absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition ${
-                        newBrand.is_active ? "translate-x-6" : ""
-                      }`}
-                    ></div>
-                  </div>
-                  <span className="ml-3 text-sm text-gray-700 font-bold">Is Active</span>
-                </label>
-              </div>
-            </div>
-
-            <div className="mt-8 flex justify-end gap-3">
+        <ModalPortal>
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 relative max-h-[90vh] overflow-y-auto">
               <button
                 onClick={() => {
                   setIsCreateModalOpen(false);
@@ -566,30 +473,127 @@ const ViewBrandsPage = () => {
                     logoFile: null
                   });
                 }}
-                className="px-4 py-2 border border-gray-300 font-bold hover:cursor-pointer rounded-md text-gray-700 hover:bg-gray-50 transition"
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
               >
-                Cancel
+                <FiX className="h-6 w-6 font-bold hover:cursor-pointer" />
               </button>
-              <button
-  onClick={handleCreate}
-  className={`px-4 py-2 text-white font-bold rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 transition flex items-center justify-center gap-2 h-10 ${
-    isCreating || !newBrand.name
-      ? 'bg-green-400 cursor-not-allowed'
-      : 'bg-green-600 hover:bg-green-700 cursor-pointer'
-  }`}
-  disabled={isCreating || !newBrand.name}
->
-  {isCreating ? (
-    "Creating..."
-  ) : (
-    <>
-      <FiCheckCircle /> Create Brand
-    </>
-  )}
-</button>
+              
+              <h2 className="text-2xl font-extrabold mb-6 text-gray-900">Create New Brand</h2>
+
+              <div className="flex flex-col items-center space-y-4 mb-6">
+                <div className="relative">
+                  <ImageLoader
+                    src={
+                      logoPreview || 
+                      "https://onno.spagreen.net/demo/public/default-image/default-1080x1000.png"
+                    }
+                    alt="Brand Logo"
+                    className="w-28 h-28 rounded-full border-2 border-white shadow-md object-cover"
+                  />
+                  <label className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition">
+                    <input
+                      id="logo"
+                      name="file"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleLogoChange(e, true)}
+                      className="hidden"
+                    />
+                    <FiUpload className="h-4 w-4" />
+                  </label>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Brand Name *</label>
+                  <input
+                    id="brandname"
+                    name="brandname"
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    value={newBrand.name}
+                    onChange={(e) => setNewBrand(prev => ({ ...prev, name: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
+                  <textarea
+                    id="description"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    rows={4}
+                    value={newBrand.description}
+                    onChange={(e) => setNewBrand(prev => ({ ...prev, description: e.target.value }))}
+                  />
+                </div>
+
+                <div className="flex items-center">
+                  <label htmlFor="isactive" className="flex items-center cursor-pointer">
+                    <div className="relative">
+                      <input
+                        id="isactive"
+                        type="checkbox"
+                        className="sr-only"
+                        checked={newBrand.is_active}
+                        onChange={(e) =>
+                          setNewBrand((prev) => ({ ...prev, is_active: e.target.checked }))
+                        }
+                      />
+                      <div
+                        className={`block w-14 h-8 rounded-full ${
+                          newBrand.is_active ? "bg-blue-600" : "bg-gray-300"
+                        }`}
+                      ></div>
+                      <div
+                        className={`dot absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition ${
+                          newBrand.is_active ? "translate-x-6" : ""
+                        }`}
+                      ></div>
+                    </div>
+                    <span className="ml-3 text-sm text-gray-700 font-bold">Is Active</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="mt-8 flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setIsCreateModalOpen(false);
+                    setLogoPreview(null);
+                    setNewBrand({
+                      name: "",
+                      description: "",
+                      is_active: false,
+                      logoFile: null
+                    });
+                  }}
+                  className="px-4 py-2 border border-gray-300 font-bold hover:cursor-pointer rounded-md text-gray-700 hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreate}
+                  className={`px-4 py-2 text-white font-bold rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 transition flex items-center justify-center gap-2 h-10 ${
+                    isCreating || !newBrand.name
+                      ? 'bg-green-400 cursor-not-allowed'
+                      : 'bg-green-600 hover:bg-green-700 cursor-pointer'
+                  }`}
+                  disabled={isCreating || !newBrand.name}
+                >
+                  {isCreating ? (
+                    "Creating..."
+                  ) : (
+                    <>
+                      <FiCheckCircle /> Create Brand
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </div>
   );

@@ -49,32 +49,17 @@ def update_profile_completion(sender, instance, **kwargs):
 
     profile = user.profile
     completion = instance.calculate_completion()
-    user.completion_percentage = completion  # move percentage to User model
+    user.completion_percentage = completion  
     role = user.role
 
     if completion >= 100:
-        # ✅ KYC Approved
-        profile.kyc_verified = True
-        profile.kyc_status = "APPROVED"
-        profile.kyc_verified_at = datetime.datetime.now()
-        user.status = "active_user"
-        user.is_profile_completed = True
+        pass
 
-        # Assign role-based IDs if not already set
-        if role == 'vendor' and not user.vendor_id:
-            user.vendor_id = generate_unique_role_id('vendor')
-        elif role == 'stockist' and not user.stockist_id:
-            user.stockist_id = generate_unique_role_id('stockist')
-        elif role == 'reseller' and not user.reseller_id:
-            user.reseller_id = generate_unique_role_id('reseller')
-    
-
-    elif completion < 15:
+    elif completion < 80:
         # ✅ Reset to new user
         profile.kyc_verified = False
         profile.kyc_status = "PENDING"
         profile.kyc_verified_at = None
-
         user.status = "pending_user"
         user.is_profile_completed = False
 
@@ -85,15 +70,6 @@ def update_profile_completion(sender, instance, **kwargs):
             user.stockist_id = None
         elif role == 'reseller':
             user.reseller_id = None
-
-    else:
-        # ✅ In between → Pending user
-        profile.kyc_verified = False
-        profile.kyc_status = "PENDING"
-        profile.kyc_verified_at = None
-
-        user.status = "pending_user"
-        user.is_profile_completed = False
 
     profile.save()
     user.save()

@@ -12,7 +12,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Box,
   FormControlLabel,
   Switch,
   Grid,
@@ -68,7 +67,7 @@ const CreateAnnouncementModal = ({ open, onClose }) => {
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      PaperProps={{
+      Paper={{
         sx: { borderRadius: 3 }
       }}
     >
@@ -162,7 +161,7 @@ const CreateAnnouncementModal = ({ open, onClose }) => {
                         <TextField
                           {...params}
                           fullWidth
-                          InputProps={{
+                          Input={{
                             ...params.InputProps,
                             startAdornment: <Schedule sx={{ mr: 1, color: 'text.secondary' }} />,
                           }}
@@ -179,7 +178,7 @@ const CreateAnnouncementModal = ({ open, onClose }) => {
                         <TextField
                           {...params}
                           fullWidth
-                          InputProps={{
+                          Input={{
                             ...params.InputProps,
                             startAdornment: <Schedule sx={{ mr: 1, color: 'text.secondary' }} />,
                           }}
