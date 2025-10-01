@@ -1642,7 +1642,7 @@ class UpdateOrderRequestStatusView(APIView):
     @classmethod
     def _handle_status_change(cls, order_request, old_status, new_status, current_user, user):
         total_amount = sum(item.total_price for item in order_request.items.all())
-        import pdb; pdb.set_trace()
+        
         if new_status == 'approved' and old_status == 'pending':
             # Add amount to admin wallet
             admin_wallet, _ = Wallet.objects.get_or_create(user=user)
@@ -1832,7 +1832,7 @@ class ResellerOrderStatusMange(APIView):
     permission_classes = [IsAdminOrResellerRole]
 
     def patch(self, request, pk):
-        import pdb; pdb.set_trace()
+       
         try:
             order = Order.objects.get(pk=pk)
         except Order.DoesNotExist:
