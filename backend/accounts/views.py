@@ -31,6 +31,10 @@ from .utils import create_notification
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 from django.utils import timezone
+from django.core.exceptions import ObjectDoesNotExist
+
+
+
 
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 10
@@ -265,52 +269,137 @@ class WalletView(generics.RetrieveAPIView):
 class WalletUpdateView(APIView):
     permission_classes = [IsAdminRole]
 
-    def post(self, request):
-        user_email = request.data.get("user_email")
+    def put(self, request, user__email):
+        user_email = user__email
         transaction_type = request.data.get("transaction_type")
         amount = request.data.get("amount")
-        description = request.data.get("description", "")
         transaction_status = request.data.get("transaction_status", "SUCCESS")
 
+        # 🔹 Validate required fields
         if not all([user_email, transaction_type, amount]):
-            return Response({"message": "User email, transaction type and amount are required", "success": False}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {
+                    "message": "User email, transaction type, and amount are required.",
+                    "success": False
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
-            user = User.objects.get(email=user_email)
-            wallet = Wallet.objects.get(user=user)
             amount = Decimal(str(amount))
-        except User.DoesNotExist:
-            return Response({"message": "User not found", "success": False}, status=status.HTTP_404_NOT_FOUND)
-        except Wallet.DoesNotExist:
-            return Response({"message": "Wallet not found", "success": False}, status=status.HTTP_404_NOT_FOUND)
         except (InvalidOperation, ValueError):
-            return Response({"message": "Invalid amount", "success": False}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"message": "Invalid amount format.", "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        if transaction_type == "CREDIT":
-            wallet.current_balance += amount
-        elif transaction_type == "DEBIT":
-            if wallet.current_balance < amount:
-                return Response({"message": "Insufficient wallet balance", "success": False}, status=status.HTTP_400_BAD_REQUEST)
-            wallet.current_balance -= amount
-        else:
-            return Response({"message": "Invalid transaction type", "success": False}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            # Get user wallet
+            user = User.objects.get(email=user_email)
+            user_wallet = Wallet.objects.select_for_update().get(user=user)
 
-        wallet.save()
+            # Get admin wallet
+            admin_wallet = Wallet.objects.select_for_update().get(user=request.user)
 
-        WalletTransaction.objects.create(
-            wallet=wallet,
-            transaction_type=transaction_type,
-            amount=amount,
-            transaction_status=transaction_status,
-            description=description,
+        except ObjectDoesNotExist as e:
+            missing = "User wallet" if "Wallet" in str(e) else "User"
+            return Response(
+                {"message": f"{missing} not found.", "success": False},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # 🔹 Perform wallet operations atomically
+        with transaction.atomic():
+            if transaction_type == "CREDIT":
+                # Deduct from admin wallet first
+                if admin_wallet.current_balance < amount:
+                    return Response(
+                        {"message": "Admin has insufficient wallet balance.", "success": False},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                admin_wallet.current_balance -= amount
+                user_wallet.current_balance += amount
+
+                admin_wallet.save(update_fields=["current_balance"])
+                user_wallet.save(update_fields=["current_balance"])
+
+                # Create transactions for both
+                WalletTransaction.objects.create(
+                    wallet=user_wallet,
+                    transaction_type="CREDIT",
+                    amount=amount,
+                    transaction_status=transaction_status,
+                    description="Amount credited by admin."
+                )
+
+                WalletTransaction.objects.create(
+                    wallet=admin_wallet,
+                    transaction_type="DEBIT",
+                    amount=amount,
+                    transaction_status="SUCCESS",
+                    description=f"Amount transferred to user {user.email}."
+                )
+
+                # Notify user
+                create_notification(
+                    user,
+                    title="Amount Credited",
+                    message=f"Admin added ₹{amount} to your wallet.",
+                    notification_type="system",
+                    related_url=""
+                )
+
+                # Notify admin
+                create_notification(
+                    request.user,
+                    title="Amount Deducted",
+                    message=f"You transferred ₹{amount} to {user.email}.",
+                    notification_type="system",
+                    related_url=""
+                )
+
+            elif transaction_type == "DEBIT":
+                # Only debit user's wallet (no admin add-back here)
+                if user_wallet.current_balance < amount:
+                    return Response(
+                        {"message": "User has insufficient wallet balance.", "success": False},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                user_wallet.current_balance -= amount
+                user_wallet.save(update_fields=["current_balance"])
+
+                WalletTransaction.objects.create(
+                    wallet=user_wallet,
+                    transaction_type="DEBIT",
+                    amount=amount,
+                    transaction_status=transaction_status,
+                    description="Amount debited by admin."
+                )
+
+                create_notification(
+                    user,
+                    title="Amount Deducted",
+                    message=f"Admin debited ₹{amount} from your wallet.",
+                    notification_type="system",
+                    related_url=""
+                )
+
+            else:
+                return Response(
+                    {"message": "Invalid transaction type. Must be CREDIT or DEBIT.", "success": False},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # ✅ Return response
+        return Response(
+            {
+                "message": f"Wallet updated successfully for user {user.email}.",
+                "success": True
+            },
+            status=status.HTTP_200_OK
         )
-
-        return Response({
-            "message": "Wallet updated successfully",
-            "success": True,
-            "new_balance": wallet.current_balance
-        }, status=status.HTTP_200_OK)
-
 
 class WalletTransactionListView(generics.ListAPIView):
     serializer_class = WalletTransactionSerializer

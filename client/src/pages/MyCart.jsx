@@ -7,37 +7,34 @@ import {
 } from "../features/cart/cartSlice";
 import { useCreateBulkOrdersMutation } from "../features/order/orderApi";
 import { useCreateOrderRequestMutation, useCreateOrderRequestResellerMutation } from "../features/order/orderRequest";
-import { FiTrash2, FiPlus, FiMinus, FiShoppingBag } from "react-icons/fi";
+import { FiTrash2, FiPlus, FiMinus, FiShoppingBag, FiArrowLeft } from "react-icons/fi";
 import { TbTruckDelivery } from "react-icons/tb";
 import { BsShieldCheck } from "react-icons/bs";
 import { toast } from "react-toastify";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const LazyImage = lazy(() => import("./LazyImage"));
 
+// Updated bulk price calculation logic
+const getApplicableBulkPrice = (variant, quantity) => {
+  if (!variant?.bulk_prices?.length) return null;
+  
+  // Sort bulk prices by max_quantity in descending order
+  const sortedBulkPrices = [...variant.bulk_prices].sort((a, b) => b.max_quantity - a.max_quantity);
+  
+  // Find the first bulk price where quantity >= max_quantity
+  return sortedBulkPrices.find(bulk => quantity >= bulk.max_quantity);
+};
+
 const calculateItemPrice = (item) => {
-  if (item.variant?.bulk_prices?.length > 0) {
-    const sortedBulkPrices = [...item.variant.bulk_prices].sort((a, b) => a.max_quantity - b.max_quantity);
-    
-    let applicableBulkPrice = null;
-    
-    for (const bulkPrice of sortedBulkPrices) {
-      if (item.quantity <= bulkPrice.max_quantity) {
-        applicableBulkPrice = bulkPrice;
-        break;
-      }
-    }
-    
-    if (!applicableBulkPrice && sortedBulkPrices.length > 0) {
-      applicableBulkPrice = sortedBulkPrices[sortedBulkPrices.length - 1];
-    }
-    
-    if (applicableBulkPrice) {
-      return applicableBulkPrice.price;
-    }
+  const bulkPrice = getApplicableBulkPrice(item.variant, item.quantity);
+  
+  if (bulkPrice) {
+    return bulkPrice.price;
   }
   
-  return item.variant?.product_variant_prices?.[0]?.price || item.price;
+  // Return base price (first bulk price or variant price)
+  return item.variant?.bulk_prices?.[0]?.price || item.price || 0;
 };
 
 const calculateGSTForItem = (item) => {
@@ -67,9 +64,9 @@ const calculateGSTForItem = (item) => {
 
 const MyCart = ({ role }) => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const cartItems = useSelector((state) => state.cart.items);
   const user = useSelector((state) => state.auth.user);
-  console.log(cartItems)
   
   const [placeBulkOrder, { isLoading: isBulkOrderLoading }] = useCreateBulkOrdersMutation();
   const [createOrderRequest, { isLoading: isOrderRequestLoading }] = useCreateOrderRequestMutation();
@@ -94,28 +91,7 @@ const MyCart = ({ role }) => {
     const item = cartItems.find(item => item.id === id);
     if (!item) return;
 
-    let bulkPrice = null;
-    
-    if (item.variant?.bulk_prices?.length > 0) {
-      const sortedBulkPrices = [...item.variant.bulk_prices].sort((a, b) => a.max_quantity - b.max_quantity);
-      
-      let applicableBulkPrice = null;
-      
-      for (const bulkPrice of sortedBulkPrices) {
-        if (newQuantity <= bulkPrice.max_quantity) {
-          applicableBulkPrice = bulkPrice;
-          break;
-        }
-      }
-      
-      if (!applicableBulkPrice && sortedBulkPrices.length > 0) {
-        applicableBulkPrice = sortedBulkPrices[sortedBulkPrices.length - 1];
-      }
-      
-      if (applicableBulkPrice) {
-        bulkPrice = applicableBulkPrice;
-      }
-    }
+    const bulkPrice = getApplicableBulkPrice(item.variant, newQuantity);
 
     dispatch(updateQuantity({
       id,
@@ -124,20 +100,26 @@ const MyCart = ({ role }) => {
     }));
   };
 
+  const getBasePrice = (item) => {
+    return item.variant?.bulk_prices?.[0]?.price || item.price || 0;
+  };
+
+  const getBulkPriceInfo = (item) => {
+    return getApplicableBulkPrice(item.variant, item.quantity);
+  };
+
   const handleCheckout = async () => {
     try {
       if (role === "stockist" || role === "reseller") {
-        // For stockist and reseller: Create a single order request with multiple items
         const orderRequestData = {
           note: `Order request from ${user?.email} (${role})`,
           items: cartItems.map((item) => ({
             product: item.id,
-            variant: item.variant?.id || item.size?.id ,
+            variant: item.variant?.id || item.size?.id,
             quantity: item.quantity,
             unit_price: calculateItemPrice(item),
             total_price: (calculateItemPrice(item) * item.quantity),
             gst_amount: calculateGSTForItem(item),
-            // Include any other required fields for OrderRequestItem
           }))
         };
 
@@ -149,7 +131,6 @@ const MyCart = ({ role }) => {
           toast.success("Order request submitted successfully! Waiting for stockist approval.");
         }
       } else {
-        // For other roles: Use bulk orders
         const orderData = {
           items: cartItems.map(({ id, quantity, variant, bulk_price, gst_tax, gst_percentage }) => ({
             product_id: id,
@@ -169,39 +150,12 @@ const MyCart = ({ role }) => {
         toast.success("Order placed successfully!");
       }
 
-      // Clear cart after successful submission
       dispatch(clearCart());
       
     } catch (err) {
       console.error("Checkout error:", err);
       toast.error(err?.data?.message || err?.data?.error || "Something went wrong.");
     }
-  };
-
-  const getBasePrice = (item) => {
-    return item.variant?.product_variant_prices?.[0]?.price || item.price;
-  };
-
-  const getBulkPriceInfo = (item) => {
-    if (item.variant?.bulk_prices?.length > 0) {
-      const sortedBulkPrices = [...item.variant.bulk_prices].sort((a, b) => a.max_quantity - b.max_quantity);
-      
-      let applicableBulkPrice = null;
-      
-      for (const bulkPrice of sortedBulkPrices) {
-        if (item.quantity <= bulkPrice.max_quantity) {
-          applicableBulkPrice = bulkPrice;
-          break;
-        }
-      }
-      
-      if (!applicableBulkPrice && sortedBulkPrices.length > 0) {
-        applicableBulkPrice = sortedBulkPrices[sortedBulkPrices.length - 1];
-      }
-      
-      return applicableBulkPrice;
-    }
-    return null;
   };
 
   const getCheckoutButtonText = () => {
@@ -228,24 +182,17 @@ const MyCart = ({ role }) => {
 
   const getOrderTypeMessage = () => {
     if (role === "stockist" || role === "reseller") {
-      const roleName = role === "stockist" ? "Stockist" : "Reseller";
-      const bgColor = role === "stockist" ? "blue" : "purple";
-      
       return (
-        <div className={`bg-${bgColor}-50 border border-${bgColor}-200 rounded-lg p-3 mb-4`}>
+        <div className={`bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4`}>
           <div className="flex items-center">
-            <svg className={`w-5 h-5 text-${bgColor}-600 mr-2`} fill="currentColor" viewBox="0 0 20 20">
+            <svg className="w-5 h-5 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
             </svg>
-            <span className={`text-${bgColor}-800 font-medium text-sm`}>
-          {role === "stockist" ? (
-            `As a stockist, your order will be submitted as a request for admin approval.`
-          ) : role=== "reseller" ? (
-            `As a reseller, your order will be submitted as a request for stockist approval.` // Replace with your text
-          ) : (
-            `As a admin, your order will be submitted as a request for vendor approval. ` // Default text if role is something else
-          )}
-        </span>
+            <span className="text-blue-800 font-medium text-sm">
+              {role === "stockist" 
+                ? "As a stockist, your order will be submitted as a request for admin approval."
+                : "As a reseller, your order will be submitted as a request for stockist approval."}
+            </span>
           </div>
         </div>
       );
@@ -253,70 +200,44 @@ const MyCart = ({ role }) => {
     return null;
   };
 
-  const getRoleBadge = () => {
-    if (role === "stockist") {
-      return (
-        <span className="inline-block mt-1 bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">
-          Stockist Mode - Requires Approval
-        </span>
-      );
-    } else if (role === "reseller") {
-      return (
-        <span className="inline-block mt-1 bg-purple-100 text-purple-800 text-xs font-medium px-2 py-1 rounded-full">
-          Reseller Mode - Requires Approval
-        </span>
-      );
-    }
-    return null;
-  };
-
-  const getOrderSummaryTitle = () => {
-    if (role === "stockist") {
-      return "Order Request Summary";
-    } else if (role === "reseller") {
-      return "Reseller Order Summary";
-    } else {
-      return "Order Summary";
-    }
-  };
-
-  const getOrderSummaryNote = () => {
-    if (role === "stockist") {
-      return "Requires admin approval before processing";
-    } else if (role === "reseller") {
-      return "Requires stockist approval before processing";
-    }
-    return null;
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 py-4 sm:py-8 px-3 sm:px-4 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col lg:flex-row gap-8">
+        {/* Header */}
+        <div className="mb-6">
+          <button 
+            onClick={() => navigate(`/${role}/products`)}
+            className="btn btn-ghost btn-sm mb-4 cursor-pointer"
+          >
+            <FiArrowLeft className="mr-2" />
+            Back to Products
+          </button>
+          
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900">Your Shopping Cart</h1>
+              <p className="text-gray-500 mt-1 font-medium">
+                {cartItems.length} {cartItems.length === 1 ? 'item' : 'items'}
+              </p>
+            </div>
+            {cartItems.length > 0 && (
+              <button
+                onClick={() => dispatch(clearCart())}
+                className="mt-2 sm:mt-0 text-red-500 hover:text-red-700 font-medium text-sm flex items-center cursor-pointer"
+              >
+                <FiTrash2 className="mr-1" /> Clear all
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-6">
           {/* Main Cart Section */}
           <div className="lg:w-2/3">
             <div className="bg-white shadow-sm rounded-xl overflow-hidden">
-              <div className="px-6 py-5 border-b border-gray-200 flex justify-between items-center">
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900">Your Shopping Cart</h1>
-                  <p className="text-gray-500 mt-1 font-medium">
-                    {cartItems.length} {cartItems.length === 1 ? 'item' : 'items'}
-                  </p>
-                  {getRoleBadge()}
-                </div>
-                {cartItems.length > 0 && (
-                  <button
-                    onClick={() => dispatch(clearCart())}
-                    className="text-red-500 hover:text-red-700 font-medium text-sm flex items-center cursor-pointer"
-                  >
-                    <FiTrash2 className="mr-1" /> Clear all
-                  </button>
-                )}
-              </div>
-
               {cartItems.length === 0 ? (
-                <div className="text-center py-16">
-                  <div className="mx-auto h-24 w-24 text-gray-400">
+                <div className="text-center py-12 sm:py-16">
+                  <div className="mx-auto h-20 w-20 sm:h-24 sm:w-24 text-gray-400">
                     <FiShoppingBag className="w-full h-full" />
                   </div>
                   <h3 className="mt-4 text-xl font-bold text-gray-900">Your cart is empty</h3>
@@ -338,16 +259,16 @@ const MyCart = ({ role }) => {
                     const basePrice = getBasePrice(item);
                     const bulkPriceInfo = getBulkPriceInfo(item);
                     const itemGST = calculateGSTForItem(item);
-                    const { id, name, quantity, image, variant, color, description } = item;
+                    const { id, name, quantity, image, variant } = item;
                     
                     return (
-                      <div key={id} className="p-6 flex flex-col sm:flex-row group hover:bg-gray-50 transition-colors">
-                        <div className="flex-shrink-0 relative">
-                          <Suspense fallback={<div className="w-32 h-32 bg-gray-200 rounded-lg animate-pulse" />}>
+                      <div key={`${id}-${variant?.id}`} className="p-4 sm:p-6 flex flex-col sm:flex-row group hover:bg-gray-50 transition-colors">
+                        <div className="flex-shrink-0 relative mb-4 sm:mb-0">
+                          <Suspense fallback={<div className="w-24 h-24 sm:w-32 sm:h-32 bg-gray-200 rounded-lg animate-pulse" />}>
                             <LazyImage
                               src={image || "/placeholder.png"}
                               alt={name}
-                              className="w-32 h-32 rounded-lg object-cover cursor-pointer"
+                              className="w-24 h-24 sm:w-32 sm:h-32 rounded-lg object-cover cursor-pointer"
                               onError={(e) => {
                                 if (!e.target.src.includes("/placeholder.png")) {
                                   e.target.onerror = null;
@@ -358,36 +279,25 @@ const MyCart = ({ role }) => {
                           </Suspense>
                         
                           {variant?.name && (
-                              <span className="absolute top-2 left-2 bg-white/90 text-xs font-bold px-2 py-1 rounded-md shadow-sm cursor-default">
-                                {variant.name}
-                              </span>
-                            )}
+                            <span className="absolute top-1 left-1 sm:top-2 sm:left-2 bg-white/90 text-xs font-bold px-2 py-1 rounded-md shadow-sm cursor-default">
+                              {variant.name}
+                            </span>
+                          )}
                         </div>
 
-                        <div className="mt-4 sm:mt-0 sm:ml-6 flex-grow">
-                          <div className="flex items-start justify-between">
+                        <div className="sm:ml-6 flex-grow">
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
                             <div className="flex-1 min-w-0">
-                              <h3 className="text-lg font-extrabold text-gray-900 truncate cursor-pointer hover:text-indigo-600 transition-colors">
+                              <h3 className="text-lg font-extrabold text-gray-900 cursor-pointer hover:text-indigo-600 transition-colors line-clamp-2">
                                 {name}
                               </h3>
-                              {color && (
-                                <div className="mt-1 flex items-center">
-                                  <span className="text-sm text-gray-500 mr-2">Color:</span>
-                                  <span 
-                                    className="w-4 h-4 rounded-full border border-gray-300 cursor-pointer"
-                                    style={{ backgroundColor: color }}
-                                    title={color}
-                                  />
-                                </div>
-                              )}
-                              <p className="mt-2 text-gray-600 text-sm line-clamp-2">
-                                {description}
-                              </p>
+                              
                               {bulkPriceInfo && (
-                                <div className="mt-1 text-xs text-green-600">
-                                  Bulk discount applied (up to {bulkPriceInfo.max_quantity} units)
+                                <div className="mt-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded inline-block">
+                                  🎉 Bulk discount: {bulkPriceInfo.max_quantity}+ units
                                 </div>
                               )}
+                              
                               {variant?.product_variant_prices?.[0] && (
                                 <div className="mt-1 text-xs text-blue-600">
                                   {variant.product_variant_prices[0].gst_tax ? 
@@ -399,7 +309,7 @@ const MyCart = ({ role }) => {
                             </div>
                             <button
                               onClick={() => dispatch(removeItem(id))}
-                              className="ml-4 text-gray-400 hover:text-red-500 transition-colors cursor-pointer p-1"
+                              className="mt-2 sm:mt-0 sm:ml-4 text-gray-400 hover:text-red-500 transition-colors cursor-pointer p-1 self-start sm:self-center"
                               title="Remove item"
                             >
                               <FiTrash2 className="h-5 w-5" />
@@ -434,7 +344,7 @@ const MyCart = ({ role }) => {
                               <p className="text-sm text-gray-500 font-bold">Unit Price</p>
                               <p className="text-lg font-extrabold text-gray-900">
                                 ₹{Number(itemPrice).toFixed(2)}
-                                {Number(itemPrice) < Number(basePrice) && (
+                                {bulkPriceInfo && Number(itemPrice) < Number(basePrice) && (
                                   <span className="ml-1 text-sm text-gray-500 line-through">
                                     ₹{Number(basePrice).toFixed(2)}
                                   </span>
@@ -461,23 +371,23 @@ const MyCart = ({ role }) => {
 
             {/* Trust Badges */}
             {cartItems.length > 0 && (
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white p-4 rounded-xl shadow-sm flex items-center">
-                  <TbTruckDelivery className="text-indigo-600 text-2xl mr-3" />
+              <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm flex items-center">
+                  <TbTruckDelivery className="text-indigo-600 text-xl sm:text-2xl mr-3" />
                   <div>
                     <p className="font-bold text-sm">Free Delivery</p>
                     <p className="text-gray-500 text-xs">On orders over ₹500</p>
                   </div>
                 </div>
-                <div className="bg-white p-4 rounded-xl shadow-sm flex items-center">
-                  <FiShoppingBag className="text-indigo-600 text-2xl mr-3" />
+                <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm flex items-center">
+                  <FiShoppingBag className="text-indigo-600 text-xl sm:text-2xl mr-3" />
                   <div>
                     <p className="font-bold text-sm">Easy Returns</p>
                     <p className="text-gray-500 text-xs">30-day return policy</p>
                   </div>
                 </div>
-                <div className="bg-white p-4 rounded-xl shadow-sm flex items-center">
-                  <BsShieldCheck className="text-indigo-600 text-2xl mr-3" />
+                <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm flex items-center">
+                  <BsShieldCheck className="text-indigo-600 text-xl sm:text-2xl mr-3" />
                   <div>
                     <p className="font-bold text-sm">Secure Checkout</p>
                     <p className="text-gray-500 text-xs">100% secure payment</p>
@@ -491,20 +401,23 @@ const MyCart = ({ role }) => {
           {cartItems.length > 0 && (
             <div className="lg:w-1/3">
               <div className="bg-white shadow-sm rounded-xl overflow-hidden sticky top-6">
-                <div className="px-6 py-5 border-b border-gray-200">
+                <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200">
                   <h2 className="text-xl font-extrabold text-gray-900">
-                    {getOrderSummaryTitle()}
+                    {role === "stockist" ? "Order Request Summary" : 
+                     role === "reseller" ? "Reseller Order Summary" : "Order Summary"}
                   </h2>
-                  {getOrderSummaryNote() && (
+                  {(role === "stockist" || role === "reseller") && (
                     <p className="text-sm text-blue-600 mt-1">
-                      {getOrderSummaryNote()}
+                      {role === "stockist" 
+                        ? "Requires admin approval before processing"
+                        : "Requires stockist approval before processing"}
                     </p>
                   )}
                 </div>
 
-                <div className="px-6 py-4 space-y-4">
+                <div className="px-4 sm:px-6 py-4 space-y-3 sm:space-y-4">
                   <div className="flex justify-between">
-                    <p className="text-gray-600 font-medium">Subtotal</p>
+                    <p className="text-gray-600 font-medium">Subtotal ({cartItems.length} items)</p>
                     <p className="text-gray-900 font-bold">₹{subtotal.toFixed(2)}</p>
                   </div>
                   
@@ -513,7 +426,12 @@ const MyCart = ({ role }) => {
                     <p className="text-gray-900 font-bold">₹{totalGST.toFixed(2)}</p>
                   </div>
                   
-                  <div className="border-t border-gray-200 pt-4 mt-2">
+                  <div className="flex justify-between">
+                    <p className="text-gray-600 font-medium">Shipping:</p>
+                    <p className="text-gray-900 font-bold">₹{shippingCost.toFixed(2)}</p>
+                  </div>
+                  
+                  <div className="border-t border-gray-200 pt-3 sm:pt-4 mt-2">
                     <div className="flex justify-between">
                       <p className="text-lg font-extrabold text-gray-900">Total</p>
                       <p className="text-xl font-extrabold text-indigo-600">
@@ -523,10 +441,10 @@ const MyCart = ({ role }) => {
                   </div>
                 </div>
 
-                <div className="px-6 py-4 border-t border-gray-200">
+                <div className="px-4 sm:px-6 py-4 border-t border-gray-200">
                   <button
                     disabled={cartItems.length === 0 || isLoading}
-                    className={`w-full flex justify-center items-center px-6 py-4 border border-transparent rounded-lg shadow-sm text-base font-extrabold text-white ${
+                    className={`w-full flex justify-center items-center px-6 py-3 sm:py-4 border border-transparent rounded-lg shadow-sm text-base font-extrabold text-white ${
                       isLoading || cartItems.length === 0
                         ? 'bg-indigo-300 cursor-not-allowed'
                         : 'bg-indigo-600 hover:bg-indigo-700 cursor-pointer'
