@@ -123,14 +123,73 @@ class BulkOrderCreateView(APIView):
             return Response({"message": "Invalid or empty 'items' list."}, status=400)
 
         try:
-            if request.user.role == "admin":
-                order, total_price = OrderService.create_bulk_order(request.user, items_data)
-            else:
+            if request.user.role != "admin":
                 return Response({"message": "You don't have access to order items."}, status=400)
 
+            total_price = 0
+            created_orders = []
+
+            for item in items_data:
+                product_id = item.get("product_id")
+                variant_id = item.get("variant_id")
+                quantity = item.get("quantity", 0)
+
+                # Basic validation
+                if not product_id or quantity <= 0:
+                    return Response({"message": f"Invalid product or quantity in item: {item}"}, status=400)
+
+                # 🔹 Get product and its owner (seller)
+                try:
+                    product = Product.objects.get(id=product_id)
+                    seller = product.owner  # assuming Product model has a ForeignKey 'owner'
+                except Product.DoesNotExist:
+                    return Response({
+                        "message": f"Product with ID {product_id} not found."
+                    }, status=400)
+
+                # 🔹 Check stock using seller
+                try:
+                    stock_inv = StockInventory.objects.get(
+                        user=seller,
+                        product_id=product_id,
+                        variant_id=variant_id
+                    )
+                except StockInventory.DoesNotExist:
+                    return Response({
+                        "message": f"No stock found for product {product_id} (variant: {variant_id}) "
+                                f"under seller {seller.username if hasattr(seller, 'username') else seller.id}. "
+                                f"Contact vendor to add stock in their inventory."
+                    }, status=400)
+
+                # 🔹 Validate stock quantity
+                if stock_inv.total_quantity < quantity:
+                    # Create low stock notification for seller
+                    create_notification(
+                        user=seller,
+                        title="Low Stock Alert",
+                        message=(
+                            f"Your product '{product.name}' (variant id: {variant_id}) "
+                            f"stock is low ({stock_inv.total_quantity} left). "
+                            "Please restock soon to avoid missed orders."
+                        ),
+                        notification_type="stock",
+                        related_url=f"/inventory/{stock_inv.id}/"
+                    )
+
+                    return Response({
+                        "message": f"Insufficient stock for product {product_id}. "
+                                f"Available: {stock_inv.total_quantity}, Requested: {quantity}. "
+                                f"Contact vendor to add stock."
+                    }, status=400)
+
+                # 🔹 Create order (deduction handled inside create_bulk_order)
+                order, order_total = OrderService.create_bulk_order(request.user, [item])
+                total_price += order_total
+                created_orders.append(order.id)
+
             return Response({
-                "message": "Order created successfully.",
-                "order_id": order.id,
+                "message": "Order(s) created successfully.",
+                "order_ids": created_orders,
                 "total_deducted": total_price
             }, status=status.HTTP_201_CREATED)
 
@@ -138,6 +197,7 @@ class BulkOrderCreateView(APIView):
             return Response({"message": str(e)}, status=400)
         except Exception as e:
             return Response({"message": str(e)}, status=400)
+
 
 
 class AdminOrderListView(APIView):

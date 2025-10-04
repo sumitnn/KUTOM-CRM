@@ -127,7 +127,7 @@ const VendorMainLayout = ({ children }) => {
                         pauseOnMouseEnter: true,
                       }}
                       speed={600}
-                      loop={true}
+                      loop={announcements.length > 1}
                       navigation={{
                         nextEl: '.announcement-next',
                         prevEl: '.announcement-prev',
@@ -196,34 +196,42 @@ const VendorMainLayout = ({ children }) => {
               )}
 
               {/* Header with Glass Effect */}
-              <div className="mb-4 h-18">
-  <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-3 shadow-sm border border-white/60 h-full">
-    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between h-full">
-      <div className="flex-1 flex flex-col justify-between h-full">
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-3 h-3 bg-gradient-to-r from-orange-500 to-amber-500 rounded-full animate-pulse"></div>
-          <h1 className="text-lg lg:text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
-            Welcome back, {user?.username || 'Vendor'}!
-          </h1>
-        </div>
-      </div>
-      
-      {/* Status Badge */}
-      <div className="flex gap-3 mt-2 lg:mt-0">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-xl shadow-sm border border-slate-200">
-          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-          <span className="text-xs font-semibold text-slate-700">Active</span>
-        </div>
-        <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl shadow-sm border border-orange-200">
-          <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-          <span className="text-xs font-semibold text-orange-700">Online</span>
-        </div>
-      </div>
-    </div>
-    
-  
-  </div>
-</div>
+     <div className="mb-8">
+                <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-6 shadow-sm border border-white/60">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-3 h-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full animate-pulse"></div>
+                        <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+                          Welcome back, {user?.username || 'Vendor'}!
+                        </h1>
+                      </div>
+                      <p className="text-slate-600 text-lg">
+                        Vendor Dashboard - Grow your business and manage sales
+                      </p>
+                    </div>
+                    
+                    {/* Status Badge */}
+                    <div className="flex gap-3 mt-4 lg:mt-0">
+                      <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-sm border border-slate-200">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="text-sm font-semibold text-slate-700">Active</span>
+                      </div>
+                      <div className="hidden xl:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl shadow-sm border border-green-200">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="text-sm font-semibold text-green-700">Online</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Progress Indicator */}
+                  <div className="flex items-center gap-3 mt-4">
+                    <div className="h-1.5 w-32 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full shadow-lg shadow-green-500/25"></div>
+                    <div className="h-1.5 w-12 bg-slate-300 rounded-full"></div>
+                    <div className="h-1.5 w-12 bg-slate-300 rounded-full"></div>
+                  </div>
+                </div>
+              </div>
 
 
               {/* Main Content Area - Full Width */}
@@ -246,7 +254,7 @@ const VendorMainLayout = ({ children }) => {
                 </div>
 
                 {/* Full Width Content Area */}
-                <div className="w-full">
+                <div className="w-full h-auto">
                   <div className="p-6 lg:p-8">
                     {children}
                   </div>

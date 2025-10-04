@@ -83,7 +83,7 @@ const Navbar = ({ role }) => {
     <nav className="bg-white/80 backdrop-blur-lg fixed top-0 left-0 right-0 z-50 border-b border-gray-200/60 shadow-sm">
       {/* Logout Confirmation Modal */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
+        <div className="fixed top-30 inset-0 bg-black/50 flex items-center justify-center z-500 backdrop-blur-sm">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border border-gray-100">
             <div className="text-center">
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -97,13 +97,13 @@ const Navbar = ({ role }) => {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+                className="flex-1 px-4 py-3 border cursor-pointer border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-colors duration-200"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmLogout}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-red-600 to-red-500 text-white font-semibold rounded-xl hover:from-red-700 hover:to-red-600 transition-all duration-200 shadow-lg shadow-red-200"
+                className="flex-1 px-4 py-3 bg-gradient-to-r cursor-pointer from-red-600 to-red-500 text-white font-semibold rounded-xl hover:from-red-700 hover:to-red-600 transition-all duration-200 shadow-lg shadow-red-200"
               >
                 Logout
               </button>
@@ -248,7 +248,7 @@ const Navbar = ({ role }) => {
                     
                     <Link
                       to={`/${role}/settings/change-password`}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 font-medium hover:bg-amber-50 hover:text-amber-700 transition-all duration-200 group"
+                      className="flex items-center gap-3 px-3  py-2.5 rounded-xl text-gray-700 font-medium hover:bg-amber-50 hover:text-amber-700 transition-all duration-200 group"
                       onClick={() => setDropdownOpen(false)}
                     >
                       <svg className="w-5 h-5 text-gray-400 group-hover:text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -262,7 +262,7 @@ const Navbar = ({ role }) => {
                     <a
                       href={`/${role}/logout`}
                       onClick={handleLogoutClick}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 font-medium hover:bg-red-50 hover:text-red-600 transition-all duration-200 group"
+                      className="flex items-center cursor-pointer gap-3 px-3 py-2.5 rounded-xl text-gray-700 font-medium hover:bg-red-50 hover:text-red-600 transition-all duration-200 group"
                     >
                       <svg className="w-5 h-5 text-gray-400 group-hover:text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

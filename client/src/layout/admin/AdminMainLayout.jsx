@@ -127,7 +127,7 @@ const AdminMainLayout = ({ children }) => {
                         pauseOnMouseEnter: true,
                       }}
                       speed={600}
-                      loop={true}
+                      loop={announcements.length > 1}
                       navigation={{
                         nextEl: '.announcement-next',
                         prevEl: '.announcement-prev',
@@ -257,7 +257,7 @@ const AdminMainLayout = ({ children }) => {
                 </div>
 
                 {/* Full Width Content Area */}
-                <div className="w-full">
+                <div className="w-full h-auto">
                   <div className="p-6 lg:p-8 ">
                     {children}
                   </div>

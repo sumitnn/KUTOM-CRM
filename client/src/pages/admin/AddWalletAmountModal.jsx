@@ -1,5 +1,7 @@
 import { useUpdateWalletAmountMutation } from "../../features/walletApi";
 import { useState } from "react";
+import { toast } from "react-toastify";
+
 
 const AddWalletAmountModal = ({ open, onClose }) => {
   const [userEmail, setUserEmail] = useState("");
@@ -28,12 +30,14 @@ const AddWalletAmountModal = ({ open, onClose }) => {
       }).unwrap();
 
       // Reset fields after successful submission
+      toast.success(`Amount Added Successfully`);
       setUserEmail("");
       setAmount("");
       setTransactionType("CREDIT");
       onClose();
     } catch (err) {
       console.error(err);
+      toast.error(err);
       setErrorMsg("Failed to update wallet. Please try again.");
     }
   };

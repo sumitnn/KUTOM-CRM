@@ -4,6 +4,8 @@ from django.utils.text import slugify
 import json
 from collections import defaultdict
 from rest_framework.exceptions import ValidationError
+from django.db import IntegrityError
+
 
 class BrandSerializer(serializers.ModelSerializer):
     created_at = serializers.SerializerMethodField()
@@ -399,6 +401,7 @@ class ProductCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         request = self.context["request"]
         user = request.user
+       
 
         tags_data = validated_data.pop("tags", [])
         features_data = validated_data.pop("features", [])
@@ -409,19 +412,41 @@ class ProductCreateSerializer(serializers.ModelSerializer):
 
         # create product
         product = Product.objects.create(owner=user,**validated_data)
-
-        # tags
+        # 🔹 Handle tags safely
         for tag_name in tags_data:
-            tag, _ = Tag.objects.get_or_create(name=tag_name.strip(), defaults={"owner": user})
-            product.tags.add(tag)
+            tag_name = tag_name.strip()
+            tag_slug = slugify(tag_name)
 
-        # features
+            try:
+                tag, _ = Tag.objects.get_or_create(
+                    slug=tag_slug,
+                    defaults={"name": tag_name, "owner": user}
+                )
+            except IntegrityError:
+                # In case of a race condition or slug conflict
+                tag = Tag.objects.filter(slug=tag_slug).first()
+
+            if tag:
+                product.tags.add(tag)
+
+        # 🔹 Handle features safely
         for feature_name in features_data:
-            feature, _ = ProductFeatures.objects.get_or_create(name=feature_name.strip(), defaults={"owner": user})
-            product.features.add(feature)
+            feature_name = feature_name.strip()
+           
+
+            try:
+                feature, _ = ProductFeatures.objects.get_or_create(
+                    name=feature_name,
+                    defaults={ "owner": user}
+                )
+            except IntegrityError:
+                feature = ProductFeatures.objects.filter(name=feature_name).first()
+
+            if feature:
+                product.features.add(feature)
 
         # images
-        images_to_add = []
+        
         for idx, f in enumerate(request.FILES.getlist("image")):
             img_obj = ProductImage.objects.create(
                 image=f,
@@ -429,8 +454,10 @@ class ProductCreateSerializer(serializers.ModelSerializer):
                 is_featured=(idx == 0),
                 is_default=(idx == 0),
             )
-            images_to_add.append(img_obj)
-
+            product.images.add(img_obj)
+            break  # Only the first image is treated as main image
+            
+        images_to_add = []
         for idx, f in enumerate(request.FILES.getlist("additional_images")):
             img_obj = ProductImage.objects.create(
                 image=f,

@@ -7,12 +7,26 @@ import {
   useGetCategoriesQuery,
   useGetSubcategoriesByCategoryQuery,
 } from '../features/category/categoryApi';
+import {
+  FiPlus,
+  FiTrash2,
+  FiUpload,
+  FiImage,
+  FiDollarSign,
+  FiTag,
+  FiPackage,
+  FiSettings,
+  FiArrowLeft,
+  FiCheck,
+  FiAlertCircle
+} from "react-icons/fi";
 
 const CreateProductPage = () => {
   const navigate = useNavigate();
   const [createProduct, { isLoading }] = useCreateProductMutation();
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [tagInput, setTagInput] = useState("");
+  const [activeSection, setActiveSection] = useState("basic");
 
   const [product, setProduct] = useState({
     name: "",
@@ -23,7 +37,7 @@ const CreateProductPage = () => {
     subcategory: "",
     image: null,
     tags: [],
-    currency: "USD",
+    currency: "INR",
     weight: "",
     weight_unit: "kg",
     dimensions: "",
@@ -68,21 +82,14 @@ const CreateProductPage = () => {
     const discountPercentage = parseFloat(size.discount_percentage) || 0;
     const gstPercentage = parseFloat(size.gst_percentage) || 0;
     
-    // Calculate price after discount
     const priceAfterDiscount = price - (price * discountPercentage / 100);
-    
-    // Calculate GST amount on discounted price
     const gstAmount = priceAfterDiscount * gstPercentage / 100;
-    
-    // Final price = discounted price + GST
     const finalPrice = priceAfterDiscount + gstAmount;
     
     return finalPrice.toFixed(2);
   }, []);
 
-  // Calculate final prices only when specific fields change
   useEffect(() => {
-    // Check if any size has price, discount or GST values that need calculation
     const needsUpdate = sizes.some(size => {
       const currentFinal = parseFloat(size.final_price) || 0;
       const calculatedFinal = parseFloat(calculateFinalPrice(size)) || 0;
@@ -94,18 +101,15 @@ const CreateProductPage = () => {
         ...size,
         final_price: calculateFinalPrice(size)
       }));
-      
       setSizes(updatedSizes);
     }
-  }, [sizes, calculateFinalPrice]); // Only recalculate when sizes array changes
+  }, [sizes, calculateFinalPrice]);
 
-  // Add form validation state
   const [formErrors, setFormErrors] = useState({
     sizes: false,
     image: false
   });
 
-  // Validate form whenever sizes or image changes
   useEffect(() => {
     const hasEmptySizes = sizes.some(size => 
       !size.size || !size.price || isNaN(size.price) || parseFloat(size.price) <= 0
@@ -118,8 +122,8 @@ const CreateProductPage = () => {
   }, [sizes, product.image]);
 
   const currencyOptions = [
-    { value: "INR", label: "Indian Rupee (INR)" },
-    { value: "USD", label: "US Dollar (USD)" },
+    { value: "INR", label: "Indian Rupee (₹)" },
+    { value: "USD", label: "US Dollar ($)" },
   ];
 
   const weightUnitOptions = [
@@ -136,13 +140,11 @@ const CreateProductPage = () => {
     { value: "subscription", label: "Subscription" },
   ];
 
-  // Generate discount percentage options from 0% to 100%
   const discountPercentageOptions = Array.from({ length: 101 }, (_, i) => ({
     value: i.toString(),
     label: `${i}%`
   }));
 
-  // Generate GST percentage options from 0% to 40%
   const gstPercentageOptions = Array.from({ length: 41 }, (_, i) => ({
     value: i.toString(),
     label: `${i}% GST`
@@ -252,7 +254,6 @@ const CreateProductPage = () => {
   const removeSize = (index) => {
     if (sizes.length > 1) {
       setSizes(prev => prev.filter((_, i) => i !== index));
-      // Adjust sizeIndex for price tiers
       setPriceTiers(prev => prev.map(tier => ({
         ...tier,
         sizeIndex: tier.sizeIndex > index ? tier.sizeIndex - 1 : tier.sizeIndex
@@ -277,7 +278,6 @@ const CreateProductPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validate form before submission
     const hasEmptySizes = sizes.some(size => 
       !size.size || !size.price || isNaN(size.price) || parseFloat(size.price) <= 0
     );
@@ -295,7 +295,6 @@ const CreateProductPage = () => {
     try {
       const formData = new FormData();
       
-      // Add basic product info
       Object.entries(product).forEach(([key, value]) => {
         if (value !== null && value !== "") {
           if (key === 'tags' || key === 'features') {
@@ -306,24 +305,19 @@ const CreateProductPage = () => {
         }
       });
 
-      // Add sizes as JSON
       formData.append('sizes', JSON.stringify(sizes));
-
-      // Add price tiers as JSON
       formData.append('price_tiers', JSON.stringify(priceTiers));
 
-      // Add main image
       if (product.image) {
         formData.append('image', product.image);
       }
 
-      // Add additional images
       images.forEach((img) => {
         formData.append('additional_images', img.file);
       });
 
       await createProduct(formData).unwrap();
-      toast.success("Product created successfully!");
+      toast.success("🎉 Product created successfully!");
       navigate("/vendor/products");
     } catch (err) {
       toast.error(err.data?.message || "Failed to create product");
@@ -331,586 +325,798 @@ const CreateProductPage = () => {
     }
   };
 
-  // Check if form is valid
   const isFormValid = !formErrors.sizes && !formErrors.image && 
     product.name && product.description && product.short_description && 
     product.brand && product.category;
 
+  // Navigation sections
+  const sections = [
+    { id: "basic", label: "Basic Info", icon: FiPackage },
+    { id: "categories", label: "Categories", icon: FiTag },
+    { id: "specs", label: "Specifications", icon: FiSettings },
+    { id: "pricing", label: "Pricing", icon: FiDollarSign },
+    { id: "images", label: "Images", icon: FiImage }
+  ];
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
-      <div className="bg-white rounded-xl shadow-sm p-4 md:p-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-          <h2 className="text-2xl font-extrabold text-gray-900">Create New Product</h2>
-          <button
-            onClick={() => navigate("/vendor/products")}
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-bold text-gray-700 hover:bg-gray-50 w-full md:w-auto cursor-pointer"
-          >
-            Back to All Products
-          </button>
-        </div>
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Basic Information Section */}
-          <div className="bg-gray-50 p-4 md:p-6 rounded-lg border border-gray-200">
-            <h3 className="text-lg font-extrabold text-gray-800 mb-4">Basic Information</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-              <div className="space-y-1">
-                <label className="block text-sm font-bold text-gray-700">Product Name*</label>
-                <input
-                  type="text"
-                  name="name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base"
-                  value={product.name}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-              
-              <div className="space-y-1">
-                <label className="block text-sm font-bold text-gray-700">Brand*</label>
-                <select
-                  name="brand"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base cursor-pointer"
-                  value={product.brand}
-                  onChange={handleChange}
-                  required
-                >
-                  <option value="">Select Brand</option>
-                  {brands.map(brand => (
-                    <option key={brand.id} value={brand.id}>{brand.name}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="space-y-1">
-                <label className="block text-sm font-bold text-gray-700">Currency*</label>
-                <select
-                  name="currency"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base cursor-pointer"
-                  value={product.currency}
-                  onChange={handleChange}
-                  required
-                >
-                  {currencyOptions.map(option => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="space-y-1">
-                <label className="block text-sm font-bold text-gray-700">Product Type*</label>
-                <select
-                  name="product_type"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base cursor-pointer"
-                  value={product.product_type}
-                  onChange={handleChange}
-                  required
-                >
-                  {productTypeOptions.map(option => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="space-y-1 md:col-span-2">
-                <label className="block text-sm font-bold text-gray-700">Short Description*</label>
-                <textarea
-                  name="short_description"
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base"
-                  value={product.short_description}
-                  onChange={handleChange}
-                  required
-                  maxLength={450}
-                />
-              </div>
-              
-              <div className="space-y-1 md:col-span-2">
-                <label className="block text-sm font-bold text-gray-700">Description*</label>
-                <textarea
-                  name="description"
-                  rows={5}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base"
-                  value={product.description}
-                  onChange={handleChange}
-                  required
-                  maxLength={2000}
-                />
-              </div>
-
-              {/* Tags Field */}
-              <div className="space-y-1 md:col-span-2">
-                <label className="block text-sm font-bold text-gray-700">Tags</label>
-                <div className="flex flex-wrap gap-2 items-center">
-                  {product.tags.map((tag, index) => (
-                    <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
-                      {tag}
-                      <button
-                        type="button"
-                        onClick={() => removeTag(index)}
-                        className="ml-1.5 inline-flex text-blue-400 hover:text-blue-600 focus:outline-none"
-                      >
-                        <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
-                          <path strokeLinecap="round" strokeWidth="1.5" d="M1 1l6 6m0-6L1 7" />
-                        </svg>
-                      </button>
-                    </span>
-                  ))}
-                  <input
-                    type="text"
-                    value={tagInput}
-                    onChange={handleTagInputChange}
-                    onKeyDown={addTag}
-                    placeholder="Type a tag and press Enter"
-                    className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:outline-none focus:border-blue-500 text-sm"
-                  />
-                </div>
-                <p className="mt-1 text-xs text-gray-500">Add tags to help customers find your product</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Categories Section */}
-          <div className="bg-gray-50 p-4 md:p-6 rounded-lg border border-gray-200">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">Categories</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-              <div className="space-y-1">
-                <label className="block text-sm font-bold text-gray-700">Category*</label>
-                <select
-                  name="category"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base cursor-pointer"
-                  value={product.category}
-                  onChange={(e) => {
-                    handleChange(e);
-                    setSelectedCategoryId(e.target.value);
-                    setProduct(prev => ({ ...prev, subcategory: "" }));
-                  }}
-                  required
-                >
-                  <option value="">Select Category</option>
-                  {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="space-y-1">
-                <label className="block text-sm font-bold text-gray-700">Subcategory</label>
-                <select
-                  name="subcategory"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500  focus:outline-none text-sm md:text-base cursor-pointer"
-                  value={product.subcategory}
-                  onChange={handleChange}
-                  disabled={!product.category}
-                >
-                  <option value="">Select Subcategory</option>
-                  {subcategories.map(sub => (
-                    <option key={sub.id} value={sub.id}>{sub.name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Product Specifications Section */}
-          <div className="bg-gray-50 p-4 md:p-6 rounded-lg border border-gray-200">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">Product Specifications</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-              <div className="space-y-1">
-                <label className="block text-sm font-bold text-gray-700">Weight</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    name="weight"
-                    min="0"
-                    step="0.01"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm md:text-base"
-                    value={product.weight}
-                    onChange={handleChange}
-                    placeholder="Product weight"
-                  />
-                  <select
-                    name="weight_unit"
-                    className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:border-blue-500  focus:outline-none text-sm md:text-base cursor-pointer"
-                    value={product.weight_unit}
-                    onChange={handleChange}
-                  >
-                    {weightUnitOptions.map(option => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              
-              <div className="space-y-1">
-                <label className="block text-sm font-bold text-gray-700">Dimensions</label>
-                <input
-                  type="text"
-                  name="dimensions"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:outline-none focus:border-blue-500 text-sm md:text-base"
-                  value={product.dimensions}
-                  onChange={handleChange}
-                  placeholder="e.g., 10x5x2 cm"
-                />
-              </div>
-              
-             
-              
-              <div className="space-y-1">
-                <label className="block text-sm font-bold text-gray-700">Warranty Information</label>
-                <input
-                  type="text"
-                  name="warranty"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:outline-none focus:border-blue-500 text-sm md:text-base"
-                  value={product.warranty}
-                  onChange={handleChange}
-                  placeholder="e.g., 1 year manufacturer warranty"
-                />
-              </div>
-              
-              <div className="space-y-1 md:col-span-2">
-                <label className="block text-sm font-bold text-gray-700">Product Video URL</label>
-                <input
-                  type="url"
-                  name="video_url"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:ring-blue-500 focus:outline-none focus:border-blue-500 text-sm md:text-base"
-                  value={product.video_url}
-                  onChange={handleChange}
-                  placeholder="https://youtube.com/embed/example"
-                />
-              </div>
-              
-              <div className="space-y-1 md:col-span-2">
-                <label className="block text-sm font-bold text-gray-700">Product Features</label>
-                <div className="flex flex-wrap gap-2 items-center">
-                  {product.features.map((feature, index) => (
-                    <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800">
-                      {feature}
-                      <button
-                        type="button"
-                        onClick={() => removeFeature(index)}
-                        className="ml-1.5 inline-flex text-green-400 hover:text-green-600 focus:outline-none"
-                      >
-                        <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
-                          <path strokeLinecap="round" strokeWidth="1.5" d="M1 1l6 6m0-6L1 7" />
-                        </svg>
-                      </button>
-                    </span>
-                  ))}
-                  <input
-                    type="text"
-                    value={featureInput}
-                    onChange={handleFeatureInputChange}
-                    onKeyDown={addFeature}
-                    placeholder="Type a feature and press Enter"
-                    className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-1  focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
-                  />
-                </div>
-                <p className="mt-1 text-xs text-gray-500 font-bold">Add key features ,hit enter button To add more..</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Product Sizes & Pricing Section */}
-          <div className="bg-gray-50 p-4 md:p-6 rounded-lg border border-gray-200">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-2">
-              <h3 className="text-lg font-bold text-gray-800">Product Sizes & Pricing*</h3>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6">
+            <div>
               <button
-                type="button"
-                onClick={addSize}
-                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-bold  hover:bg-blue-700 w-full md:w-auto cursor-pointer"
+                onClick={() => navigate("/vendor/products")}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors cursor-pointer group"
               >
-                + Add Size
+                <FiArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+                <span className="font-semibold">Back to Products</span>
               </button>
+              <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                Create New Product
+              </h1>
+              <p className="text-gray-600 mt-2 text-lg">
+                Fill in the details to add a new product to your catalog
+              </p>
             </div>
             
-            {formErrors.sizes && (
-              <div className="mb-4 p-2 bg-red-50 text-red-600 text-sm font-bold rounded">
-                Please fill all required size fields (size name and price)
+            {/* Progress Indicator */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm border border-gray-200/50">
+              <div className="flex items-center gap-4">
+                <div className={`w-3 h-3 rounded-full ${isFormValid ? 'bg-green-500' : 'bg-yellow-500'} animate-pulse`}></div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-700">
+                    {isFormValid ? 'Ready to create' : 'Complete all required fields'}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {sizes.length} size{sizes.length !== 1 ? 's' : ''} • {images.length} image{images.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
               </div>
-            )}
-            
-            <div className="space-y-4">
-              {sizes.map((size, index) => (
-                <div key={index} className="border-3 border-cyan-700 rounded-lg p-3 md:p-4 bg-white">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-3">
-                    <div className="space-y-1">
-                      <label className="block text-xs md:text-sm font-bold text-gray-700">Size*</label>
-                      <input
-                        type="text"
-                        placeholder="Medium"
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1  focus:ring-blue-500 text-sm"
-                        value={size.size}
-                        onChange={(e) => handleSizeChange(index, "size", e.target.value)}
-                        required
-                      />
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <label className="block text-xs md:text-sm font-bold text-gray-700">Unit*</label>
-                      <select
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1  focus:outline-none focus:ring-blue-500 text-sm cursor-pointer"
-                        value={size.unit}
-                        onChange={(e) => handleSizeChange(index, "unit", e.target.value)}
-                        required
-                      >
-                        <option value="gram">Gram</option>
-                        <option value="kg">Kilogram</option>
-                        <option value="ml">ML</option>
-                        <option value="litre">Litre</option>
-                        <option value="pcs">Pieces</option>
-                      </select>
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <label className="block text-xs md:text-sm font-bold text-gray-700"> Actual Price (₹)*</label>
-                      <input
-                        type="number"
-                        min="0.01"
-                        step="0.01"
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1  focus:outline-none focus:ring-blue-500 text-sm"
-                        value={size.price}
-                        onChange={(e) => handleSizeChange(index, "price", e.target.value)}
-                        placeholder="Product price"
-                        required
-                      />
-                    </div>
-                  </div>
+            </div>
+          </div>
 
-                  {/* Discount and GST fields */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-3">
-                    <div className="space-y-1">
-                      <label className="block text-xs md:text-sm font-bold text-gray-700">Discount %</label>
-                      <select
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1  focus:outline-none focus:ring-blue-500 text-sm cursor-pointer"
-                        value={size.discount_percentage}
-                        onChange={(e) => handleSizeChange(index, "discount_percentage", e.target.value)}
-                      >
-                        {discountPercentageOptions.map(option => (
-                          <option key={option.value} value={option.value}>{option.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <label className="block text-xs md:text-sm font-bold text-gray-700">GST %</label>
-                      <select
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1  focus:outline-none focus:ring-blue-500 text-sm cursor-pointer"
-                        value={size.gst_percentage}
-                        onChange={(e) => handleSizeChange(index, "gst_percentage", e.target.value)}
-                      >
-                        {gstPercentageOptions.map(option => (
-                          <option key={option.value} value={option.value}>{option.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <label className="block text-xs md:text-sm font-bold text-gray-700">Final Price (₹)</label>
-                      <div className="w-full px-2 py-1.5 border border-gray-300 rounded-md bg-gray-50 text-sm">
-                        {size.final_price || "0.00"}
-                      </div>
-                    </div>
+          {/* Navigation Tabs */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-sm border border-gray-200/50">
+            <div className="flex overflow-x-auto scrollbar-hide">
+              {sections.map((section) => {
+                const Icon = section.icon;
+                return (
+                  <button
+                    key={section.id}
+                    onClick={() => setActiveSection(section.id)}
+                    className={`flex items-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all duration-300 whitespace-nowrap cursor-pointer ${
+                      activeSection === section.id
+                        ? 'bg-primary text-white shadow-lg'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {section.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Main Form */}
+          <div className="lg:col-span-3">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Basic Information Section */}
+              {(activeSection === "basic" || activeSection === "all") && (
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-2 h-6 bg-gradient-to-b from-primary to-primary/70 rounded-full"></div>
+                    <h3 className="text-xl font-bold text-gray-900">Basic Information</h3>
                   </div>
                   
-                  {/* Price Tiers for this size */}
-                  <div className="mt-3">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
-                      <h4 className="text-xs md:text-sm font-bold text-gray-700">Bulk Pricing Tiers</h4>
-                      <button
-                        type="button"
-                        onClick={() => addPriceTier(index)}
-                        className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs font-extrabold hover:bg-blue-200 w-full sm:w-auto cursor-pointer"
-                      >
-                        + Add Tier
-                      </button>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-semibold text-gray-700">
+                        Product Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="name"
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
+                        value={product.name}
+                        onChange={handleChange}
+                        placeholder="Enter product name"
+                        required
+                      />
                     </div>
                     
                     <div className="space-y-2">
-                      {priceTiers.filter(tier => tier.sizeIndex === index).map((tier, tierIndex) => (
-                        <div key={tierIndex} className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          <div className="space-y-1">
-                            <label className="block text-md font-bold text-gray-500">Min Quantity*</label>
+                      <label className="block text-sm font-semibold text-gray-700">
+                        Brand <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        name="brand"
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer"
+                        value={product.brand}
+                        onChange={handleChange}
+                        required
+                      >
+                        <option value="">Select Brand</option>
+                        {brands.map(brand => (
+                          <option key={brand.id} value={brand.id}>{brand.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="block text-sm font-semibold text-gray-700">
+                        Currency <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        name="currency"
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer"
+                        value={product.currency}
+                        onChange={handleChange}
+                        required
+                      >
+                        {currencyOptions.map(option => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="block text-sm font-semibold text-gray-700">
+                        Product Type <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        name="product_type"
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer"
+                        value={product.product_type}
+                        onChange={handleChange}
+                        required
+                      >
+                        {productTypeOptions.map(option => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="block text-sm font-semibold text-gray-700">
+                        Short Description <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        name="short_description"
+                        rows={3}
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 resize-none"
+                        value={product.short_description}
+                        onChange={handleChange}
+                        placeholder="Brief description of the product"
+                        required
+                        maxLength={450}
+                      />
+                      <div className="text-xs text-gray-500 text-right">
+                        {product.short_description.length}/450 characters
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="block text-sm font-semibold text-gray-700">
+                        Description <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        name="description"
+                        rows={5}
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 resize-none"
+                        value={product.description}
+                        onChange={handleChange}
+                        placeholder="Detailed product description"
+                        required
+                        maxLength={2000}
+                      />
+                      <div className="text-xs text-gray-500 text-right">
+                        {product.description.length}/2000 characters
+                      </div>
+                    </div>
+
+                    {/* Tags Field */}
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="block text-sm font-semibold text-gray-700">Product Tags</label>
+                      <div className="flex flex-wrap gap-2 items-center">
+                        {product.tags.map((tag, index) => (
+                          <span key={index} className="inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+                            {tag}
+                            <button
+                              type="button"
+                              onClick={() => removeTag(index)}
+                              className="text-blue-400 hover:text-blue-600 transition-colors cursor-pointer"
+                            >
+                              <FiTrash2 className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                        <div className="flex-1 min-w-[200px]">
+                          <input
+                            type="text"
+                            value={tagInput}
+                            onChange={handleTagInputChange}
+                            onKeyDown={addTag}
+                            placeholder="Type a tag and press Enter"
+                            className="w-full px-4 py-2 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">Add tags to help customers find your product</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Categories Section */}
+              {(activeSection === "categories" || activeSection === "all") && (
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-2 h-6 bg-gradient-to-b from-green-500 to-green-400 rounded-full"></div>
+                    <h3 className="text-xl font-bold text-gray-900">Categories</h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-semibold text-gray-700">
+                        Category <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        name="category"
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer"
+                        value={product.category}
+                        onChange={(e) => {
+                          handleChange(e);
+                          setSelectedCategoryId(e.target.value);
+                          setProduct(prev => ({ ...prev, subcategory: "" }));
+                        }}
+                        required
+                      >
+                        <option value="">Select Category</option>
+                        {categories.map(cat => (
+                          <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="block text-sm font-semibold text-gray-700">Subcategory</label>
+                      <select
+                        name="subcategory"
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer disabled:opacity-50"
+                        value={product.subcategory}
+                        onChange={handleChange}
+                        disabled={!product.category}
+                      >
+                        <option value="">Select Subcategory</option>
+                        {subcategories.map(sub => (
+                          <option key={sub.id} value={sub.id}>{sub.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Product Specifications Section */}
+              {(activeSection === "specs" || activeSection === "all") && (
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-2 h-6 bg-gradient-to-b from-purple-500 to-purple-400 rounded-full"></div>
+                    <h3 className="text-xl font-bold text-gray-900">Product Specifications</h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-semibold text-gray-700">Weight</label>
+                      <div className="flex gap-3">
+                        <input
+                          type="number"
+                          name="weight"
+                          min="0"
+                          step="0.01"
+                          className="flex-1 px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
+                          value={product.weight}
+                          onChange={handleChange}
+                          placeholder="Product weight"
+                        />
+                        <select
+                          name="weight_unit"
+                          className="w-32 px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer"
+                          value={product.weight_unit}
+                          onChange={handleChange}
+                        >
+                          {weightUnitOptions.map(option => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="block text-sm font-semibold text-gray-700">Dimensions</label>
+                      <input
+                        type="text"
+                        name="dimensions"
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
+                        value={product.dimensions}
+                        onChange={handleChange}
+                        placeholder="e.g., 10x5x2 cm"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="block text-sm font-semibold text-gray-700">Warranty Information</label>
+                      <input
+                        type="text"
+                        name="warranty"
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
+                        value={product.warranty}
+                        onChange={handleChange}
+                        placeholder="e.g., 1 year manufacturer warranty"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="block text-sm font-semibold text-gray-700">Product Video URL</label>
+                      <input
+                        type="url"
+                        name="video_url"
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
+                        value={product.video_url}
+                        onChange={handleChange}
+                        placeholder="https://youtube.com/embed/example"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="block text-sm font-semibold text-gray-700">Product Features</label>
+                      <div className="flex flex-wrap gap-2 items-center">
+                        {product.features.map((feature, index) => (
+                          <span key={index} className="inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold bg-green-100 text-green-800 border border-green-200">
+                            {feature}
+                            <button
+                              type="button"
+                              onClick={() => removeFeature(index)}
+                              className="text-green-400 hover:text-green-600 transition-colors cursor-pointer"
+                            >
+                              <FiTrash2 className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                        <div className="flex-1 min-w-[200px]">
+                          <input
+                            type="text"
+                            value={featureInput}
+                            onChange={handleFeatureInputChange}
+                            onKeyDown={addFeature}
+                            placeholder="Type a feature and press Enter"
+                            className="w-full px-4 py-2 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">Add key features, hit Enter to add more</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Product Sizes & Pricing Section */}
+              {(activeSection === "pricing" || activeSection === "all") && (
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-6 bg-gradient-to-b from-orange-500 to-orange-400 rounded-full"></div>
+                      <h3 className="text-xl font-bold text-gray-900">Product Sizes & Pricing</h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addSize}
+                      className="flex items-center gap-2 px-4 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-xl"
+                    >
+                      <FiPlus className="w-4 h-4" />
+                      Add Size
+                    </button>
+                  </div>
+                  
+                  {formErrors.sizes && (
+                    <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
+                      <FiAlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                      <p className="text-red-700 font-semibold">Please fill all required size fields (size name and price)</p>
+                    </div>
+                  )}
+                  
+                  <div className="space-y-6">
+                    {sizes.map((size, index) => (
+                      <div key={index} className="border-2 border-blue-200 rounded-2xl p-6 bg-gradient-to-br from-blue-50/50 to-indigo-50/30">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+                          <div className="space-y-2">
+                            <label className="block text-sm font-semibold text-gray-700">
+                              Size <span className="text-red-500">*</span>
+                            </label>
                             <input
-                              type="number"
-                              min="1"
-                              className="w-full h-10 px-2 py-1 border border-gray-300 rounded-md focus:ring-1  focus:outline-none focus:ring-blue-500 text-xs"
-                              value={tier.min_quantity}
-                              onChange={(e) => handlePriceTierChange(
-                                priceTiers.findIndex(t => t.sizeIndex === index && t.min_quantity === tier.min_quantity),
-                                "min_quantity",
-                                e.target.value
-                              )}
+                              type="text"
+                              placeholder="e.g., Medium, 500g, 1L"
+                              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
+                              value={size.size}
+                              onChange={(e) => handleSizeChange(index, "size", e.target.value)}
                               required
                             />
                           </div>
                           
-                          <div className="space-y-1">
-                            <label className="block text-md font-bold text-gray-500">Price (₹)*</label>
+                          <div className="space-y-2">
+                            <label className="block text-sm font-semibold text-gray-700">
+                              Unit <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer"
+                              value={size.unit}
+                              onChange={(e) => handleSizeChange(index, "unit", e.target.value)}
+                              required
+                            >
+                              <option value="gram">Gram</option>
+                              <option value="kg">Kilogram</option>
+                              <option value="ml">ML</option>
+                              <option value="litre">Litre</option>
+                              <option value="pcs">Pieces</option>
+                            </select>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <label className="block text-sm font-semibold text-gray-700">
+                              Actual Price (₹) <span className="text-red-500">*</span>
+                            </label>
                             <input
                               type="number"
                               min="0.01"
                               step="0.01"
-                              className="w-full h-10 px-2 py-1 border border-gray-300 rounded-md focus:ring-1  focus:outline-none focus:ring-blue-500 text-xs"
-                              value={tier.price}
-                              onChange={(e) => handlePriceTierChange(
-                                priceTiers.findIndex(t => t.sizeIndex === index && t.min_quantity === tier.min_quantity),
-                                "price",
-                                e.target.value
-                              )}
+                              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
+                              value={size.price}
+                              onChange={(e) => handleSizeChange(index, "price", e.target.value)}
+                              placeholder="0.00"
                               required
                             />
                           </div>
-                          
-                          <div className="flex items-end">
-                            <button
-                              type="button"
-                              onClick={() => removePriceTier(
-                                priceTiers.findIndex(t => t.sizeIndex === index && t.min_quantity === tier.min_quantity)
-                              )}
-                              className="px-2 py-1 h-10 bg-red-100 text-red-700 rounded-md text-md font-bold hover:bg-red-200 w-full cursor-pointer"
+                        </div>
+
+                        {/* Discount and GST fields */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+                          <div className="space-y-2">
+                            <label className="block text-sm font-semibold text-gray-700">Discount %</label>
+                            <select
+                              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer"
+                              value={size.discount_percentage}
+                              onChange={(e) => handleSizeChange(index, "discount_percentage", e.target.value)}
                             >
-                              Remove
-                            </button>
+                              {discountPercentageOptions.map(option => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              ))}
+                            </select>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <label className="block text-sm font-semibold text-gray-700">GST %</label>
+                            <select
+                              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer"
+                              value={size.gst_percentage}
+                              onChange={(e) => handleSizeChange(index, "gst_percentage", e.target.value)}
+                            >
+                              {gstPercentageOptions.map(option => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              ))}
+                            </select>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <label className="block text-sm font-semibold text-gray-700">Final Price (₹)</label>
+                            <div className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl font-semibold text-gray-900">
+                              ₹{size.final_price || "0.00"}
+                            </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                        
+                        {/* Price Tiers for this size */}
+                        <div className="mt-6">
+                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+                            <h4 className="text-lg font-semibold text-gray-800">Bulk Pricing Tiers</h4>
+                            <button
+                              type="button"
+                              onClick={() => addPriceTier(index)}
+                              className="flex items-center gap-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg font-semibold hover:bg-blue-200 transition-all duration-300 cursor-pointer"
+                            >
+                              <FiPlus className="w-4 h-4" />
+                              Add Tier
+                            </button>
+                          </div>
+                          
+                          <div className="space-y-4">
+                            {priceTiers.filter(tier => tier.sizeIndex === index).map((tier, tierIndex) => (
+                              <div key={tierIndex} className="grid grid-cols-1 lg:grid-cols-4 gap-4 p-4 bg-white rounded-xl border border-gray-200">
+                                <div className="space-y-2">
+                                  <label className="block text-sm font-semibold text-gray-700">
+                                    Min Quantity <span className="text-red-500">*</span>
+                                  </label>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
+                                    value={tier.min_quantity}
+                                    onChange={(e) => handlePriceTierChange(
+                                      priceTiers.findIndex(t => t.sizeIndex === index && t.min_quantity === tier.min_quantity),
+                                      "min_quantity",
+                                      e.target.value
+                                    )}
+                                    required
+                                  />
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  <label className="block text-sm font-semibold text-gray-700">
+                                    Price (₹) <span className="text-red-500">*</span>
+                                  </label>
+                                  <input
+                                    type="number"
+                                    min="0.01"
+                                    step="0.01"
+                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
+                                    value={tier.price}
+                                    onChange={(e) => handlePriceTierChange(
+                                      priceTiers.findIndex(t => t.sizeIndex === index && t.min_quantity === tier.min_quantity),
+                                      "price",
+                                      e.target.value
+                                    )}
+                                    required
+                                  />
+                                </div>
+                                
+                                <div className="lg:col-span-2 flex items-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => removePriceTier(
+                                      priceTiers.findIndex(t => t.sizeIndex === index && t.min_quantity === tier.min_quantity)
+                                    )}
+                                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-100 text-red-700 rounded-lg font-semibold hover:bg-red-200 transition-all duration-300 cursor-pointer"
+                                  >
+                                    <FiTrash2 className="w-4 h-4" />
+                                    Remove Tier
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        {sizes.length > 1 && (
+                          <div className="mt-6 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => removeSize(index)}
+                              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-all duration-300 cursor-pointer"
+                            >
+                              <FiTrash2 className="w-4 h-4" />
+                              Remove Size
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Images Section */}
+              {(activeSection === "images" || activeSection === "all") && (
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-2 h-6 bg-gradient-to-b from-pink-500 to-pink-400 rounded-full"></div>
+                    <h3 className="text-xl font-bold text-gray-900">Product Images</h3>
                   </div>
                   
-                  {sizes.length > 1 && (
-                    <div className="mt-3 flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => removeSize(index)}
-                        className="px-3 py-1 bg-red-600 text-white rounded-md text-xs md:text-sm font-bold hover:bg-red-700 cursor-pointer"
-                      >
-                        Remove Size
-                      </button>
+                  {formErrors.image && (
+                    <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
+                      <FiAlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                      <p className="text-red-700 font-semibold">Main image is required</p>
                     </div>
                   )}
+                  
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Main Image */}
+                    <div className="space-y-4">
+                      <label className="block text-lg font-semibold text-gray-700">
+                        Main Image <span className="text-red-500">*</span>
+                      </label>
+                      <div className="border-2 border-dashed border-gray-300 rounded-2xl p-6 hover:border-primary transition-all duration-300">
+                        <label className="cursor-pointer block">
+                          <div className="text-center">
+                            <FiUpload className="mx-auto h-12 w-12 text-gray-400" />
+                            <div className="mt-4">
+                              <span className="text-lg font-semibold text-primary">Click to upload</span>
+                              <p className="text-sm text-gray-500 mt-1">PNG, JPG, WEBP up to 10MB</p>
+                            </div>
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="sr-only"
+                            onChange={handleImageChange}
+                            required
+                          />
+                        </label>
+                      </div>
+                      {preview && (
+                        <div className="mt-4">
+                          <p className="text-sm font-semibold text-gray-700 mb-2">Preview:</p>
+                          <img
+                            src={preview}
+                            alt="Preview"
+                            className="w-32 h-32 rounded-xl object-cover border-2 border-primary shadow-lg"
+                          />
+                        </div>
+                      )}
+                      {product.image && (
+                        <p className="text-sm text-gray-600 font-semibold">
+                          Selected: {product.image.name}
+                        </p>
+                      )}
+                    </div>
+                    
+                    {/* Additional Images */}
+                    <div className="space-y-4">
+                      <label className="block text-lg font-semibold text-gray-700">
+                        Additional Images
+                      </label>
+                      <div className="border-2 border-dashed border-gray-300 rounded-2xl p-6 hover:border-primary transition-all duration-300">
+                        <label className={`cursor-pointer block ${images.length >= 5 ? 'opacity-50' : ''}`}>
+                          <div className="text-center">
+                            <FiImage className="mx-auto h-12 w-12 text-gray-400" />
+                            <div className="mt-4">
+                              <span className="text-lg font-semibold text-primary">Choose Files</span>
+                              <p className="text-sm text-gray-500 mt-1">
+                                {images.length}/5 images selected
+                              </p>
+                            </div>
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="sr-only"
+                            onChange={handleImagesChange}
+                            multiple
+                            disabled={images.length >= 5}
+                          />
+                        </label>
+                      </div>
+                      
+                      {images.length > 0 && (
+                        <div className="mt-4">
+                          <p className="text-sm font-semibold text-gray-700 mb-3">Image Previews:</p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                            {images.map((img, index) => (
+                              <div key={index} className="relative group">
+                                <img
+                                  src={img.preview}
+                                  alt={`Preview ${index + 1}`}
+                                  className="w-full h-24 rounded-lg object-cover border shadow-sm group-hover:shadow-md transition-all duration-300"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeImage(index)}
+                                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-all duration-300 cursor-pointer shadow-lg"
+                                >
+                                  <FiTrash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
+              )}
+
+              {/* Submit Button */}
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
+                <div className="flex flex-col sm:flex-row justify-end gap-4">
+                  <button
+                    type="button"
+                    onClick={() => navigate("/vendor/products")}
+                    className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-300 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isLoading || !isFormValid}
+                    className="flex items-center justify-center gap-3 px-8 py-3 bg-gradient-to-r from-primary to-primary/90 text-white rounded-xl font-semibold hover:from-primary/90 hover:to-primary transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-lg hover:shadow-xl"
+                  >
+                    {isLoading ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Creating Product...
+                      </>
+                    ) : (
+                      <>
+                        <FiCheck className="w-5 h-5" />
+                        Create Product
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </form>
           </div>
 
-          {/* Images Section */}
-          <div className="bg-gray-50 p-4 md:p-6 rounded-lg border border-gray-200">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">Product Images</h3>
-            
-            {formErrors.image && (
-              <div className="mb-4 p-2 bg-red-50 text-red-600 font-bold text-sm rounded">
-                Main image is required
-              </div>
-            )}
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-              {/* Main Image */}
-              <div className="space-y-3">
-                <label className="block text-sm font-bold text-gray-700">Main Image*</label>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                  <label className="cursor-pointer inline-flex">
-                    <span className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1  focus:ring-offset-2 focus:ring-blue-500 cursor-pointer">
-                      Choose File
-                    </span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="sr-only"
-                      onChange={handleImageChange}
-                      required
-                    />
-                  </label>
-                  {product.image && (
-                    <span className="text-sm text-gray-500 truncate max-w-xs">{product.image.name}</span>
-                  )}
-                </div>
-                {preview && (
-                  <div className="mt-2">
-                    <img
-                      src={preview}
-                      alt="Preview"
-                      className="w-32 h-32 rounded-lg object-cover border"
-                    />
-                  </div>
-                )}
-              </div>
-              
-              {/* Additional Images */}
-              <div className="space-y-3">
-                <label className="block text-sm font-bold text-gray-700">Additional Images (Max 5)</label>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                  <label className="cursor-pointer inline-flex">
-                    <span className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1  focus:ring-offset-2 focus:ring-blue-500 cursor-pointer">
-                      Choose Files
-                    </span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="sr-only"
-                      onChange={handleImagesChange}
-                      multiple
-                      disabled={images.length >= 5}
-                    />
-                  </label>
-                  <span className="text-sm text-gray-500">
-                    {images.length} / 5 images selected
-                  </span>
-                </div>
-                
-                <div className="mt-2 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                  {images.map((img, index) => (
-                    <div key={index} className="relative aspect-square">
-                      <img
-                        src={img.preview}
-                        alt={`Preview ${index}`}
-                        className="w-full h-full rounded-md object-cover border"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 cursor-pointer"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                    </div>
+          {/* Sidebar - Quick Navigation & Progress */}
+          <div className="lg:col-span-1">
+            <div className="sticky top-6 space-y-6">
+              {/* Progress Card */}
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
+                <h4 className="text-lg font-bold text-gray-900 mb-4">Creation Progress</h4>
+                <div className="space-y-4">
+                  {sections.map((section) => (
+                    <button
+                      key={section.id}
+                      onClick={() => setActiveSection(section.id)}
+                      className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-300 cursor-pointer ${
+                        activeSection === section.id
+                          ? 'bg-primary text-white shadow-lg'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      <div className={`w-2 h-2 rounded-full ${
+                        activeSection === section.id ? 'bg-white' : 'bg-gray-400'
+                      }`}></div>
+                      <span className="font-semibold text-sm">{section.label}</span>
+                    </button>
                   ))}
                 </div>
               </div>
+
+              {/* Requirements Card */}
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
+                <h4 className="text-lg font-bold text-gray-900 mb-4">Requirements</h4>
+                <div className="space-y-3">
+                  <div className={`flex items-center gap-3 ${product.name ? 'text-green-600' : 'text-gray-400'}`}>
+                    <FiCheck className="w-5 h-5" />
+                    <span className="text-sm font-semibold">Product Name</span>
+                  </div>
+                  <div className={`flex items-center gap-3 ${product.brand ? 'text-green-600' : 'text-gray-400'}`}>
+                    <FiCheck className="w-5 h-5" />
+                    <span className="text-sm font-semibold">Brand</span>
+                  </div>
+                  <div className={`flex items-center gap-3 ${product.category ? 'text-green-600' : 'text-gray-400'}`}>
+                    <FiCheck className="w-5 h-5" />
+                    <span className="text-sm font-semibold">Category</span>
+                  </div>
+                  <div className={`flex items-center gap-3 ${!formErrors.sizes ? 'text-green-600' : 'text-red-400'}`}>
+                    <FiCheck className="w-5 h-5" />
+                    <span className="text-sm font-semibold">Pricing & Sizes</span>
+                  </div>
+                  <div className={`flex items-center gap-3 ${!formErrors.image ? 'text-green-600' : 'text-red-400'}`}>
+                    <FiCheck className="w-5 h-5" />
+                    <span className="text-sm font-semibold">Main Image</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tips Card */}
+              <div className="bg-blue-50/80 backdrop-blur-sm rounded-2xl p-6 border border-blue-200">
+                <h4 className="text-lg font-bold text-blue-900 mb-3">💡 Quick Tips</h4>
+                <ul className="space-y-2 text-sm text-blue-800">
+                  <li>• Use clear, high-quality images</li>
+                  <li>• Add multiple size options</li>
+                  <li>• Set competitive bulk pricing</li>
+                  <li>• Include detailed descriptions</li>
+                  <li>• Add relevant tags for search</li>
+                </ul>
+              </div>
             </div>
           </div>
-
-          {/* Submit Button */}
-          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => navigate("/vendor/products")}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading || !isFormValid}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm text-sm font-bold hover:bg-blue-700 focus:outline-none focus:ring-1  focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
-            >
-              {isLoading ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Creating...
-                </>
-              ) : 'Create Product'}
-            </button>
-          </div>
-        </form>
+        </div>
       </div>
     </div>
   );
