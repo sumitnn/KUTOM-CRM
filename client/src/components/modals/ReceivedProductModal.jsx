@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FiPackage, FiCheck, FiX } from 'react-icons/fi';
+import ModalPortal from '../ModalPortal';
 
 const ReceivedProductModal = ({ order, onClose, onConfirm }) => {
   const [receivedItems, setReceivedItems] = useState(
@@ -45,6 +46,7 @@ const ReceivedProductModal = ({ order, onClose, onConfirm }) => {
   };
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl">
         <div className="flex justify-between items-center border-b px-4 py-3">
@@ -130,7 +132,7 @@ const ReceivedProductModal = ({ order, onClose, onConfirm }) => {
           </div>
         </div>
       </div>
-    </div>
+    </div></ModalPortal>
   );
 };
 

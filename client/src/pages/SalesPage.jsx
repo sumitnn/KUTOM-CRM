@@ -1,12 +1,13 @@
 import { useState, lazy, Suspense, useEffect } from "react";
-import { FiFileText, FiCheck, FiX, FiTruck, FiPackage, FiRefreshCw } from "react-icons/fi";
-import { useNavigate } from "react-router-dom";
+import { FiFileText, FiCheck, FiX, FiTruck, FiRefreshCw } from "react-icons/fi";
+
 import { 
   useGetVendorOrdersQuery, 
   useUpdateOrderStatusMutation,
   useUpdateDispatchStatusMutation 
 } from "../features/order/orderApi";
 import { toast } from "react-toastify";
+import ModalPortal from "../components/ModalPortal";
 
 // Lazy-loaded components
 const Spinner = lazy(() => import('../components/common/Spinner'));
@@ -14,7 +15,7 @@ const ErrorMessage = lazy(() => import('../components/common/ErrorMessage'));
 const OrderDetailsModal = lazy(() => import('../pages/OrderDetailsModal'));
 
 const SalesPage = ({ role }) => {
-  const navigate = useNavigate();
+
   const [activeTab, setActiveTab] = useState("new");
   const [page, setPage] = useState(1);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -523,6 +524,7 @@ const SalesPage = ({ role }) => {
 
       {/* Status Update Modal */}
       {selectedOrder && (
+        <ModalPortal>
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
@@ -869,7 +871,7 @@ const SalesPage = ({ role }) => {
               </div>
             )}
           </div>
-        </div>
+        </div></ModalPortal>
       )}
 
       {/* Order Details Modal */}

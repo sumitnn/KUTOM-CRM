@@ -53,7 +53,7 @@ const CreateWithdrawalRequest = ({ role }) => {
 
       await createWithdrawal(withdrawalData).unwrap();
       toast.success("Withdrawal request submitted successfully");
-      navigate(`/${role}/my-withdrawl`);
+      navigate(`/${role}/my-withdrawl-history`);
     } catch (err) {
       toast.error(err?.data?.message || "Failed to submit request");
     } finally {

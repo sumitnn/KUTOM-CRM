@@ -100,12 +100,15 @@ class VendorOrdersView(ListAPIView):
         user = self.request.user
         queryset = Order.objects.filter(seller=user)
 
+
         status_filter = self.request.query_params.get('status')
         if status_filter:
             if status_filter == "new":
                 queryset = queryset.filter(status="pending")
             elif status_filter == "delivered":
-                queryset = queryset.filter(status='received')
+                queryset = queryset.filter(status='delivered')
+            elif status_filter == "received":
+                queryset = queryset.filter(status='delivered')
             else:
                 queryset = queryset.filter(status=status_filter)
 
