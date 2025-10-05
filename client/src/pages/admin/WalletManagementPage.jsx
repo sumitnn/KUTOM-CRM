@@ -18,7 +18,7 @@ const WalletManagementPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-orange-50/20 to-red-50/30 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
       {/* Header Section */}
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-8xl mx-auto">
         <div className="text-center mb-6 sm:mb-8 lg:mb-12">
           <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-orange-500 to-red-500 rounded-full mb-3 sm:mb-4 shadow-lg transform hover:scale-105 transition-transform duration-200">
             <svg 

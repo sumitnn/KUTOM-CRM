@@ -13,17 +13,15 @@ import {
     useGetSubcategoriesByCategoryQuery 
 } from '../../features/category/categoryApi';
 import { toast } from "react-toastify";
+
 import {
     FiEdit,
     FiEye,
     FiSearch,
     FiX,
     FiFilter,
-    FiToggleLeft,
-    FiToggleRight,
     FiDollarSign,
     FiPackage,
-    FiCheck,
     FiXCircle,
     FiArrowUp,
     FiArrowDown,
@@ -33,6 +31,7 @@ import {
     FiRefreshCw
 } from "react-icons/fi";
 import "react-toastify/dist/ReactToastify.css";
+import ModalPortal from "../../components/ModalPortal";
 
 // Commission Modal Component
 const CommissionModal = ({ product, isOpen, onClose, onSave }) => {
@@ -88,6 +87,7 @@ const CommissionModal = ({ product, isOpen, onClose, onSave }) => {
     };
 
     return (
+        <ModalPortal>
         <div className="modal modal-open">
             <div className="modal-box max-w-md">
                 <div className="flex justify-between items-center mb-4">
@@ -180,7 +180,8 @@ const CommissionModal = ({ product, isOpen, onClose, onSave }) => {
                     </div>
                 </form>
             </div>
-        </div>
+            </div>
+            </ModalPortal>
     );
 };
 
@@ -221,6 +222,7 @@ const ProductDetailsModal = ({ product, isOpen, onClose }) => {
     const isLowStock = totalStock < 10;
 
     return (
+        <ModalPortal>
         <div className="modal modal-open">
             <div className="modal-box max-w-4xl max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-6">
@@ -335,7 +337,7 @@ const ProductDetailsModal = ({ product, isOpen, onClose }) => {
                     </div>
                 </div>
             </div>
-        </div>
+        </div></ModalPortal>
     );
 };
 
@@ -365,6 +367,7 @@ const PriceEditModal = ({ product, isOpen, onClose, onSave }) => {
     };
 
     return (
+        <ModalPortal>
         <div className="modal modal-open">
             <div className="modal-box max-w-md">
                 <div className="flex justify-between items-center mb-4">
@@ -400,7 +403,7 @@ const PriceEditModal = ({ product, isOpen, onClose, onSave }) => {
                     </div>
                 </form>
             </div>
-        </div>
+        </div></ModalPortal>
     );
 };
 
@@ -511,18 +514,7 @@ const AdminMyProduct = () => {
         setCurrentPage(1);
     };
 
-    const toggleProductStatus = async (productId, currentStatus) => {
-        try {
-            const newStatus = currentStatus === 'published' ? 'draft' : 'published';
-            await updateProductStatus({
-                productId,
-                status: newStatus
-            }).unwrap();
-            toast.success(`Product status changed to ${newStatus}`);
-        } catch (error) {
-            toast.error("Failed to update product status");
-        }
-    };
+  
 
     const toggleFeaturedStatus = async (productId, currentFeatured) => {
         try {
@@ -641,7 +633,7 @@ const AdminMyProduct = () => {
     );
 
     return (
-        <div className="px-6 py-8 max-w-7xl mx-auto">
+        <div className="px-6 py-8 max-w-8xl mx-auto">
             {/* Header */}
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
                 <div>

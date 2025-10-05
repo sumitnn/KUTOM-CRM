@@ -77,7 +77,7 @@ class ProductBulkPriceInline(admin.TabularInline):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('name', 'sku', 'brand', 'category', 'subcategory', 'status', 'is_active', 'created_at')
+    list_display = ('id','name', 'sku', 'brand', 'category', 'subcategory', 'status', 'is_active', 'created_at')
     search_fields = ('name', 'sku')
     list_filter = ('brand', 'category', 'subcategory', 'status', 'is_active', 'created_at')
     prepopulated_fields = {'slug': ('name',)}
@@ -152,7 +152,7 @@ class RoleBasedProductVariantInline(admin.TabularInline):
 
 @admin.register(RoleBasedProduct)
 class RoleBasedProductAdmin(admin.ModelAdmin):
-    list_display = ('product', 'user', 'role', 'price', 'is_featured', 'created_at')
+    list_display = ('id','product', 'user', 'role', 'price', 'is_featured', 'created_at')
     list_filter = ('role', 'is_featured', 'created_at')
     search_fields = ('product__name', 'user__username')
     inlines = [RoleBasedProductVariantInline]

@@ -63,7 +63,7 @@ const ViewCategoriesPage = () => {
   if (isError) return <div>Error loading categories</div>;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto mt-6">
+    <div className="p-6 max-w-8xl mx-auto mt-6">
       <div className="flex justify-between items-center mb-4 flex-col sm:flex-row gap-4">
         <h2 className="text-xl font-semibold">All Categories</h2>
         <input

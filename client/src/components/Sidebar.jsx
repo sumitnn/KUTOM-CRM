@@ -8,14 +8,14 @@ import { CiWallet, CiLogout } from "react-icons/ci";
 import { RxDashboard } from "react-icons/rx";
 import { FaUsersGear } from "react-icons/fa6";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MdSpaceDashboard, MdProductionQuantityLimits, MdInventory } from "react-icons/md";
 import { SiBrandfolder } from "react-icons/si";
 import { TbCategoryPlus, TbCategoryMinus } from "react-icons/tb";
 import { FaCodePullRequest } from "react-icons/fa6";
 import { TfiAnnouncement } from "react-icons/tfi";
 
-const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
+const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobile = false }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [openMenus, setOpenMenus] = useState({});
@@ -33,6 +33,22 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
   const handleConfirmLogout = () => {
     navigate(`/${role}/logout`);
   };
+
+  // Close sidebar when navigation occurs on mobile
+  const handleNavigation = (path) => {
+    navigate(path);
+    // Close sidebar on mobile after navigation
+    if (isMobile && onMobileClose) {
+      onMobileClose();
+    }
+  };
+
+  // Close all submenus when sidebar collapses
+  useEffect(() => {
+    if (!expanded) {
+      setOpenMenus({});
+    }
+  }, [expanded]);
 
   // Role-based navigation items
   const navItemsByRole = {
@@ -239,20 +255,24 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
   return (
     <>
       {/* Backdrop for mobile */}
-      {expanded && (
+      {isMobile && expanded && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
-          onClick={() => setExpanded(false)}
+          className="fixed inset-0 bg-black/50 bg-opacity-50 z-30 lg:hidden"
+          onClick={onMobileClose}
         />
       )}
 
       {/* Sidebar */}
       <div
-        className={`fixed top-16 left-0 h-[calc(100vh-4rem)] bg-gradient-to-b from-slate-900 to-slate-800 shadow-2xl transition-all duration-300 z-40 flex flex-col ${
-          expanded ? "w-80" : "w-20"
+        className={`bg-gradient-to-b h-screen from-slate-900 to-slate-800 shadow-2xl transition-all duration-300 flex flex-col ${
+          isMobile 
+            ? "fixed top-0 left-0 h-full w-80 z-40" 
+            : expanded 
+              ? "w-80" 
+              : "w-20"
         }`}
       >
-        {/* Header */}
+        {/* Header with close button for mobile and toggle for desktop */}
         <div className="flex justify-between items-center p-6 border-b border-slate-700">
           {expanded && (
             <div>
@@ -260,12 +280,26 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
               <div className="w-16 h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mt-2"></div>
             </div>
           )}
-          <button
-            className="p-2 rounded-lg bg-slate-700 cursor-pointer hover:bg-slate-600 text-slate-300 hover:text-white transition-all duration-200"
-            onClick={() => setExpanded(!expanded)}
-          >
-            {expanded ? <FaChevronLeft /> : <FaChevronRight />}
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Close button for mobile */}
+            {isMobile && expanded && (
+              <button
+                className="p-2 rounded-lg bg-slate-700 cursor-pointer hover:bg-slate-600 text-slate-300 hover:text-white transition-all duration-200 lg:hidden"
+                onClick={onMobileClose}
+              >
+                <FaChevronLeft />
+              </button>
+            )}
+            {/* Toggle button for desktop */}
+            {!isMobile && (
+              <button
+                className="p-2 rounded-lg bg-slate-700 cursor-pointer hover:bg-slate-600 text-slate-300 hover:text-white transition-all duration-200"
+                onClick={() => setExpanded(!expanded)}
+              >
+                {expanded ? <FaChevronLeft /> : <FaChevronRight />}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Navigation */}
@@ -288,11 +322,14 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
                   }`}
                   onClick={() => {
                     if (hasChildren) {
-                      toggleMenu(item.label);
+                      if (expanded) {
+                        toggleMenu(item.label);
+                      }
                     } else if (item.path) {
-                      navigate(item.path);
+                      handleNavigation(item.path);
                     }
                   }}
+                  title={!expanded ? item.label : ""}
                 >
                   <div className="flex items-center gap-4">
                     <span className={`text-lg transition-transform duration-200 ${
@@ -313,22 +350,20 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
                   )}
                 </div>
 
-                {/* Children Items */}
+                {/* Children Items - Only show when expanded */}
                 {hasChildren && expanded && isOpen && (
                   <div className="ml-8 mt-1 space-y-1 border-l-2 border-slate-600 pl-3 py-2">
                     {item.children.map((subItem, subIdx) => {
                       const isActiveChild = location.pathname === subItem.path;
                       return (
-                        <NavLink
+                        <div
                           key={subIdx}
-                          to={subItem.path}
-                          className={({ isActive }) =>
-                            `block p-2 pl-4 rounded-lg text-sm transition-all duration-200 ${
-                              isActive
-                                ? "bg-blue-500/20 text-blue-300 border-l-2 border-blue-400 font-medium"
-                                : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
-                            }`
-                          }
+                          onClick={() => handleNavigation(subItem.path)}
+                          className={`block p-2 pl-4 rounded-lg text-sm transition-all duration-200 cursor-pointer ${
+                            isActiveChild
+                              ? "bg-blue-500/20 text-blue-300 border-l-2 border-blue-400 font-medium"
+                              : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
+                          }`}
                         >
                           <span className="flex items-center gap-2">
                             <div className={`w-1.5 h-1.5 rounded-full ${
@@ -336,7 +371,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
                             }`} />
                             {subItem.label}
                           </span>
-                        </NavLink>
+                        </div>
                       );
                     })}
                   </div>
@@ -351,6 +386,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin" }) => {
           <button
             onClick={handleLogoutClick}
             className="flex items-center cursor-pointer gap-4 p-3 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-200 w-full group"
+            title={!expanded ? "Logout" : ""}
           >
             <CiLogout className="text-xl group-hover:scale-110 transition-transform duration-200" />
             {expanded && <span className="font-medium">Logout</span>}

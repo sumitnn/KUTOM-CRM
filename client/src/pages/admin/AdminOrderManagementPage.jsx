@@ -295,7 +295,7 @@ const AdminOrderManagementPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-4 px-2 sm:px-4 lg:px-6">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-8xl mx-auto">
         {/* Header */}
         <div className="mb-6 px-2">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Order Management</h1>
