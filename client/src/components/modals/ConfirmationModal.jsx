@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import ModalPortal from "../ModalPortal";
 
 const ConfirmationModal = ({
   title = "Confirm Action",
@@ -23,6 +24,7 @@ const ConfirmationModal = ({
   }, [onCancel]);
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
         {/* Modal header */}
@@ -51,7 +53,8 @@ const ConfirmationModal = ({
           </button>
         </div>
       </div>
-    </div>
+      </div>
+      </ModalPortal>
   );
 };
 

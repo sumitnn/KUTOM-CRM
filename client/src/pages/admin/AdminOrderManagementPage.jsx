@@ -10,7 +10,6 @@ import {
   FiRotateCw,
   FiUser,
   FiShoppingCart,
-  FiMapPin,
   FiClipboard,
   FiInfo,
   FiCheckCircle

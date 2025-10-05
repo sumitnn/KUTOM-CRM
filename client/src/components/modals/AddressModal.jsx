@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FiMapPin, FiEdit2, FiX, FiCheck } from 'react-icons/fi';
+import ModalPortal from '../ModalPortal';
 
 const AddressModal = ({ address, onClose, onSave }) => {
   const [editMode, setEditMode] = useState(false);
@@ -23,6 +24,7 @@ const AddressModal = ({ address, onClose, onSave }) => {
   };
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
         <div className="flex justify-between items-center border-b px-4 py-3">
@@ -136,7 +138,7 @@ const AddressModal = ({ address, onClose, onSave }) => {
           )}
         </div>
       </div>
-    </div>
+    </div></ModalPortal>
   );
 };
 

@@ -1,4 +1,5 @@
 import { FiX, FiTruck, FiMapPin, FiPackage, FiDollarSign, FiInfo, FiCalendar, FiFileText, FiUser, FiClipboard, FiBox, FiShoppingBag, FiMail, FiPhone, FiHome, FiCreditCard, FiPercent, FiTag } from "react-icons/fi";
+import ModalPortal from "../components/ModalPortal";
 
 const OrderDetailsModal = ({ order, onClose }) => {
   console.log(order)
@@ -57,6 +58,7 @@ const OrderDetailsModal = ({ order, onClose }) => {
   };
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Modal Header */}
@@ -391,7 +393,8 @@ const OrderDetailsModal = ({ order, onClose }) => {
           </button>
         </div>
       </div>
-    </div>
+      </div>
+      </ModalPortal>
   );
 };
 

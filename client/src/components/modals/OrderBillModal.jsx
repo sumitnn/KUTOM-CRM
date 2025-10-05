@@ -1,4 +1,5 @@
 import { FiFileText, FiDownload, FiPrinter, FiX } from 'react-icons/fi';
+import ModalPortal from '../ModalPortal';
 
 const OrderBillModal = ({ order, onClose }) => {
   // Calculate totals
@@ -7,7 +8,8 @@ const OrderBillModal = ({ order, onClose }) => {
   const total = subtotal + tax;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <ModalPortal>
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl">
         <div className="flex justify-between items-center border-b px-4 py-3">
           <div className="flex items-center space-x-2">
@@ -91,7 +93,7 @@ const OrderBillModal = ({ order, onClose }) => {
           </div>
         </div>
       </div>
-    </div>
+    </div></ModalPortal>
   );
 };
 
