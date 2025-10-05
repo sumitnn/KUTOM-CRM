@@ -295,6 +295,9 @@ class RoleBasedProduct(models.Model):
         indexes = [
             models.Index(fields=['product', 'role', 'is_featured']),
         ]
+    
+    def __str__(self):
+        return f"{self.product.name} - product={self.product.id} - rolebase={self.id}"
 
 
 class ProductCommission(models.Model):

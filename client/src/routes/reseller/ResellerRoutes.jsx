@@ -53,7 +53,7 @@ const ResellerRoutes = [
       }
     />
     <Route
-      path="/products/:id"
+      path="/reseller/products/:id"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>

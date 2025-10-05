@@ -471,11 +471,12 @@ class ProductDetailAPIView(APIView):
     permission_classes = [IsAdminOrVendorRole]
 
     def get_object(self, pk, user):
+       
         """Get the role-based product for the current user"""
         if user.role == "admin":
             # Admins can always access the product
             try:
-                return RoleBasedProduct.objects.get(product_id=pk)
+                return RoleBasedProduct.objects.get(id=pk)
             except RoleBasedProduct.DoesNotExist:
                 raise NotFound("Product not found ")
         else:
@@ -830,7 +831,7 @@ class ProductFeaturedStatusAPIView(APIView):
     def put(self, request, product_id):
         try:
             role_product = RoleBasedProduct.objects.get(
-                product_id=product_id,
+                id=product_id,
                 user=request.user
             )
             role_product.is_featured = request.data.get('is_featured', False)

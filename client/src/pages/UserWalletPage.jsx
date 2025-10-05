@@ -135,7 +135,7 @@ const UserWalletPage = ({ role }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-base-100 via-base-100 to-base-200">
-      <div className="container mx-auto px-3 py-6 lg:px-6 lg:py-8 max-w-7xl">
+      <div className="container mx-auto px-3 py-6 lg:px-6 lg:py-8 max-w-8xl">
         {/* Header Section */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
           <div>

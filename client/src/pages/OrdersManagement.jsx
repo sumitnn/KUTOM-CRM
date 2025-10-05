@@ -34,6 +34,7 @@ import {
   BsXCircle, 
   BsExclamationCircle 
 } from "react-icons/bs";
+import ModalPortal from "../components/ModalPortal";
 
 const statusConfig = {
   pending: {
@@ -142,6 +143,7 @@ const OrderDetailsModal = ({ order, onClose }) => {
   };
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Modal Header */}
@@ -482,7 +484,8 @@ const OrderDetailsModal = ({ order, onClose }) => {
           </button>
         </div>
       </div>
-    </div>
+      </div>
+      </ModalPortal>
   );
 };
 
@@ -522,6 +525,7 @@ const ProductDetailsModal = ({ order, onClose }) => {
   };
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
@@ -633,7 +637,7 @@ const ProductDetailsModal = ({ order, onClose }) => {
           </button>
         </div>
       </div>
-    </div>
+    </div></ModalPortal>
   );
 };
 
@@ -722,7 +726,7 @@ const OrdersManagement = ({ role }) => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-8xl mx-auto">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
           <div>
