@@ -216,9 +216,9 @@ const TransactionCard = ({ transaction: tx }) => {
           <p className="text-base-content font-medium text-sm">
             {tx.description || "No description provided"}
           </p>
-          {tx.reference_id && (
+          {tx.user_id && (
             <p className="text-xs text-base-content/50 mt-1">
-              Reference ID: {tx.reference_id}
+              Reference ID: {tx.user_id}
             </p>
           )}
         </div>
@@ -276,7 +276,7 @@ const AmountDisplay = ({ amount, type, size = "md" }) => {
 
   return (
     <div className={`font-bold ${amountClass} ${textSize}`}>
-      {prefix} ₹{formatCurrency(amount)}
+      {prefix} ₹{amount}
     </div>
   );
 };

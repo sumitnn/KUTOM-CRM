@@ -344,14 +344,17 @@ const ProductDetailsModal = ({ product, isOpen, onClose }) => {
 // Price Edit Modal Component
 const PriceEditModal = ({ product, isOpen, onClose, onSave }) => {
     const [price, setPrice] = useState("");
-
+    const [variantId, setVaraintId] = useState("");  
+   
     React.useEffect(() => {
         if (product?.product_detail?.variants && product.product_detail.variants.length > 0) {
             const variant = product.product_detail.variants[0];
             const adminPrice = variant.product_variant_prices?.find(
                 price => price.role === 'admin'
             );
+            
             setPrice(adminPrice?.price || "");
+            setVaraintId(adminPrice?.id || "");
         }
     }, [product]);
 
@@ -363,7 +366,7 @@ const PriceEditModal = ({ product, isOpen, onClose, onSave }) => {
             toast.error("Please enter a valid price");
             return;
         }
-        onSave(product.id, parseFloat(price));
+        onSave(parseFloat(price),variantId);
     };
 
     return (
@@ -542,10 +545,11 @@ const AdminMyProduct = () => {
         }
     };
 
-    const handleSavePrice = async (productId, newPrice) => {
+    const handleSavePrice = async (newPrice,variantId) => {
+      
         try {
             // Assuming first variant for simplicity
-            const variantId = selectedProduct?.product_detail?.variants?.[0]?.id;
+            const productId = 424324;
             if (variantId) {
                 await updateProductPrice({
                     productId,
@@ -886,7 +890,7 @@ const AdminMyProduct = () => {
                                                     <div className="font-bold">{getAdminPrice(product)}</div>
                                                     <button 
                                                         onClick={() => openPriceModal(product)}
-                                                        className="text-xs text-blue-600 hover:text-blue-800"
+                                                        className="text-xs text-blue-600 hover:text-blue-800 cursor-pointer"
                                                     >
                                                         Edit Price
                                                     </button>

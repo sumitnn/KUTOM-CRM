@@ -105,15 +105,15 @@ const VendorDashboard = () => {
       bgColor: "bg-blue-50",
       textColor: "text-blue-600",
       borderColor: "border-blue-100",
-      navlink: "/vendor/wallet"
+      navlink: "/vendor/my-wallet"
     },
     {
-      title: "Topup Requests",
+      title: "Withdrawal Requests",
       value: data.products.active,
       bgColor: "bg-rose-50",
       textColor: "text-rose-600",
       borderColor: "border-rose-100",
-      navlink: "/vendor/my-topup"
+      navlink: "/vendor/my-withdrawl-history"
     },
     {
       title: "Total Sales",
@@ -121,7 +121,7 @@ const VendorDashboard = () => {
       bgColor: "bg-indigo-50",
       textColor: "text-indigo-600",
       borderColor: "border-indigo-100",
-      navlink: "/vendor/wallet"
+      navlink: "/vendor/my-sales"
     },
     {
       title: "Bank Transfer Requests",
@@ -129,7 +129,7 @@ const VendorDashboard = () => {
       bgColor: "bg-cyan-50",
       textColor: "text-cyan-600",
       borderColor: "border-cyan-100",
-      navlink: "/vendor/my-withdrawl"
+      navlink: "/vendor/my-withdrawl-history"
     },
   ];
 

@@ -100,7 +100,6 @@ const CommonLayout = ({ children }) => {
     { value: "vendor", label: "Vendor" },
     { value: "stockist", label: "Stockist" },
     { value: "reseller", label: "Reseller" },
-    
   ];
 
   // Handlers
@@ -110,7 +109,11 @@ const CommonLayout = ({ children }) => {
       ...prev,
       full_name: value
     }));
-  }, []);
+    // Clear field-specific error when user starts typing
+    if (errors.full_name) {
+      setErrors(prev => ({ ...prev, full_name: "" }));
+    }
+  }, [errors]);
 
   const handlePhoneChange = useCallback((e) => {
     const value = e.target.value.replace(/\D/g, '').slice(0, 10);
@@ -118,7 +121,11 @@ const CommonLayout = ({ children }) => {
       ...prev,
       phone: value
     }));
-  }, []);
+    // Clear field-specific error when user starts typing
+    if (errors.phone) {
+      setErrors(prev => ({ ...prev, phone: "" }));
+    }
+  }, [errors]);
 
   const handleChange = useCallback((e) => {
     const { name, value } = e.target;
@@ -126,7 +133,11 @@ const CommonLayout = ({ children }) => {
       ...prev,
       [name]: value,
     }));
-  }, []);
+    // Clear field-specific error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: "" }));
+    }
+  }, [errors]);
 
   // Validation
   const validateForm = useCallback(() => {
@@ -163,6 +174,9 @@ const CommonLayout = ({ children }) => {
   const submitNewAccountApplication = useCallback(async () => {
     try {
       setIsSubmitting(true);
+      setErrors({}); // Clear previous errors
+      setSubmitMessage(""); // Clear previous messages
+
       const response = await axios.post(
         `${import.meta.env.VITE_BACKEND_API_URL}/apply/`, 
         formData
@@ -180,10 +194,31 @@ const CommonLayout = ({ children }) => {
         });
       }
     } catch (error) {
-      const message = error?.response?.data?.message || 
-                     error?.response?.data?.errors?.[0] || 
-                     "An error occurred. Please try again later.";
-      setSubmitMessage(message);
+      if (error.response?.data?.errors) {
+        // Handle API validation errors
+        const apiErrors = error.response.data.errors;
+        const formattedErrors = {};
+        
+        // Format API errors to match our form field names
+        if (apiErrors.email) {
+          formattedErrors.email = apiErrors.email[0]; // Get first error message
+        }
+        if (apiErrors.phone) {
+          formattedErrors.phone = apiErrors.phone[0]; // Get first error message
+        }
+        
+        setErrors(formattedErrors);
+        
+        // Also show a general message if there are API errors
+        if (Object.keys(formattedErrors).length > 0) {
+          setSubmitMessage("Please fix the errors below and try again.");
+        }
+      } else {
+        // Handle other errors
+        const message = error?.response?.data?.message || 
+                       "An error occurred. Please try again later.";
+        setSubmitMessage(message);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -290,7 +325,7 @@ const CommonLayout = ({ children }) => {
             Join Our Team
           </h2>
 
-          {submitMessage ? (
+          {submitMessage && !Object.keys(errors).length > 0 ? (
             <div className="text-center py-4">
               <p className="text-green-600 mb-4">{submitMessage}</p>
               <button
@@ -302,6 +337,13 @@ const CommonLayout = ({ children }) => {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Show general error message if exists */}
+              {submitMessage && (
+                <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                  <p className="text-red-600 text-sm text-center">{submitMessage}</p>
+                </div>
+              )}
+
               {/* Role Selection */}
               <div>
                 <label className="block text-md font-bold text-gray-800 mb-2">

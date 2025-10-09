@@ -280,18 +280,31 @@ class OrderRequestItemSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.product.name', read_only=True)
     product_sku = serializers.CharField(source='product.product.sku', read_only=True)
     product_type = serializers.CharField(source='product.product.product_type', read_only=True)
+    
+    # Use rolebaseid as the main input field, mapped to product
+    rolebaseid = serializers.PrimaryKeyRelatedField(
+        queryset=RoleBasedProduct.objects.all(),
+        source='product',  # This maps rolebaseid to the product field
+        write_only=True
+    )
+    
+    # Keep product as read-only for response
+    product = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = OrderRequestItem
-        fields = ['id', 'product', 'product_name','product_sku','product_type', 'quantity', 'unit_price', 'total_price', 'variant','gst_percentage','discount_percentage']
-        read_only_fields = ['total_price']
+        fields = [
+            'id', 'product', 'rolebaseid', 'product_name', 'product_sku', 'product_type', 
+            'quantity', 'unit_price', 'total_price', 'variant', 'gst_percentage', 'discount_percentage'
+        ]
+        read_only_fields = ['total_price', 'product_name', 'product_sku', 'product_type', 'product']
 
 # serializers.py
 
 class OrderRequestSerializer(serializers.ModelSerializer):
     items = OrderRequestItemSerializer(many=True)
     total_amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
-    requested_by=UserBasicSerializer(read_only=True)
+    requested_by = UserBasicSerializer(read_only=True)
 
     class Meta:
         model = OrderRequest
@@ -309,30 +322,33 @@ class OrderRequestSerializer(serializers.ModelSerializer):
         }
 
     def create(self, validated_data):
-        
         request_user = self.context["request"].user
         items_data = validated_data.pop('items', [])
         admin_user = User.objects.filter(role='admin').first()
+        
 
         total_amount = Decimal("0.00")
 
         # Calculate secure prices
         secure_items = []
         for item_data in items_data:
-            variant= item_data.get("variant")
+            variant = item_data.get("variant")
+            role_based_product = item_data.get("product")  # This comes from rolebaseid field
             quantity = item_data.get("quantity", 1)
-            role_product= item_data.get("product")
+            
+            # Get the actual Product from RoleBasedProduct
+            actual_product = role_based_product.product
 
             try:
                 price_obj = ProductVariantPrice.objects.get(
                     variant=variant,
                     role="admin",
-                    product=role_product.product
+                    product=actual_product
                 )
             except ProductVariantPrice.DoesNotExist:
-                raise serializers.ValidationError(
-                    {"error": f"No valid price found for variant {variant.id} and role admin"}
-                )
+                raise serializers.ValidationError({
+                    "error": f"No valid price found for variant {variant.id} and role admin"
+                })
 
             unit_price = price_obj.price
             discount = price_obj.discount
@@ -349,7 +365,7 @@ class OrderRequestSerializer(serializers.ModelSerializer):
             total_amount += total_price
 
             secure_items.append({
-                "variant_id": variant.id,
+                "variant": variant,
                 "quantity": quantity,
                 "unit_price": unit_price,
                 "discount": discount,
@@ -357,7 +373,7 @@ class OrderRequestSerializer(serializers.ModelSerializer):
                 "gst_tax": gst_tax,
                 "final_price": final_price,
                 "total_price": total_price,
-                "product_id": role_product.id
+                "product": role_based_product  # RoleBasedProduct instance
             })
 
         # Default values
@@ -367,21 +383,27 @@ class OrderRequestSerializer(serializers.ModelSerializer):
         validated_data.setdefault("target_type", "admin")
 
         # Wallet check for stockists
+        wallet = None
         if validated_data["requestor_type"] == "stockist":
-            wallet = Wallet.objects.select_for_update().get(user=request_user)
-            if wallet.current_balance < total_amount:
-                raise serializers.ValidationError(
-                    {"error": "Insufficient wallet balance"}
-                )
-            wallet.current_balance -= total_amount
-            wallet.save()
-        
-            
+            try:
+                wallet = Wallet.objects.select_for_update().get(user=request_user)
+                if wallet.current_balance < total_amount:
+                    raise serializers.ValidationError({
+                        "error": "Insufficient wallet balance"
+                    })
+                wallet.current_balance -= total_amount
+                wallet.save()
+            except Wallet.DoesNotExist:
+                raise serializers.ValidationError({
+                    "error": "Wallet not found for user"
+                })
 
-        # Create order + secure items
+        # Create order request
         order_request = OrderRequest.objects.create(**validated_data)
+        
         # Create wallet transaction for stockist
-        WalletTransaction.objects.create(
+        if wallet and validated_data["requestor_type"] == "stockist":
+            WalletTransaction.objects.create(
                 wallet=wallet,
                 transaction_type='DEBIT',
                 amount=total_amount,
@@ -390,16 +412,17 @@ class OrderRequestSerializer(serializers.ModelSerializer):
                 order_id=order_request.id
             )
         
+        # Create order request items
         for item in secure_items:
             OrderRequestItem.objects.create(
                 order_request=order_request,
-                variant_id=item["variant_id"],
+                variant=item["variant"],
                 quantity=item["quantity"],
                 unit_price=item["unit_price"],
                 discount_percentage=item["discount"],
                 gst_percentage=item["gst_percentage"],
                 total_price=item["total_price"],
-                product_id=item["product_id"]
+                product=item["product"]  # RoleBasedProduct instance
             )
 
         return order_request

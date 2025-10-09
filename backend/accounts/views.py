@@ -60,6 +60,7 @@ class LoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        
        
         email = request.data.get('email')
         password = request.data.get('password')
@@ -284,7 +285,7 @@ class WalletUpdateView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
-
+        
         try:
             amount = Decimal(str(amount))
         except (InvalidOperation, ValueError):
@@ -296,10 +297,10 @@ class WalletUpdateView(APIView):
         try:
             # Get user wallet
             user = User.objects.get(email=user_email)
-            user_wallet = Wallet.objects.select_for_update().get(user=user)
+            user_wallet = Wallet.objects.get(user=user)
 
             # Get admin wallet
-            admin_wallet = Wallet.objects.select_for_update().get(user=request.user)
+            admin_wallet = Wallet.objects.get(user=request.user)
 
         except ObjectDoesNotExist as e:
             missing = "User wallet" if "Wallet" in str(e) else "User"
@@ -395,7 +396,7 @@ class WalletUpdateView(APIView):
         # ✅ Return response
         return Response(
             {
-                "message": f"Wallet updated successfully for user {user.email}.",
+                "message": f"Wallet Transaction  successfully for  {user.email}.",
                 "success": True
             },
             status=status.HTTP_200_OK

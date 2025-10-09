@@ -357,279 +357,414 @@ class CancelOrderAPIView(APIView):
         serializer = OrderDetailSerializer(order, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-
-
 class UpdateOrderStatusView(APIView):
     permission_classes = [IsAdminOrVendorRole]
 
     def patch(self, request, pk):
-       
         try:
-            order = Order.objects.get(pk=pk)
+            order = Order.objects.select_related('buyer', 'seller').prefetch_related('items').get(pk=pk)
         except Order.DoesNotExist:
             return Response({"message": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
-
+        
         # Check permissions
         if request.user != order.seller and request.user != order.buyer:
             return Response({"message": "You are not authorized to update this order."}, status=status.HTTP_403_FORBIDDEN)
 
-
-
         new_status = request.data.get('status')
+        if not new_status:
+            return Response({"message": "Status field is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if new_status == "accepted":
-            self.handle_accepted_status(order, request.user)
-
-
+        # Normalize status
         if new_status == "received":
             new_status = "delivered"
+        
         note = request.data.get('note', '')
-      
 
-        with transaction.atomic():
-            previous_status = order.status
-
-            if new_status == 'cancelled':
-                # 1️⃣ Revert stock to seller
-                for item in order.items.all():  # assuming related_name='items'
-                    try:
-                        stock_inv = StockInventory.objects.get(
-                            user=order.seller,
-                            product=item.product,
-                            variant=getattr(item, 'variant', None)
-                        )
-                        stock_inv.adjust_stock(
-                            change_quantity=item.quantity,
-                            action="RETURN",
-                            reference_id=order.id
-                        )
-                    except StockInventory.DoesNotExist:
-                        # create stock if missing
-                        StockInventory.objects.create(
-                            user=order.seller,
-                            product=item.product,
-                            variant=getattr(item, 'variant', None),
-                            total_quantity=item.quantity,
-                            notes=f"Restocked due to order cancellation #{order.id}"
-                        )
-
-                # 2️⃣ Refund buyer wallet
-                try:
-                    buyer_wallet, _ = Wallet.objects.get_or_create(user=order.buyer)
-                    buyer_wallet.current_balance += order.total_price  # refund full order
-                    buyer_wallet.save()
-
-                    WalletTransaction.objects.create(
-                        wallet=buyer_wallet,
-                        transaction_type='CREDIT',
-                        amount=order.total_price,
-                        description=f"Refund for cancelled Order #{order.id}",
-                        transaction_status='SUCCESS',
-                        order_id=order.id
-                    )
-                except Exception as e:
-                    print(f"Error refunding buyer: {str(e)}")
-
-                # Update order payment status
-                order.payment_status = "refunded"
-                order.note = "Order cancelled by customer"
-
-                # 3️⃣ Notifications
-                create_notification(
-                    user=order.buyer,
-                    title="Order Cancelled & Refunded",
-                    message=f"Your order #{order.id} has been cancelled and amount refunded to your wallet.",
-                    notification_type="order_cancelled_refund",
-                    related_url=f"/orders/{order.id}/"
-                )
-
-                create_notification(
-                    user=order.seller,
-                    title="Order Cancelled",
-                    message=f"Order #{order.id} has been cancelled by the customer. Stock has been added back to your inventory.",
-                    notification_type="order_cancelled_stock",
-                    related_url=f"/orders/{order.id}/"
-                )
-
-            # Update order status
-            order.status = new_status
-            if new_status != 'cancelled':
-                order.note = note
-            order.save()
-
-            # Create history record
-            OrderHistory.objects.create(
-                order=order,
-                actor=request.user,
-                action=new_status,
-                notes=order.note,
-                previous_status=previous_status
+        try:
+            with transaction.atomic():
+                return self._process_order_status_update(order, request.user, new_status, note)
+                
+        except Exception as e:
+            print(e)
+            return Response(
+                {"message": "An error occurred while updating order status."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-            # Handle delivered status
-            if new_status == 'delivered':
-                self.handle_delivered_status(order, request.user)
+    def _process_order_status_update(self, order, user, new_status, note):
+        """Process order status update within transaction"""
+        previous_status = order.status
 
-            serializer = OrderSerializer(order)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+        if new_status == 'cancelled':
+            self._handle_cancelled_order(order, user)
 
-    def handle_delivered_status(self, order, user):
-        """Handle wallet transactions + role-based product/stock setup for delivered orders"""
-        # --- 1️⃣ Transport charges (already implemented) ---
-        if order.transport_charges and order.transport_charges > 0:
-            try:
-                buyer_wallet, _ = Wallet.objects.get_or_create(user=order.buyer)
-                seller_wallet, _ = Wallet.objects.get_or_create(user=order.seller)
+        # Update order status
+        order.status = new_status
+        if new_status != 'cancelled':
+            order.note = note
+        order.save()
 
-                transport_charges = order.transport_charges
-                if buyer_wallet.current_balance >= transport_charges:
-                    buyer_wallet.current_balance -= transport_charges
-                    seller_wallet.current_balance += transport_charges
-                    buyer_wallet.save()
-                    seller_wallet.save()
+        # Create history record
+        OrderHistory.objects.create(
+            order=order,
+            actor=user,
+            action=new_status,
+            notes=order.note,
+            previous_status=previous_status
+        )
 
-                    WalletTransaction.objects.create(
-                        wallet=buyer_wallet,
-                        transaction_type='DEBIT',
-                        amount=transport_charges,
-                        description=f"Transport charges for Order #{order.id}",
-                        transaction_status='SUCCESS',
-                        order_id=order.id
-                    )
-                    WalletTransaction.objects.create(
-                        wallet=seller_wallet,
-                        transaction_type='CREDIT',
-                        amount=transport_charges,
-                        description=f"Received transport charges for Order #{order.id}",
-                        transaction_status='SUCCESS',
-                        order_id=order.id
-                    )
-                    order.payment_status = "paid"
-                else:
-                    WalletTransaction.objects.create(
-                        wallet=buyer_wallet,
-                        transaction_type='DEBIT',
-                        amount=transport_charges,
-                        description=f"Transport charges for Order #{order.id} (FAILED - insufficient balance)",
-                        transaction_status='FAILED',
-                        order_id=order.id
-                    )
-                    order.payment_status = "failed_shipping"
-                order.save(update_fields=["payment_status"])
-            except Exception as e:
-                print(f"Error processing transport charges: {str(e)}")
-                order.payment_status = "failed_shipping"
-                order.save(update_fields=["payment_status"])
+        # Handle specific status transitions
+        if new_status == 'delivered':
+            self._handle_delivered_and_accepted_status(order, user)
 
-        # --- 2️⃣ Setup RoleBasedProduct, VariantPrice, StockInventory ---
-        for item in order.items.all():
-            product = item.product
-            variant = getattr(item, "variant", None)
 
-            # 🔹 Determine role from seller
-            buyerr = order.buyer  # buyer is the reseller/stockist
-            role = "admin"
-            if hasattr(buyerr, "profile"):
-                if buyerr.stockist_id:
-                    role = "stockist"
-                elif buyerr.reseller_id:
-                    role = "reseller"
-           
+        # Create notifications
+        self._create_status_notifications(order, new_status, user)
 
-            # --- RoleBasedProduct ---
-            rbp, created_rbp = RoleBasedProduct.objects.get_or_create(
-                product=product,
-                user=buyerr,
-                role=role,
-                defaults={"price": product.base_price if hasattr(product, "base_price") else None}
-            )
-            # attach variant if missing
-            if variant and variant not in rbp.variants.all():
-                rbp.variants.add(variant)
+        serializer = OrderSerializer(order)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
-            # --- ProductVariantPrice ---
-            if variant:
-                pvp, created_pvp = ProductVariantPrice.objects.get_or_create(
-                    product=product,
-                    variant=variant,
-                    user=buyerr,
-                    role=role,
-                    defaults={"price": item.unit_price, "discount": 0, "gst_percentage": 0}
-                )
-                if not created_pvp:
-                    # update latest price if changed
-                    pvp.price = item.unit_price
-                    pvp.save()
+    def _handle_delivered_and_accepted_status(self, order, user):
+        """
+        Combined handler for delivered status that includes:
+        - Payment processing (from accepted status)
+        - Transport charges handling
+        - Role-based product setup
+        - Stock inventory setup
+        """
+        try:
+            # 1️⃣ PROCESS PAYMENT TO SELLER (from _handle_accepted_status)
+            self._process_seller_payment(order)
+            
+            # 2️⃣ PROCESS TRANSPORT CHARGES
+            self._process_transport_charges(order)
+            
+            # 3️⃣ SETUP BUYER PRODUCTS AND STOCK
+            self._setup_buyer_products_and_stock(order)
+            
+            # 4️⃣ CREATE COMBINED NOTIFICATIONS
+            self._create_delivered_status_notifications(order)
+            
+        except Exception as e:
+            print(e)
+            # Don't raise here to avoid breaking the main transaction for non-critical errors
 
-            # --- StockInventory ---
-            stock_inv, created_stock = StockInventory.objects.get_or_create(
-                user=buyerr,
-                product=product,
-                variant=variant,
-                defaults={
-                    "total_quantity": item.quantity,
-                    "notes": f"Initial stock from Order #{order.id}"
-                }
-            )
-            if not created_stock:
-                stock_inv.adjust_stock(
-                    change_quantity=item.quantity,
-                    action="ADD",
-                    reference_id=order.id
-                )
-
-    def handle_accepted_status(self, order, user):
-        """Handle wallet transactions when order is accepted"""
+    def _process_seller_payment(self, order):
+        """Process payment to seller (previously in _handle_accepted_status)"""
+        
         try:
             seller_wallet, _ = Wallet.objects.get_or_create(user=order.seller)
-
             order_amount = order.total_price
 
-            if seller_wallet:
-                seller_wallet.current_balance += order_amount
-                seller_wallet.save()
+            seller_wallet.current_balance += order_amount
+            seller_wallet.save()
 
-                # Create seller CREDIT transaction
-                WalletTransaction.objects.create(
-                    wallet=seller_wallet,
-                    transaction_type="CREDIT",
-                    amount=order_amount,
-                    description=f"Received payment for Order #{order.id}",
-                    transaction_status="SUCCESS",
-                    order_id=order.id,
-                )
+            # Create seller CREDIT transaction
+            WalletTransaction.objects.create(
+                wallet=seller_wallet,
+                transaction_type="CREDIT",
+                amount=order_amount,
+                description=f"Received payment for Order #{order.id}",
+                transaction_status="SUCCESS",
+                order_id=order.id,
+            )
 
-                # Mark as paid
-                order.payment_status = "pending_shipping"
+            # Update payment status
+            if order.payment_status != "paid":  # Only update if not already paid
+                order.payment_status = "paid"
                 order.save(update_fields=["payment_status"])
 
-                # 🔔 Notifications
-                create_notification(
-                    user=order.seller,
-                    title="Payment Received",
-                    message=f"You have received {order_amount} for Order #{order.id}.",
-                    notification_type="order_payment_received",
-                    related_url=f"/orders/{order.id}/",
-                )
-                create_notification(
-                    user=order.buyer,
-                    title="Payment Successful",
-                    message=f"Your payment of {order_amount} for Order #{order.id} has been received by the seller.",
-                    notification_type="order_payment_success",
-                    related_url=f"/orders/{order.id}/",
-                )
-
-            else:
-                raise Exception("Seller wallet not found.")
-
         except Exception as e:
-            print(f"Error processing order payment: {str(e)}")
+            print(e)
+            # Set payment status to failed but don't break the entire delivery process
             order.payment_status = "failed"
             order.save(update_fields=["payment_status"])
 
+    def _process_transport_charges(self, order):
+        """Process transport charges payment"""
+        
+        if not order.transport_charges or order.transport_charges <= 0:
+            return
+
+        try:
+            buyer_wallet, _ = Wallet.objects.get_or_create(user=order.buyer)
+            seller_wallet, _ = Wallet.objects.get_or_create(user=order.seller)
+
+            transport_charges = order.transport_charges
+            
+            if buyer_wallet.current_balance >= transport_charges:
+                # Deduct from buyer
+                buyer_wallet.current_balance -= transport_charges
+                buyer_wallet.save()
+
+                # Credit to seller (additional to order amount)
+                seller_wallet.current_balance += transport_charges
+                seller_wallet.save()
+
+                # Create transactions
+                WalletTransaction.objects.create(
+                    wallet=buyer_wallet,
+                    transaction_type='DEBIT',
+                    amount=transport_charges,
+                    description=f"Transport charges for Order #{order.id}",
+                    transaction_status='SUCCESS',
+                    order_id=order.id
+                )
+                WalletTransaction.objects.create(
+                    wallet=seller_wallet,
+                    transaction_type='CREDIT',
+                    amount=transport_charges,
+                    description=f"Received transport charges for Order #{order.id}",
+                    transaction_status='SUCCESS',
+                    order_id=order.id
+                )
+                
+                # Update payment status for transport charges
+                order.payment_status = "paid"
+            else:
+                # Insufficient balance
+                WalletTransaction.objects.create(
+                    wallet=buyer_wallet,
+                    transaction_type='DEBIT',
+                    amount=transport_charges,
+                    description=f"Transport charges for Order #{order.id} (FAILED - insufficient balance)",
+                    transaction_status='FAILED',
+                    order_id=order.id
+                )
+                order.payment_status = "failed"
+                
+            order.save(update_fields=["payment_status"])
+            
+        except Exception as e:
+            print(e)
+            order.payment_status = "failed"
+            order.save(update_fields=["payment_status"])
+
+    def _setup_buyer_products_and_stock(self, order):
+        """Setup RoleBasedProduct, VariantPrice, and StockInventory for buyer"""
+        
+        for item in order.items.all():
+            try:
+                product = item.product
+                variant = getattr(item, "variant", None)
+                buyer = order.buyer
+
+                # Determine role
+                role = self._get_user_role(buyer)
+
+                # Create/update RoleBasedProduct
+                self._setup_role_based_product(product, buyer, role, variant)
+                
+                # Create/update ProductVariantPrice if variant exists
+                if variant:
+                    self._setup_product_variant_price(product, variant, buyer, role, item.unit_price)
+
+                # Setup stock inventory
+                self._setup_stock_inventory(product, variant, buyer, item.quantity, order.id)
+                
+            except Exception as e:
+                print(e)
+                continue  # Continue with other items
+
+    def _create_delivered_status_notifications(self, order):
+        """Create combined notifications for delivered status"""
+        order_amount = order.total_price
+        transport_charges = order.transport_charges or 0
+        
+        # Notification for buyer
+        buyer_message = f"Your order #{order.id} has been delivered."
+        if order_amount > 0:
+            buyer_message += f" Payment of {order_amount} has been processed."
+        if transport_charges > 0:
+            if order.payment_status == "paid":
+                buyer_message += f" Transport charges of {transport_charges} have been paid."
+            else:
+                buyer_message += f" Transport charges of {transport_charges} failed. Please update your wallet."
+        
+        create_notification(
+            user=order.buyer,
+            title="Order Delivered",
+            message=buyer_message,
+            notification_type="order_delivered",
+            related_url=f"/orders/{order.id}/"
+        )
+
+        # Notification for seller
+        seller_message = f"Order #{order.id} has been delivered to customer."
+        if order_amount > 0:
+            seller_message += f" Amount {order_amount} has been credited to your wallet."
+        if transport_charges > 0 and order.payment_status == "paid":
+            seller_message += f" Transport charges of {transport_charges} received."
+        
+        create_notification(
+            user=order.seller,
+            title="Order Delivered",
+            message=seller_message,
+            notification_type="order_delivered",
+            related_url=f"/orders/{order.id}/"
+        )
+
+    # Keep all other methods the same as previous version
+    def _handle_cancelled_order(self, order, user):
+        """Handle order cancellation with stock revert and refund"""
+        try:
+            # 1️⃣ Revert stock to seller
+            self._revert_stock_to_seller(order)
+            
+            # 2️⃣ Refund buyer wallet
+            self._refund_buyer_wallet(order)
+            
+            # Update order payment status
+            order.payment_status = "refunded"
+            order.note = "Order cancelled by customer"
+
+            # 3️⃣ Notifications
+            self._create_cancellation_notifications(order)
+
+        except Exception as e:
+            print(e)
+            raise
+
+    def _revert_stock_to_seller(self, order):
+        """Revert stock items to seller inventory"""
+        for item in order.items.all():
+            try:
+                stock_inv = StockInventory.objects.get(
+                    user=order.seller,
+                    product=item.product,
+                    variant=getattr(item, 'variant', None)
+                )
+                stock_inv.adjust_stock(
+                    change_quantity=item.quantity,
+                    action="RETURN",
+                    reference_id=order.id
+                )
+            except StockInventory.DoesNotExist:
+                # Create stock if missing
+                StockInventory.objects.create(
+                    user=order.seller,
+                    product=item.product,
+                    variant=getattr(item, 'variant', None),
+                    total_quantity=item.quantity,
+                    notes=f"Restocked due to order cancellation #{order.id}"
+                )
+
+    def _refund_buyer_wallet(self, order):
+        """Refund amount to buyer's wallet"""
+        try:
+            buyer_wallet, _ = Wallet.objects.get_or_create(user=order.buyer)
+            buyer_wallet.current_balance += order.total_price
+            buyer_wallet.save()
+
+            WalletTransaction.objects.create(
+                wallet=buyer_wallet,
+                transaction_type='CREDIT',
+                amount=order.total_price,
+                description=f"Refund for cancelled Order #{order.id}",
+                transaction_status='SUCCESS',
+                order_id=order.id
+            )
+        except Exception as e:
+            print(e)
+            raise
+
+    def _get_user_role(self, user):
+        """Determine user role from profile"""
+        if hasattr(user, "profile"):
+            if user.stockist_id:
+                return "stockist"
+            elif user.reseller_id:
+                return "reseller"
+        return "admin"
+
+    def _setup_role_based_product(self, product, user, role, variant):
+        """Setup RoleBasedProduct for user"""
+        rbp, created = RoleBasedProduct.objects.get_or_create(
+            product=product,
+            user=user,
+            role=role,
+            defaults={"price": getattr(product, "base_price", None)}
+        )
+        
+        # Attach variant if missing
+        if variant and variant not in rbp.variants.all():
+            rbp.variants.add(variant)
+
+    def _setup_product_variant_price(self, product, variant, user, role, unit_price):
+        """Setup ProductVariantPrice"""
+        pvp, created = ProductVariantPrice.objects.get_or_create(
+            product=product,
+            variant=variant,
+            user=user,
+            role=role,
+            defaults={
+                "price": unit_price, 
+                "discount": 0, 
+                "gst_percentage": 0
+            }
+        )
+        
+        if not created:
+            # Update price if changed
+            pvp.price = unit_price
+            pvp.save()
+
+    def _setup_stock_inventory(self, product, variant, user, quantity, order_id):
+        """Setup or update stock inventory"""
+        stock_inv, created = StockInventory.objects.get_or_create(
+            user=user,
+            product=product,
+            variant=variant,
+            defaults={
+                "total_quantity": quantity,
+                "notes": f"Initial stock from Order #{order_id}"
+            }
+        )
+        
+        if not created:
+            stock_inv.adjust_stock(
+                change_quantity=quantity,
+                action="ADD",
+                reference_id=order_id
+            )
 
 
-    def create_notifications(self, order, new_status, current_user):
+    def _create_accepted_status_notifications(self, order):
+        """Create notifications for accepted status"""
+        create_notification(
+            user=order.seller,
+            title="Order Accepted",
+            message=f"You have received {order.total_price} for Order #{order.id}.",
+            notification_type="order_accepted",
+            related_url=f"/orders/{order.id}/",
+        )
+        create_notification(
+            user=order.buyer,
+            title="Order Accepted",
+            message=f"Your order #{order.id} has been accepted by the seller.",
+            notification_type="order_accepted",
+            related_url=f"/orders/{order.id}/",
+        )
+
+    def _create_cancellation_notifications(self, order):
+        """Create notifications for order cancellation"""
+        create_notification(
+            user=order.buyer,
+            title="Order Cancelled & Refunded",
+            message=f"Your order #{order.id} has been cancelled and amount refunded to your wallet.",
+            notification_type="order_cancelled_refund",
+            related_url=f"/orders/{order.id}/"
+        )
+
+        create_notification(
+            user=order.seller,
+            title="Order Cancelled",
+            message=f"Order #{order.id} has been cancelled by the customer. Stock has been added back to your inventory.",
+            notification_type="order_cancelled_stock",
+            related_url=f"/orders/{order.id}/"
+        )
+
+    def _create_status_notifications(self, order, new_status, current_user):
         """Create notifications for order status updates"""
         if current_user != order.buyer:
             create_notification(
@@ -648,8 +783,6 @@ class UpdateOrderStatusView(APIView):
                 notification_type="order_status_update",
                 related_url=f"/orders/{order.id}/"
             )
-
-
 
 
 class UpdateOrderDispatchStatusView(APIView):
@@ -1047,6 +1180,7 @@ class OrderRequestListCreateView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
+      
 
         serializer = OrderRequestSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)

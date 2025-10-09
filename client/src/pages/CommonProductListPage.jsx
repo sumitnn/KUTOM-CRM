@@ -117,6 +117,7 @@ const CommonProductListPage = ({ role }) => {
   };
 
   const handleAddToCart = (prod) => {
+ 
     const availableQuantity = getAvailableQuantity(prod);
     
     if (availableQuantity <= 0) {
@@ -127,7 +128,7 @@ const CommonProductListPage = ({ role }) => {
     const variant = prod.product_detail?.variants?.[0] || null;
     
     const isAlreadyInCart = cartItems.some(item => 
-      item.id === prod.id && 
+      item.id === prod?.product_detail?.id && 
       item.variant?.id === variant?.id
     );
 
@@ -138,7 +139,8 @@ const CommonProductListPage = ({ role }) => {
 
     dispatch(
       addItem({
-        id: prod.id,
+        id: prod?.product_detail?.id,
+        rolebaseid:prod.id,
         name: prod.product_detail?.name || prod.name,
         price: getDefaultPrice(prod),
         quantity: 1,
