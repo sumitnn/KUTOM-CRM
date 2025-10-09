@@ -473,6 +473,7 @@ class ProductDetailAPIView(APIView):
     def get_object(self, pk, user):
        
         """Get the role-based product for the current user"""
+        
         if user.role == "admin":
             # Admins can always access the product
             try:
@@ -637,11 +638,20 @@ class ProductByStatusAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Get role-based products for the current user
+        # Get role-based products for the current user with proper DISTINCT ON ordering
         if request.user.role == 'admin':
-            role_products = RoleBasedProduct.objects.all()
+            role_products = (
+                RoleBasedProduct.objects
+                .filter(product__isnull=False)
+                .distinct('product')
+            )
         else:
-            role_products = RoleBasedProduct.objects.filter(user=request.user, role=request.user.role)
+            products_id = Product.objects.filter(owner=request.user).values_list('id', flat=True)
+            role_products = RoleBasedProduct.objects.filter(
+                product_id__in=products_id, 
+                user=request.user, 
+                role=request.user.role
+            ).order_by('product')
 
         if status_param == "active":
             role_products = role_products.filter(is_featured=True)
@@ -652,6 +662,9 @@ class ProductByStatusAPIView(APIView):
 
         if featured and featured.lower() in ["1", "true", "yes"]:
             role_products = role_products.filter(is_featured=True)
+
+        # Apply final ordering for consistent pagination
+        role_products = role_products
 
         # Pagination
         paginator = PageNumberPagination()
@@ -805,12 +818,9 @@ class ProductPriceUpdateAPIView(APIView):
     permission_classes = [IsAdminRole]
     
     def put(self, request, product_id, variant_id):
+
         try:
-            updated = ProductVariantPrice.objects.filter(
-                product_id=product_id,
-                variant_id=variant_id,
-                user=request.user
-            ).update(price=request.data.get('price'))
+            updated = ProductVariantPrice.objects.filter(id=variant_id).update(price=request.data.get('price'))
 
             if updated == 0:
                 return Response(

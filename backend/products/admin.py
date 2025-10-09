@@ -94,7 +94,7 @@ class ProductAdmin(admin.ModelAdmin):
 
 @admin.register(ProductVariant)
 class ProductVariantAdmin(admin.ModelAdmin):
-    list_display = ('name', 'sku', 'product', 'is_default', 'is_active', 'created_at')
+    list_display = ('id','name', 'sku', 'product', 'is_default', 'is_active', 'created_at')
     search_fields = ('name', 'sku', 'product__name')
     list_filter = ('is_active', 'is_default', 'created_at')
     readonly_fields = ('sku',)
@@ -121,7 +121,7 @@ class ProductImageAdmin(admin.ModelAdmin):
 
 @admin.register(ProductVariantPrice)
 class ProductVariantPriceAdmin(admin.ModelAdmin):
-    list_display = ('product', 'variant', 'user', 'role', 'price', 'discount', 'gst_percentage', 'actual_price')
+    list_display = ('id','product', 'variant', 'user', 'role', 'price', 'discount', 'gst_percentage', 'actual_price')
     search_fields = ('product__name', 'variant__name', 'user__username')
     list_filter = ('role', 'user')
     
@@ -132,7 +132,7 @@ class ProductVariantPriceAdmin(admin.ModelAdmin):
 
 @admin.register(ProductVariantBulkPrice)
 class ProductVariantBulkPriceAdmin(admin.ModelAdmin):
-    list_display = ('product', 'variant', 'max_quantity', 'price', 'created_at')
+    list_display = ('id','product', 'variant', 'max_quantity', 'price', 'created_at')
     list_filter = ('created_at',)
     search_fields = ('product__name', 'variant__name')
     
@@ -206,6 +206,7 @@ class StockInventoryHistoryInline(admin.TabularInline):
 @admin.register(StockInventory)
 class StockInventoryAdmin(admin.ModelAdmin):
     list_display = (
+        "id",
         "product",
         "variant",
         "user",

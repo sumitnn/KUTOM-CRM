@@ -109,12 +109,14 @@ const MyCart = ({ role }) => {
   };
 
   const handleCheckout = async () => {
+    console.log(cartItems)
     try {
       if (role === "stockist" || role === "reseller") {
         const orderRequestData = {
           note: `Order request from ${user?.email} (${role})`,
           items: cartItems.map((item) => ({
             product: item.id,
+            rolebaseid:item.rolebaseid,
             variant: item.variant?.id || item.size?.id,
             quantity: item.quantity,
             unit_price: calculateItemPrice(item),
@@ -200,58 +202,74 @@ const MyCart = ({ role }) => {
     return null;
   };
 
+  // Empty cart state component
+  const EmptyCart = () => (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4 py-12">
+      <div className="w-32 h-32 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mb-6">
+        <FiShoppingBag className="w-16 h-16 text-gray-400" />
+      </div>
+      <h3 className="text-2xl font-bold text-gray-900 mb-3">Your cart is empty</h3>
+      <p className="text-gray-500 max-w-md mb-8">
+        Looks like you haven't added any items to your cart yet. Start shopping to discover amazing products!
+      </p>
+      <div className="flex flex-col sm:flex-row gap-4">
+        <Link
+          to={`/${role}/products`}
+          className="inline-flex items-center px-8 py-3 border border-transparent rounded-lg shadow-sm text-base font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer transition-all duration-200 hover:shadow-lg"
+        >
+          <FiShoppingBag className="mr-2" />
+          Continue Shopping
+        </Link>
+        <button
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center px-8 py-3 border border-gray-300 rounded-lg shadow-sm text-base font-bold text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer transition-all duration-200"
+        >
+          <FiArrowLeft className="mr-2" />
+          Go to Dashboard Page
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 py-4 sm:py-8 px-3 sm:px-4 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <button 
-            onClick={() => navigate(`/${role}/products`)}
-            className="btn btn-ghost btn-sm mb-4 cursor-pointer"
-          >
-            <FiArrowLeft className="mr-2" />
-            Back to Products
-          </button>
-          
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900">Your Shopping Cart</h1>
-              <p className="text-gray-500 mt-1 font-medium">
-                {cartItems.length} {cartItems.length === 1 ? 'item' : 'items'}
-              </p>
-            </div>
-            {cartItems.length > 0 && (
+      <div className="max-w-8xl mx-auto">
+        {/* Header - Only show when cart has items */}
+        {cartItems.length > 0 && (
+          <div className="mb-6">
+            <button 
+              onClick={() => navigate(`/${role}/products`)}
+              className="btn btn-ghost btn-sm mb-4 cursor-pointer hover:bg-gray-100 transition-colors"
+            >
+              <FiArrowLeft className="mr-2" />
+              Back to Products
+            </button>
+            
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900">Your Shopping Cart</h1>
+                <p className="text-gray-500 mt-1 font-medium">
+                  {cartItems.length} {cartItems.length === 1 ? 'item' : 'items'}
+                </p>
+              </div>
               <button
                 onClick={() => dispatch(clearCart())}
-                className="mt-2 sm:mt-0 text-red-500 hover:text-red-700 font-medium text-sm flex items-center cursor-pointer"
+                className="mt-2 sm:mt-0 text-red-500 hover:text-red-700 font-medium text-sm flex items-center cursor-pointer transition-colors"
               >
                 <FiTrash2 className="mr-1" /> Clear all
               </button>
-            )}
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Main Cart Section */}
-          <div className="lg:w-2/3">
-            <div className="bg-white shadow-sm rounded-xl overflow-hidden">
-              {cartItems.length === 0 ? (
-                <div className="text-center py-12 sm:py-16">
-                  <div className="mx-auto h-20 w-20 sm:h-24 sm:w-24 text-gray-400">
-                    <FiShoppingBag className="w-full h-full" />
-                  </div>
-                  <h3 className="mt-4 text-xl font-bold text-gray-900">Your cart is empty</h3>
-                  <p className="mt-2 text-gray-500">Start adding some items to your cart</p>
-                  <div className="mt-6">
-                    <Link
-                      to={`/${role}/products`}
-                      className="inline-flex items-center px-6 py-3 border border-transparent rounded-lg shadow-sm text-base font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer transition-colors"
-                    >
-                      Continue Shopping
-                    </Link>
-                  </div>
-                </div>
-              ) : (
+        {/* Main Content */}
+        {cartItems.length === 0 ? (
+          <EmptyCart />
+        ) : (
+          <div className="flex flex-col lg:flex-row gap-6">
+            {/* Main Cart Section */}
+            <div className="lg:w-2/3">
+              <div className="bg-white shadow-sm rounded-xl overflow-hidden">
                 <div className="divide-y divide-gray-200">
                   {getOrderTypeMessage()}
                   {cartItems.map((item) => {
@@ -366,11 +384,9 @@ const MyCart = ({ role }) => {
                     );
                   })}
                 </div>
-              )}
-            </div>
+              </div>
 
-            {/* Trust Badges */}
-            {cartItems.length > 0 && (
+              {/* Trust Badges */}
               <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm flex items-center">
                   <TbTruckDelivery className="text-indigo-600 text-xl sm:text-2xl mr-3" />
@@ -394,11 +410,9 @@ const MyCart = ({ role }) => {
                   </div>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
 
-          {/* Order Summary */}
-          {cartItems.length > 0 && (
+            {/* Order Summary */}
             <div className="lg:w-1/3">
               <div className="bg-white shadow-sm rounded-xl overflow-hidden sticky top-6">
                 <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200">
@@ -464,8 +478,8 @@ const MyCart = ({ role }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

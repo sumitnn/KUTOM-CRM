@@ -96,7 +96,8 @@ const AdminProductApprovalPage = () => {
       const product = item.product_detail || {};
       
       return {
-        id: item.product || product.id,
+        id: item.id,
+        product:item.product,
         sku: product.sku,
         name: product.name,
         vendorId: item.user_unique_id || "N/A",
@@ -463,7 +464,7 @@ const AdminProductApprovalPage = () => {
                           </tr>
                         ) : (
                           productData[activeTab].data.map((product, index) => (
-                            <tr key={product.id} className="hover:bg-gray-50/50 transition-colors duration-200">
+                            <tr key={index} className="hover:bg-gray-50/50 transition-colors duration-200">
                               <td className="px-6 py-4">
                                 <div className="flex items-center gap-3">
                                   {product.images?.[0] && (
@@ -557,8 +558,8 @@ const AdminProductApprovalPage = () => {
                                         Edit
                                       </button>
                                       <button
-                                        onClick={() => handleStatusUpdate(product.id, 'published')}
-                                        disabled={loadingStates[product.id]}
+                                        onClick={() => handleStatusUpdate(product.product, 'published')}
+                                        disabled={loadingStates[product.product]}
                                         className="flex items-center gap-2 px-3 py-2 bg-green-50 text-green-700 rounded-lg font-semibold hover:bg-green-100 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm"
                                       >
                                         {loadingStates[product.id] ? (
@@ -573,31 +574,31 @@ const AdminProductApprovalPage = () => {
 
                                   {activeTab === 'published' && (
                                     <button
-                                      onClick={() => handleStatusUpdate(product.id, 'draft')}
-                                      disabled={loadingStates[product.id]}
+                                      onClick={() => handleStatusUpdate(product.product, 'draft')}
+                                      disabled={loadingStates[product.product]}
                                       className="flex items-center gap-2 px-3 py-2 bg-red-50 text-red-700 rounded-lg font-semibold hover:bg-red-100 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm"
                                     >
-                                      {loadingStates[product.id] ? (
+                                      {loadingStates[product.product] ? (
                                         <div className="w-4 h-4 border-2 border-red-700 border-t-transparent rounded-full animate-spin"></div>
                                       ) : (
                                         <FiEyeOff className="w-4 h-4" />
                                       )}
-                                      {loadingStates[product.id] ? 'Unpublishing...' : 'Unpublish'}
+                                      {loadingStates[product.product] ? 'Unpublishing...' : 'Unpublish'}
                                     </button>
                                   )}
 
                                   {(activeTab === 'active' || activeTab === 'inactive') && (
                                     <button
-                                      onClick={() => handleStatusUpdate(product.id, activeTab === 'active' ? 'inactive' : 'active')}
-                                      disabled={loadingStates[product.id]}
+                                      onClick={() => handleStatusUpdate(product.product, activeTab === 'active' ? 'inactive' : 'active')}
+                                      disabled={loadingStates[product.product]}
                                       className="flex items-center gap-2 px-3 py-2 bg-yellow-50 text-yellow-700 rounded-lg font-semibold hover:bg-yellow-100 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm"
                                     >
-                                      {loadingStates[product.id] ? (
+                                      {loadingStates[product.product] ? (
                                         <div className="w-4 h-4 border-2 border-yellow-700 border-t-transparent rounded-full animate-spin"></div>
                                       ) : (
                                         <FiRotateCw className="w-4 h-4" />
                                       )}
-                                      {loadingStates[product.id] 
+                                      {loadingStates[product.product] 
                                         ? 'Updating...' 
                                         : activeTab === 'active' ? 'Deactivate' : 'Activate'}
                                     </button>
