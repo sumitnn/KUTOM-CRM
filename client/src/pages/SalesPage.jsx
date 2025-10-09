@@ -42,17 +42,18 @@ const SalesPage = ({ role }) => {
     page
   });
 
+ 
   const [updateOrderStatus] = useUpdateOrderStatusMutation();
   const [updateDispatchStatus] = useUpdateDispatchStatusMutation();
   
   const tabs = [
-    { id: "new", label: "New Orders", count: 0 },
-    { id: "accepted", label: "Accepted", count: 0 },
-    { id: "rejected", label: "Rejected", count: 0 },
-    { id: "cancelled", label: "Cancelled", count: 0 },
-    { id: "dispatched", label: "Dispatched", count: 0 },
-    { id: "delivered", label: "Delivered", count: 0 },
-  ];
+  { id: "new", label: "New Orders", count: vendorOrders?.status_counts?.new || 0 },
+  { id: "accepted", label: "Accepted", count: vendorOrders?.status_counts?.accepted || 0 },
+  { id: "rejected", label: "Rejected", count: vendorOrders?.status_counts?.rejected || 0 },
+  { id: "cancelled", label: "Cancelled", count: vendorOrders?.status_counts?.cancelled || 0 },
+  { id: "dispatched", label: "Dispatched", count: vendorOrders?.status_counts?.dispatched || 0 },
+  { id: "delivered", label: "Delivered", count: vendorOrders?.status_counts?.delivered || 0 },
+];
 
   // Handle tab changes with loading state
   useEffect(() => {
@@ -359,7 +360,7 @@ const SalesPage = ({ role }) => {
               <div>
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{tab.label}</p>
                 <p className="text-2xl font-bold text-gray-800 mt-1">
-                  {vendorOrders?.count || 0}
+                   {tab.count}
                 </p>
               </div>
               {tabChanging && activeTab === tab.id && (
@@ -630,42 +631,358 @@ const SalesPage = ({ role }) => {
       </div>
 
       {/* Status Update Modal */}
-      {selectedOrder && (
-        <ModalPortal>
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-                <h3 className="text-xl font-bold text-gray-800">
-                  {selectedOrder.status === 'new' ? 'Reject Order' : 
-                   selectedOrder.status === 'accepted' ? 'Dispatch Order' : 
-                   'Order Details'}
-                </h3>
-                <button 
-                  onClick={() => {
-                    setSelectedOrder(null);
-                    setDispatchForm({
-                      courier_name: "",
-                      tracking_id: "",
-                      transport_charges: "",
-                      delivery_date: "",
-                      receipt: null
-                    });
-                  }} 
-                  className="btn btn-sm btn-circle btn-ghost"
-                  disabled={isDispatching}
-                >
-                  <FiX size={20} />
-                </button>
-              </div>
-              
-              <div className="p-6">
-                {/* Rest of your modal content remains the same */}
-                {/* ... (keep the existing modal content structure) */}
+     {selectedOrder && (
+  <ModalPortal>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold text-gray-800">
+            {selectedOrder.status === 'new' ? 'Reject Order' : 
+             selectedOrder.status === 'accepted' ? 'Dispatch Order' : 
+             'Order Details'}
+          </h3>
+          <button 
+            onClick={() => {
+              setSelectedOrder(null);
+              setDispatchForm({
+                courier_name: "",
+                tracking_id: "",
+                transport_charges: "",
+                delivery_date: "",
+                receipt: null
+              });
+            }} 
+            className="btn btn-sm btn-circle btn-ghost"
+            disabled={isDispatching}
+          >
+            <FiX size={20} />
+          </button>
+        </div>
+        
+        {selectedOrder.status === 'accepted' ? (
+          <div className="space-y-6">
+            {/* Order Summary Card */}
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h4 className="font-bold text-lg mb-3 text-gray-700">Order Summary</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">Order ID</p>
+                  <p className="font-medium">#{selectedOrder.id}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Order Date</p>
+                  <p className="font-medium">{formatDate(selectedOrder.created_at)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Total Amount</p>
+                  <p className="font-medium">{formatCurrency(selectedOrder.total_price)}</p>
+                </div>
               </div>
             </div>
+
+            {/* Products Card */}
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h4 className="font-bold text-lg mb-3 text-gray-700">Products</h4>
+              <div className="space-y-4">
+                {selectedOrder.items.map((item, index) => (
+                  <div key={index} className="flex items-start gap-4 p-3 bg-white rounded border border-gray-100">
+                    <div className="flex-1">
+                      <p className="font-medium">{item.product.name}</p>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2 text-sm">
+                        <div>
+                          <p className="text-gray-500">SKU</p>
+                          <p>{item.product.sku || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Size</p>
+                          <p>{item.variant?.name || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Quantity</p>
+                          <p>{item.quantity}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Price</p>
+                          <p>{formatCurrency(item.unit_price)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Customer Card */}
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h4 className="font-bold text-lg mb-3 text-gray-700">Customer Information</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h5 className="font-medium mb-2 text-gray-600">Contact Details</h5>
+                  <div className="space-y-2">
+                    <p>
+                      <span className="text-gray-500 text-sm">Name: </span>
+                      {selectedOrder.buyer?.username || 'N/A'}
+                    </p>
+                    <p>
+                      <span className="text-gray-500 text-sm">Email: </span>
+                      {selectedOrder.buyer?.email || 'N/A'}
+                    </p>
+                    <p>
+                      <span className="text-gray-500 text-sm">Phone: </span>
+                      {selectedOrder.buyer?.phone || 'N/A'}
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <h5 className="font-medium mb-2 text-gray-600">Shipping Address</h5>
+                  {selectedOrder.buyer?.address ? (
+                    <div className="space-y-2">
+                      <p>{selectedOrder.buyer.address.street_address || 'N/A'}</p>
+                      <p>
+                        {selectedOrder.buyer.address.city}, 
+                        {selectedOrder.buyer.address.district && ` ${selectedOrder.buyer.address.district},`}
+                        {selectedOrder.buyer.address.state && ` ${selectedOrder.buyer.address.state},`}
+                      </p>
+                      <p>
+                        {selectedOrder.buyer.address.postal_code && `${selectedOrder.buyer.address.postal_code},`}
+                        {selectedOrder.buyer.address.country}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">No address provided</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Dispatch Form */}
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h4 className="font-bold text-lg mb-3 text-gray-700">Dispatch Information</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text font-medium">Courier Name <span className="text-red-500">*</span></span>
+                  </label>
+                  <input
+                    type="text"
+                    name="courier_name"
+                    value={dispatchForm.courier_name}
+                    onChange={handleDispatchFormChange}
+                    className="input input-bordered w-full"
+                    placeholder="e.g. FedEx, UPS, DHL"
+                    required
+                    disabled={isDispatching}
+                  />
+                </div>
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text font-medium">Tracking ID <span className="text-red-500">*</span></span>
+                  </label>
+                  <input
+                    type="text"
+                    name="tracking_id"
+                    value={dispatchForm.tracking_id}
+                    onChange={handleDispatchFormChange}
+                    className="input input-bordered w-full"
+                    placeholder="Enter tracking number"
+                    required
+                    disabled={isDispatching}
+                  />
+                </div>
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text font-medium">Shipping Cost <span className="text-red-500">*</span></span>
+                  </label>
+                  <input
+                    type="number"
+                    name="transport_charges"
+                    value={dispatchForm.transport_charges}
+                    onChange={handleDispatchFormChange}
+                    className="input input-bordered w-full"
+                    placeholder="Enter shipping cost"
+                    min="0"
+                    step="0.01"
+                    required
+                    disabled={isDispatching}
+                  />
+                </div>
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text font-medium">Delivery Date <span className="text-red-500">*</span></span>
+                  </label>
+                  <input
+                    type="date"
+                    name="delivery_date"
+                    value={dispatchForm.delivery_date}
+                    onChange={handleDispatchFormChange}
+                    className="input input-bordered w-full"
+                    required
+                    min={minDate}
+                    max={maxDate}
+                    disabled={isDispatching}
+                  />
+                </div>
+                <div className="form-control md:col-span-2">
+                  <label className="label">
+                    <span className="label-text font-medium">Shipping Receipt (Optional)</span>
+                  </label>
+                  <input
+                    type="file"
+                    name="receipt"
+                    onChange={handleDispatchFormChange}
+                    className="file-input file-input-bordered w-full"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    disabled={isDispatching}
+                  />
+                  <label className="label">
+                    <span className="label-text-alt">Upload receipt or proof of shipment</span>
+                  </label>
+                </div>
+                <div className="form-control md:col-span-2">
+                  <label className="label">
+                    <span className="label-text font-medium">Notes</span>
+                  </label>
+                  <textarea 
+                    className="textarea textarea-bordered h-24" 
+                    placeholder="Enter any additional notes for this dispatch..."
+                    value={statusNote}
+                    onChange={(e) => setStatusNote(e.target.value)}
+                    disabled={isDispatching}
+                  ></textarea>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <button 
+                onClick={() => {
+                  setSelectedOrder(null);
+                  setDispatchForm({
+                    courier_name: "",
+                    tracking_id: "",
+                    transport_charges: "",
+                    delivery_date: "",
+                    receipt: null
+                  });
+                }}
+                className="btn btn-ghost"
+                disabled={isDispatching}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => handleDispatch(selectedOrder.id)}
+                className="btn btn-primary"
+                disabled={!isDispatchFormValid() || isDispatching}
+              >
+                {isDispatching ? (
+                  <>
+                    <span className="loading loading-spinner"></span>
+                    Dispatching...
+                  </>
+                ) : (
+                  "Confirm Dispatch"
+                )}
+              </button>
+            </div>
           </div>
-        </ModalPortal>
-      )}
+        ) : (
+          <div className="space-y-4">
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h4 className="font-bold text-lg mb-2 text-gray-700">Order #{selectedOrder.id}</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">Order Date</p>
+                  <p className="font-medium">{formatDate(selectedOrder.created_at)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Status</p>
+                  <p className="font-medium capitalize">{selectedOrder.status_display}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h4 className="font-bold text-lg mb-2 text-gray-700">Products</h4>
+              <div className="space-y-3">
+                {selectedOrder.items.map((item, index) => (
+                  <div key={index} className="flex items-start gap-4 p-3 bg-white rounded border border-gray-100">
+                    <div className="flex-1">
+                      <p className="font-medium">{item.product.name}</p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2 text-sm">
+                        <div>
+                          <p className="text-gray-500">Quantity</p>
+                          <p>{item.quantity}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Price</p>
+                          <p>{formatCurrency(item.unit_price)}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Total</p>
+                          <p>{formatCurrency(item.unit_price * item.quantity)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {(selectedOrder.status === 'new' || selectedOrder.status === 'accepted') && (
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-medium">
+                    {selectedOrder.status === 'new' ? 'Reason for Rejection' : 'Dispatch Notes'}
+                    <span className="text-red-500">*</span>
+                  </span>
+                </label>
+                <textarea 
+                  className="textarea textarea-bordered h-24" 
+                  placeholder={
+                    selectedOrder.status === 'new' 
+                      ? "Please provide reason for rejecting this order..."
+                      : "Enter any notes about this dispatch..."
+                  }
+                  value={statusNote}
+                  onChange={(e) => setStatusNote(e.target.value)}
+                  required
+                  disabled={processingOrders.has(selectedOrder.id)}
+                ></textarea>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-4">
+              <button 
+                onClick={() => setSelectedOrder(null)}
+                className="btn btn-ghost"
+                disabled={processingOrders.has(selectedOrder.id)}
+              >
+                Cancel
+              </button>
+              {selectedOrder.status === 'new' && (
+                <button 
+                  onClick={() => handleStatusUpdate(selectedOrder.id, 'rejected')}
+                  className="btn btn-error"
+                  disabled={!statusNote || processingOrders.has(selectedOrder.id)}
+                >
+                  {processingOrders.has(selectedOrder.id) ? (
+                    <>
+                      <span className="loading loading-spinner loading-xs"></span>
+                      Processing...
+                    </>
+                  ) : (
+                    "Confirm Rejection"
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  </ModalPortal>
+)}
 
       {/* Order Details Modal */}
       {showOrderDetails && selectedOrderForDetails && (
