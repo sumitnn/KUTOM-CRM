@@ -100,7 +100,6 @@ class VendorOrdersView(ListAPIView):
         user = self.request.user
         queryset = Order.objects.filter(seller=user)
 
-
         status_filter = self.request.query_params.get('status')
         if status_filter:
             if status_filter == "new":
@@ -113,6 +112,36 @@ class VendorOrdersView(ListAPIView):
                 queryset = queryset.filter(status=status_filter)
 
         return queryset.order_by('-created_at')
+
+    def list(self, request, *args, **kwargs):
+        # Get the main queryset for the current status filter
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        # Get paginated data
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            paginated_data = self.get_paginated_response(serializer.data)
+            data = paginated_data.data
+        else:
+            serializer = self.get_serializer(queryset, many=True)
+            data = serializer.data
+
+        # Get counts for all status tabs
+        user = self.request.user
+        status_counts = Order.objects.filter(seller=user).aggregate(
+            new=Count('id', filter=Q(status='pending')),
+            accepted=Count('id', filter=Q(status='accepted')),
+            rejected=Count('id', filter=Q(status='rejected')),
+            cancelled=Count('id', filter=Q(status='cancelled')),
+            dispatched=Count('id', filter=Q(status='dispatched')),
+            delivered=Count('id', filter=Q(status='delivered'))
+        )
+
+        # Add counts to response
+        data['status_counts'] = status_counts
+        
+        return Response(data)
 
 
 class BulkOrderCreateView(APIView):
