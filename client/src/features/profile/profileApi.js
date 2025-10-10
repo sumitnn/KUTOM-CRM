@@ -11,6 +11,12 @@ export const profileApi = createApi({
                 method: 'GET',
             }),
         }),
+        getAdminPaymentDetails: builder.query({
+            query: () => ({
+                url: '/admin-payment-details/',
+                method: 'GET',
+            }),
+        }),
         getProfile: builder.query({
             query: () => ({
                 url: '/profile/',
@@ -32,4 +38,5 @@ export const {
     useGetProfileQuery,
     useUpdateProfileMutation,
     useGetPaymentDetailsQuery,
+    useGetAdminPaymentDetailsQuery
 } = profileApi;

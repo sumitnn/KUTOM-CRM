@@ -778,7 +778,18 @@ class TopUpRequestListCreateView(generics.ListCreateAPIView):
         return TopupRequest.objects.filter(user=user).order_by('-created_at')
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        topup = serializer.save(user=self.request.user)
+
+        # 🔔 Notify Admins
+        admin_users = User.objects.filter(role="admin").first()
+        if admin_users:
+            create_notification(
+                admin_users,
+                "New Top-Up Request",
+                f"{self.request.user.username} submitted a new top-up request of ₹{topup.amount}."
+                f"requested by {self.request.user.role}",
+                related_url=""
+            )
 
 
 class TopUpRequestUpdateView(generics.UpdateAPIView):
@@ -786,37 +797,74 @@ class TopUpRequestUpdateView(generics.UpdateAPIView):
     serializer_class = TopupRequestSerializer
     permission_classes = [IsAdminRole]
 
+    @transaction.atomic
     def update(self, request, *args, **kwargs):
         topup = self.get_object()
         status_action = request.data.get("status")
         reason = request.data.get("rejected_reason", "")
 
-        if status_action not in ["approved", "rejected", "completed", "pending"]:
+        if status_action not in [ "approved","rejected", "completed", "pending"]:
             return Response(
                 {"message": "Invalid status action.", "status": False},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         topup.status = status_action
-        topup.reviewed_at = datetime.now()
-        
+        topup.reviewed_at = timezone.now()
+
         if status_action == "approved":
             topup.approved_by = request.user
-            # Add funds to user's wallet
-            wallet, created = Wallet.objects.get_or_create(user=topup.user)
-            wallet.current_balance += topup.amount
-            wallet.save()
-            
-            # Create wallet transaction
+            amount = topup.amount
+
+            # ✅ Get Admin Wallet
+            admin_user = User.objects.filter(role="admin").first()
+            admin_wallet, _ = Wallet.objects.get_or_create(user=admin_user)
+
+            # ✅ Check admin has enough balance
+            if admin_wallet.current_balance < amount:
+                return Response(
+                    {"message": "Insufficient balance in Your Wallet Account", "status": False},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # ✅ Deduct from admin wallet
+            admin_wallet.current_balance -= amount
+            admin_wallet.save()
+
+            # ✅ Log debit transaction for admin
             WalletTransaction.objects.create(
-                wallet=wallet,
+                wallet=admin_wallet,
+                transaction_type='DEBIT',
+                amount=amount,
+                description=f"Top-up request #{topup.id} for {topup.user.username}",
+                transaction_status='SUCCESS',
+                user_id=topup.user.unique_role_id
+            )
+
+            # ✅ Credit to user wallet
+            user_wallet, _ = Wallet.objects.get_or_create(user=topup.user)
+            user_wallet.current_balance += amount
+            user_wallet.save()
+
+            # ✅ Log credit transaction for user
+            WalletTransaction.objects.create(
+                wallet=user_wallet,
                 transaction_type='CREDIT',
-                amount=topup.amount,
-                description=f"Top-up request #{topup.id} approved",
+                amount=amount,
+                description=f"Top-up request #{topup.id} approved by Admin",
                 transaction_status='SUCCESS'
             )
-        
-        elif status_action == "rejected" and reason:
+
+            # ✅ Notify user
+            create_notification(
+                user=topup.user,
+                title="Top-Up Approved",
+                message=f"Your top-up request of ₹{amount} has been approved and credited to your wallet.",
+                notification_type="wallet_topup_request",
+                related_url=""
+            )
+
+        elif status_action =="rejected" and reason:
             topup.rejected_reason = reason
 
         topup.save()
@@ -841,6 +889,16 @@ class UserPaymentDetailsView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         profile, created = Profile.objects.get_or_create(user=self.request.user)
         return profile
+
+class ADMINPaymentDetailsView(generics.RetrieveAPIView):
+    serializer_class = UserPaymentDetailsSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        admin_obj = User.objects.filter(role="admin").first()
+        profile, created = Profile.objects.get_or_create(user=admin_obj)
+        return profile
+
 
 
 class DashboardAPIView(APIView):
@@ -1224,22 +1282,33 @@ class AdminWithdrawalRequestDetailAPIView(APIView):
         if not withdrawal:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         
-        screenshot = request.data.get("screenshot")
-        if screenshot:
-            withdrawal.screenshot = screenshot
-            new_status = "approved"
-        else:
-            return Response({"detail": "Screenshot required for approval."}, status=status.HTTP_400_BAD_REQUEST)
-        if not screenshot:
-            new_status = request.data.get('status')
-        if new_status not in ['approved', 'rejected']:
+        screenshot = request.FILES.get("screenshot")
+        status_action = request.data.get("status")
+
+
+        if status_action not in ['approved', 'rejected','screenshot']:
             return Response({"detail": "Invalid status."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if screenshot and status_action == 'screenshot':
+            withdrawal.screenshot = screenshot
+      
+        if status_action == 'approved':
+            # add amount to admin walllet
+            admin_wallet = Wallet.objects.get(user=request.user)
+            admin_wallet.current_balance += withdrawal.amount
+            admin_wallet.save()
 
-        withdrawal.status = new_status
-        withdrawal.approved_by = request.user
-        withdrawal.save()
+            WalletTransaction.objects.create(
+                wallet=admin_wallet,
+                transaction_type='CREDIT',
+                amount=withdrawal.amount,
+                description=f"Withdrawal request amount credited in Your Account #{withdrawal.id}",
+                transaction_status='SUCCESS'
+            )
+            withdrawal.status = status_action
 
-        if new_status == 'rejected':
+
+        if status_action == 'rejected':
             # Refund amount to user's wallet
             wallet = withdrawal.wallet
             wallet.current_balance += withdrawal.amount
@@ -1252,17 +1321,30 @@ class AdminWithdrawalRequestDetailAPIView(APIView):
                 description=f"Refund for rejected withdrawal #{withdrawal.id}",
                 transaction_status='REFUND'
             )
+            withdrawal.status = status_action
+        
+        withdrawal.approved_by = request.user
+        withdrawal.save()
 
-        create_notification(
+        if status_action == 'screenshot':
+            create_notification(
             user=withdrawal.user,
-            title=f"Withdrawal Request {new_status.capitalize()}",
-            message=f"Your withdrawal request #{withdrawal.id} has been {new_status}.",
+            title=f"Withdrawal Request Payment Screenshot Uploaded by Admin",
+            message=f"Your withdrawal request #{withdrawal.id} has been approved and payment screenshot added.",
             notification_type='withdrawal_update',
             related_url=''
-        )
+            )
+        else:
+            create_notification(
+                user=withdrawal.user,
+                title=f"Withdrawal Request {status_action.capitalize()}",
+                message=f"Your withdrawal request #{withdrawal.id} has been {status_action}.",
+                notification_type='withdrawal_update',
+                related_url=''
+            )
 
         serializer = AdminWithdrawalRequestSerializer(withdrawal)
-        return Response(serializer.data)
+        return  Response({"message": "status  updated successfully."}, status=status.HTTP_200_OK)
     
 class MarkDefaultStockistView(APIView):
     permission_classes = [IsAdminRole]

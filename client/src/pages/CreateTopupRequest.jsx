@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useCreateTopupRequestMutation } from "../features/topupApi";
-import { useGetPaymentDetailsQuery } from "../features/profile/profileApi";
+import { useGetAdminPaymentDetailsQuery } from "../features/profile/profileApi";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 
@@ -10,10 +10,11 @@ const CreateTopupRequest = ({role}) => {
   const [previewImage, setPreviewImage] = useState(null);
   const [note, setNote] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
+  const [showPassbook, setShowPassbook] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
-  const { data: paymentDetails } = useGetPaymentDetailsQuery();
+  const { data: paymentDetails } = useGetAdminPaymentDetailsQuery();
   const [createTopup] = useCreateTopupRequestMutation();
 
   const handleImageChange = (e) => {
@@ -78,8 +79,7 @@ const CreateTopupRequest = ({role}) => {
 
       await createTopup(formData).unwrap();
       toast.success("Topup request submitted successfully");
-      console.log(`/${role}/my-topup`);
-      navigate(`/${role}/my-topup`);
+      navigate(`/${role}/my-topup-request`);
     } catch (err) {
       console.error(err);
       toast.error(err?.data?.message || "Failed to submit request");
@@ -89,34 +89,37 @@ const CreateTopupRequest = ({role}) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-4 sm:py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
-        <div className="p-6 sm:p-8">
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-gray-800">Create Topup Request</h1>
-            <p className="mt-2 text-sm text-gray-600">
-              Please fill the required details to request a wallet topup
-            </p>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-4 sm:py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-2xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold  bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            Create Topup Request
+          </h1>
+          <p className="mt-3 text-lg text-gray-600 max-w-md mx-auto">
+            Fill in the details below to request a wallet topup
+          </p>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              {/* Amount */}
-              <div className="sm:col-span-2">
-                <label htmlFor="amount" className="block text-sm font-medium text-gray-700">
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
+          <div className="p-6 sm:p-8">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Amount Input */}
+              <div className="bg-blue-50 rounded-xl p-6 border border-blue-100">
+                <label htmlFor="amount" className="block text-lg font-semibold text-gray-800 mb-3">
                   Amount (₹) <span className="text-red-500">*</span>
                 </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-gray-500 sm:text-sm">₹</span>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <span className="text-gray-600 text-xl font-medium">₹</span>
                   </div>
                   <input
                     type="number"
                     id="amount"
                     name="amount"
                     min="1"
-                    className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md py-2 border"
-                    placeholder="0.00"
+                    className="w-full pl-12 pr-4 py-4 text-lg border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-all duration-200"
+                    placeholder="Enter amount ..."
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     required
@@ -124,55 +127,79 @@ const CreateTopupRequest = ({role}) => {
                 </div>
               </div>
 
-              {/* Payment Method */}
-              <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Payment Method Used <span className="text-red-500">*</span>
+              {/* Payment Method Selection */}
+              <div className="bg-white rounded-xl p-6 border border-gray-200">
+                <label className="block text-lg font-semibold text-gray-800 mb-4">
+                  Select Payment Method <span className="text-red-500">*</span>
                 </label>
-                <div className="mt-1 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   {/* UPI Payment Option */}
-                  <div>
-                    <label className="flex items-center p-3 border border-gray-300 rounded-md cursor-pointer hover:border-blue-400 transition-colors">
+                  <div className={`p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
+                    paymentMethod === 'upi' 
+                      ? 'border-blue-500 bg-blue-50 shadow-md' 
+                      : 'border-gray-200 hover:border-blue-300 hover:bg-blue-25'
+                  }`}>
+                    <label className="flex items-start cursor-pointer">
                       <input
                         type="radio"
                         name="paymentMethod"
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                        className="h-5 w-5 text-blue-600 focus:ring-blue-500 mt-1"
                         checked={paymentMethod === 'upi'}
                         onChange={() => setPaymentMethod('upi')}
                         required
                       />
-                      <div className="ml-3">
-                        <span className="block text-sm font-medium text-gray-700">UPI Payment</span>
-                        <span className="block text-xs mt-1">
+                      <div className="ml-3 flex-1">
+                        <span className="block text-base font-semibold text-gray-800">UPI Payment</span>
+                        <div className="mt-2">
                           {paymentDetails?.upi_id ? (
-                            <span className="text-gray-500">Your UPI ID: {paymentDetails.upi_id}</span>
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                              <p className="text-sm text-green-800 font-medium">
+                                UPI ID: {paymentDetails.upi_id}
+                              </p>
+                            </div>
                           ) : (
-                            <span className="text-red-500">No UPI ID found. Please add in profile settings.</span>
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                              <p className="text-sm text-red-800">
+                                No UPI ID found. Please add in profile settings.
+                              </p>
+                            </div>
                           )}
-                        </span>
+                        </div>
                       </div>
                     </label>
                   </div>
 
                   {/* Bank Transfer Option */}
-                  <div>
-                    <label className="flex items-center p-3 border border-gray-300 rounded-md cursor-pointer hover:border-blue-400 transition-colors">
+                  <div className={`p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
+                    paymentMethod === 'bank' 
+                      ? 'border-blue-500 bg-blue-50 shadow-md' 
+                      : 'border-gray-200 hover:border-blue-300 hover:bg-blue-25'
+                  }`}>
+                    <label className="flex items-start cursor-pointer">
                       <input
                         type="radio"
                         name="paymentMethod"
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                        className="h-5 w-5 text-blue-600 focus:ring-blue-500 mt-1"
                         checked={paymentMethod === 'bank'}
                         onChange={() => setPaymentMethod('bank')}
                       />
-                      <div className="ml-3">
-                        <span className="block text-sm font-medium text-gray-700">Bank Transfer</span>
-                        <span className="block text-xs mt-1">
+                      <div className="ml-3 flex-1">
+                        <span className="block text-base font-semibold text-gray-800">Bank Transfer</span>
+                        <div className="mt-2">
                           {paymentDetails?.account_number ? (
-                            <span className="text-gray-500">Account ending with: ••••{paymentDetails.account_number.slice(-4)}</span>
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                              <p className="text-sm text-green-800 font-medium">
+                                Account: ••••{paymentDetails.account_number.slice(-4)}
+                              </p>
+                            </div>
                           ) : (
-                            <span className="text-red-500">No bank details found. Please add in profile settings.</span>
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                              <p className="text-sm text-red-800">
+                                No bank details found. Please add in profile settings.
+                              </p>
+                            </div>
                           )}
-                        </span>
+                        </div>
                       </div>
                     </label>
                   </div>
@@ -181,48 +208,104 @@ const CreateTopupRequest = ({role}) => {
 
               {/* Payment Details Preview */}
               {paymentMethod && (
-                <div className="sm:col-span-2">
-                  <h3 className="text-lg font-medium text-gray-900 mb-3">Payment Details</h3>
-                  <div className="bg-gray-50 p-4 rounded-md">
+                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6 border border-indigo-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-bold text-gray-800">Payment Details</h3>
+                    {paymentDetails?.passbook_pic && (
+                      <button
+                        type="button"
+                        onClick={() => setShowPassbook(!showPassbook)}
+                        className="px-4 py-2 cursor-pointer bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 font-medium"
+                      >
+                        {showPassbook ? 'Hide Passbook' : 'Show Passbook'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Passbook Image Modal */}
+                  {showPassbook && paymentDetails?.passbook_pic && (
+                    <div className="mb-6 p-4 bg-white rounded-xl border border-gray-200">
+                      <div className="flex justify-between items-center mb-3">
+                        <h4 className="text-lg font-semibold text-gray-800">Passbook Image</h4>
+                        <button
+                          onClick={() => setShowPassbook(false)}
+                          className="text-gray-500 hover:text-gray-700 transition-colors cursor-pointer"
+                        >
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      <img 
+                        src={paymentDetails.passbook_pic} 
+                        alt="Passbook" 
+                        className="w-full max-w-md mx-auto rounded-lg shadow-md"
+                      />
+                    </div>
+                  )}
+
+                  <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
                     {paymentMethod === 'upi' ? (
                       paymentDetails?.upi_id ? (
-                        <div className="space-y-2">
-                          <p className="text-sm">
-                            <span className="font-medium">UPI ID:</span> {paymentDetails.upi_id}
-                          </p>
-                         
-                          <p className="text-sm text-gray-700">
-                          The payment has been successfully made via the following UPI ID.
-                          </p>
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-blue-50 rounded-lg p-4">
+                              <p className="text-sm font-medium text-blue-800">UPI ID</p>
+                              <p className="text-lg font-bold text-gray-900 mt-1">{paymentDetails.upi_id}</p>
+                            </div>
+                            {paymentDetails.bank_upi && (
+                              <div className="bg-green-50 rounded-lg p-4">
+                                <p className="text-sm font-medium text-green-800">Bank UPI</p>
+                                <p className="text-lg font-bold text-gray-900 mt-1">{paymentDetails.bank_upi}</p>
+                              </div>
+                            )}
+                          </div>
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                            <p className="text-sm text-yellow-800 font-medium">
+                              ✅ The payment has been successfully made via the above UPI ID.
+                            </p>
+                          </div>
                         </div>
                       ) : (
-                        <p className="text-sm text-red-500">
-                          No UPI ID found. Please add your UPI ID in profile settings.
-                        </p>
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                          <p className="text-red-800 font-medium">
+                            No UPI ID found. Please add your UPI ID in profile settings.
+                          </p>
+                        </div>
                       )
                     ) : paymentMethod === 'bank' ? (
                       paymentDetails?.account_number ? (
-                        <div className="space-y-2">
-                          <p className="text-sm">
-                            <span className="font-medium">Account Holder:</span> {paymentDetails.account_holder_name}
-                          </p>
-                          <p className="text-sm">
-                            <span className="font-medium">Account Number:</span> ••••••••••{paymentDetails.account_number.slice(-4)}
-                          </p>
-                          <p className="text-sm">
-                            <span className="font-medium">Bank Name:</span> {paymentDetails.bank_name}
-                          </p>
-                          <p className="text-sm">
-                            <span className="font-medium">IFSC Code:</span> {paymentDetails.ifsc_code}
-                          </p>
-                          <p className="text-sm text-gray-700">
-                          The payment has been successfully made via the following Bank Details.
-                          </p>
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-blue-50 rounded-lg p-4">
+                              <p className="text-sm font-medium text-blue-800">Account Holder Name</p>
+                              <p className="text-lg font-bold text-gray-900 mt-1">{paymentDetails.account_holder_name}</p>
+                            </div>
+                            <div className="bg-green-50 rounded-lg p-4">
+                              <p className="text-sm font-medium text-green-800">Account Number</p>
+                              <p className="text-lg font-bold text-gray-900 mt-1">{paymentDetails.account_number}</p>
+                            </div>
+                            <div className="bg-purple-50 rounded-lg p-4">
+                              <p className="text-sm font-medium text-purple-800">Bank Name</p>
+                              <p className="text-lg font-bold text-gray-900 mt-1">{paymentDetails.bank_name}</p>
+                            </div>
+                            <div className="bg-orange-50 rounded-lg p-4">
+                              <p className="text-sm font-medium text-orange-800">IFSC Code</p>
+                              <p className="text-lg font-bold text-gray-900 mt-1">{paymentDetails.ifsc_code}</p>
+                            </div>
+                          </div>
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                            <p className="text-sm text-yellow-800 font-medium">
+                              ✅ The payment has been successfully made via the above Bank Details.
+                            </p>
+                          </div>
                         </div>
                       ) : (
-                        <p className="text-sm text-red-500">
-                          No bank details found. Please add your bank details in profile settings.
-                        </p>
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                          <p className="text-red-800 font-medium">
+                            No bank details found. Please add your bank details in profile settings.
+                          </p>
+                        </div>
                       )
                     ) : null}
                   </div>
@@ -230,18 +313,22 @@ const CreateTopupRequest = ({role}) => {
               )}
 
               {/* Screenshot Upload */}
-              <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-gray-700">
+              <div className="bg-white rounded-xl p-6 border border-gray-200">
+                <label className="block text-lg font-semibold text-gray-800 mb-4">
                   Payment Screenshot <span className="text-red-500">*</span>
                 </label>
-                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-blue-400 transition-colors">
-                  <div className="space-y-1 text-center">
+                <div className={`mt-1 flex justify-center px-6 pt-8 pb-8 border-2 border-dashed rounded-xl transition-all duration-200 ${
+                  previewImage 
+                    ? 'border-green-300 bg-green-25' 
+                    : 'border-gray-300 hover:border-blue-400 bg-gray-50'
+                }`}>
+                  <div className="space-y-4 text-center">
                     {previewImage ? (
                       <div className="relative">
                         <img 
                           src={previewImage} 
                           alt="Preview" 
-                          className="mx-auto h-32 w-auto object-contain rounded" 
+                          className="mx-auto h-48 w-auto object-contain rounded-lg shadow-md" 
                         />
                         <button
                           type="button"
@@ -249,7 +336,7 @@ const CreateTopupRequest = ({role}) => {
                             setPreviewImage(null);
                             setScreenshot(null);
                           }}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                          className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition-colors duration-200 shadow-lg"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                             <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -258,12 +345,17 @@ const CreateTopupRequest = ({role}) => {
                       </div>
                     ) : (
                       <>
-                        <div className="flex text-sm text-gray-600 justify-center">
+                        <div className="flex justify-center">
+                          <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <div className="flex text-lg text-gray-600 justify-center">
                           <label
                             htmlFor="screenshot"
-                            className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none"
+                            className="relative cursor-pointer bg-white rounded-xl font-semibold text-blue-600 hover:text-blue-500 focus-within:outline-none px-6 py-3 border-2 border-blue-200 hover:border-blue-300 transition-all duration-200"
                           >
-                            <span>Upload a file</span>
+                            <span>Choose Screenshot</span>
                             <input
                               id="screenshot"
                               name="screenshot"
@@ -275,7 +367,7 @@ const CreateTopupRequest = ({role}) => {
                             />
                           </label>
                         </div>
-                        <p className="text-xs text-gray-500">PNG, JPG, JPEG up to 5MB</p>
+                        <p className="text-sm text-gray-500">PNG, JPG, JPEG up to 5MB</p>
                       </>
                     )}
                   </div>
@@ -283,57 +375,57 @@ const CreateTopupRequest = ({role}) => {
               </div>
 
               {/* Note */}
-              <div className="sm:col-span-2">
-                <label htmlFor="note" className="block text-sm font-medium text-gray-700">
+              <div className="bg-white rounded-xl p-6 border border-gray-200">
+                <label htmlFor="note" className="block text-lg font-semibold text-gray-800 mb-4">
                   Additional Notes (Optional)
                 </label>
                 <textarea
                   id="note"
                   name="note"
-                  rows={3}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  placeholder="Any additional information about your transaction..."
+                  rows={4}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-all duration-200 resize-none"
+                  placeholder="Enter any additional information about your transaction..."
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                 />
               </div>
-            </div>
 
-            {/* Buttons */}
-            <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => navigate(-1)}
-                className="px-4 py-2 border border-gray-300 text-gray-700 bg-white rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={
-                  isSubmitting || 
-                  !amount || 
-                  !screenshot || 
-                  !paymentMethod ||
-                  (paymentMethod === 'upi' && !paymentDetails?.upi_id) || 
-                  (paymentMethod === 'bank' && !paymentDetails?.account_number)
-                }
-                className="px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {isSubmitting ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Processing...
-                  </>
-                ) : (
-                  "Submit Request"
-                )}
-              </button>
-            </div>
-          </form>
+              {/* Buttons */}
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-4 pt-4">
+                <button
+                  type="button"
+                  onClick={() => navigate(-1)}
+                  className="px-8 py-4 border-2 cursor-pointer border-gray-300 text-gray-700 bg-white rounded-xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 font-semibold text-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={
+                    isSubmitting || 
+                    !amount || 
+                    !screenshot || 
+                    !paymentMethod ||
+                    (paymentMethod === 'upi' && !paymentDetails?.upi_id) || 
+                    (paymentMethod === 'bank' && !paymentDetails?.account_number)
+                  }
+                  className="px-8 py-4 border border-transparent cursor-pointer text-lg font-semibold rounded-xl shadow-lg text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105 disabled:transform-none"
+                >
+                  {isSubmitting ? (
+                    <div className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Processing Request...
+                    </div>
+                  ) : (
+                    "Submit Topup Request"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     </div>

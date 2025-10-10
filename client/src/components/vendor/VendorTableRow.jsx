@@ -312,7 +312,7 @@ export default function VendorTableRow({
       case 'suspended':
         return (
           <>
-            <td className="px-2 py-3 font-bold">{vendor.vendor_id || 'N/A'}</td>
+            <td className="px-2 py-3 font-bold">{vendor.unique_role_id || 'N/A'}</td>
             <td className="px-2 py-3">{created_at}</td>
             <td className="px-2 py-3">
               {fullName}
