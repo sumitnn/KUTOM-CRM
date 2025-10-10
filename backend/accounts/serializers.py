@@ -66,6 +66,7 @@ class WithdrawalRequestSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = self.context['request'].user
         amount = validated_data.get('amount')
+        
 
         if amount is None or amount <= 0:
             raise ValidationError({"status": False, "message": "Amount must be greater than zero"})
@@ -557,7 +558,7 @@ class NewUserFullDetailSerializer(serializers.ModelSerializer):
             "id", "email", "phone", "username", "role", "role_display", 
             "status", "status_display", "vendor_id", "stockist_id", "reseller_id",
             "is_active", "is_staff", "is_default_user", "is_profile_completed", 
-            "completion_percentage", "created_at", "profile", "address", "company"
+            "completion_percentage", "created_at", "profile", "address", "company","unique_role_id"
         ]
         read_only_fields = ["id", "created_at"]
 

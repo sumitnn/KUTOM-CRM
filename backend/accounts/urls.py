@@ -16,6 +16,7 @@ urlpatterns = [
     path('delete-user/<uuid:pk>/', DeleteUserAPIView.as_view(), name='delete-user'),
     path('profile/', ProfileView.as_view(), name='profile'),
     path('payment-details/', UserPaymentDetailsView.as_view(), name='user-payment-details'),
+    path('admin-payment-details/', ADMINPaymentDetailsView.as_view(), name='admin-payment-details'),
 
     # fetch stockist by state
     path('stockists/<int:state_id>/', StockistsByStateAPIView.as_view(), name='get_stockists_by_state'),
