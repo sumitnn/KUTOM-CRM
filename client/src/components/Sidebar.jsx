@@ -17,7 +17,7 @@ import { TfiAnnouncement } from "react-icons/tfi";
 import { FaBoxArchive } from "react-icons/fa6";
 import { PiHandWithdrawFill } from "react-icons/pi";
 import { VscGitPullRequestGoToChanges } from "react-icons/vsc";
-
+import ModalPortal from "./ModalPortal";
 
 const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobile = false }) => {
   const location = useLocation();
@@ -274,7 +274,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
 
       {/* Sidebar */}
       <div
-        className={`bg-gradient-to-b h-screen from-slate-900 to-slate-800 shadow-2xl transition-all duration-300 flex flex-col ${
+        className={`bg-gradient-to-b from-slate-900 to-slate-800 shadow-2xl transition-all duration-300 flex flex-col h-screen ${
           isMobile 
             ? "fixed top-0 left-0 h-full w-80 z-40" 
             : expanded 
@@ -283,7 +283,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
         }`}
       >
         {/* Header with close button for mobile and toggle for desktop */}
-        <div className="flex justify-between items-center p-6 border-b border-slate-700">
+        <div className="flex justify-between items-center p-6 border-b border-slate-700 shrink-0">
           {expanded && (
             <div>
               <span className="text-xl font-bold text-white capitalize">{role} Portal</span>
@@ -312,7 +312,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
           </div>
         </div>
 
-        {/* Navigation */}
+        {/* Navigation - This will take remaining space and scroll if needed */}
         <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
           {itemsToRender.map((item, idx) => {
             const isActiveParent = item.path
@@ -413,8 +413,8 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
           })}
         </nav>
 
-        {/* Logout Button */}
-        <div className="p-4 border-t border-slate-700">
+        {/* Logout Button - Fixed at bottom */}
+        <div className="p-4 border-t border-slate-700 shrink-0">
           <button
             onClick={handleLogoutClick}
             className="flex items-center cursor-pointer gap-4 p-3 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-200 w-full group"
@@ -428,6 +428,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
 
       {/* Modern Logout Confirmation Modal */}
       {showLogoutConfirm && (
+        <ModalPortal>
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-slate-800 rounded-2xl p-6 max-w-sm w-full border border-slate-700 shadow-2xl">
             <div className="text-center mb-2">
@@ -452,7 +453,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
               </button>
             </div>
           </div>
-        </div>
+        </div></ModalPortal>
       )}
     </>
   );
