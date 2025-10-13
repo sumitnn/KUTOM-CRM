@@ -227,7 +227,7 @@ const TabledProductListPage = ({ role }) => {
                   products.map((prod, index) => {
                     // Get the default variant or first variant for pricing
                     const defaultVariant = prod.variants_detail?.find(variant => variant.is_default) || prod.variants_detail?.[0];
-                    const variantPrice = defaultVariant?.bulk_prices?.[0];
+                    const variantPrice = defaultVariant?.product_variant_prices?.[0];
                     const price = variantPrice?.price || prod.price || 0;
                     const productImage = getProductImage(prod);
 

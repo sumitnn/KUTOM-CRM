@@ -53,6 +53,7 @@ urlpatterns = [
 
     # DashboardAPI
     path('dashboard-summary/', DashboardAPIView.as_view(), name='dashboard-summary'),
+    path('admin-dashboard-summary/', ADMINDashboardAPIView.as_view(), name='admin-dashboard-summary'),
 
     # user application Apis 
     path('apply/', NewUserCreationView.as_view(), name='apply'),

@@ -7,6 +7,7 @@ from django.db import models, transaction as db_transaction
 from django.core.exceptions import ObjectDoesNotExist
 
 from products.models import Product, ProductVariant, RoleBasedProduct
+from accounts.models import State, District
 
 ORDER_STATUS_CHOICES = (
     ('pending', 'Pending'),
@@ -216,7 +217,7 @@ class OrderItem(models.Model):
         blank=True,
         help_text="Reference to the role-based pricing used for this item"
     )
-
+    bulk_price_applied = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -447,3 +448,48 @@ class OrderRequestItem(models.Model):
 
     def __str__(self):
         return f" {self.quantity}"
+    
+
+class CustomerPurchase(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    # Vendor who created this purchase
+    vendor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="customer_purchases")
+
+    # Customer details
+    full_name = models.CharField(max_length=100)
+    phone = models.CharField(max_length=15, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+
+    address = models.CharField(max_length=255, blank=True, null=True)
+    city = models.CharField(max_length=100, blank=True, null=True)
+    state = models.ForeignKey(State, on_delete=models.SET_NULL, null=True, blank=True)
+    district = models.ForeignKey(District, on_delete=models.SET_NULL, null=True, blank=True)
+    postal_code = models.CharField(max_length=10, blank=True, null=True)
+    country = models.CharField(max_length=100, default="India")
+
+    # Purchase details
+    product = models.ForeignKey(RoleBasedProduct, on_delete=models.CASCADE, related_name="purchases")
+    variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, null=True, blank=True)
+    quantity = models.PositiveIntegerField(default=1)
+    price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
+    total_price = models.DecimalField(max_digits=12, decimal_places=2, editable=False)
+
+    payment_method = models.CharField(max_length=50, blank=True, null=True)
+    transaction_id = models.CharField(max_length=100, blank=True, null=True)
+
+    purchase_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Customer Purchase"
+        verbose_name_plural = "Customer Purchases"
+        ordering = ['-purchase_date']
+
+    def save(self, *args, **kwargs):
+        self.total_price = self.price_per_unit * self.quantity
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.full_name} bought ({self.quantity} pcs)"

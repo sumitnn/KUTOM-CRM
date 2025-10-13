@@ -113,7 +113,7 @@ const ResellerMainLayout = ({ children }) => {
                       </div>
                       <div>
                         <h2 className="text-xl font-bold text-slate-800">
-                          Reseller Dashboard
+                          Reseller Portal
                         </h2>
                         <p className="text-sm text-slate-600">
                           Welcome back, {user?.username || 'Reseller'}

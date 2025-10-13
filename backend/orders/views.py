@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from .models import *
 from .serializers import *
 from django.utils.timezone import now
-from accounts.permissions import IsAdminRole, IsStockistRole, IsVendorRole, IsAdminOrVendorRole, IsAdminStockistResellerRole,IsAdminOrStockistRole,IsStockistOrResellerRole,IsAdminOrResellerRole
+from accounts.permissions import IsAdminRole, IsStockistRole, IsVendorRole, IsAdminOrVendorRole, IsAdminStockistResellerRole,IsAdminOrStockistRole,IsStockistOrResellerRole,IsAdminOrResellerRole,IsResellerRole
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import status
@@ -188,8 +188,7 @@ class BulkOrderCreateView(APIView):
                     )
                 except StockInventory.DoesNotExist:
                     return Response({
-                        "message": f"No stock found for product {product_id} (variant: {variant_id}) "
-                                f"under seller {seller.username if hasattr(seller, 'username') else seller.id}. "
+                        "message": f"No stock found for This product"
                                 f"Contact vendor to add stock in their inventory."
                     }, status=400)
 
@@ -1209,7 +1208,7 @@ class OrderRequestListCreateView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
-      
+        
 
         serializer = OrderRequestSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
@@ -2316,3 +2315,83 @@ class ResellerOrderStatusMange(APIView):
                         )
         except Exception as e:
             print(f"Error in commission_on_delivery: {str(e)}")
+
+
+class ResellerProductsList(generics.ListAPIView):
+    queryset = RoleBasedProduct.objects.all()
+    serializer_class = CustomerPurchaseRoleBasedProductSerializer
+    permission_classes = [IsResellerRole]
+
+    def get_queryset(self):
+        user = self.request.user
+        return self.queryset.filter(user=user, role='reseller').prefetch_related('variants')
+    
+class ResellerVaraintsList(generics.ListAPIView):
+    queryset = ProductVariant.objects.all()
+    serializer_class = ProductVariantSerializer
+    permission_classes = [IsResellerRole]
+
+    def get_queryset(self,product_id=None):
+        product_id = self.request.query_params.get('product_id')
+
+        if product_id:
+            role_prod=RoleBasedProduct.objects.get(id=int(product_id))
+            return self.queryset.filter(product_id=role_prod.product.id)
+        return self.queryset.filter(name="testting")  # return empty queryset
+
+
+class CustomerPurchaseCreateView(generics.CreateAPIView):
+    queryset = CustomerPurchase.objects.all()
+    serializer_class = CustomerPurchaseSerializer
+    permission_classes = [IsResellerRole]
+
+    def perform_create(self, serializer):
+        serializer.save(vendor=self.request.user)
+
+class CustomerPurchaseListView(generics.ListAPIView):
+    serializer_class = CustomerPurchaseSerializer
+    permission_classes = [IsResellerRole]
+    
+    def get_queryset(self):
+        # Only show purchases created by the current vendor
+        return CustomerPurchase.objects.filter(vendor=self.request.user).order_by('-purchase_date')
+
+class CustomerPurchaseDetailView(generics.RetrieveAPIView):
+    serializer_class = CustomerPurchaseSerializer
+    permission_classes = [IsResellerRole]
+    lookup_field = 'id'
+    
+    def get_queryset(self):
+        # Only allow access to purchases created by the current vendor
+        return CustomerPurchase.objects.filter(vendor=self.request.user)
+
+class CustomerPurchaseListPaginatedView(generics.ListAPIView):
+    serializer_class = CustomerPurchaseListSerializer
+    permission_classes = [IsResellerRole]
+    
+    def get_queryset(self):
+        return CustomerPurchase.objects.filter(vendor=self.request.user).order_by('-purchase_date')
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        
+        # Pagination
+        page = request.query_params.get('page', 1)
+        page_size = request.query_params.get('page_size', 10)
+        
+        paginator = Paginator(queryset, page_size)
+        try:
+            purchases = paginator.page(page)
+        except:
+            purchases = paginator.page(1)
+        
+        serializer = self.get_serializer(purchases, many=True)
+        
+        return Response({
+            'count': paginator.count,
+            'total_pages': paginator.num_pages,
+            'current_page': purchases.number,
+            'next': purchases.next_page_number() if purchases.has_next() else None,
+            'previous': purchases.previous_page_number() if purchases.has_previous() else None,
+            'results': serializer.data
+        })

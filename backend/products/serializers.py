@@ -161,6 +161,11 @@ class ProductVariantSerializer(serializers.ModelSerializer):
         if user_role in ["stockist", "reseller"]:
             # ✅ For stockists & resellers → show admin-set prices only
             queryset = obj.prices.filter(user__role="admin")
+        elif user_role == "admin":
+            # ✅ For admin → prefer admin prices, fallback to vendor prices
+            queryset = obj.prices.filter(user__role="admin")
+            if not queryset.exists():
+                queryset = obj.prices.filter(user__role="vendor")
         else:
             # ✅ For others → show prices set by themselves
             queryset = obj.prices.filter(user=user)

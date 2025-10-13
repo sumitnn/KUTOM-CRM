@@ -5,7 +5,8 @@ import { addItem } from "../features/cart/cartSlice";
 import { useGetProductByIdQuery } from "../features/product/productApi";
 import { toast } from "react-toastify";
 import {
-  FiMinus, FiPlus, FiChevronRight, FiShoppingCart, FiArrowLeft
+  FiMinus, FiPlus, FiChevronRight, FiShoppingCart, FiArrowLeft,
+  FiTag, FiStar, FiTruck, FiShield, FiCheck
 } from "react-icons/fi";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -80,16 +81,63 @@ const ProductDetailsPage = ({ role }) => {
     (item) => item.id === product?.id && item.variant?.id === selectedVariant?.id
   );
 
+  // Calculate price - use bulk price if available (all-inclusive), otherwise calculate from variant prices
   const calculatePrice = () => {
+    // If bulk price is available, use it directly (all-inclusive)
     if (selectedBulkPrice) {
       return selectedBulkPrice.price;
     }
-    // Return base price from variant or product
-    return selectedVariant?.bulk_prices?.[0]?.price || product?.price || 0;
+    
+    // Otherwise, calculate price from product_variant_prices with discount
+    if (selectedVariant?.product_variant_prices?.[0]) {
+      const variantPrice = selectedVariant.product_variant_prices[0];
+      const basePrice = Number(variantPrice.price);
+      const discountAmount = basePrice * (variantPrice.discount / 100);
+      return (basePrice - discountAmount).toFixed(2);
+    }
+    
+    return 0;
   };
 
+  // Calculate GST amount - return 0 if bulk pricing is applied (already included)
+  const calculateGST = () => {
+    // If bulk price is applied, GST is already included - return 0
+    if (selectedBulkPrice) {
+      return 0;
+    }
+    
+    // Otherwise, calculate GST from product_variant_prices
+    if (!selectedVariant?.product_variant_prices?.[0]) return 0;
+    
+    const variantPrice = selectedVariant.product_variant_prices[0];
+    const priceWithoutGST = Number(calculatePrice());
+    
+    let gstAmount = 0;
+    
+    if (variantPrice.gst_tax) {
+      gstAmount = Number(variantPrice.gst_tax) * quantity;
+    } else if (variantPrice.gst_percentage) {
+      gstAmount = (priceWithoutGST * (variantPrice.gst_percentage / 100)) * quantity;
+    }
+    
+    return gstAmount.toFixed(2);
+  };
+
+  // Calculate final price
+  const calculateFinalPrice = () => {
+    const priceWithoutGST = Number(calculatePrice()) * quantity;
+    const gstAmount = Number(calculateGST());
+    return (priceWithoutGST + gstAmount).toFixed(2);
+  };
+
+  // Get base price with discount but without bulk pricing
   const getBasePrice = () => {
-    return selectedVariant?.bulk_prices?.[0]?.price || product?.price || 0;
+    if (!selectedVariant?.product_variant_prices?.[0]) return "0.00";
+    
+    const variantPrice = selectedVariant.product_variant_prices[0];
+    const basePrice = Number(variantPrice.price);
+    const discountAmount = basePrice * (variantPrice.discount / 100);
+    return (basePrice - discountAmount).toFixed(2);
   };
 
   const handleQuantityChange = (e) => {
@@ -108,11 +156,19 @@ const ProductDetailsPage = ({ role }) => {
       return;
     }
 
+    const itemPrice = Number(calculatePrice());
+    const gstAmount = selectedBulkPrice ? 0 : Number(calculateGST()) / quantity; // GST per unit (0 if bulk pricing)
+    const finalPrice = Number(calculateFinalPrice());
+
     dispatch(
       addItem({
         id: product.id,
         name: product.name,
-        price: Number(calculatePrice()),
+        price: itemPrice,
+        gst_percentage: selectedBulkPrice ? 0 : selectedVariant.product_variant_prices[0].gst_percentage,
+        gst_tax: selectedBulkPrice ? 0 : selectedVariant.product_variant_prices[0].gst_tax,
+        gst_amount: gstAmount,
+        final_price: finalPrice,
         quantity,
         image: mainImage,
         variant: selectedVariant,
@@ -147,22 +203,25 @@ const ProductDetailsPage = ({ role }) => {
     );
   }
 
+  const variantPrice = selectedVariant?.product_variant_prices?.[0];
+  const hasBulkPricing = selectedBulkPrice !== null;
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
       {/* Back Button */}
       <button 
         onClick={() => navigate(`/${role}/products`)}
-        className="btn btn-ghost btn-sm mb-4 cursor-pointer"
+        className="btn btn-ghost btn-sm mb-4 cursor-pointer flex items-center gap-2"
       >
-        <FiArrowLeft className="mr-2" />
+        <FiArrowLeft className="text-lg" />
         Back to Products
       </button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
         {/* Image Section */}
         <div className="space-y-4">
           <div
-            className="relative w-full h-96 lg:h-[500px] border-2 bg-gray-100 overflow-hidden rounded-xl cursor-zoom-in"
+            className="relative w-full h-80 sm:h-96 lg:h-[500px] border-2 bg-gray-50 overflow-hidden rounded-2xl cursor-zoom-in shadow-sm"
             onClick={() => setZoom(!zoom)}
             onMouseMove={zoom ? handleZoom : null}
             onMouseLeave={() => setZoom(false)}
@@ -170,27 +229,29 @@ const ProductDetailsPage = ({ role }) => {
             <img
               src={mainImage}
               alt={product.name}
-              className={`w-full h-full object-contain duration-300 transition-transform ${
+              className={`w-full h-full object-contain transition-transform duration-300 ${
                 zoom ? "scale-150" : "scale-100"
               }`}
               style={{ transformOrigin: `${zoomPos.x}% ${zoomPos.y}%` }}
             />
             {zoom && (
-              <div className="absolute bottom-4 left-4 bg-black/50 text-white px-3 py-1 rounded-full text-sm">
+              <div className="absolute bottom-4 left-4 bg-black/70 text-white px-3 py-2 rounded-full text-sm backdrop-blur-sm">
                 Click to zoom out
               </div>
             )}
           </div>
           
           {/* Thumbnail Images */}
-          <div className="flex gap-2 overflow-x-auto pb-2">
+          <div className="flex gap-3 overflow-x-auto pb-4 px-1">
             {product.images?.map((img) => (
               <img
                 key={img.id}
                 src={img.image}
                 alt="thumb"
-                className={`w-20 h-20 object-cover border-2 rounded-lg cursor-pointer flex-shrink-0 ${
-                  mainImage === img.image ? "border-primary" : "border-gray-300"
+                className={`w-16 h-16 sm:w-20 sm:h-20 object-cover border-2 rounded-lg cursor-pointer flex-shrink-0 transition-all ${
+                  mainImage === img.image 
+                    ? "border-primary shadow-md scale-105" 
+                    : "border-gray-300 hover:border-gray-400"
                 }`}
                 onClick={() => setMainImage(img.image)}
               />
@@ -199,12 +260,15 @@ const ProductDetailsPage = ({ role }) => {
           
           {/* Video Section */}
           {product.video_url && getEmbedUrl(product.video_url) && (
-            <div className="mt-6">
-              <h3 className="text-lg font-bold mb-2">Product Video</h3>
+            <div className="mt-8 p-4 bg-white rounded-2xl shadow-sm border">
+              <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
+                <FiStar className="text-yellow-500" />
+                Product Video
+              </h3>
               <div className="aspect-w-16 aspect-h-9">
                 <iframe
                   src={getEmbedUrl(product.video_url)}
-                  className="w-full h-64 rounded-xl border-0"
+                  className="w-full h-48 sm:h-64 rounded-xl border-0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
                   title="Product video"
@@ -217,45 +281,117 @@ const ProductDetailsPage = ({ role }) => {
         {/* Product Details */}
         <div className="space-y-6">
           {/* Breadcrumb */}
-          <div className="text-sm breadcrumbs">
+          <div className="text-sm breadcrumbs text-gray-600">
             <ul>
-              <li><Link to={`/${role}/products`} className="cursor-pointer">Products</Link></li>
-              <li><Link to={`/${role}/products`} className="cursor-pointer">{product.category_name}</Link></li>
+              <li><Link to={`/${role}/products`} className="cursor-pointer hover:text-primary">Products</Link></li>
+              <li><Link to={`/${role}/products`} className="cursor-pointer hover:text-primary">{product.category_name}</Link></li>
               <li className="text-primary font-semibold">{product.name}</li>
             </ul>
           </div>
 
-          <h1 className="text-3xl font-extrabold text-gray-800">{product.name}</h1>
-          <p className="text-gray-600">SKU: <strong>{product.sku}</strong></p>
-
-          {/* Price Section */}
-          <div className="bg-gray-50 p-4 rounded-xl">
-            <div className="text-3xl font-extrabold text-green-600">
-              ₹{calculatePrice()}
-              {selectedBulkPrice && Number(calculatePrice()) < Number(getBasePrice()) && (
-                <span className="ml-3 text-lg text-gray-500 line-through">
-                  ₹{getBasePrice()}
+          <div className="space-y-3">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 leading-tight">
+              {product.name}
+            </h1>
+            <div className="flex items-center gap-4 text-sm text-gray-600">
+              <span>SKU: <strong className="font-mono">{product.sku}</strong></span>
+              {productData?.is_featured && (
+                <span className="flex items-center gap-1 bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                  <FiStar className="text-xs" />
+                  Featured
                 </span>
               )}
             </div>
-            
-            {selectedBulkPrice && (
-              <div className="text-sm text-green-600 mt-2 font-semibold">
-                🎉 Bulk discount applied! (Minimum {selectedBulkPrice.max_quantity} units)
-                {selectedBulkPrice.max_quantity > 1 && (
-                  <span className="ml-2 text-blue-600">
-                    Save ₹{(Number(getBasePrice()) - Number(calculatePrice())).toFixed(2)} per unit
+          </div>
+
+          {/* Price Section */}
+          <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-2xl border border-green-100">
+            <div className="flex items-baseline gap-3 flex-wrap">
+              <div className="text-3xl font-bold text-green-700">
+                ₹{calculatePrice()}
+                {hasBulkPricing && (
+                  <span className="ml-2 text-sm bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                    All-inclusive
                   </span>
                 )}
+              </div>
+              
+              {variantPrice && variantPrice.discount > 0 && !hasBulkPricing && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xl text-gray-500 line-through">
+                    ₹{variantPrice.price}
+                  </span>
+                  <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-sm font-bold">
+                    {variantPrice.discount}% OFF
+                  </span>
+                </div>
+              )}
+              
+              {hasBulkPricing && Number(calculatePrice()) < Number(getBasePrice()) && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xl text-gray-500 line-through">
+                    ₹{getBasePrice()}
+                  </span>
+                  <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-sm font-bold">
+                    Bulk Discount
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            {/* GST and Final Price - Only show if not bulk pricing */}
+            {!hasBulkPricing && variantPrice && (
+              <div className="mt-3 space-y-1 text-sm">
+                <div className="flex justify-between text-gray-600">
+                  <span>
+                    {variantPrice.gst_tax 
+                      ? `GST (₹${variantPrice.gst_tax}/unit):` 
+                      : `GST (${variantPrice.gst_percentage}%):`}
+                  </span>
+                  <span className="font-semibold">₹{calculateGST()}</span>
+                </div>
+                <div className="flex justify-between text-lg font-bold text-gray-900 border-t pt-2">
+                  <span>Final Price ({quantity} items):</span>
+                  <span className="text-green-700">₹{calculateFinalPrice()}</span>
+                </div>
+              </div>
+            )}
+            
+            {/* For bulk pricing, show all-inclusive message */}
+            {hasBulkPricing && (
+              <div className="mt-3 space-y-1 text-sm">
+                <div className="flex justify-between text-gray-600">
+                  <span>Price includes:</span>
+                  <span className="font-semibold text-green-600">GST & Discount</span>
+                </div>
+                <div className="flex justify-between text-lg font-bold text-gray-900 border-t pt-2">
+                  <span>Total Price ({quantity} items):</span>
+                  <span className="text-green-700">₹{calculateFinalPrice()}</span>
+                </div>
+              </div>
+            )}
+            
+            {selectedBulkPrice && (
+              <div className="mt-3 p-3 bg-white rounded-lg border border-green-200">
+                <div className="text-sm text-green-700 font-semibold flex items-center gap-2">
+                  <FiTag className="text-green-600" />
+                  🎉 Bulk discount applied! (Minimum {selectedBulkPrice.max_quantity} units)
+                </div>
+                <div className="text-xs text-blue-600 mt-1">
+                  All-inclusive price (GST & discount included)
+                </div>
               </div>
             )}
           </div>
 
           {/* Variants Selection */}
           {variants.length > 0 && (
-            <div className="bg-white p-4 rounded-xl border border-gray-200">
-              <p className="font-semibold text-gray-700 mb-3 text-lg">Available Variants</p>
-              <div className="flex flex-wrap gap-2">
+            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+              <p className="font-semibold text-gray-800 mb-4 text-lg flex items-center gap-2">
+                <FiCheck className="text-green-500" />
+                Available Variants
+              </p>
+              <div className="flex flex-wrap gap-3">
                 {variants.map((variant) => (
                   <button
                     key={variant.id}
@@ -264,15 +400,17 @@ const ProductDetailsPage = ({ role }) => {
                       updateBulkPrice(variant, quantity);
                     }}
                     disabled={!variant.is_active}
-                    className={`px-4 py-3 rounded-lg text-base font-bold border-2 cursor-pointer transition-all ${
+                    className={`px-5 py-4 rounded-xl text-base font-semibold border-2 cursor-pointer transition-all min-w-[120px] ${
                       selectedVariant?.id === variant.id
                         ? "bg-primary text-white border-primary shadow-lg transform scale-105"
-                        : "border-gray-300 hover:border-gray-500 hover:shadow-md"
-                    } ${!variant.is_active ? "opacity-50 cursor-not-allowed" : ""}`}
+                        : "border-gray-300 bg-white hover:border-gray-400 hover:shadow-md"
+                    } ${!variant.is_active ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
                   >
-                    {variant.name}
-                    <div className="text-sm font-normal mt-1">
-                      ₹{variant.bulk_prices?.[0]?.price || 'N/A'}
+                    <div className="text-center">
+                      <div className="font-bold">{variant.name}</div>
+                      <div className="text-sm font-normal mt-1 opacity-90">
+                        {variant.is_default && "(Default)"}
+                      </div>
                     </div>
                   </button>
                 ))}
@@ -282,28 +420,32 @@ const ProductDetailsPage = ({ role }) => {
 
           {/* Bulk Prices Table */}
           {selectedVariant?.bulk_prices?.length > 0 && (
-            <div className="bg-white p-4 rounded-xl border border-gray-200">
-              <p className="font-semibold text-gray-700 mb-3 text-lg">Bulk Pricing Tiers</p>
+            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+              <p className="font-semibold text-gray-800 mb-4 text-lg flex items-center gap-2">
+                <FiTag className="text-blue-500" />
+                Bulk Pricing Tiers (All-inclusive)
+              </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b-2">
-                      <th className="text-left pb-2 font-bold text-gray-900">Minimum Quantity</th>
-                      <th className="text-right pb-2 font-bold text-gray-900">Price per Unit</th>
-                      <th className="text-right pb-2 font-bold text-gray-900">You Save</th>
+                    <tr className="border-b-2 border-gray-100">
+                      <th className="text-left pb-3 font-bold text-gray-900">Minimum Quantity</th>
+                      <th className="text-right pb-3 font-bold text-gray-900">All-inclusive Price</th>
+                      <th className="text-right pb-3 font-bold text-gray-900">You Save</th>
                     </tr>
                   </thead>
                   <tbody>
                     {[...selectedVariant.bulk_prices]
                       .sort((a, b) => a.max_quantity - b.max_quantity)
                       .map((bulk, index, array) => {
-                        const basePrice = array[0].price;
-                        const savings = (Number(basePrice) - Number(bulk.price)).toFixed(2);
+                        // Calculate base price with discount for comparison
+                        const basePriceWithDiscount = getBasePrice();
+                        const savings = (Number(basePriceWithDiscount) - Number(bulk.price)).toFixed(2);
                         return (
                           <tr 
                             key={bulk.id} 
-                            className={`border-b hover:bg-gray-50 ${
-                              selectedBulkPrice?.id === bulk.id ? 'bg-blue-50 font-bold' : ''
+                            className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                              selectedBulkPrice?.id === bulk.id ? 'bg-blue-50 font-semibold' : ''
                             }`}
                           >
                             <td className="py-3 font-semibold">
@@ -311,8 +453,9 @@ const ProductDetailsPage = ({ role }) => {
                             </td>
                             <td className="text-right font-bold text-green-600">
                               ₹{bulk.price}
+                              <div className="text-xs text-gray-500 font-normal">(GST & discount included)</div>
                             </td>
-                            <td className="text-right text-orange-600">
+                            <td className="text-right text-orange-600 font-semibold">
                               {savings > 0 ? `₹${savings}` : '-'}
                             </td>
                           </tr>
@@ -326,14 +469,14 @@ const ProductDetailsPage = ({ role }) => {
 
           {/* Quantity and Actions */}
           {["admin", "reseller"].includes(role) && (
-            <div className="bg-white p-4 rounded-xl border border-gray-200 space-y-4">
+            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-5">
               {/* Quantity Selector */}
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-lg">Quantity:</span>
+                <span className="font-semibold text-lg text-gray-800">Quantity:</span>
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="btn btn-circle btn-outline cursor-pointer"
+                    className="btn btn-circle btn-outline cursor-pointer hover:bg-gray-100 transition-colors"
                     disabled={product.status === "draft" || !productData?.is_featured || quantity <= 1}
                   >
                     <FiMinus />
@@ -343,11 +486,11 @@ const ProductDetailsPage = ({ role }) => {
                     min="1"
                     value={quantity}
                     onChange={handleQuantityChange}
-                    className="w-20 text-center border-2 border-gray-300 rounded-lg py-2 text-lg font-bold focus:border-primary"
+                    className="w-20 text-center border-2 border-gray-300 rounded-xl py-2 text-lg font-bold focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
                   />
                   <button
                     onClick={() => setQuantity(quantity + 1)}
-                    className="btn btn-circle btn-outline cursor-pointer"
+                    className="btn btn-circle btn-outline cursor-pointer hover:bg-gray-100 transition-colors"
                     disabled={product.status === "draft" || !productData?.is_featured}
                   >
                     <FiPlus />
@@ -359,22 +502,22 @@ const ProductDetailsPage = ({ role }) => {
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={handleAddToCart}
-                  className="btn btn-primary btn-lg flex-1 cursor-pointer"
+                  className="btn btn-primary btn-lg flex-1 cursor-pointer hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
                   disabled={
                     !selectedVariant ||
                     product.status === "draft" ||
                     !productData?.is_featured
                   }
                 >
-                  <FiShoppingCart className="mr-2" />
+                  <FiShoppingCart className="text-lg" />
                   {product.status === "draft" || !productData?.is_featured
                     ? "Unavailable"
-                    : `Add to Cart - ₹${(Number(calculatePrice()) * quantity).toFixed(2)}`}
+                    : `Add to Cart - ₹${(Number(calculateFinalPrice())).toFixed(2)}`}
                 </button>
                 
                 <button
                   onClick={handleBuyNow}
-                  className="btn btn-secondary btn-lg flex-1 cursor-pointer"
+                  className="btn btn-secondary btn-lg flex-1 cursor-pointer hover:shadow-lg transition-all duration-300"
                   disabled={
                     !selectedVariant || 
                     product.status === "draft" || 
@@ -390,22 +533,28 @@ const ProductDetailsPage = ({ role }) => {
           {/* Product Information */}
           <div className="space-y-6">
             {/* Description */}
-            <div>
-              <h2 className="text-xl font-extrabold mb-3">Product Description</h2>
-              <p className="text-gray-700 text-base leading-relaxed">
+            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+              <h2 className="text-xl font-bold mb-4 text-gray-900 flex items-center gap-2">
+                <FiCheck className="text-blue-500" />
+                Product Description
+              </h2>
+              <p className="text-gray-700 leading-relaxed">
                 {product.description || "No description available."}
               </p>
             </div>
 
             {/* Features */}
             {product.features?.length > 0 && (
-              <div>
-                <h2 className="text-xl font-extrabold mb-3">Key Features</h2>
-                <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+                <h2 className="text-xl font-bold mb-4 text-gray-900 flex items-center gap-2">
+                  <FiStar className="text-yellow-500" />
+                  Key Features
+                </h2>
+                <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {product.features.map((feature, index) => (
-                    <li key={index} className="flex items-center gap-2 text-gray-700">
-                      <div className="w-2 h-2 bg-primary rounded-full"></div>
-                      {feature}
+                    <li key={index} className="flex items-center gap-3 text-gray-700 p-2 hover:bg-gray-50 rounded-lg transition-colors">
+                      <div className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></div>
+                      <span>{feature}</span>
                     </li>
                   ))}
                 </ul>
@@ -413,44 +562,71 @@ const ProductDetailsPage = ({ role }) => {
             )}
 
             {/* Specifications */}
-            <div className="border-t pt-6">
-              <h2 className="text-xl font-extrabold mb-3">Specifications</h2>
+            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+              <h2 className="text-xl font-bold mb-4 text-gray-900 flex items-center gap-2">
+                <FiTruck className="text-purple-500" />
+                Specifications
+              </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-gray-700">
-                <div className="space-y-2">
-                  <div><strong className="text-gray-900">Brand:</strong> {product.brand_name || "N/A"}</div>
-                  <div><strong className="text-gray-900">Category:</strong> {product.category_name || "N/A"}</div>
-                  <div><strong className="text-gray-900">Subcategory:</strong> {product.subcategory_name || "N/A"}</div>
-                  <div><strong className="text-gray-900">Weight:</strong> {product.weight} {product.weight_unit}</div>
+                <div className="space-y-3">
+                  <div className="flex justify-between py-2 border-b border-gray-100">
+                    <strong className="text-gray-900">Brand:</strong> 
+                    <span>{product.brand_name || "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b border-gray-100">
+                    <strong className="text-gray-900">Category:</strong> 
+                    <span>{product.category_name || "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b border-gray-100">
+                    <strong className="text-gray-900">Subcategory:</strong> 
+                    <span>{product.subcategory_name || "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b border-gray-100">
+                    <strong className="text-gray-900">Weight:</strong> 
+                    <span>{product.weight} {product.weight_unit}</span>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <div><strong className="text-gray-900">Dimensions:</strong> {product.dimensions}</div>
-                  <div><strong className="text-gray-900">Status:</strong> 
-                    <span className={`ml-2 badge ${
+                <div className="space-y-3">
+                  <div className="flex justify-between py-2 border-b border-gray-100">
+                    <strong className="text-gray-900">Dimensions:</strong> 
+                    <span>{product.dimensions}</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b border-gray-100">
+                    <strong className="text-gray-900">Status:</strong> 
+                    <span className={`badge ${
                       product.status === 'published' ? 'badge-success' : 'badge-warning'
                     }`}>
                       {product.status_display || product.status || "N/A"}
                     </span>
                   </div>
-                  <div><strong className="text-gray-900">Warranty:</strong> {product.warranty || '0'} year(s)</div>
+                  <div className="flex justify-between py-2 border-b border-gray-100">
+                    <strong className="text-gray-900">Warranty:</strong> 
+                    <span className="flex items-center gap-1">
+                      <FiShield className="text-green-500" />
+                      {product.warranty || '0'} year(s)
+                    </span>
+                  </div>
                   {selectedVariant && (
-                    <>
-                      <div><strong className="text-gray-900">Variant SKU:</strong> {selectedVariant.sku}</div>
-                    </>
+                    <div className="flex justify-between py-2 border-b border-gray-100">
+                      <strong className="text-gray-900">Variant SKU:</strong> 
+                      <span className="font-mono">{selectedVariant.sku}</span>
+                    </div>
                   )}
                 </div>
               </div>
             </div>
 
             {/* Vendor Information */}
-            <div className="bg-gray-50 p-4 rounded-xl">
-              <h3 className="font-semibold text-gray-900 mb-2">Vendor Information</h3>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-bold">
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-5 rounded-2xl border border-blue-200">
+              <h3 className="font-semibold text-gray-900 mb-3 text-lg">Vendor Information</h3>
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-bold text-lg shadow-md">
                   {productData?.user_name?.charAt(0) || 'V'}
                 </div>
                 <div>
-                  <p className="font-semibold">{productData?.user_name || "N/A"}</p>
+                  <p className="font-bold text-gray-900">{productData?.user_name || "N/A"}</p>
                   <p className="text-sm text-gray-600">Vendor ID: {productData?.user_unique_id || "N/A"}</p>
+                  <p className="text-xs text-gray-500 mt-1">{variantPrice?.role_display || "Vendor"}</p>
                 </div>
               </div>
             </div>

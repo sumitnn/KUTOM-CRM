@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Order, OrderItem, OrderHistory, OrderPayment,OrderRequestItem,OrderRequest
+from .models import Order, OrderItem, OrderHistory, OrderPayment,OrderRequestItem,OrderRequest,CustomerPurchase
 from accounts.models import User, Address, Wallet, WalletTransaction,StockistAssignment
 from products.models import Product, ProductImage, ProductVariant, RoleBasedProduct, ProductVariantPrice,ProductFeatures
 from decimal import Decimal
@@ -621,3 +621,41 @@ class ResellerOrderRequestSerializer(serializers.ModelSerializer):
         representation['total_amount'] = sum(item.total_price for item in instance.items.all())
         return representation
 
+
+
+class CustomerPurchaseSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    variant_name = serializers.CharField(source='variant.name', read_only=True)
+    state_name = serializers.CharField(source='state.name', read_only=True)
+    district_name = serializers.CharField(source='district.name', read_only=True)
+    
+    class Meta:
+        model = CustomerPurchase
+        fields = '__all__'
+        read_only_fields = ('id', 'total_price', 'vendor', 'created_at', 'updated_at')
+
+    def create(self, validated_data):
+      
+        # Set the vendor to the current user
+        validated_data['vendor'] = self.context['request'].user
+        return super().create(validated_data)
+    
+
+class CustomerPurchaseRoleBasedProductSerializer(serializers.ModelSerializer):
+    rolebaseproductid = serializers.UUIDField(source='id', read_only=True)
+    name = serializers.CharField(source='product.name', read_only=True)
+
+    class Meta:
+        model = RoleBasedProduct
+        fields = ['rolebaseproductid', 'name', 'is_featured', 'price']
+
+class CustomerPurchaseListSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.product.name', read_only=True)
+    variant_name = serializers.CharField(source='variant.name', read_only=True)
+    state_name = serializers.CharField(source='state.name', read_only=True)
+    district_name = serializers.CharField(source='district.name', read_only=True)
+    
+    class Meta:
+        model = CustomerPurchase
+        fields = ['id','address','full_name','email','phone','product_name', 'variant_name', 'quantity', 'price_per_unit', 'total_price', 'payment_method', 'purchase_date', 'state_name', 'district_name']
+        read_only_fields = ('id', 'total_price', 'vendor', 'created_at', 'updated_at')

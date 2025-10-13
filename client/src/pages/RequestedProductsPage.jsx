@@ -74,8 +74,12 @@ const RequestedProductsPage = ({ role }) => {
     
     return products.map((item) => {
       const product = item.product_detail || {};
-      const defaultVariant = product.variants?.[0] || {};
-      const variantPrice = defaultVariant.bulk_prices?.[0];
+      const defaultVariant = item?.variants_detail?.[0]?.product_variant_prices?.[0]|| {};
+     
+      const variantPrice = defaultVariant.price;
+      const discount = defaultVariant.discount;
+      const gsttax = defaultVariant.gst_percentage;
+      const totalprice = defaultVariant.actual_price;
       
       return {
         id: item.product || product.id,
@@ -86,14 +90,11 @@ const RequestedProductsPage = ({ role }) => {
         category: product.category_name,
         subcategory: product.subcategory_name,
         // Calculate quantity from variants if available
-        quantity: product.variants?.reduce((sum, variant) => {
-          return sum + (variant.quantity || 0);
-        }, 0) || 0,
-        // Get price from variant or product
-        rate: parseFloat(variantPrice?.price || product.price || 0),
-        // Calculate total price (quantity * rate)
-        price: parseFloat(variantPrice?.price || product.price || 0) * 
-               (product.variants?.reduce((sum, variant) => sum + (variant.quantity || 0), 0) || 1),
+        quantity:  0,
+        baseprice: parseFloat(variantPrice || product.price || 0),
+        actual_price: parseFloat(totalprice || product.price || 0) ,
+        gst: parseFloat(gsttax || product.price || 0) ,
+        discount: parseFloat(discount || product.price || 0) ,
         demandDate: product.updated_at || item.updated_at,
         status: product.status || item.status,
         isFeatured: item.is_featured || product.is_featured,
@@ -254,10 +255,11 @@ const RequestedProductsPage = ({ role }) => {
                   <th className="hidden md:table-cell">Brand</th>
                   <th className="hidden lg:table-cell">Category</th>
                   <th className="hidden lg:table-cell">Subcategory</th>
-                  <th>Qty</th>
-                  <th className="hidden sm:table-cell">Rate</th>
-                  <th className="hidden sm:table-cell">Price</th>
-                  <th className="hidden md:table-cell">Last Updated</th>
+                  <th>Discount</th>
+                  <th>GST(%)</th>
+                  <th className="hidden sm:table-cell">Base Price</th>
+                  <th className="hidden sm:table-cell">Price(Including discount and Gst)</th>
+                  
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -279,16 +281,11 @@ const RequestedProductsPage = ({ role }) => {
                       <td className="hidden md:table-cell">{item.brand || 'N/A'}</td>
                       <td className="hidden lg:table-cell">{item.category || 'N/A'}</td>
                       <td className="hidden lg:table-cell">{item.subcategory || 'N/A'}</td>
-                      <td>{item.quantity.toLocaleString()}</td>
-                      <td className="hidden sm:table-cell">₹{item.rate.toFixed(2)}</td>
-                      <td className="hidden sm:table-cell">₹{item.price.toFixed(2)}</td>
-                      <td className="hidden md:table-cell">
-                        {item.demandDate ? new Date(item.demandDate).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        }) : '-'}
-                      </td>
+                      <td>{item.discount}%</td>
+                      <td>{item.gst}%</td>
+                      <td className="hidden sm:table-cell">₹{item.baseprice}</td>
+                      <td className="hidden sm:table-cell">₹{item.actual_price}</td>
+                      
                       <td>
                         <div className="flex items-center gap-2">
                           <button
