@@ -5,15 +5,37 @@ import RedirectIfAuthenticatedRoute from "../routes/RedirectIfAuthenticatedRoute
 import ResetPassword from "../components/auths/ResetPassword";
 import ForgetPasswordForm from "../components/auths/ForgetPasswordForm";
 import PageNotFound from "../PageNotFound";
+import HomePage from "../components/common/HomePage";
+import BusinessPage from "../components/common/BusinessPage";
+import ContactUsPage from "../components/common/ContactUsPage";
 
 const commonRoutes = [
-  <Route
+  
+   <Route
     key="home"
     path="/"
     element={
-      <RedirectIfAuthenticatedRoute>
-        <CommonLayout><Login /></CommonLayout>
-      </RedirectIfAuthenticatedRoute>
+      <CommonLayout>
+        <HomePage />
+      </CommonLayout>
+    }
+  />,
+  <Route
+    key="business"
+    path="/business"
+    element={
+      <CommonLayout>
+        <BusinessPage />
+      </CommonLayout>
+    }
+  />,
+  <Route
+    key="contact-us"
+    path="/contact-us"
+    element={
+      <CommonLayout>
+        <ContactUsPage />
+      </CommonLayout>
     }
   />,
   <Route

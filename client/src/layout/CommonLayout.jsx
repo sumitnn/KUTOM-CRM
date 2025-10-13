@@ -1,4 +1,5 @@
 import { useState, useCallback, memo } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import logo from "../assets/icons/fev.png";
 import { 
   MdEmail, 
@@ -6,7 +7,13 @@ import {
   MdClose, 
   MdPerson, 
   MdWork, 
-  MdArrowDropDown 
+  MdArrowDropDown,
+  MdHome,
+  MdBusiness,
+  MdContactMail,
+  MdLogin,
+  MdMenu,
+  MdClose as MdCloseIcon
 } from "react-icons/md";
 import { FaSpinner } from "react-icons/fa";
 import axios from "axios";
@@ -75,10 +82,30 @@ const ModalWrapper = memo(({ children, onClose }) => (
   </div>
 ));
 
+// Mobile Nav Item Component
+const MobileNavItem = memo(({ to, icon: Icon, label, isActive, onClick }) => (
+  <Link
+    to={to}
+    onClick={onClick}
+    className={`flex flex-col items-center justify-center w-full py-3 transition-all duration-200 ${
+      isActive
+        ? "text-indigo-600 bg-indigo-50 border-r-2 border-indigo-600"
+        : "text-gray-600 hover:text-indigo-500 hover:bg-gray-50"
+    }`}
+  >
+    <Icon className="text-xl mb-1" />
+    <span className="text-sm font-semibold">{label}</span>
+  </Link>
+));
+
 const CommonLayout = ({ children }) => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  
   // State management
   const [showModal, setShowModal] = useState(false);
   const [showApplyModal, setShowApplyModal] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [formData, setFormData] = useState({
     role: "",
     full_name: "",
@@ -88,6 +115,30 @@ const CommonLayout = ({ children }) => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
+
+  // Navigation items
+  const navItems = [
+    { 
+      path: "/", 
+      label: "Home", 
+      icon: MdHome 
+    },
+    { 
+      path: "/business", 
+      label: "Business", 
+      icon: MdBusiness 
+    },
+    { 
+      path: "/contact-us", 
+      label: "Contact Us", 
+      icon: MdContactMail 
+    },
+    { 
+      path: "/login", 
+      label: "Login", 
+      icon: MdLogin 
+    },
+  ];
 
   // Constants
   const ADMIN_DETAILS = {
@@ -101,6 +152,14 @@ const CommonLayout = ({ children }) => {
     { value: "stockist", label: "Stockist" },
     { value: "reseller", label: "Reseller" },
   ];
+
+  // Check if path is active
+  const isActivePath = useCallback((path) => {
+    if (path === "/") {
+      return location.pathname === "/";
+    }
+    return location.pathname.startsWith(path);
+  }, [location.pathname]);
 
   // Handlers
   const handleNameChange = useCallback((e) => {
@@ -138,6 +197,16 @@ const CommonLayout = ({ children }) => {
       setErrors(prev => ({ ...prev, [name]: "" }));
     }
   }, [errors]);
+
+  // Navigation handlers
+  const handleMobileNavClick = useCallback((path) => {
+    setShowMobileMenu(false);
+    navigate(path);
+  }, [navigate]);
+
+  const handleLoginClick = useCallback(() => {
+    navigate('/login');
+  }, [navigate]);
 
   // Validation
   const validateForm = useCallback(() => {
@@ -240,41 +309,157 @@ const CommonLayout = ({ children }) => {
   return (
     <>
       {/* Header */}
-      <header className="w-full fixed top-0 h-16 bg-white flex items-center justify-between px-4 sm:px-6 lg:px-8 xl:px-20 border-b border-gray-200 shadow-sm z-50">
-        {/* Logo and Slogan */}
-        <div className="flex items-center gap-2 sm:gap-4">
-          <img 
-            src={logo} 
-            alt="Logo" 
-            className="w-8 h-8 sm:w-10 sm:h-10" 
-          />
-          <div className="flex flex-col leading-tight">
-            <span className="font-extrabold text-lg sm:text-xl text-gray-800">StockTN</span>
-            <span className="text-xs text-gray-500 font-bold hidden sm:block">
-              Simplifying Stock Management, Empowering Businesses
-            </span>
+      <header className="w-full fixed top-0 h-16 bg-white/95 backdrop-blur-md flex items-center justify-between px-4 sm:px-6 lg:px-8 xl:px-20 border-b border-gray-200 shadow-sm z-50">
+        {/* Logo and Navigation */}
+        <div className="flex items-center gap-8 sm:gap-12">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <img 
+              src={logo} 
+              alt="Logo" 
+              className="w-8 h-8 sm:w-10 sm:h-10" 
+            />
+            <div className="flex flex-col leading-tight">
+              <span className="font-extrabold text-lg sm:text-xl text-gray-800">StockTN</span>
+              <span className="text-xs text-gray-500 font-bold hidden sm:block">
+                Simplifying Stock Management
+              </span>
+            </div>
           </div>
+
+          {/* Desktop Navigation Menu */}
+          <nav className="hidden md:flex items-center gap-6">
+            {navItems.slice(0, 3).map((item) => ( // Only show Home, Business, Contact Us in desktop nav
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`font-semibold transition-all duration-200 px-3 py-2 rounded-lg ${
+                  isActivePath(item.path)
+                    ? "text-indigo-600 bg-indigo-50 border-b-2 border-indigo-600"
+                    : "text-gray-600 hover:text-indigo-500 hover:bg-gray-50"
+                }`}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
         </div>
 
-        {/* Buttons */}
-        <div className="flex gap-2">
+        {/* Desktop Buttons */}
+        <div className="hidden md:flex gap-2">
+          <button
+            onClick={handleLoginClick}
+            className="btn btn-sm lg:btn-md bg-gray-600 hover:bg-gray-700 text-white px-3 sm:px-4 transition-all duration-200 transform hover:-translate-y-0.5 hover:shadow-lg"
+          >
+            <MdLogin className="mr-2" />
+            Login
+          </button>
           <button
             onClick={() => setShowModal(true)}
-            className="btn btn-sm lg:btn-md bg-indigo-600 hover:bg-indigo-700 text-white px-3 sm:px-4"
+            className="btn btn-sm lg:btn-md bg-indigo-600 hover:bg-indigo-700 text-white px-3 sm:px-4 transition-all duration-200 transform hover:-translate-y-0.5 hover:shadow-lg"
           >
             Contact Admin
           </button>
           <button
             onClick={() => setShowApplyModal(true)}
-            className="btn btn-sm lg:btn-md bg-emerald-600 hover:bg-emerald-700 text-white px-3 sm:px-4"
+            className="btn btn-sm lg:btn-md bg-emerald-600 hover:bg-emerald-700 text-white px-3 sm:px-4 transition-all duration-200 transform hover:-translate-y-0.5 hover:shadow-lg"
           >
             Apply
           </button>
         </div>
+
+        {/* Mobile Menu Button */}
+        <div className="flex md:hidden gap-2">
+          <button
+            onClick={handleLoginClick}
+            className="btn btn-sm bg-gray-600 hover:bg-gray-700 text-white px-3 transition-all duration-200"
+          >
+            <MdLogin className="text-lg" />
+          </button>
+          <button
+            onClick={() => setShowMobileMenu(true)}
+            className="btn btn-sm bg-indigo-600 hover:bg-indigo-700 text-white px-3 transition-all duration-200"
+          >
+            <MdMenu className="text-lg" />
+          </button>
+        </div>
       </header>
 
+      {/* Mobile Navigation Menu */}
+      {showMobileMenu && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowMobileMenu(false)}
+          />
+          
+          {/* Side Menu */}
+          <div className="absolute right-0 top-0 h-full w-64 bg-white shadow-2xl transform animate-slide-in-right">
+            {/* Menu Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <img 
+                  src={logo} 
+                  alt="Logo" 
+                  className="w-8 h-8" 
+                />
+                <span className="font-extrabold text-gray-800">StockTN</span>
+              </div>
+              <button
+                onClick={() => setShowMobileMenu(false)}
+                className="p-2 text-gray-500 hover:text-red-600 transition-colors"
+              >
+                <MdCloseIcon className="text-2xl" />
+              </button>
+            </div>
+
+            {/* Navigation Links */}
+            <nav className="p-4">
+              <div className="space-y-2">
+                {navItems.map((item) => (
+                  <MobileNavItem
+                    key={item.path}
+                    to={item.path}
+                    icon={item.icon}
+                    label={item.label}
+                    isActive={isActivePath(item.path)}
+                    onClick={() => handleMobileNavClick(item.path)}
+                  />
+                ))}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-8 space-y-3">
+                <button
+                  onClick={() => {
+                    setShowMobileMenu(false);
+                    setShowModal(true);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 btn btn-md bg-indigo-600 hover:bg-indigo-700 text-white transition-all duration-200"
+                >
+                  <MdPhone className="text-lg" />
+                  Contact Admin
+                </button>
+                <button
+                  onClick={() => {
+                    setShowMobileMenu(false);
+                    setShowApplyModal(true);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 btn btn-md bg-emerald-600 hover:bg-emerald-700 text-white transition-all duration-200"
+                >
+                  <MdWork className="text-lg" />
+                  Apply Now
+                </button>
+              </div>
+            </nav>
+          </div>
+        </div>
+      )}
+
       {/* Page Content */}
-      <div className="pt-16">{children}</div>
+      <div className="pt-16 min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+        {children}
+      </div>
 
       {/* Contact Modal */}
       {showModal && (
@@ -284,23 +469,23 @@ const CommonLayout = ({ children }) => {
           </h2>
 
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
               <MdEmail className="text-xl text-indigo-500" />
               <a
                 href={`mailto:${ADMIN_DETAILS.email}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-indigo-700 hover:underline break-all"
+                className="text-indigo-700 hover:underline break-all font-medium"
               >
                 {ADMIN_DETAILS.email}
               </a>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
               <MdPhone className="text-xl text-indigo-600" />
               <a
                 href={`tel:${ADMIN_DETAILS.phone.replace(/\D/g, '')}`}
-                className="text-indigo-700 hover:underline"
+                className="text-indigo-700 hover:underline font-medium"
               >
                 {ADMIN_DETAILS.phone}
               </a>
@@ -310,7 +495,7 @@ const CommonLayout = ({ children }) => {
           <div className="mt-8 flex justify-center">
             <button
               onClick={() => setShowModal(false)}
-              className="btn btn-sm bg-gray-100 hover:bg-gray-200 text-gray-800 px-6"
+              className="btn btn-sm bg-gray-100 hover:bg-gray-200 text-gray-800 px-6 transition-all duration-200"
             >
               Close
             </button>
@@ -327,10 +512,15 @@ const CommonLayout = ({ children }) => {
 
           {submitMessage && !Object.keys(errors).length > 0 ? (
             <div className="text-center py-4">
-              <p className="text-green-600 mb-4">{submitMessage}</p>
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+              <p className="text-green-600 mb-4 font-medium">{submitMessage}</p>
               <button
                 onClick={closeApplyModal}
-                className="btn btn-sm bg-indigo-600 hover:bg-indigo-700 text-white px-6"
+                className="btn btn-sm bg-indigo-600 hover:bg-indigo-700 text-white px-6 mt-4"
               >
                 Close
               </button>
@@ -340,7 +530,7 @@ const CommonLayout = ({ children }) => {
               {/* Show general error message if exists */}
               {submitMessage && (
                 <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                  <p className="text-red-600 text-sm text-center">{submitMessage}</p>
+                  <p className="text-red-600 text-sm text-center font-medium">{submitMessage}</p>
                 </div>
               )}
 
@@ -358,7 +548,7 @@ const CommonLayout = ({ children }) => {
                       errors.role
                         ? "border-red-300 focus:ring-red-500 focus:border-red-500"
                         : "border-gray-300 focus:ring-indigo-500 focus:border-indigo-500"
-                    } rounded-md shadow-sm appearance-none cursor-pointer`}
+                    } rounded-md shadow-sm appearance-none cursor-pointer bg-white`}
                   >
                     {ROLES.map((option) => (
                       <option 
@@ -418,7 +608,7 @@ const CommonLayout = ({ children }) => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full flex justify-center items-center btn btn-md bg-indigo-600 hover:bg-indigo-700 text-white px-6 disabled:opacity-70"
+                  className="w-full flex justify-center items-center btn btn-md bg-indigo-600 hover:bg-indigo-700 text-white px-6 disabled:opacity-70 transition-all duration-200 transform hover:-translate-y-0.5 hover:shadow-lg"
                 >
                   {isSubmitting ? (
                     <>
