@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useFetchMyResellerQuery } from '../../features/reseller/resellerApi';
 import { useGetStatesQuery, useGetDistrictsQuery } from '../../features/location/locationApi';
-import Spinner from '../../components/common/Spinner';
+import Spinner from  '@/components/common/Spinner';
 
 const StockistReseller = () => {
   const [filters, setFilters] = useState({
