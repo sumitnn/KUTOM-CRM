@@ -7,14 +7,26 @@ export const dashboardApi = createApi({
     baseQuery: axiosBaseQuery({ baseUrl: import.meta.env.VITE_BACKEND_API_URL }),
     endpoints: (builder) => ({
         getDashboardData: builder.query({
-            query: (days = 1) => ({
-                url: '/dashboard-summary/',
+            query: (period = 'today') => ({
+                url: '/dashboard-summary/', // Your API endpoint
                 method: 'GET',
-                params: { days }
+                params: { period }
             }),
-            providesTags: ['Dashboard']
+            providesTags: ['Dashboard'],
         }),
+        getADMINDashboardData: builder.query({
+            query: (period = 'today') => ({
+                url: '/admin-dashboard-summary/', // Your API endpoint
+                method: 'GET',
+                params: { period }
+            }),
+            providesTags: ['Dashboard'],
+        })
     }),
 });
 
-export const { useGetDashboardDataQuery } = dashboardApi;
+export const {
+    useGetDashboardDataQuery,
+    useGetADMINDashboardDataQuery
+
+ } = dashboardApi;

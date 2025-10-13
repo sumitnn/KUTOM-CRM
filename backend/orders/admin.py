@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Order, OrderItem, OrderHistory, OrderPayment,OrderRequest,OrderRequestItem
+from .models import Order, OrderItem, OrderHistory, OrderPayment,OrderRequest,OrderRequestItem,CustomerPurchase
 
 
 class OrderItemInline(admin.TabularInline):
@@ -96,3 +96,68 @@ class OrderRequestItemAdmin(admin.ModelAdmin):
     list_display = ('order_request', 'product', 'quantity', 'unit_price', 'total_price','variant','gst_percentage','discount_percentage')
     list_filter = ('product',)
     search_fields = ( 'order_request__request_id',)
+
+@admin.register(CustomerPurchase)
+class CustomerPurchaseAdmin(admin.ModelAdmin):
+    list_display = (
+        'full_name', 
+        'vendor',
+        'product', 
+        'variant',
+        'quantity', 
+        'price_per_unit',
+        'total_price',
+        'payment_method',
+        'purchase_date',
+        'created_at',
+    )
+
+    list_filter = (
+        'payment_method', 
+        'state', 
+        'district', 
+        'purchase_date', 
+        'vendor',
+    )
+
+    search_fields = (
+        'full_name', 
+        'email', 
+        'phone', 
+        'transaction_id', 
+        'product__name', 
+        'vendor__email',
+    )
+
+    readonly_fields = (
+        'total_price', 
+        'purchase_date', 
+        'created_at', 
+        'updated_at',
+    )
+
+    fieldsets = (
+        ("Vendor Info", {
+            'fields': ('vendor',)
+        }),
+        ("Customer Details", {
+            'fields': (
+                'full_name', 'email', 'phone',
+                'address', 'city', 'state', 'district',
+                'postal_code', 'country',
+            )
+        }),
+        ("Purchase Details", {
+            'fields': (
+                'product', 'variant', 'quantity',
+                'price_per_unit', 'total_price',
+                'payment_method', 'transaction_id',
+                'purchase_date', 'notes',
+            )
+        }),
+        ("Timestamps", {
+            'fields': ('created_at', 'updated_at'),
+        }),
+    )
+
+    ordering = ('-purchase_date',)

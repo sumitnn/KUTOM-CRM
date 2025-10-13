@@ -14,12 +14,17 @@ import { SiBrandfolder } from "react-icons/si";
 import { TbCategoryPlus, TbCategoryMinus } from "react-icons/tb";
 import { FaCodePullRequest } from "react-icons/fa6";
 import { TfiAnnouncement } from "react-icons/tfi";
+import { FaBoxArchive } from "react-icons/fa6";
+import { PiHandWithdrawFill } from "react-icons/pi";
+import { VscGitPullRequestGoToChanges } from "react-icons/vsc";
+import ModalPortal from "./ModalPortal";
 
 const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobile = false }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [openMenus, setOpenMenus] = useState({});
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [hoveredMenu, setHoveredMenu] = useState(null);
 
   const toggleMenu = (label) => {
     setOpenMenus((prev) => ({ ...prev, [label]: !prev[label] }));
@@ -47,6 +52,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
   useEffect(() => {
     if (!expanded) {
       setOpenMenus({});
+      setHoveredMenu(null);
     }
   }, [expanded]);
 
@@ -144,7 +150,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
         ],
       },
       {
-        icon: <FaCodePullRequest />,
+        icon: <VscGitPullRequestGoToChanges />,
         label: "Topup Management",
         children: [
           { label: "Create Topup Requests", path: "/stockist/topup-request" },
@@ -152,7 +158,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
         ],
       },
       {
-        icon: <FaCodePullRequest />,
+        icon: <PiHandWithdrawFill />,
         label: "Withdrawl Management",
         children: [
           { label: "Withdrawal Request", path: "/stockist/withdrawl-request" },
@@ -166,7 +172,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
       { icon: <MdSpaceDashboard />, label: "Dashboard", path: "/reseller/dashboard" },
       { icon: <RxDashboard />, label: "Product (Market)", path: "/reseller/products" },
       {
-        icon: <FaCodePullRequest />,
+        icon: <FaBoxArchive />,
         label: "Order Management",
         children: [
           { label: "Order Request", path: "/reseller/my-order-request" },
@@ -174,15 +180,23 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
         ],
       },
       {
-        icon: <FaCodePullRequest />,
-        label: "Topup Requests",
+        icon: <FaBoxArchive />,
+        label: "Customer Management",
         children: [
-          { label: "Create Topup Requests", path: "/reseller/topup-request" },
-          { label: "Topup Request History", path: "/reseller/my-topup" },
+          { label: "Create New Customer", path: "/reseller/customer-purchases/create" },
+          { label: "My Customer List", path: "/reseller/customer-purchases" },
         ],
       },
       {
-        icon: <FaCodePullRequest />,
+        icon: <VscGitPullRequestGoToChanges />,
+        label: "Topup Requests",
+        children: [
+          { label: "Create Topup Requests", path: "/reseller/topup-request" },
+          { label: "Topup Request History", path: "/reseller/my-topup-request" },
+        ],
+      },
+      {
+        icon: <PiHandWithdrawFill />,
         label: "Withdrawl Requests",
         children: [
           { label: "Withdrawal Request", path: "/reseller/withdrawl-request" },
@@ -197,13 +211,8 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
         ],
       },
       { icon: <CiWallet />, label: "My Wallet", path: "/reseller/my-wallet" },
-      {
-        icon: <MdProductionQuantityLimits />,
-        label: "My Cart",
-        children: [
-          { label: "Cart", path: "/reseller/my-cart" },
-        ],
-      },
+      { icon: <MdProductionQuantityLimits />, label: "My Cart", path: "/reseller/my-cart" },
+      
     ],
     vendor: [
       { icon: <MdSpaceDashboard />, label: "Dashboard", path: "/vendor/dashboard" },
@@ -238,15 +247,16 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
           { label: "Stock", path: "/vendor/my-stocks" },
         ],
       },
+   
       {
-        icon: <CiWallet />,
-        label: "Wallet",
+        icon: <PiHandWithdrawFill />,
+        label: "Withdrawal Requests",
         children: [
-          { label: "Balance & Transactions", path: "/vendor/my-wallet" },
           { label: "Withdrawal Request", path: "/vendor/withdrawl-request" },
           { label: "Withdrawal Request History", path: "/vendor/my-withdrawl-history" },
         ],
-      }
+      },
+      { icon: <CiWallet />, label: "My Wallet & Transactions", path: "/vendor/my-wallet" }
     ]
   };
 
@@ -264,7 +274,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
 
       {/* Sidebar */}
       <div
-        className={`bg-gradient-to-b h-screen from-slate-900 to-slate-800 shadow-2xl transition-all duration-300 flex flex-col ${
+        className={`bg-gradient-to-b from-slate-900 to-slate-800 shadow-2xl transition-all duration-300 flex flex-col h-screen ${
           isMobile 
             ? "fixed top-0 left-0 h-full w-80 z-40" 
             : expanded 
@@ -273,7 +283,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
         }`}
       >
         {/* Header with close button for mobile and toggle for desktop */}
-        <div className="flex justify-between items-center p-6 border-b border-slate-700">
+        <div className="flex justify-between items-center p-6 border-b border-slate-700 shrink-0">
           {expanded && (
             <div>
               <span className="text-xl font-bold text-white capitalize">{role} Portal</span>
@@ -302,7 +312,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
           </div>
         </div>
 
-        {/* Navigation */}
+        {/* Navigation - This will take remaining space and scroll if needed */}
         <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
           {itemsToRender.map((item, idx) => {
             const isActiveParent = item.path
@@ -310,9 +320,15 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
               : item.children?.some((child) => location.pathname === child.path);
             const hasChildren = Array.isArray(item.children);
             const isOpen = openMenus[item.label];
+            const isHovered = hoveredMenu === item.label;
 
             return (
-              <div key={idx} className="group">
+              <div 
+                key={idx} 
+                className="group relative"
+                onMouseEnter={() => !expanded && setHoveredMenu(item.label)}
+                onMouseLeave={() => !expanded && setHoveredMenu(null)}
+              >
                 {/* Parent Item */}
                 <div
                   className={`flex items-center justify-between gap-3 p-3 rounded-xl transition-all duration-200 cursor-pointer ${
@@ -350,25 +366,34 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
                   )}
                 </div>
 
-                {/* Children Items - Only show when expanded */}
-                {hasChildren && expanded && isOpen && (
-                  <div className="ml-8 mt-1 space-y-1 border-l-2 border-slate-600 pl-3 py-2">
+                {/* Children Items - Show when expanded OR when hovered on collapsed sidebar */}
+                {hasChildren && (expanded ? isOpen : isHovered) && (
+                  <div className={`
+                    ${expanded 
+                      ? "ml-8 mt-1 border-l-2 border-slate-600 pl-3 py-2" 
+                      : "absolute left-full top-0 ml-2 bg-slate-800 rounded-xl shadow-2xl border border-slate-700 py-2 min-w-48 z-50"
+                    } space-y-1
+                  `}>
                     {item.children.map((subItem, subIdx) => {
                       const isActiveChild = location.pathname === subItem.path;
                       return (
                         <div
                           key={subIdx}
                           onClick={() => handleNavigation(subItem.path)}
-                          className={`block p-2 pl-4 rounded-lg text-sm transition-all duration-200 cursor-pointer ${
+                          className={`block p-2 rounded-lg text-sm transition-all duration-200 cursor-pointer ${
+                            expanded ? "pl-4" : "px-4"
+                          } ${
                             isActiveChild
                               ? "bg-blue-500/20 text-blue-300 border-l-2 border-blue-400 font-medium"
                               : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
                           }`}
                         >
                           <span className="flex items-center gap-2">
-                            <div className={`w-1.5 h-1.5 rounded-full ${
-                              location.pathname === subItem.path ? 'bg-blue-400' : 'bg-slate-500'
-                            }`} />
+                            {expanded && (
+                              <div className={`w-1.5 h-1.5 rounded-full ${
+                                location.pathname === subItem.path ? 'bg-blue-400' : 'bg-slate-500'
+                              }`} />
+                            )}
                             {subItem.label}
                           </span>
                         </div>
@@ -376,13 +401,20 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
                     })}
                   </div>
                 )}
+
+                {/* Tooltip for collapsed sidebar */}
+                {!expanded && hasChildren && (
+                  <div className="absolute left-full top-0 ml-2 bg-slate-800 text-white px-3 py-2 rounded-lg shadow-lg text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-40 whitespace-nowrap">
+                    {item.label}
+                  </div>
+                )}
               </div>
             );
           })}
         </nav>
 
-        {/* Logout Button */}
-        <div className="p-4 border-t border-slate-700">
+        {/* Logout Button - Fixed at bottom */}
+        <div className="p-4 border-t border-slate-700 shrink-0">
           <button
             onClick={handleLogoutClick}
             className="flex items-center cursor-pointer gap-4 p-3 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-200 w-full group"
@@ -396,6 +428,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
 
       {/* Modern Logout Confirmation Modal */}
       {showLogoutConfirm && (
+        <ModalPortal>
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-slate-800 rounded-2xl p-6 max-w-sm w-full border border-slate-700 shadow-2xl">
             <div className="text-center mb-2">
@@ -420,7 +453,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
               </button>
             </div>
           </div>
-        </div>
+        </div></ModalPortal>
       )}
     </>
   );

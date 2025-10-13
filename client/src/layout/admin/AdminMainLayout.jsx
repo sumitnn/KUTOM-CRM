@@ -55,7 +55,7 @@ const AdminMainLayout = ({ children }) => {
         {/* Desktop Sidebar - Always visible on desktop with expand/collapse */}
         <div className="hidden lg:block">
           <Suspense fallback={
-            <div className="w-20 h-[calc(100vh-5.25rem)] bg-gradient-to-b from-slate-900 to-slate-800 animate-pulse"></div>
+            <div className="w-20 h-screen bg-gradient-to-b from-slate-900 to-slate-800 animate-pulse"></div>
           }>
             <Sidebar 
               expanded={expanded} 
@@ -103,7 +103,7 @@ const AdminMainLayout = ({ children }) => {
               )}
 
               {/* Main Content Area - Modern Glass Morphism Design */}
-              <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden w-full">
+              <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden w-full ">
                 {/* Content Header */}
                 <div className="bg-gradient-to-r from-white to-slate-50/80 border-b border-slate-200/60 px-4 md:px-6 py-4">
                   <div className="flex items-center justify-between">

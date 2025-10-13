@@ -20,6 +20,7 @@ const CommonProductDetailPage = ({ role }) => {
 
   // Extract product from the API response
   const product = productData?.results?.[0]?.product_detail;
+  const rolebasedproductid = productData?.results?.[0]?.id;
   const inventory = productData?.results?.[0]?.inventories?.[0];
   const commission = productData?.results?.[0]?.commission;
   const lastHistory = inventory?.last_history;
@@ -87,10 +88,11 @@ const CommonProductDetailPage = ({ role }) => {
       toast.info("Item already in cart.");
       return;
     }
-
+   
     dispatch(
       addItem({
         id: product.id,
+        rolebaseid:rolebasedproductid,
         name: product.name,
         price: selectedSize?.product_variant_prices?.[0]?.price || product.price,
         quantity,

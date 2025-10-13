@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { useGetTodayNotificationsQuery } from "../features/notification/notificationApi";
 import { useGetAnnouncementsQuery } from "../features/announcement/announcementApi";
 import Marquee from "react-fast-marquee";
+import ModalPortal from "./ModalPortal";
 
 
 const Navbar = ({ role }) => {
@@ -89,6 +90,7 @@ const Navbar = ({ role }) => {
       <nav className="bg-white/80 backdrop-blur-lg fixed top-0 left-0 right-0 z-50 border-b border-gray-200/60 shadow-sm">
         {/* Logout Confirmation Modal */}
         {showLogoutConfirm && (
+          <ModalPortal>
           <div className="fixed top-30 inset-0 bg-black/50 flex items-center justify-center z-500 backdrop-blur-sm">
             <div className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border border-gray-100">
               <div className="text-center">
@@ -115,7 +117,7 @@ const Navbar = ({ role }) => {
                 </button>
               </div>
             </div>
-          </div>
+          </div></ModalPortal>
         )}
 
         <div className="max-w-8xl mx-auto px-4 sm:px-6">

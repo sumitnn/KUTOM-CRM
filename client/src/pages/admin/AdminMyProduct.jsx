@@ -15,7 +15,7 @@ import {
 import { toast } from "react-toastify";
 
 import {
-    FiEdit,
+   
     FiEye,
     FiSearch,
     FiX,
@@ -27,7 +27,6 @@ import {
     FiArrowDown,
     FiChevronLeft,
     FiChevronRight,
-    FiBox,
     FiRefreshCw
 } from "react-icons/fi";
 import "react-toastify/dist/ReactToastify.css";
@@ -37,18 +36,18 @@ import ModalPortal from "../../components/ModalPortal";
 const CommissionModal = ({ product, isOpen, onClose, onSave }) => {
     const [commissionData, setCommissionData] = useState({
         commission_type: "percentage",
-        reseller_commission_value: "0.00",
-        stockist_commission_value: "0.00",
-        admin_commission_value: "0.00"
+        reseller_commission_value: "0",
+        stockist_commission_value: "0",
+        admin_commission_value: "0"
     });
-
+   
     React.useEffect(() => {
         if (product?.commission) {
             setCommissionData({
-                commission_type: product.commission.commission_type || "percentage",
-                reseller_commission_value: product.commission.reseller_commission_value || "0.00",
-                stockist_commission_value: product.commission.stockist_commission_value || "0.00",
-                admin_commission_value: product.commission.admin_commission_value || "0.00"
+                commission_type: product.commission.commission_type || "flat",
+                reseller_commission_value: product.commission.reseller_commission_value || "0",
+                stockist_commission_value: product.commission.stockist_commission_value || "0",
+                admin_commission_value: product.commission.admin_commission_value || "0"
             });
         }
     }, [product]);
@@ -85,7 +84,7 @@ const CommissionModal = ({ product, isOpen, onClose, onSave }) => {
             [field]: value
         }));
     };
-
+  
     return (
         <ModalPortal>
         <div className="modal modal-open">
@@ -102,19 +101,9 @@ const CommissionModal = ({ product, isOpen, onClose, onSave }) => {
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="form-control">
                         <label className="label">
-                            <span className="label-text">Commission Type</span>
+                            <span className="label-text font-extrabold">Product Price : {product?.product_detail?.variants?.[0]?.product_variant_prices?.[0].price} </span>
                         </label>
-                        <select
-                            className="select select-bordered cursor-pointer"
-                            value={commissionData.commission_type}
-                            onChange={(e) => setCommissionData({
-                                ...commissionData,
-                                commission_type: e.target.value
-                            })}
-                        >
-                            <option value="percentage">Percentage (%)</option>
-                            <option value="flat">Fixed Amount (₹)</option>
-                        </select>
+                        
                     </div>
 
                     <div className="space-y-3">
@@ -160,9 +149,8 @@ const CommissionModal = ({ product, isOpen, onClose, onSave }) => {
                             </label>
                             <input
                                 type="number"
-                                step={commissionData.commission_type === 'percentage' ? "0.01" : "1"}
+                                step="10"
                                 min="0"
-                                max={commissionData.commission_type === 'percentage' ? "100" : ""}
                                 className="input input-bordered cursor-pointer"
                                 value={commissionData.admin_commission_value}
                                 onChange={(e) => handleCommissionChange('admin_commission_value', e.target.value)}
@@ -612,6 +600,7 @@ const AdminMyProduct = () => {
 
     // Get admin price from variants
     const getAdminPrice = (product) => {
+        
         if (product.product_detail?.variants && product.product_detail.variants.length > 0) {
             const variant = product.product_detail.variants[0];
             const adminPrice = variant.product_variant_prices?.find(

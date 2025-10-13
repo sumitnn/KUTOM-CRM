@@ -29,15 +29,32 @@ const getApplicableBulkPrice = (variant, quantity) => {
 const calculateItemPrice = (item) => {
   const bulkPrice = getApplicableBulkPrice(item.variant, item.quantity);
   
+  // If bulk price is available, use it directly (all-inclusive price)
   if (bulkPrice) {
     return bulkPrice.price;
   }
   
-  // Return base price (first bulk price or variant price)
-  return item.variant?.bulk_prices?.[0]?.price || item.price || 0;
+  // Otherwise, calculate price from product_variant_prices with discount and GST
+  if (item.variant?.product_variant_prices?.[0]) {
+    const variantPrice = item.variant.product_variant_prices[0];
+    const basePrice = Number(variantPrice.price);
+    const discountAmount = basePrice * (variantPrice.discount / 100);
+    return (basePrice - discountAmount).toFixed(2);
+  }
+  
+  // Fallback to item price
+  return item.price || 0;
 };
 
 const calculateGSTForItem = (item) => {
+  const bulkPrice = getApplicableBulkPrice(item.variant, item.quantity);
+  
+  // If bulk price is applied, GST is already included - return 0
+  if (bulkPrice) {
+    return 0;
+  }
+  
+  // Otherwise, calculate GST from product_variant_prices
   const itemPrice = calculateItemPrice(item);
   const subtotal = Number(itemPrice) * (item.quantity || 1);
   
@@ -101,11 +118,22 @@ const MyCart = ({ role }) => {
   };
 
   const getBasePrice = (item) => {
-    return item.variant?.bulk_prices?.[0]?.price || item.price || 0;
+    // Get base price from product_variant_prices with discount applied
+    if (item.variant?.product_variant_prices?.[0]) {
+      const variantPrice = item.variant.product_variant_prices[0];
+      const basePrice = Number(variantPrice.price);
+      const discountAmount = basePrice * (variantPrice.discount / 100);
+      return (basePrice - discountAmount).toFixed(2);
+    }
+    return item.price || 0;
   };
 
   const getBulkPriceInfo = (item) => {
     return getApplicableBulkPrice(item.variant, item.quantity);
+  };
+
+  const hasBulkPricing = (item) => {
+    return getApplicableBulkPrice(item.variant, item.quantity) !== null;
   };
 
   const handleCheckout = async () => {
@@ -116,7 +144,7 @@ const MyCart = ({ role }) => {
           note: `Order request from ${user?.email} (${role})`,
           items: cartItems.map((item) => ({
             product: item.id,
-            rolebaseid:item.rolebaseid,
+            rolebaseid: item.rolebaseid,
             variant: item.variant?.id || item.size?.id,
             quantity: item.quantity,
             unit_price: calculateItemPrice(item),
@@ -277,6 +305,7 @@ const MyCart = ({ role }) => {
                     const basePrice = getBasePrice(item);
                     const bulkPriceInfo = getBulkPriceInfo(item);
                     const itemGST = calculateGSTForItem(item);
+                    const hasBulk = hasBulkPricing(item);
                     const { id, name, quantity, image, variant } = item;
                     
                     return (
@@ -312,11 +341,11 @@ const MyCart = ({ role }) => {
                               
                               {bulkPriceInfo && (
                                 <div className="mt-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded inline-block">
-                                  🎉 Bulk discount: {bulkPriceInfo.max_quantity}+ units
+                                  🎉 Bulk discount: {bulkPriceInfo.max_quantity}+ units (All-inclusive price)
                                 </div>
                               )}
                               
-                              {variant?.product_variant_prices?.[0] && (
+                              {!hasBulk && variant?.product_variant_prices?.[0] && (
                                 <div className="mt-1 text-xs text-blue-600">
                                   {variant.product_variant_prices[0].gst_tax ? 
                                     `GST: ₹${variant.product_variant_prices[0].gst_tax} per unit` : 
@@ -359,7 +388,9 @@ const MyCart = ({ role }) => {
                             </div>
 
                             <div className="text-right">
-                              <p className="text-sm text-gray-500 font-bold">Unit Price</p>
+                              <p className="text-sm text-gray-500 font-bold">
+                                {hasBulk ? "All-inclusive Price" : "Unit Price"}
+                              </p>
                               <p className="text-lg font-extrabold text-gray-900">
                                 ₹{Number(itemPrice).toFixed(2)}
                                 {bulkPriceInfo && Number(itemPrice) < Number(basePrice) && (
@@ -368,15 +399,30 @@ const MyCart = ({ role }) => {
                                   </span>
                                 )}
                               </p>
-                              <p className="text-sm text-gray-600">
-                                Subtotal: ₹{(Number(itemPrice) * quantity).toFixed(2)}
-                              </p>
-                              <p className="text-sm text-blue-600">
-                                GST: ₹{itemGST.toFixed(2)}
-                              </p>
+                              
+                              {!hasBulk && (
+                                <>
+                                  <p className="text-sm text-gray-600">
+                                    Subtotal: ₹{(Number(itemPrice) * quantity).toFixed(2)}
+                                  </p>
+                                  <p className="text-sm text-blue-600">
+                                    GST: ₹{itemGST.toFixed(2)}
+                                  </p>
+                                </>
+                              )}
+                              
                               <p className="text-lg font-bold text-indigo-600 mt-1">
-                                Total: ₹{((Number(itemPrice) * quantity) + itemGST).toFixed(2)}
+                                Total: ₹{
+                                  hasBulk 
+                                    ? (Number(itemPrice) * quantity).toFixed(2)
+                                    : ((Number(itemPrice) * quantity) + itemGST).toFixed(2)
+                                }
                               </p>
+                              {hasBulk && (
+                                <p className="text-xs text-green-600 mt-1">
+                                  ✓ Includes GST & Discount
+                                </p>
+                              )}
                             </div>
                           </div>
                         </div>

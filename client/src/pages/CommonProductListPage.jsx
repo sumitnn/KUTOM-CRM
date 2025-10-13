@@ -29,9 +29,7 @@ const getProductImage = (prod) => {
 };
 
 const getDefaultPrice = (product) => {
-  if (product.price) {
-    return product.price;
-  }
+ 
   
   if (product.product_detail?.variants?.length > 0) {
     const defaultVariant = product.product_detail.variants.find(v => v.is_default) || 

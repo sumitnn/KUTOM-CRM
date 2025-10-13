@@ -25,6 +25,7 @@ import { salesApi } from "../features/sales/salesApi";
 import { commissionsApi } from "../features/commission/commissionApi";
 import { adminProductApi } from "../features/adminProduct/adminProductApi";
 import { orderRequestApi } from "../features/order/orderRequest";
+import { customerPurchaseApi } from "../features/customerpurchase/customerPurchaseApi";
 
 
 
@@ -52,7 +53,8 @@ export const store = configureStore({
         [salesApi.reducerPath]: salesApi.reducer,
         [commissionsApi.reducerPath]: commissionsApi.reducer,
         [adminProductApi.reducerPath]: adminProductApi.reducer,
-        [orderRequestApi.reducerPath]:orderRequestApi.reducer,
+        [orderRequestApi.reducerPath]: orderRequestApi.reducer,
+        [customerPurchaseApi.reducerPath]:customerPurchaseApi.reducer,
         
     },
     middleware: (getDefaultMiddleware) =>
@@ -73,6 +75,7 @@ export const store = configureStore({
             salesApi.middleware,
             commissionsApi.middleware,
             adminProductApi.middleware,
-            orderRequestApi.middleware
+            orderRequestApi.middleware,
+            customerPurchaseApi.middleware
         ),
 });

@@ -2,9 +2,9 @@ import { lazy, Suspense } from "react";
 import { Route } from "react-router-dom";
 
 
-
-
 // Lazy-loaded components
+const CustomerPurchasesList = lazy(() => import("../../components/vendor/CustomerPurchasesList"));
+const CreateCustomerPurchase = lazy(() => import("../../components/vendor/CreateCustomerPurchase"));
 const CommonMyStockPage = lazy(() => import("../../pages/CommonMyStockPage"));
 const ResellerOrderRequestDetail = lazy(() => import("../../pages/ResellerOrderRequestDetail"));
 const ResellerOrderRequestPage = lazy(() => import("../../pages/ResellerOrderRequestPage"));
@@ -155,7 +155,7 @@ const ResellerRoutes = [
       }
     />
     <Route
-      path="/reseller/my-topup"
+      path="/reseller/my-topup-request"
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
@@ -172,6 +172,28 @@ const ResellerRoutes = [
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
             <UserWalletPage role="reseller" />
+          </Suspense>
+        </ResellerMainLayout>
+      }
+    />
+
+    {/* customer puchase  */}
+    <Route
+      path="/reseller/customer-purchases/create"
+      element={
+        <ResellerMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <CreateCustomerPurchase role="reseller"/>
+          </Suspense>
+        </ResellerMainLayout>
+      }
+    />
+    <Route
+      path="/reseller/customer-purchases"
+      element={
+        <ResellerMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <CustomerPurchasesList role="reseller"/>
           </Suspense>
         </ResellerMainLayout>
       }

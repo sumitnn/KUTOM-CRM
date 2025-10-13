@@ -20,7 +20,7 @@ from datetime import datetime
 from rest_framework.decorators import api_view
 from django.db.models import Sum, Q, Count
 from datetime import timedelta
-from orders.models import Order, OrderItem
+from orders.models import Order, OrderItem,CustomerPurchase
 from rest_framework.pagination import PageNumberPagination
 from products.models import *
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -899,87 +899,322 @@ class ADMINPaymentDetailsView(generics.RetrieveAPIView):
         profile, created = Profile.objects.get_or_create(user=admin_obj)
         return profile
 
-
-
+from django.db.models.functions import TruncDate
 class DashboardAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
-        days = int(request.query_params.get('days', 30))
-        
-        date_from = make_aware(datetime.now() - timedelta(days=days))
+        role = user.role
+        period = request.query_params.get('period', 'monthly').lower()
 
-        # Wallet info
-        wallet, created = Wallet.objects.get_or_create(user=user)
-   
-        
+        date_from, date_to = self.get_date_range(period)
+        wallet = Wallet.objects.filter(user=user).first()
+
+        # 💰 Wallet Data
         wallet_data = {
-            'balance': wallet.current_balance,
-            'payout_balance': wallet.payout_balance,
-            'commission_balance': wallet.payout_balance,
-            'total_sales': self.get_total_sales(user, date_from),
-            'total_withdrawals': self.get_total_withdrawals(user, date_from),
+            'current_balance': getattr(wallet, 'current_balance', Decimal('0.00')),
+            'commission_balance': getattr(wallet, 'payout_balance', Decimal('0.00')),
         }
 
-        # Product stats based on role
-        if user.role == "vendor":
-            product_stats = self.get_vendor_product_stats(user)
-        elif user.role == "reseller":
-            product_stats = self.get_reseller_product_stats(user)
-        elif user.role == "stockist":
-            product_stats = self.get_stockist_product_stats(user)
-        else:
-            product_stats = {}
-
-        # Order stats
-        order_stats = {
-            'total': Order.objects.filter(seller=user, created_at__gte=date_from).count(),
-            'pending': Order.objects.filter(seller=user, status='pending', created_at__gte=date_from).count(),
-            'delivered': Order.objects.filter(seller=user, status='delivered', created_at__gte=date_from).count(),
-            'cancelled': Order.objects.filter(seller=user, status='cancelled', created_at__gte=date_from).count(),
+        # 📊 Other Summary Data
+        other_data = {
+            'total_sales': self.get_total_sales(user, role, date_from, date_to),
+            'total_withdrawals': self.get_total_withdrawals(user, date_from, date_to),
+            'total_topup': self.get_total_topup(user, date_from, date_to),  
         }
+
+        # 📦 Product Stats
+        product_stats = self.get_product_stats(user, role)
+
+        # 🧾 Order Stats
+        order_stats = self.get_order_stats(user, role, date_from, date_to)
+
+        recent_data=WalletTransaction.objects.filter(wallet__user=user).order_by('-created_at')[:5]
+
+        
 
         return Response({
             'wallet': wallet_data,
-            'products': product_stats,
-            'orders': order_stats,
+            'product': product_stats,
+            'order': order_stats,
+            'other': other_data,
+            'sales_summary':self.get_sales_summary(user, role, date_from, date_to),
+            "recent":recent_data.values("description","created_at","amount","transaction_type","transaction_status") ,
+            'date_range': {
+                'start': date_from.date(),
+                'end': date_to.date(),
+                'period': period
+            }
         })
 
-    def get_total_sales(self, user, date_from):
-        return Order.objects.filter(
-            seller=user,
-            status='delivered',
-            created_at__gte=date_from
-        ).aggregate(total=Sum('total_price'))['total'] or Decimal('0.00')
+    # -----------------------------
+    # ⏰ Date Range Utility
+    # -----------------------------
+    def get_date_range(self, period):
+        now = make_aware(datetime.now())
 
-    def get_total_withdrawals(self, user, date_from):
+        if period == 'today':
+            start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        elif period == 'weekly':
+            start = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+        elif period == 'monthly':
+            start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        elif period == 'yearly':
+            start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        else:
+            start = now - timedelta(days=30)
+
+        return start, now
+
+    # -----------------------------
+    # 💵 Aggregations
+    # -----------------------------
+    def get_total_sales(self, user, role, date_from, date_to):
+        if role == "reseller":
+            model = CustomerPurchase
+            filter_kwargs = {'vendor': user, 'purchase_date__range': [date_from, date_to]}
+            total_field = 'total_price'
+        else:
+            model = Order
+            filter_kwargs = {'seller': user, 'status': 'delivered', 'created_at__range': [date_from, date_to]}
+            total_field = 'total_price'
+
+        return model.objects.filter(**filter_kwargs).aggregate(total=Sum(total_field))['total'] or Decimal('0.00')
+    
+    def get_sales_summary(self, user, role, date_from, date_to):
+        if role == "reseller":
+            model = CustomerPurchase
+            date_field = "purchase_date"
+            filter_kwargs = {'vendor': user, f'{date_field}__range': [date_from, date_to]}
+        else:
+            model = Order
+            date_field = "created_at"
+            filter_kwargs = {'seller': user, 'status': 'delivered', f'{date_field}__range': [date_from, date_to]}
+
+        # 🔹 Aggregate sales total grouped by day
+        queryset = (
+            model.objects.filter(**filter_kwargs)
+            .annotate(day=TruncDate(date_field))
+            .values('day')
+            .annotate(total=Sum('total_price'))
+            .order_by('day')
+        )
+
+        # 🔹 Extract lists for charting or summaries
+        days = [item['day'].strftime('%Y-%m-%d') for item in queryset]
+        amounts = [float(item['total'] or 0) for item in queryset]
+
+        return {
+            "days": days,
+            "amounts": amounts
+        }
+
+    def get_total_withdrawals(self, user, date_from, date_to):
         return WithdrawalRequest.objects.filter(
-            user=user,
-            status='approved',
-            created_at__gte=date_from
+            user=user, status='approved', created_at__range=[date_from, date_to]
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    
+    def get_total_topup(self, user, date_from, date_to):
+        return TopupRequest.objects.filter(
+            user=user, status='approved', created_at__range=[date_from, date_to]
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
-    def get_vendor_product_stats(self, user):
-        role_products = RoleBasedProduct.objects.filter(user=user, role='vendor')
+    # -----------------------------
+    # 🧾 Order Stats
+    # -----------------------------
+    def get_order_stats(self, user, role, date_from, date_to):
+        if role == "reseller":
+            total = CustomerPurchase.objects.filter(
+                vendor=user, purchase_date__range=[date_from, date_to]
+            ).count()
+            base_qs = Order.objects.filter(buyer=user, created_at__range=[date_from, date_to])
+            # Resellers don’t have statuses in CustomerPurchase
+            return {'total_orders': total, 
+                    'pending': base_qs.filter(status='pending').count(), 
+                    'dispatching': base_qs.filter(status='dispatched').count(),
+                    'delivered': base_qs.filter(status='delivered').count(),
+                    'approved': base_qs.filter(status='approved').count(),
+                    }
+
+        # Non-reseller roles (vendors, stockists)
+        base_qs = Order.objects.filter(seller=user, created_at__range=[date_from, date_to])
         return {
-            'total': role_products.count(),
-            'active': role_products.filter(is_featured=True).count(),
+            'total_orders': base_qs.count(),
+            'pending': base_qs.filter(status='pending').count(),
+            'dispatching': base_qs.filter(status='dispatched').count(),
+            'delivered': base_qs.filter(status='delivered').count(),
+            'approved': base_qs.filter(status='approved').count()
         }
 
-    def get_reseller_product_stats(self, user):
-        role_products = RoleBasedProduct.objects.filter(user=user, role='reseller')
+    # -----------------------------
+    # 📦 Product Stats
+    # -----------------------------
+    def get_product_stats(self, user, role):
+        qs = RoleBasedProduct.objects.filter(user=user, role=role)
         return {
-            'total': role_products.count(),
-            'active': role_products.filter(is_featured=True).count(),
+            'total_product': qs.count(),
+            'active_product': qs.filter(is_featured=True).count(),
+            'inactive_product': qs.filter(is_featured=False).count(),
+            'published': Product.objects.filter(owner=user,status="published").count(),
+            'draft': Product.objects.filter(owner=user,status="draft").count(),
         }
 
-    def get_stockist_product_stats(self, user):
-        role_products = RoleBasedProduct.objects.filter(user=user, role='stockist')
-        return {
-            'total': role_products.count(),
-            'active': role_products.filter(is_featured=True).count(),
+class ADMINDashboardAPIView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        user = request.user
+        role = user.role
+        period = request.query_params.get('period', 'monthly').lower()
+
+        date_from, date_to = self.get_date_range(period)
+        wallet = Wallet.objects.filter(user=user).first()
+
+        # 💰 Wallet Data
+        wallet_data = {
+            'current_balance': getattr(wallet, 'current_balance', Decimal('0.00')),
+            'commission_balance': getattr(wallet, 'payout_balance', Decimal('0.00')),
         }
+
+        # 📊 Other Summary Data
+        other_data = {
+            'total_sales': self.get_total_sales(user, role, date_from, date_to),
+            'total_withdrawals': self.get_total_withdrawals(user, date_from, date_to),
+            'total_topup': self.get_total_topup(user, date_from, date_to)
+        }
+
+        # 📦 Product Stats
+        product_stats = self.get_product_stats(user, role)
+
+        # 🧾 Order Stats
+        order_stats = self.get_order_stats(user, role, date_from, date_to)
+
+        recent_data=WalletTransaction.objects.filter(wallet__user=user).order_by('-created_at')[:5]
+
+        
+
+        return Response({
+            'wallet': wallet_data,
+            'product': product_stats,
+            'order': order_stats,
+            'other': other_data,
+            'sales_summary':self.get_sales_summary(user, role, date_from, date_to),
+            "recent":recent_data.values("description","created_at","amount","transaction_type","transaction_status") ,
+            'date_range': {
+                'start': date_from.date(),
+                'end': date_to.date(),
+                'period': period
+            }
+        })
+
+    # -----------------------------
+    # ⏰ Date Range Utility
+    # -----------------------------
+    def get_date_range(self, period):
+        now = make_aware(datetime.now())
+
+        if period == 'today':
+            start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        elif period == 'weekly':
+            start = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+        elif period == 'monthly':
+            start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        elif period == 'yearly':
+            start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        else:
+            start = now - timedelta(days=30)
+
+        return start, now
+
+    # -----------------------------
+    # 💵 Aggregations
+    # -----------------------------
+    def get_total_sales(self, user, role, date_from, date_to):
+        model = Order
+        filter_kwargs = {'seller': user, 'status': 'delivered', 'created_at__range': [date_from, date_to]}
+        total_field = 'total_price'
+        return model.objects.filter(**filter_kwargs).aggregate(total=Sum(total_field))['total'] or Decimal('0.00')
+    
+    def get_sales_summary(self, user, role, date_from, date_to):
+        if role == "reseller":
+            model = CustomerPurchase
+            date_field = "purchase_date"
+            filter_kwargs = {'vendor': user, f'{date_field}__range': [date_from, date_to]}
+        else:
+            model = Order
+            date_field = "created_at"
+            filter_kwargs = {'seller': user, 'status': 'delivered', f'{date_field}__range': [date_from, date_to]}
+
+        # 🔹 Aggregate sales total grouped by day
+        queryset = (
+            model.objects.filter(**filter_kwargs)
+            .annotate(day=TruncDate(date_field))
+            .values('day')
+            .annotate(total=Sum('total_price'))
+            .order_by('day')
+        )
+
+        # 🔹 Extract lists for charting or summaries
+        days = [item['day'].strftime('%Y-%m-%d') for item in queryset]
+        amounts = [float(item['total'] or 0) for item in queryset]
+
+        return {
+            "days": days,
+            "amounts": amounts
+        }
+
+    def get_total_withdrawals(self, user, date_from, date_to):
+        return WithdrawalRequest.objects.filter(
+            status='approved', created_at__range=[date_from, date_to]
+        ).count()
+    
+    def get_total_topup(self, user, date_from, date_to):
+        return TopupRequest.objects.filter(
+          status='approved', created_at__range=[date_from, date_to]
+        ).count()
+
+    # -----------------------------
+    # 🧾 Order Stats
+    # -----------------------------
+    def get_order_stats(self, user, role, date_from, date_to):
+        if role == "reseller":
+            total = CustomerPurchase.objects.filter(
+                vendor=user, purchase_date__range=[date_from, date_to]
+            ).count()
+            base_qs = Order.objects.filter(buyer=user, created_at__range=[date_from, date_to])
+            # Resellers don’t have statuses in CustomerPurchase
+            return {'total_orders': total, 
+                    'pending': base_qs.filter(status='pending').count(), 
+                    'dispatching': base_qs.filter(status='dispatched').count(),
+                    'delivered': base_qs.filter(status='delivered').count(),
+                    'approved': base_qs.filter(status='approved').count(),
+                    }
+
+        # Non-reseller roles (vendors, stockists)
+        base_qs = Order.objects.filter(seller=user, created_at__range=[date_from, date_to])
+        return {
+            'total_orders': base_qs.count(),
+            'pending': base_qs.filter(status='pending').count(),
+            'dispatching': base_qs.filter(status='dispatched').count(),
+            'delivered': base_qs.filter(status='delivered').count(),
+            'approved': base_qs.filter(status='approved').count()
+        }
+
+    # -----------------------------
+    # 📦 Product Stats
+    # -----------------------------
+    def get_product_stats(self, user, role):
+        qs = RoleBasedProduct.objects.filter(user=user, role=role)
+        return {
+            'total_product': qs.count(),
+            'active_product': qs.filter(is_featured=True).count(),
+            'inactive_product': qs.filter(is_featured=False).count(),
+            'published': Product.objects.filter(status="published").count(),
+            'draft': Product.objects.filter(status="draft").count(),
+        }
+
+
 
 
 class TodayNotificationListAPIView(APIView):

@@ -18,7 +18,7 @@ class OrderService:
         """
         if not items_data or not isinstance(items_data, list):
             raise ValidationError("Invalid or empty 'items' list.")
-
+        
         with transaction.atomic():
             # 🔹 Lock wallet for this user
             try:
@@ -64,15 +64,22 @@ class OrderService:
                 # 🔹 Check bulk pricing
                 bulk_price = ProductVariantBulkPrice.objects.filter(
                     variant=variant, max_quantity__lte=quantity
-                ).first()
+                ).order_by('-max_quantity').first()  # Get the highest applicable bulk price
+                
                 if bulk_price:
+                    # 🔹 BULK PRICING: Use bulk price directly (all-inclusive)
                     unit_price = bulk_price.price
-
-                # 🔹 Calculate totals
-                discount_amount_per_unit = (unit_price * discount_percentage) / 100
-                discounted_price = unit_price - discount_amount_per_unit
-                gst_amount_per_unit = (discounted_price * gst_percentage) / 100
-                final_price_per_unit = discounted_price + gst_amount_per_unit
+                    discount_percentage = 0  # No additional discount for bulk pricing
+                    gst_percentage = 0  # No additional GST for bulk pricing
+                    discount_amount_per_unit = Decimal('0.00')
+                    gst_amount_per_unit = Decimal('0.00')
+                    final_price_per_unit = unit_price  # Bulk price is final price
+                else:
+                    # 🔹 REGULAR PRICING: Calculate discount and GST
+                    discount_amount_per_unit = (unit_price * discount_percentage) / 100
+                    discounted_price = unit_price - discount_amount_per_unit
+                    gst_amount_per_unit = (discounted_price * gst_percentage) / 100
+                    final_price_per_unit = discounted_price + gst_amount_per_unit
 
                 line_total = final_price_per_unit * quantity
                 total_price += line_total
@@ -86,7 +93,8 @@ class OrderService:
                     "discount_amount": discount_amount_per_unit * quantity,
                     "gst_percentage": gst_percentage,
                     "gst_amount": gst_amount_per_unit * quantity,
-                    "line_total": line_total
+                    "line_total": line_total,
+                    "bulk_price_applied": bulk_price is not None  # Track if bulk pricing was applied
                 })
 
             # 🔹 Final wallet balance check
@@ -153,7 +161,8 @@ class OrderService:
                     gst_percentage=item["gst_percentage"],
                     role_based_product=RoleBasedProduct.objects.filter(
                         product=item["product"], user=user, role=user.role
-                    ).first()
+                    ).first(),
+                    bulk_price_applied=item["bulk_price_applied"]  # Store if bulk pricing was applied
                 )
 
                 # Deduct stock (delegated to StockInventory logic)

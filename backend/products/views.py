@@ -820,7 +820,7 @@ class ProductPriceUpdateAPIView(APIView):
     def put(self, request, product_id, variant_id):
 
         try:
-            updated = ProductVariantPrice.objects.filter(id=variant_id).update(price=request.data.get('price'))
+            updated = ProductVariantPrice.objects.filter(id=variant_id).update(price=request.data.get('price'),actual_price=request.data.get('price'))
 
             if updated == 0:
                 return Response(

@@ -3,6 +3,7 @@ import { FiPackage, FiCheckCircle, FiX, FiRefreshCw } from "react-icons/fi";
 import { GrHistory } from "react-icons/gr";
 import { useGetAdminStocksQuery, useGetStockHistoryQuery } from "../features/stocks/stocksApi";
 import { toast } from "react-toastify";
+import ModalPortal from "../components/ModalPortal";
 
 // Lazy-loaded components
 const Spinner = lazy(() => import('../components/common/Spinner'));
@@ -164,6 +165,7 @@ const CommonMyStockPage = ({ role }) => {
     const stockInfo = selectedStock;
 
     return (
+      <ModalPortal>
       <div className="modal modal-open">
         <div className="modal-box max-w-6xl">
           <button 
@@ -301,7 +303,7 @@ const CommonMyStockPage = ({ role }) => {
             <button onClick={handleCloseModal} className="btn btn-ghost">Close</button>
           </div>
         </div>
-      </div>
+      </div></ModalPortal>
     );
   };
 
@@ -328,6 +330,13 @@ const CommonMyStockPage = ({ role }) => {
       {/* Tabs */}
       <div className="tabs tabs-boxed bg-gray-100 p-1 rounded-lg mb-6">
         <button
+          className={`tab ${activeTab === "new_stock" ? "tab-active bg-white shadow-sm" : ""}`}
+          onClick={() => handleTabChange("new_stock")}
+        >
+          <FiPackage className="mr-2" />
+          New Today
+        </button>
+        <button
           className={`tab ${activeTab === "in_stock" ? "tab-active bg-white shadow-sm" : ""}`}
           onClick={() => handleTabChange("in_stock")}
         >
@@ -341,13 +350,7 @@ const CommonMyStockPage = ({ role }) => {
           <FiX className="mr-2" />
           Out of Stock
         </button>
-        <button
-          className={`tab ${activeTab === "new_stock" ? "tab-active bg-white shadow-sm" : ""}`}
-          onClick={() => handleTabChange("new_stock")}
-        >
-          <FiPackage className="mr-2" />
-          New Today
-        </button>
+        
       </div>
 
       {/* Table */}
