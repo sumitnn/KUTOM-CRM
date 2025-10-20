@@ -260,7 +260,7 @@ const MyCart = ({ role }) => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 py-4 sm:py-8 px-3 sm:px-4 lg:px-8">
+    <div className="min-h-screen py-4 ">
       <div className="max-w-8xl mx-auto">
         {/* Header - Only show when cart has items */}
         {cartItems.length > 0 && (

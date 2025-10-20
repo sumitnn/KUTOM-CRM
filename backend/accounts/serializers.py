@@ -59,9 +59,9 @@ class WithdrawalRequestSerializer(serializers.ModelSerializer):
         model = WithdrawalRequest
         fields = [
             'id', 'amount', 'payment_method', 'status', 'payment_details', 
-            'wallet', 'created_at', 'screenshot', 'rejected_reason'
+            'wallet', 'created_at', 'screenshot', 'rejected_reason','transaction_id'
         ]
-        read_only_fields = ['id', 'status', 'created_at', 'wallet']
+        read_only_fields = ['id', 'status', 'created_at', 'wallet','transaction_id']
 
     def create(self, validated_data):
         user = self.context['request'].user
@@ -440,7 +440,7 @@ class AdminWithdrawalRequestSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user', 'amount', 'payment_method', 'payment_method_display', 'status',
             'payment_details', 'wallet', 'approved_by', 'created_at',
-            'updated_at', 'screenshot', 'rejected_reason'
+            'updated_at', 'screenshot', 'rejected_reason','transaction_id'
         ]
         read_only_fields = [
             'id', 'user', 'wallet', 'approved_by', 'created_at', 'updated_at'

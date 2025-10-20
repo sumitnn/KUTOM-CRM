@@ -105,8 +105,8 @@ const StockistReseller = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-4 sm:py-6">
-      <div className="max-w-8xl mx-auto px-3 sm:px-4 lg:px-6">
+    <div className="min-h-screen  ">
+      <div className="max-w-8xl mx-auto py-4">
         {/* Header - Responsive */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
           <div className="text-center sm:text-left">

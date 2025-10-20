@@ -289,7 +289,7 @@ const SalesPage = ({ role }) => {
   ) || [];
 
   return (
-    <div className="px-2 py-4 md:px-6 md:py-6 max-w-8xl mx-auto">
+    <div className="py-4  max-w-8xl mx-auto">
       {/* Header Section */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
         <div className="flex-1">

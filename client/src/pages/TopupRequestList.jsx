@@ -94,7 +94,7 @@ const TopupRequestsList = ({ role }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-4 sm:py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 py-4 ">
       <div className="max-w-8xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <div>

@@ -162,7 +162,7 @@ const CommonProductListPage = ({ role }) => {
   const featuredProducts = products.filter(prod => prod.is_featured).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10 px-4 py-6">
+    <div className="min-h-screen  py-4">
       <div className="max-w-8xl mx-auto">
         {/* Modern Header */}
         <div className="mb-8">

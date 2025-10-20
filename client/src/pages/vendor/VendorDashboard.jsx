@@ -285,7 +285,7 @@ const VendorDashboard = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center ">
         <div className="text-center bg-white rounded-3xl p-8 shadow-xl border border-gray-200 max-w-md w-full">
           <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <FiDollarSign className="text-3xl text-red-600" />
@@ -305,7 +305,7 @@ const VendorDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen ">
       {/* Enhanced Header */}
       <div className="bg-white/80 backdrop-blur-lg border-b border-gray-200/60 sticky top-0 z-40">
         <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -124,13 +124,13 @@ const CommonLayout = ({ children }) => {
       icon: MdHome 
     },
     { 
-      path: "/business", 
-      label: "Business", 
+      path: "/about-us", 
+      label: "About Us", 
       icon: MdBusiness 
     },
     { 
       path: "/contact-us", 
-      label: "Contact Us", 
+      label: "Contact", 
       icon: MdContactMail 
     },
     { 
