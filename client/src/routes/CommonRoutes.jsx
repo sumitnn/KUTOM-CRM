@@ -43,8 +43,8 @@ const commonRoutes = [
     }
   />,
   <Route
-    key="business"
-    path="/business"
+    key="aboutus"
+    path="/about-us"
     element={
       <RedirectIfAuthenticatedRoute>
       <CommonLayout>

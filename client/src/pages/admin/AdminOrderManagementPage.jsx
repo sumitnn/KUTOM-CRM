@@ -13,13 +13,14 @@ import {
   FiClipboard,
   FiInfo,
   FiCheckCircle,
-  FiChevronDown,
-  FiChevronUp,
   FiBox,
   FiTag,
   FiDollarSign,
   FiCalendar,
-  FiClock
+  FiClock,
+  FiMapPin,
+  FiPhone,
+  FiMail
 } from "react-icons/fi";
 import {
   useGetMyOrdersQuery,
@@ -42,7 +43,6 @@ const AdminOrderManagementPage = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [tabChanging, setTabChanging] = useState(false);
   const [processingOrders, setProcessingOrders] = useState(new Set());
-  const [expandedOrders, setExpandedOrders] = useState(new Set());
 
   // API call for orders
   const {
@@ -84,19 +84,6 @@ const AdminOrderManagementPage = () => {
     setTabChanging(true);
     setActiveTab(tabId);
     setCurrentPage(1);
-    setExpandedOrders(new Set());
-  };
-
-  const toggleOrderExpansion = (orderId) => {
-    setExpandedOrders(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(orderId)) {
-        newSet.delete(orderId);
-      } else {
-        newSet.add(orderId);
-      }
-      return newSet;
-    });
   };
 
   // Helper function to transform order data
@@ -177,7 +164,6 @@ const AdminOrderManagementPage = () => {
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
-    setExpandedOrders(new Set());
   };
 
   const formatDate = (dateString) => {
@@ -228,8 +214,8 @@ const AdminOrderManagementPage = () => {
     const IconComponent = config.icon;
 
     return (
-      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${config.color}`}>
-        <IconComponent className="w-3 h-3" />
+      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold border ${config.color}`}>
+        <IconComponent className="w-4 h-4" />
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
     );
@@ -241,10 +227,10 @@ const AdminOrderManagementPage = () => {
     switch (status) {
       case 'pending':
         return (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={() => handleStatusUpdate(order.id, 'cancelled')}
-              className="inline-flex items-center gap-2 px-3 py-2 cursor-pointer rounded-lg border border-red-500 text-red-600 hover:bg-red-50 hover:text-red-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              className="inline-flex items-center gap-2 px-4 py-2.5 cursor-pointer rounded-xl bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium border border-red-200"
               disabled={isProcessing}
             >
               {isProcessing ? (
@@ -252,41 +238,41 @@ const AdminOrderManagementPage = () => {
               ) : (
                 <FiX className="h-4 w-4" />
               )}
-              <span className="hidden sm:inline">{isProcessing ? 'Processing...' : 'Cancel'}</span>
+              <span>{isProcessing ? 'Processing...' : 'Cancel Order'}</span>
             </button>
           </div>
         );
       case 'accepted':
         return (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={() => openModal(order, 'details')}
-              className="inline-flex items-center gap-2 px-3 py-2 cursor-pointer rounded-lg border border-blue-500 text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              className="inline-flex items-center gap-2 px-4 py-2.5 cursor-pointer rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium border border-blue-200"
               disabled={isProcessing}
             >
               <FiInfo className="h-4 w-4" />
-              <span className="hidden sm:inline">Details</span>
+              <span>View Details</span>
             </button>
           </div>
         );
       case 'dispatched':
         return (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={() => openModal(order, 'details')}
-              className="inline-flex items-center gap-2 px-3 py-2 cursor-pointer rounded-lg border border-blue-500 text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              className="inline-flex items-center gap-2 px-4 py-2.5 cursor-pointer rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium border border-blue-200"
               disabled={isProcessing}
             >
               <FiInfo className="h-4 w-4" />
-              <span className="hidden sm:inline">Details</span>
+              <span>View Details</span>
             </button>
             <button
               onClick={() => openModal(order, 'confirm-received')}
-              className="inline-flex items-center gap-2 px-3 py-2 cursor-pointer rounded-lg border border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              className="inline-flex items-center gap-2 px-4 py-2.5 cursor-pointer rounded-xl bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium border border-green-200"
               disabled={isProcessing}
             >
               <FiCheckCircle className="h-4 w-4" />
-              <span className="hidden sm:inline">Received</span>
+              <span>Mark as Received</span>
             </button>
           </div>
         );
@@ -294,29 +280,29 @@ const AdminOrderManagementPage = () => {
         return (
           <button
             onClick={() => openModal(order, 'details')}
-            className="inline-flex items-center gap-2 px-3 py-2 cursor-pointer rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 hover:text-gray-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            className="inline-flex items-center gap-2 px-4 py-2.5 cursor-pointer rounded-xl bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium border border-gray-200"
             disabled={isProcessing}
           >
             <FiFileText className="h-4 w-4" />
-            <span className="hidden sm:inline">Details</span>
+            <span>Order Details</span>
           </button>
         );
       case 'rejected':
         return (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={() => openModal(order, 'details')}
-              className="inline-flex items-center gap-2 px-3 py-2 cursor-pointer rounded-lg border border-gray-500 text-gray-600 hover:bg-gray-50 hover:text-gray-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              className="inline-flex items-center gap-2 px-4 py-2.5 cursor-pointer rounded-xl bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium border border-gray-200"
               disabled={isProcessing}
             >
               <FiInfo className="h-4 w-4" />
-              <span className="hidden sm:inline">Details</span>
+              <span>View Details</span>
             </button>
           </div>
         );
       case 'cancelled':
         return (
-          <span className="text-gray-400 text-sm">No actions</span>
+          <span className="text-gray-400 text-sm font-medium px-4 py-2.5">No actions available</span>
         );
       default:
         return null;
@@ -324,21 +310,21 @@ const AdminOrderManagementPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-4 px-2 sm:px-4 lg:px-6">
+    <div className="min-h-screen py-4">
       <div className="max-w-8xl mx-auto">
         {/* Header */}
-        <div className="mb-8 px-2">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold  bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
                 Order Management
               </h1>
-              <p className="mt-2 text-sm text-gray-600 max-w-2xl">
+              <p className="mt-2 text-gray-600 max-w-2xl">
                 Manage and track orders across all statuses with real-time updates and streamlined workflows.
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:block text-sm text-gray-500 bg-white px-3 py-1.5 rounded-lg border border-gray-200">
+            <div className="flex items-center gap-4">
+              <div className="hidden sm:block text-sm text-gray-500 bg-white px-4 py-2.5 rounded-xl border border-gray-200 shadow-sm">
                 Total: <span className="font-semibold text-gray-900">{orderData.count} orders</span>
               </div>
               <button
@@ -347,14 +333,14 @@ const AdminOrderManagementPage = () => {
                 className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 rounded-xl shadow-sm text-sm font-semibold cursor-pointer text-gray-700 hover:bg-gray-50 hover:shadow-md transition-all duration-200 disabled:opacity-50"
               >
                 <FiRotateCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+                <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
               </button>
             </div>
           </div>
         </div>
 
         {/* Status Tabs */}
-        <div className="mb-6 px-2">
+        <div className="mb-8">
           <div className="sm:hidden">
             <select
               id="tabs"
@@ -372,8 +358,8 @@ const AdminOrderManagementPage = () => {
             </select>
           </div>
           <div className="hidden sm:block">
-            <div className="bg-white rounded-2xl p-1.5 shadow-sm border border-gray-200">
-              <div className="flex space-x-1 overflow-x-auto">
+            <div className="bg-white rounded-2xl p-2 shadow-sm border border-gray-200">
+              <div className="flex space-x-2 overflow-x-auto">
                 {[
                   { id: 'pending', label: 'Pending', icon: FiClock, count: orderData.count },
                   { id: 'accepted', label: 'Accepted', icon: FiCheck, count: 0 },
@@ -388,7 +374,7 @@ const AdminOrderManagementPage = () => {
                     <button
                       key={tab.id}
                       onClick={() => handleTabChange(tab.id)}
-                      className={`flex items-center gap-2 px-4 py-3 rounded-xl cursor-pointer font-semibold text-sm transition-all duration-200 min-w-0 flex-1 justify-center ${
+                      className={`flex items-center gap-3 px-6 py-3 rounded-xl cursor-pointer font-semibold text-sm transition-all duration-200 min-w-0 flex-1 justify-center ${
                         isActive 
                           ? 'bg-blue-500 text-white shadow-md' 
                           : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
@@ -401,7 +387,7 @@ const AdminOrderManagementPage = () => {
                         <IconComponent className="h-4 w-4 flex-shrink-0" />
                       )}
                       <span className="truncate">{tab.label}</span>
-                      <span className={`px-1.5 py-0.5 rounded-full text-xs ${
+                      <span className={`px-2 py-1 rounded-full text-xs ${
                         isActive ? 'bg-white text-blue-600' : 'bg-gray-200 text-gray-600'
                       }`}>
                         {isActive ? orderData.count : 0}
@@ -416,18 +402,18 @@ const AdminOrderManagementPage = () => {
 
         {/* Loading states */}
         {(isLoading || tabChanging) && (
-          <div className="flex flex-col items-center justify-center py-12 bg-white rounded-2xl shadow-sm border border-gray-200">
+          <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl shadow-sm border border-gray-200">
             <div className="loading loading-spinner loading-lg text-blue-500 mb-4"></div>
             <p className="text-gray-600">Loading orders...</p>
           </div>
         )}
 
-        {/* Orders List */}
+        {/* Orders Grid */}
         {!isLoading && !tabChanging && (
-          <div className="space-y-4">
+          <div className="grid gap-6">
             {orderData.results?.length === 0 ? (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
-                <div className="mx-auto w-24 h-24 text-gray-300 mb-4">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-16 text-center">
+                <div className="mx-auto w-24 h-24 text-gray-300 mb-6">
                   {activeTab === "pending" ? (
                     <FiShoppingCart className="w-full h-full" />
                   ) : activeTab === "accepted" ? (
@@ -442,7 +428,7 @@ const AdminOrderManagementPage = () => {
                     <FiClipboard className="w-full h-full" />
                   )}
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">
                   {activeTab === "pending" 
                     ? "No pending orders" 
                     : activeTab === "accepted" 
@@ -455,7 +441,7 @@ const AdminOrderManagementPage = () => {
                             ? "No rejected orders"
                             : "No cancelled orders"}
                 </h3>
-                <p className="text-gray-500 max-w-sm mx-auto">
+                <p className="text-gray-500 max-w-sm mx-auto text-lg">
                   {activeTab === "pending" 
                     ? "New orders will appear here once they are placed by customers."
                     : "No orders found in this category."}
@@ -463,149 +449,146 @@ const AdminOrderManagementPage = () => {
               </div>
             ) : (
               orderData.results.map((order) => {
-                const isExpanded = expandedOrders.has(order.id);
                 const isProcessing = processingOrders.has(order.id);
 
                 return (
                   <div key={order.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200">
                     {/* Order Header */}
-                    <div className="p-4 sm:p-6 border-b border-gray-100">
+                    <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
                       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-3">
-                            <h3 className="text-lg font-semibold text-gray-900 truncate">
+                        <div className="flex items-center gap-4">
+                          <div className="bg-blue-50 rounded-xl p-3">
+                            <FiBox className="h-6 w-6 text-blue-600" />
+                          </div>
+                          <div>
+                            <h3 className="text-xl font-bold text-gray-900">
                               Order #{order.id}
                             </h3>
-                            {getStatusBadge(order.status)}
-                          </div>
-                          
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-                            <div className="flex items-center gap-2 text-gray-600">
-                              <FiCalendar className="h-4 w-4 text-gray-400" />
-                              <span>{formatDate(order.date)}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-gray-600">
-                              <FiUser className="h-4 w-4 text-gray-400" />
-                              <span className="truncate">{order.seller.name}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-gray-600">
-                              <FiTag className="h-4 w-4 text-gray-400" />
-                              <span>ID: {order.seller.roleId}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-gray-600">
-                             
-                              <span className="font-semibold text-gray-900">{formatCurrency(order.totalAmount)}</span>
+                            <div className="flex items-center gap-3 mt-2">
+                              <div className="flex items-center gap-2 text-gray-600">
+                                <FiCalendar className="h-4 w-4 text-gray-400" />
+                                <span className="text-sm">{formatDate(order.date)}</span>
+                              </div>
+                              {getStatusBadge(order.status)}
                             </div>
                           </div>
                         </div>
-
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => toggleOrderExpansion(order.id)}
-                            className="flex items-center cursor-pointer gap-2 px-3 py-2 text-sm font-extrabold text-black hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors duration-200"
-                          >
-                            {isExpanded ? (
-                              <>
-                                <FiChevronUp className="h-4 w-4" />
-                                <span className="hidden sm:inline">Hide Items</span>
-                              </>
-                            ) : (
-                              <>
-                                <FiChevronDown className="h-4 w-4" />
-                                <span className="hidden sm:inline">Show Items ({order.items.length})</span>
-                              </>
-                            )}
-                          </button>
-                          {getStatusActions(order.status, order)}
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <div className="text-sm text-gray-500">Total Amount</div>
+                            <div className="text-2xl font-bold text-gray-900">{formatCurrency(order.totalAmount)}</div>
+                          </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Expanded Order Items */}
-                    {isExpanded && (
-                      <div className="border-t border-gray-100 bg-gray-50/50">
-                        <div className="p-4 sm:p-6">
-                          <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                            <FiBox className="h-4 w-4" />
+                    {/* Order Details */}
+                    <div className="p-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        {/* Seller Information */}
+                        <div className="space-y-4">
+                          <h4 className="text-sm font-semibold text-gray-900 uppercase tracking-wide flex items-center gap-2">
+                            <FiUser className="h-4 w-4" />
+                            Seller Information
+                          </h4>
+                          <div className="space-y-3">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">{order.seller.name}</div>
+                              <div className="text-sm text-gray-600 flex items-center gap-1 mt-1">
+                                <FiMail className="h-3 w-3" />
+                                {order.seller.email}
+                              </div>
+                              <div className="text-sm text-gray-600 flex items-center gap-1 mt-1">
+                                <FiPhone className="h-3 w-3" />
+                                {order.seller.phone}
+                              </div>
+                              <div className="text-sm text-gray-600 flex items-center gap-1 mt-1">
+                                <FiTag className="h-3 w-3" />
+                                ID: {order.seller.roleId}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Order Items */}
+                        <div className="lg:col-span-2">
+                          <h4 className="text-sm font-semibold text-gray-900 uppercase tracking-wide flex items-center gap-2 mb-4">
+                            <FiPackage className="h-4 w-4" />
                             Order Items ({order.items.length})
                           </h4>
-                          
-                          <div className="grid gap-3">
-                            {order.items.map((item, index) => (
-                              <div key={item.id} className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-shadow duration-200">
-                                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                                  {/* Product Details */}
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                                      <div className="flex-1 min-w-0">
-                                        <h5 className="font-semibold text-gray-900 truncate">
-                                          {item.productName}
-                                        </h5>
-                                        <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-gray-600">
-                                          <span className="flex items-center gap-1">
-                                            <FiTag className="h-3 w-3" />
-                                            ID: {item.productId}
-                                          </span>
-                                          <span>Size: {item.size}</span>
-                                          <span>Qty: {item.quantity}</span>
-                                        </div>
-                                      </div>
-                                      
-                                      {/* Pricing Details */}
-                                      <div className="flex flex-wrap gap-4 text-sm">
-                                        <div className="text-right">
-                                          <div className="text-gray-600">Price</div>
-                                          <div className="font-semibold text-gray-900">{formatCurrency(item.price)}</div>
-                                        </div>
-                                        <div className="text-right">
-                                          <div className="text-gray-600">GST</div>
-                                          <div className="font-semibold text-gray-900">{formatCurrency(item.gstAmount)}</div>
-                                        </div>
-                                        <div className="text-right">
-                                          <div className="text-gray-600">Discount</div>
-                                          <div className="font-semibold text-red-600">-{formatCurrency(item.discount)}</div>
-                                        </div>
-                                        <div className="text-right">
-                                          <div className="text-gray-600">Total</div>
-                                          <div className="font-semibold text-green-600">{formatCurrency(item.total)}</div>
-                                        </div>
-                                      </div>
-                                    </div>
+                          <div className="space-y-4">
+                            {order.items.map((item) => (
+                              <div key={item.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+                                <div className="flex-1 min-w-0">
+                                  <h5 className="font-semibold text-gray-900 truncate">
+                                    {item.productName}
+                                  </h5>
+                                  <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-gray-600">
+                                    <span>ID: {item.productId}</span>
+                                    <span>Size: {item.size}</span>
+                                    <span>Qty: {item.quantity}</span>
                                   </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-lg font-semibold text-gray-900">{formatCurrency(item.total)}</div>
+                                  <div className="text-sm text-gray-500">
+                                    {formatCurrency(item.price)} × {item.quantity}
+                                  </div>
+                                  {item.discount > 0 && (
+                                    <div className="text-sm text-red-600">
+                                      -{formatCurrency(item.discount)} discount
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             ))}
                           </div>
 
                           {/* Order Summary */}
-                          <div className="mt-6 pt-4 border-t border-gray-200">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                              <div className="text-sm text-gray-600">
-                                {order.items.length} item{order.items.length !== 1 ? 's' : ''} in this order
+                          <div className="mt-6 pt-6 border-t border-gray-200">
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                              <div>
+                                <div className="text-gray-600">Subtotal</div>
+                                <div className="font-semibold text-gray-900">{formatCurrency(order.subtotal)}</div>
                               </div>
-                              <div className="flex flex-wrap gap-6 text-sm">
-                                <div className="text-right">
-                                  <div className="text-gray-600">Subtotal</div>
-                                  <div className="font-semibold text-gray-900">{formatCurrency(order.subtotal)}</div>
-                                </div>
-                                <div className="text-right">
-                                  <div className="text-gray-600">Total GST</div>
-                                  <div className="font-semibold text-gray-900">{formatCurrency(order.gstAmount)}</div>
-                                </div>
-                                <div className="text-right">
-                                  <div className="text-gray-600">Total Discount</div>
-                                  <div className="font-semibold text-red-600">-{formatCurrency(order.discountAmount)}</div>
-                                </div>
-                                <div className="text-right">
-                                  <div className="text-gray-600 font-semibold">Order Total</div>
-                                  <div className="text-lg font-bold text-green-600">{formatCurrency(order.totalAmount)}</div>
-                                </div>
+                              <div>
+                                <div className="text-gray-600">Total GST</div>
+                                <div className="font-semibold text-gray-900">{formatCurrency(order.gstAmount)}</div>
+                              </div>
+                              <div>
+                                <div className="text-gray-600">Total Discount</div>
+                                <div className="font-semibold text-red-600">-{formatCurrency(order.discountAmount)}</div>
+                              </div>
+                              <div>
+                                <div className="text-gray-600 font-semibold">Order Total</div>
+                                <div className="text-lg font-bold text-green-600">{formatCurrency(order.totalAmount)}</div>
                               </div>
                             </div>
                           </div>
                         </div>
                       </div>
-                    )}
+                    </div>
+
+                    {/* Order Actions */}
+                    <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="flex items-center gap-4 text-sm text-gray-600">
+                          <div className="flex items-center gap-2">
+                            <FiPackage className="h-4 w-4" />
+                            <span>{order.items.length} item{order.items.length !== 1 ? 's' : ''}</span>
+                          </div>
+                          {order.courier_name && (
+                            <div className="flex items-center gap-2">
+                              <FiTruck className="h-4 w-4" />
+                              <span>{order.courier_name}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                          {getStatusActions(order.status, order)}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 );
               })
@@ -615,8 +598,8 @@ const AdminOrderManagementPage = () => {
 
         {/* Pagination */}
         {orderData.count > 0 && (
-          <div className="mt-6 px-2">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 px-4 py-4 sm:px-6">
+          <div className="mt-8">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 px-6 py-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="text-sm text-gray-600">
                   Showing <span className="font-semibold text-gray-900">{(currentPage - 1) * pageSize + 1}</span> to{' '}
@@ -629,17 +612,17 @@ const AdminOrderManagementPage = () => {
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1 || tabChanging}
-                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 hover:shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 hover:shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Previous
                   </button>
-                  <div className="px-3 py-2 text-sm text-gray-600 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="px-4 py-2.5 text-sm text-gray-600 bg-gray-50 rounded-xl border border-gray-200">
                     Page {currentPage}
                   </div>
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage * pageSize >= orderData.count || tabChanging}
-                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 hover:shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 hover:shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Next
                   </button>

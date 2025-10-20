@@ -1519,6 +1519,7 @@ class AdminWithdrawalRequestDetailAPIView(APIView):
         
         screenshot = request.FILES.get("screenshot")
         status_action = request.data.get("status")
+        transaction_id = request.data.get("transaction_id")
 
 
         if status_action not in ['approved', 'rejected','screenshot']:
@@ -1526,6 +1527,9 @@ class AdminWithdrawalRequestDetailAPIView(APIView):
         
         if screenshot and status_action == 'screenshot':
             withdrawal.screenshot = screenshot
+        
+        if transaction_id:
+            withdrawal.transaction_id = transaction_id
       
         if status_action == 'approved':
             # add amount to admin walllet

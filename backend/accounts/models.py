@@ -194,6 +194,7 @@ class WithdrawalRequest(models.Model):
     payment_details=models.JSONField(blank=True, null=True)
     screenshot = models.FileField(upload_to='withdrawal_screenshots/',null=True, blank=True)
     rejected_reason = models.TextField(blank=True, null=True)
+    transaction_id = models.CharField(max_length=100, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

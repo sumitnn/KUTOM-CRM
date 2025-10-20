@@ -113,7 +113,7 @@ const TabledProductListPage = ({ role }) => {
   const isLoadingData = isLoadingCategories || isLoadingProducts;
 
   return (
-    <div className="px-4 py-8 max-w-8xl mx-auto">
+    <div className="py-4 max-w-8xl mx-auto">
       {/* Header and Filters */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
         <div>

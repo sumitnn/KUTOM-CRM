@@ -104,34 +104,11 @@ const ResellerMainLayout = ({ children }) => {
 
               {/* Main Content Area - Modern Glass Morphism Design */}
               <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden w-full">
-                {/* Content Header */}
-                <div className="bg-gradient-to-r from-white to-slate-50/80 border-b border-slate-200/60 px-4 md:px-6 py-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center shadow-sm">
-                        <div className="w-2 h-2 bg-white rounded-full"></div>
-                      </div>
-                      <div>
-                        <h2 className="text-xl font-bold text-slate-800">
-                          Reseller Portal
-                        </h2>
-                        <p className="text-sm text-slate-600">
-                          Welcome back, {user?.username || 'Reseller'}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {/* Desktop Sidebar Status Indicator */}
-                    <div className="hidden lg:flex items-center gap-2 text-sm text-slate-500 bg-white/50 rounded-full px-3 py-1 border border-slate-200/60">
-                      <div className={`w-2 h-2 rounded-full ${expanded ? 'bg-green-500' : 'bg-emerald-500'}`}></div>
-                      {expanded ? "Expanded View" : "Compact View"}
-                    </div>
-                  </div>
-                </div>
+               
 
                 {/* Content Area - Fully Fluid */}
                 <div className="w-full">
-                  <div className="p-4 md:p-6 lg:p-8">
+                  <div className="p-4 md:p-6 lg:px-8">
                     {children}
                   </div>
                 </div>

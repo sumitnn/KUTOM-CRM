@@ -26,7 +26,6 @@ const WithdrawlRequestsList = ({ role }) => {
     refetch,
   } = useGetWithdrawlRequestQuery();
   const [modalImage, setModalImage] = useState(null);
-  const [expandedRequest, setExpandedRequest] = useState(null);
 
   const requests = responseData.results || [];
   const currentBalance = requests.length > 0 ? requests[0].wallet?.payout_balance || 0 : 0;
@@ -39,10 +38,6 @@ const WithdrawlRequestsList = ({ role }) => {
   const openInNewTab = (url) => {
     if (!url) return;
     window.open(url, '_blank', 'noopener,noreferrer');
-  };
-
-  const toggleExpand = (requestId) => {
-    setExpandedRequest(expandedRequest === requestId ? null : requestId);
   };
 
   if (isLoading) {
@@ -168,10 +163,10 @@ const WithdrawlRequestsList = ({ role }) => {
           </div>
         )}
 
-        {/* Requests List */}
-        <div className="space-y-4 sm:space-y-6">
+        {/* Requests Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {requests.length === 0 ? (
-            <div className="text-center py-16 sm:py-20 px-4 bg-white/80 backdrop-blur-sm rounded-3xl shadow-sm border border-gray-200/60 cursor-default">
+            <div className="col-span-full text-center py-16 sm:py-20 px-4 bg-white/80 backdrop-blur-sm rounded-3xl shadow-sm border border-gray-200/60 cursor-default">
               <div className="w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -208,173 +203,109 @@ const WithdrawlRequestsList = ({ role }) => {
             requests.map((request, index) => (
               <div 
                 key={request.id} 
-                className="group bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 overflow-hidden hover:shadow-lg transition-all duration-300 hover:border-gray-300 cursor-pointer"
-                onClick={() => toggleExpand(request.id)}
+                className="group bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 overflow-hidden hover:shadow-lg transition-all duration-300 hover:border-gray-300 cursor-pointer p-6"
               >
-                {/* Request Header - Always Visible */}
-                <div className="p-5 sm:p-6 border-b border-gray-100">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200 group-hover:from-blue-100 group-hover:to-blue-200 transition-colors">
-                        <span className="text-lg font-bold text-blue-600">#{index + 1}</span>
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
-                          <span className="text-2xl font-bold text-gray-900">₹{request.amount}</span>
-                          <span className={`px-4 py-2 rounded-full text-sm font-semibold border ${statusColors[request.status.toLowerCase()]} inline-flex items-center gap-2 w-fit`}>
-                            <span className="text-base">{statusIcons[request.status.toLowerCase()]}</span>
-                            {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                          </span>
-                        </div>
-                        
-                        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                          <span className="flex items-center gap-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            {format(new Date(request.created_at), "MMM d, yyyy")}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            {format(new Date(request.created_at), "h:mm a")}
-                          </span>
-                          <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium capitalize border border-gray-200">
-                            {request.payment_method}
-                          </span>
-                        </div>
-                      </div>
+                {/* Header */}
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200">
+                      <span className="text-lg font-bold text-blue-600">#{request.id}</span>
                     </div>
-                    
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleExpand(request.id);
-                        }}
-                        className="p-3 hover:bg-gray-100 rounded-xl transition-all duration-200 group/btn cursor-pointer"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className={`h-5 w-5 text-gray-500 group-hover/btn:text-gray-700 transition-all duration-200 ${
-                            expandedRequest === request.id ? 'rotate-180' : ''
-                          }`}
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                        >
-                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                        </svg>
-                      </button>
+                    <div>
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${statusColors[request.status.toLowerCase()]} inline-flex items-center gap-1`}>
+                        <span className="text-sm">{statusIcons[request.status.toLowerCase()]}</span>
+                        {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                      </span>
                     </div>
+                  </div>
+                  <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium capitalize border border-gray-200">
+                    {request.payment_method}
+                  </span>
+                </div>
+
+                {/* Amount */}
+                <div className="mb-4">
+                  <p className="text-3xl font-bold text-gray-900">₹{request.amount}</p>
+                  <div className="flex items-center gap-2 mt-1 text-sm text-gray-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    {format(new Date(request.created_at), "MMM d, yyyy 'at' h:mm a")}
                   </div>
                 </div>
 
-                {/* Expandable Details */}
-                {expandedRequest === request.id && (
-                  <div className="p-5 sm:p-6 bg-gradient-to-br from-gray-50/50 to-blue-50/30 border-t border-gray-100 cursor-default">
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 sm:gap-8">
-                      {/* Payment Details */}
-                      <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-3">
-                          <div className="p-2 bg-blue-100 rounded-lg">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
-                              <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
-                              <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                          Payment Details
-                        </h3>
-                        <div className="bg-white/60 backdrop-blur-sm rounded-xl p-5 border border-gray-200/80 shadow-sm">
-                          {request.payment_method === 'bank' ? (
-                            <div className="space-y-4">
-                              {[
-                                { label: "Bank Name", value: request.payment_details.bank_name },
-                                { label: "Account Number", value: request.payment_details.account_number },
-                                { label: "IFSC Code", value: request.payment_details.ifsc_code },
-                                { label: "Account Holder", value: request.payment_details.account_holder_name }
-                              ].map((item, idx) => (
-                                <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2 border-b border-gray-100 last:border-b-0">
-                                  <span className="text-sm font-medium text-gray-500">{item.label}</span>
-                                  <span className="text-sm font-semibold text-gray-900 text-right">{item.value}</span>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="space-y-4">
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2 border-b border-gray-100">
-                                <span className="text-sm font-medium text-gray-500">UPI ID</span>
-                                <span className="text-sm font-semibold text-gray-900 text-right">{request.payment_details.upi_id}</span>
-                              </div>
-                              {request.payment_details.bank_upi && (
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2">
-                                  <span className="text-sm font-medium text-gray-500">Bank UPI</span>
-                                  <span className="text-sm font-semibold text-gray-900 text-right">{request.payment_details.bank_upi}</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
+                {/* Payment Details */}
+                <div className="space-y-3 mb-4">
+                  <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                    Payment Details
+                  </h4>
+                  <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                    {request.payment_method === 'bank' ? (
+                      <>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Bank:</span>
+                          <span className="font-medium text-gray-900">{request.payment_details.bank_name}</span>
                         </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Account:</span>
+                          <span className="font-medium text-gray-900">{request.payment_details.account_number}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">IFSC:</span>
+                          <span className="font-medium text-gray-900">{request.payment_details.ifsc_code}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">UPI ID:</span>
+                        <span className="font-medium text-gray-900">{request.payment_details.upi_id}</span>
                       </div>
+                    )}
+                  </div>
+                </div>
 
-                      {/* Status & Additional Info */}
-                      <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-3">
-                          <div className="p-2 bg-green-100 rounded-lg">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                          Request Information
-                        </h3>
-                        <div className="bg-white/60 backdrop-blur-sm rounded-xl p-5 border border-gray-200/80 shadow-sm space-y-4">
-                          {/* Rejection Reason */}
-                          {request.status.toLowerCase() === 'rejected' && request.rejected_reason && (
-                            <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                              <div className="flex items-start gap-3">
-                                <div className="p-1 bg-red-100 rounded-lg flex-shrink-0">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                                  </svg>
-                                </div>
-                                <div>
-                                  <h4 className="text-sm font-semibold text-red-800 mb-1">Rejection Reason</h4>
-                                  <p className="text-sm text-red-700">{request.rejected_reason}</p>
-                                </div>
-                              </div>
-                            </div>
-                          )}
+                {/* Transaction ID */}
+                <div className="mb-4">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600 font-medium">Transaction ID:</span>
+                    <span className="font-mono text-gray-900 bg-gray-100 px-2 py-1 rounded border border-gray-200 text-xs">
+                      {request.transaction_id || "N/A"}
+                    </span>
+                  </div>
+                </div>
 
-                          {/* Screenshot */}
-                          {request.status.toLowerCase() === 'approved' && request.screenshot && (
-                            <div>
-                              <h4 className="text-sm font-semibold text-gray-700 mb-3">Payment Proof</h4>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openInNewTab(request.screenshot);
-                                }}
-                                className="inline-flex items-center gap-3 px-4 py-3 bg-blue-50 text-blue-700 rounded-xl border border-blue-200 hover:bg-blue-100 hover:shadow-md transition-all duration-200 text-sm font-medium cursor-pointer"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                </svg>
-                                View Payment Screenshot
-                              </button>
-                            </div>
-                          )}
-
-                          {/* Request ID */}
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-4 border-t border-gray-100">
-                            <span className="text-sm font-medium text-gray-500">Request ID</span>
-                            <span className="text-sm font-mono text-gray-900 bg-gray-100 px-3 py-1 rounded-lg border border-gray-200">
-                              {request.id}
-                            </span>
-                          </div>
-                        </div>
+                {/* Status Specific Content */}
+                {request.status.toLowerCase() === 'rejected' && request.rejected_reason && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                    <div className="flex items-start gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                      <div>
+                        <p className="text-xs font-semibold text-red-800 mb-1">Rejection Reason</p>
+                        <p className="text-xs text-red-700">{request.rejected_reason}</p>
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {request.status.toLowerCase() === 'approved' && request.screenshot && (
+                  <div className="flex justify-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openInNewTab(request.screenshot);
+                      }}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-xl border border-green-200 hover:bg-green-100 hover:shadow-md transition-all duration-200 text-sm font-medium cursor-pointer"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      View Proof
+                    </button>
                   </div>
                 )}
               </div>
@@ -406,6 +337,18 @@ const WithdrawlRequestsList = ({ role }) => {
                     className="max-w-full h-auto rounded-lg border border-gray-200 shadow-sm cursor-zoom-in"
                     onClick={() => openInNewTab(modalImage)}
                   />
+                </div>
+              )}
+              {/* Transaction ID in Modal */}
+              {modalImage && (
+                <div className="p-4 border-t border-gray-200 bg-gray-50">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-700">Transaction ID:</span>
+                    <span className="font-mono text-sm text-gray-900 bg-white px-3 py-1 rounded border border-gray-300">
+                      {requests.find(r => r.screenshot === modalImage)?.transaction_id || 
+                       "N/A"}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>

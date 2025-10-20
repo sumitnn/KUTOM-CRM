@@ -66,21 +66,21 @@ const CommonMyStockPage = ({ role }) => {
     return (
       <tr className="font-bold text-black">
         <th className="w-12">No.</th>
-        <th>{activeTab === "in_stock" ? "Created" : "Updated"} Date</th>
+        <th>Date</th>
         <th>Product Name</th>
         <th>Variant</th>
         <th>Brand</th>
         <th>Category</th>
         <th>Subcategory</th>
-        <th className="text-center">Available Qty</th>
-        <th className="text-center">Notes</th>
+        <th className="text-center">Available Quantity</th>
+       
         <th className="text-center">Actions</th>
       </tr>
     );
   };
 
   const renderTableRow = (item, index) => {
-    const dateField = activeTab === "in_stock" ? item.created_at : item.updated_at;
+    const dateField =  item.created_at ;
     
     return (
       <tr key={item.id} className="hover:bg-gray-50">
@@ -100,7 +100,7 @@ const CommonMyStockPage = ({ role }) => {
         <td>{item.category_name}</td>
         <td>{item.subcategory_name || 'N/A'}</td>
         <td className="text-center font-bold">{item.total_quantity}</td>
-        <td className="max-w-xs truncate text-sm">{item.notes || 'No notes'}</td>
+        
         <td className="text-center">
           <button 
             onClick={() => openHistoryModal(item)}
@@ -308,7 +308,7 @@ const CommonMyStockPage = ({ role }) => {
   };
 
   return (
-    <div className="px-4 py-8 max-w-8xl mx-auto">
+    <div className=" py-4 max-w-8xl mx-auto">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>

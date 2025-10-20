@@ -143,7 +143,7 @@ const CommonProductDetailPage = ({ role }) => {
   const stockStatus = getStockStatus();
 
   return (
-    <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-8xl mx-auto py-4 ">
       {/* Breadcrumb */}
       <nav className="flex mb-6 text-sm text-gray-500">
         <Link to={`/${role}/dashboard`} className="hover:text-gray-700">Dashboard</Link>
