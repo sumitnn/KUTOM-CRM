@@ -28,24 +28,41 @@ const getProductImage = (prod) => {
   return "/placeholder.png";
 };
 
-const getDefaultPrice = (product) => {
- 
-  
-  if (product.product_detail?.variants?.length > 0) {
-    const defaultVariant = product.product_detail.variants.find(v => v.is_default) || 
-                          product.product_detail.variants[0];
-    if (defaultVariant?.product_variant_prices?.[0]?.price) {
-      return defaultVariant.product_variant_prices[0].price;
-    }
+const getDefaultPrice = (product, role) => {
+  if (!product || !product.variants_detail?.length) return "0.00";
+
+  // Find the default variant or fallback to first
+  const defaultVariant = product.variants_detail.find(v => v.is_default) || product.variants_detail[0];
+  const variantPrice = defaultVariant?.product_variant_prices?.[0];
+
+  if (!variantPrice) return "0.00";
+
+  // ✅ Choose price field based on role
+  if (role === "stockist") {
+    return variantPrice.stockist_price || variantPrice.actual_price || "0.00";
+  } else if (role === "reseller") {
+    return variantPrice.reseller_price || variantPrice.actual_price || "0.00";
+  } else {
+    return variantPrice.actual_price || "0.00";
   }
-  
-  return '0.00';
 };
 
 const getAvailableQuantity = (product) => {
+  if (product.variants_detail?.length > 0) {
+    // Use total_available_quantity from product_variant_prices
+    const defaultVariant = product.variants_detail.find(v => v.is_default) || product.variants_detail[0];
+    const variantPrice = defaultVariant?.product_variant_prices?.[0];
+    
+    if (variantPrice?.total_available_quantity !== undefined) {
+      return Number(variantPrice.total_available_quantity);
+    }
+  }
+  
+  // Fallback to inventory calculation
   if (product.inventories?.length > 0) {
     return product.inventories.reduce((total, inv) => total + (inv.total_quantity || 0), 0);
   }
+  
   return 0;
 };
 
@@ -68,6 +85,7 @@ const CommonProductListPage = ({ role }) => {
   const [showFilters, setShowFilters] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [showOutOfStock, setShowOutOfStock] = useState(false); // New state for out-of-stock filter
 
   // API calls
   const {
@@ -82,7 +100,12 @@ const CommonProductListPage = ({ role }) => {
     brand: selectedBrand,
   });
   
-  const products = productsData.results || [];
+  let products = productsData.results || [];
+  
+  // Filter out out-of-stock products if showOutOfStock is false
+  if (!showOutOfStock) {
+    products = products.filter(prod => getAvailableQuantity(prod) > 0);
+  }
   
   const { data: categories = [] } = useGetCategoriesQuery();
   const { data: subcategories = [] } = useGetSubcategoriesByCategoryQuery(selectedCategory, {
@@ -112,10 +135,10 @@ const CommonProductListPage = ({ role }) => {
     setSelectedCategory("");
     setSelectedSubCategory("");
     setSelectedBrand("");
+    setShowOutOfStock(false);
   };
 
   const handleAddToCart = (prod) => {
- 
     const availableQuantity = getAvailableQuantity(prod);
     
     if (availableQuantity <= 0) {
@@ -123,10 +146,17 @@ const CommonProductListPage = ({ role }) => {
       return;
     }
 
-    const variant = prod.product_detail?.variants?.[0] || null;
+    const variant = prod.variants_detail?.[0] || null;
+    const variantPrice = variant?.product_variant_prices?.[0];
     
+    if (!variant) {
+      toast.error("Product variant not available");
+      return;
+    }
+
+    // Check if item already in cart with same variant
     const isAlreadyInCart = cartItems.some(item => 
-      item.id === prod?.product_detail?.id && 
+      item.product_id === prod.product_detail?.id && 
       item.variant?.id === variant?.id
     );
 
@@ -135,26 +165,46 @@ const CommonProductListPage = ({ role }) => {
       return;
     }
 
+    // Get role-based price
+    let unitPrice;
+    if (role === "stockist") {
+      unitPrice = variantPrice?.stockist_price || variantPrice?.actual_price;
+    } else if (role === "reseller") {
+      unitPrice = variantPrice?.reseller_price || variantPrice?.actual_price;
+    } else {
+      unitPrice = variantPrice?.actual_price;
+    }
+
     dispatch(
       addItem({
-        id: prod?.product_detail?.id,
-        rolebaseid:prod.id,
+        id: prod.product_detail?.id,
+        product_id: prod.product_detail?.id,
+        rolebaseid: prod.id,
+        cartItemId: `${prod.product_detail?.id}_${variant.id}`,
         name: prod.product_detail?.name || prod.name,
-        price: getDefaultPrice(prod),
+        price: Number(unitPrice) || 0,
+        actual_price: Number(variantPrice?.actual_price) || 0,
         quantity: 1,
         image: getProductImage(prod),
-        variant: variant,
+        variant: {
+          id: variant.id,
+          name: variant.name,
+          sku: variant.sku,
+          product_variant_prices: variant.product_variant_prices ? [variant.product_variant_prices[0]] : [],
+          bulk_prices: variant.bulk_prices || []
+        },
         product_type: 'admin_product',
         description: prod.product_detail?.short_description,
-        gst_tax: variant?.product_variant_prices?.[0]?.gst_tax,
-        gst_percentage: variant?.product_variant_prices?.[0]?.gst_percentage,
+        gst_tax: variantPrice?.gst_tax,
+        gst_percentage: variantPrice?.gst_percentage,
+        maxQuantity: availableQuantity
       })
     );
 
     toast.success("🎉 Item added to cart!");
   };
 
-  const hasFilters = activeSearch || selectedCategory || selectedSubCategory || selectedBrand;
+  const hasFilters = activeSearch || selectedCategory || selectedSubCategory || selectedBrand || showOutOfStock;
 
   // Stats for header
   const totalProducts = products.length;
@@ -186,7 +236,7 @@ const CommonProductListPage = ({ role }) => {
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-slate-800">{totalProducts}</p>
-                    <p className="text-sm text-slate-600">Total Products</p>
+                    <p className="text-sm text-slate-600">Available Products</p>
                   </div>
                 </div>
               </div>
@@ -199,6 +249,19 @@ const CommonProductListPage = ({ role }) => {
                   <div>
                     <p className="text-2xl font-bold text-slate-800">{outOfStockProducts}</p>
                     <p className="text-sm text-slate-600">Out of Stock</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Role Badge */}
+              <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-slate-200/60 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center">
+                    <FiTag className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-slate-800 capitalize">{role}</p>
+                    <p className="text-sm text-slate-600">Pricing</p>
                   </div>
                 </div>
               </div>
@@ -307,7 +370,7 @@ const CommonProductListPage = ({ role }) => {
 
             {/* Filters Section */}
             <div className={`mt-6 transition-all duration-300 ${showFilters ? 'block' : 'hidden lg:block'}`}>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 {/* Category Filter */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Category</label>
@@ -360,6 +423,19 @@ const CommonProductListPage = ({ role }) => {
                         {brand.name}
                       </option>
                     ))}
+                  </select>
+                </div>
+
+                {/* Out of Stock Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Stock Status</label>
+                  <select
+                    className="w-full p-3 bg-slate-50/50 border border-slate-200/60 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 cursor-pointer"
+                    value={showOutOfStock}
+                    onChange={(e) => setShowOutOfStock(e.target.value === 'true')}
+                  >
+                    <option value="false">In Stock Only</option>
+                    <option value="true">Show Out of Stock</option>
                   </select>
                 </div>
 
@@ -436,6 +512,17 @@ const CommonProductListPage = ({ role }) => {
                 </button>
               </span>
             )}
+            {showOutOfStock && (
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-red-100 text-red-800 rounded-full text-sm font-medium">
+                Showing Out of Stock
+                <button 
+                  onClick={() => setShowOutOfStock(false)} 
+                  className="hover:bg-red-200 rounded-full p-0.5 cursor-pointer"
+                >
+                  <FiX size={14} />
+                </button>
+              </span>
+            )}
           </div>
         )}
 
@@ -475,6 +562,15 @@ const CommonProductListPage = ({ role }) => {
                   const availableQuantity = getAvailableQuantity(prod);
                   const isOutOfStock = availableQuantity <= 0;
                   const productDetail = prod.product_detail;
+                  const variant = prod.variants_detail?.[0];
+                  const variantPrice = variant?.product_variant_prices?.[0];
+                  
+                  // Get role-based price display
+                  const displayPrice = getDefaultPrice(prod, role);
+                  const actualPrice = variantPrice?.actual_price;
+                  const showDiscount = (role === "stockist" || role === "reseller") && 
+                                    displayPrice !== actualPrice && 
+                                    actualPrice > displayPrice;
                   
                   return viewMode === 'grid' ? (
                     // Grid View Card
@@ -512,6 +608,11 @@ const CommonProductListPage = ({ role }) => {
                             <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold flex items-center gap-1">
                               <FiStar className="w-3 h-3" />
                               Featured
+                            </span>
+                          )}
+                          {showDiscount && (
+                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+                              {role} Price
                             </span>
                           )}
                         </div>
@@ -574,17 +675,31 @@ const CommonProductListPage = ({ role }) => {
                         )}
 
                         {/* Price and Stock */}
-                        <div className="flex justify-between items-center mb-4">
-                          <div className="text-xl font-bold text-green-600">
-                            ₹{getDefaultPrice(prod)}
+                        <div className="space-y-2 mb-4">
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                              <div className="text-xl font-bold text-green-600">
+                                ₹{displayPrice}
+                              </div>
+                              {showDiscount && (
+                                <div className="text-sm text-slate-400 line-through">
+                                  ₹{actualPrice}
+                                </div>
+                              )}
+                            </div>
+                            <div className={`px-2 py-1 rounded-lg text-xs font-semibold ${
+                              isOutOfStock 
+                                ? 'bg-red-100 text-red-700' 
+                                : 'bg-green-100 text-green-700'
+                            }`}>
+                              {isOutOfStock ? 'Out of Stock' : `${availableQuantity} available`}
+                            </div>
                           </div>
-                          <div className={`px-2 py-1 rounded-lg text-xs font-semibold ${
-                            isOutOfStock 
-                              ? 'bg-red-100 text-red-700' 
-                              : 'bg-green-100 text-green-700'
-                          }`}>
-                            {isOutOfStock ? 'Out of Stock' : `${availableQuantity} available`}
-                          </div>
+                          {showDiscount && (
+                            <div className="text-xs text-green-600 font-medium">
+                              🎉 Special {role} pricing applied!
+                            </div>
+                          )}
                         </div>
 
                         {/* Action Buttons */}
@@ -640,6 +755,11 @@ const CommonProductListPage = ({ role }) => {
                                     Featured
                                   </span>
                                 )}
+                                {showDiscount && (
+                                  <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+                                    {role} Price
+                                  </span>
+                                )}
                               </div>
                               
                               <h3 className="text-lg font-semibold text-slate-800 mb-1">
@@ -657,14 +777,35 @@ const CommonProductListPage = ({ role }) => {
                                   SKU: {productDetail?.sku}
                                 </span>
                                 <span>Category: {productDetail?.category_name}</span>
-                                <span>Weight: {productDetail?.weight} {productDetail?.weight_unit}</span>
+                                {variant?.name && (
+                                  <span>Variant: {variant.name}</span>
+                                )}
                               </div>
                             </div>
                             
                             {/* Price and Actions */}
                             <div className="flex flex-col items-end gap-3">
-                              <div className="text-2xl font-bold text-green-600">
-                                ₹{getDefaultPrice(prod)}
+                              <div className="text-right">
+                                <div className="text-2xl font-bold text-green-600">
+                                  ₹{displayPrice}
+                                </div>
+                                {showDiscount && (
+                                  <>
+                                    <div className="text-sm text-slate-400 line-through">
+                                      ₹{actualPrice}
+                                    </div>
+                                    <div className="text-xs text-green-600 font-medium">
+                                      {role} pricing
+                                    </div>
+                                  </>
+                                )}
+                                <div className={`mt-1 px-2 py-1 rounded-lg text-xs font-semibold ${
+                                  isOutOfStock 
+                                    ? 'bg-red-100 text-red-700' 
+                                    : 'bg-green-100 text-green-700'
+                                }`}>
+                                  {isOutOfStock ? 'Out of Stock' : `${availableQuantity} available`}
+                                </div>
                               </div>
                               
                               <div className="flex gap-2">

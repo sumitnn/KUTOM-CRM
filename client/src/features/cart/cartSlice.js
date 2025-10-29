@@ -24,48 +24,41 @@ const cartSlice = createSlice({
     reducers: {
         addItem(state, action) {
             const item = action.payload;
-            const existing = state.items.find((i) =>
-                i.id === item.id &&
-                (!i.size || i.size.id === item.size?.id)
-            );
+
+            // BEST PRACTICE: Use cartItemId for exact matching
+            const existing = state.items.find((i) => i.cartItemId === item.cartItemId);
 
             if (existing) {
+                // If item already exists, update quantity
                 existing.quantity += item.quantity;
-                // Update price tier if quantity changes
-                if (existing.size?.price_tiers) {
-                    const sortedTiers = [...existing.size.price_tiers].sort((a, b) => b.min_quantity - a.min_quantity);
-                    existing.price_tier = sortedTiers.find(tier => existing.quantity >= tier.min_quantity) || null;
-                    if (existing.price_tier) {
-                        existing.price = existing.price_tier.price;
-                    }
+
+                // Update bulk price if quantity changes
+                if (existing.variant?.bulk_prices?.length > 0) {
+                    const sortedBulkPrices = [...existing.variant.bulk_prices].sort((a, b) => b.max_quantity - a.max_quantity);
+                    existing.bulk_price = sortedBulkPrices.find(bulk => existing.quantity >= bulk.max_quantity) || null;
                 }
             } else {
+                // If new item, add to cart
                 state.items.push(item);
             }
             saveCart(state.items);
         },
         removeItem(state, action) {
-            state.items = state.items.filter((i) => i.id !== action.payload);
+            // Remove by cartItemId for precise removal
+            state.items = state.items.filter((i) => i.cartItemId !== action.payload);
             saveCart(state.items);
         },
         updateQuantity(state, action) {
-            const { id, quantity, priceTier } = action.payload;
-            const item = state.items.find((i) => i.id === id);
+            const { cartItemId, quantity } = action.payload;
+            const item = state.items.find((i) => i.cartItemId === cartItemId);
+
             if (item) {
                 item.quantity = quantity;
-                if (priceTier) {
-                    item.price_tier = priceTier;
-                    item.price = priceTier.price;
-                } else if (item.size?.price_tiers) {
-                    // Recalculate price tier if not provided
-                    const sortedTiers = [...item.size.price_tiers].sort((a, b) => b.min_quantity - a.min_quantity);
-                    item.price_tier = sortedTiers.find(tier => quantity >= tier.min_quantity) || null;
-                    if (item.price_tier) {
-                        item.price = item.price_tier.price;
-                    } else {
-                        item.price = item.size.price;
-                        item.price_tier = null;
-                    }
+
+                // Update bulk pricing based on new quantity
+                if (item.variant?.bulk_prices?.length > 0) {
+                    const sortedBulkPrices = [...item.variant.bulk_prices].sort((a, b) => b.max_quantity - a.max_quantity);
+                    item.bulk_price = sortedBulkPrices.find(bulk => quantity >= bulk.max_quantity) || null;
                 }
             }
             saveCart(state.items);

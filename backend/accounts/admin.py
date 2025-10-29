@@ -4,7 +4,7 @@ from .models import (
     User, Profile, Wallet,  WalletTransaction,
     TopupRequest, WithdrawalRequest, State, District, Address,
     StockistAssignment, BroadcastMessage, Notification,
-    Company, ProfileApprovalStatus
+    Company, ProfileApprovalStatus, ActivityLog
 )
 
 
@@ -158,3 +158,8 @@ class ProfileApprovalStatusAdmin(admin.ModelAdmin):
 
 
 
+@admin.register(ActivityLog)
+class UserActivityLogAdmin(admin.ModelAdmin):
+    list_display = ('user', 'method', 'url', 'status_code', 'ip_address', 'created_at')
+    list_filter = ('method', 'status_code', 'created_at')
+    search_fields = ('user__email', 'url')

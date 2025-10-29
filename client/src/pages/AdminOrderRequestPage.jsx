@@ -1,12 +1,14 @@
 import { useState, lazy, Suspense, useEffect } from "react";
-import { FiFileText, FiCheck, FiX, FiTruck, FiPackage, FiRefreshCw } from "react-icons/fi";
+import { FiFileText, FiCheck, FiX, FiTruck, FiPackage, FiRefreshCw, FiEdit } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { 
   useGetVendorOrdersQuery, 
   useUpdateResellerOrderStatusMutation,
-  useUpdateDispatchStatusMutation 
+  useUpdateDispatchStatusMutation,
+  useUpdateOrderItemsMutation 
 } from "../features/order/orderApi";
 import { toast } from "react-toastify";
+import ModalPortal from "../components/ModalPortal";
 
 // Lazy-loaded components
 const Spinner = lazy(() => import('../components/common/Spinner'));
@@ -25,6 +27,9 @@ const AdminOrderRequestPage = ({ role }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [tabChanging, setTabChanging] = useState(false);
   const [processingOrders, setProcessingOrders] = useState(new Set());
+  const [showBatchModal, setShowBatchModal] = useState(false);
+  const [selectedOrderForBatch, setSelectedOrderForBatch] = useState(null);
+  const [batchFormData, setBatchFormData] = useState({});
   
   // Dispatch form state
   const [dispatchForm, setDispatchForm] = useState({
@@ -42,14 +47,15 @@ const AdminOrderRequestPage = ({ role }) => {
 
   const [updateOrderStatus] = useUpdateResellerOrderStatusMutation();
   const [updateDispatchStatus] = useUpdateDispatchStatusMutation();
+  const [updateOrderItems] = useUpdateOrderItemsMutation();
   
   const tabs = [
     { id: "new", label: "New Orders" },
     { id: "accepted", label: "Accepted Orders" },
-    { id: "rejected", label: "Rejected Orders" },
-    { id: "cancelled", label: "Cancelled Orders" },
     { id: "dispatched", label: "Dispatched Orders" },
     { id: "delivered", label: "Delivered Orders" },
+    { id: "rejected", label: "Rejected Orders" },
+    { id: "cancelled", label: "Cancelled Orders" },
   ];
 
   // Handle tab changes with loading state
@@ -62,6 +68,21 @@ const AdminOrderRequestPage = ({ role }) => {
     }
   }, [vendorOrders, tabChanging]);
 
+  // Initialize batch form data when order is selected
+  useEffect(() => {
+    if (selectedOrderForBatch) {
+      const initialData = {};
+      selectedOrderForBatch.items.forEach((item, index) => {
+        initialData[index] = {
+          batch_number: item.batch_number || "",
+          manufacture_date: item.manufacture_date || "",
+          expiry_date: item.expiry_date || ""
+        };
+      });
+      setBatchFormData(initialData);
+    }
+  }, [selectedOrderForBatch]);
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
@@ -73,6 +94,19 @@ const AdminOrderRequestPage = ({ role }) => {
       setIsRefreshing(false);
     }
   };
+
+  const formatLocalDate = (d) => {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  };
+
+  // compute range: last 6 days including today => subtract 5 days for min
+  const today = new Date();
+  const minDateObj = new Date(today);
+  minDateObj.setDate(today.getDate() - 6);
+
+  const minDate = formatLocalDate(minDateObj);
+  const maxDate = formatLocalDate(today);
 
   const handleTabChange = (tabId) => {
     setTabChanging(true);
@@ -169,6 +203,70 @@ const AdminOrderRequestPage = ({ role }) => {
     }
   };
 
+  const handleBatchUpdate = async (orderId) => {
+    // Validate all batch data
+    const itemsToUpdate = [];
+    let isValid = true;
+
+    Object.keys(batchFormData).forEach(index => {
+      const itemData = batchFormData[index];
+      if (!itemData.batch_number || !itemData.manufacture_date || !itemData.expiry_date) {
+        isValid = false;
+        toast.error(`Please fill all batch details for item ${parseInt(index) + 1}`);
+        return;
+      }
+      
+      itemsToUpdate.push({
+        item_id: selectedOrderForBatch.items[index].id,
+        batch_number: itemData.batch_number,
+        manufacture_date: itemData.manufacture_date,
+        expiry_date: itemData.expiry_date
+      });
+    });
+
+    if (!isValid) return;
+
+    // Add to processing orders to disable button
+    setProcessingOrders(prev => new Set(prev).add(orderId));
+
+    try {
+      await updateOrderItems({
+        orderId,
+        items: itemsToUpdate
+      }).unwrap();
+      
+      toast.success("Batch details updated successfully");
+      setShowBatchModal(false);
+      setSelectedOrderForBatch(null);
+      setBatchFormData({});
+      refetch();
+    } catch (error) {
+      toast.error(error.data?.message || "Failed to update batch details");
+    } finally {
+      // Remove from processing orders
+      setProcessingOrders(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(orderId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleBatchFormChange = (itemIndex, field, value) => {
+    setBatchFormData(prev => ({
+      ...prev,
+      [itemIndex]: {
+        ...prev[itemIndex],
+        [field]: value
+      }
+    }));
+  };
+
+  const handleBatchManagement = (order) => {
+    setSelectedOrderForBatch(order);
+    setShowBatchModal(true);
+  };
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -214,38 +312,38 @@ const AdminOrderRequestPage = ({ role }) => {
       id: order.id,
       date: order.created_at,
       buyer: {
-        id: order.buyer?.id || '',
-        name: order.buyer?.username || 'N/A',
-        email: order.buyer?.email || 'N/A',
-        address: order.buyer?.address || {
-          street_address: null,
-          city: null,
-          state: "",
-          district: "",
-          postal_code: null,
-          country: "India"
-        },
-        phone: order.buyer?.phone || 'N/A',
-        whatsapp: order.buyer?.whatsapp || 'N/A'
+        id: order.buyer?.id || "N/A",
+        name: order.buyer?.username || "N/A",
+        email: order.buyer?.email || "N/A",
+        address: order.buyer?.address || {},
+        phone: order.buyer?.phone || "N/A",
+        whatsapp: order.buyer?.whatsapp_number || "N/A"
       },
       seller: {
-        id: order.seller?.id || '',
-        name: order.seller?.username || 'N/A',
-        email: order.seller?.email || 'N/A',
-        roleId: order.seller?.role_based_id || 'N/A',
-        phone: order.seller?.phone || 'N/A'
+        id: order.seller?.id || "N/A",
+        name: order.seller?.username || "N/A",
+        email: order.seller?.email || "N/A",
+        roleId: order.seller?.role_based_id || "N/A",
+        phone: order.seller?.phone || "N/A"
       },
-      items: order.items?.map(item => ({
+      items: order.items.map(item => ({
         id: item.id,
         productId: item.product?.id,
         productName: item.product?.name,
         size: item.variant?.name,
+        sku: item.variant?.sku,
         quantity: item.quantity,
         price: item.unit_price,
-        discount: item.discount || "0.00",
-        gstAmount: item.gst_amount || "0.00",
-        total: (parseFloat(item.unit_price) * item.quantity - parseFloat(item.discount || 0)).toString()
-      })) || [],
+        discount: item.discount || "0",
+        gst_percentage: item.gst_percentage,
+        total: item.final_price,
+        batch_number: item.batch_number,
+        manufacture_date: item.manufacture_date,
+        expiry_date: item.expiry_date,
+        bulk_price_applied: item.bulk_price_applied,
+        discount_percentage: item.discount_percentage,
+        single_quantity_after_gst_and_discount_price: item.single_quantity_after_gst_and_discount_price
+      })),
       totalAmount: order.total_price,
       subtotal: order.subtotal || order.total_price,
       gstAmount: order.gst_amount || "0.00",
@@ -265,7 +363,7 @@ const AdminOrderRequestPage = ({ role }) => {
   };
 
   return (
-    <div className="px-4 py-8 max-w-8xl mx-auto">
+    <div className=" py-4 max-w-8xl mx-auto">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
@@ -362,10 +460,9 @@ const AdminOrderRequestPage = ({ role }) => {
                       <th className="w-12">#</th>
                       <th>Order ID</th>
                       <th>Date</th>
-                      <th>Customer</th>
+                      <th>Reseller Details</th>
                       <th>Product Info</th>
-                      <th>Qty</th>
-                      <th>Price</th>
+                      <th>Total Qty</th>
                       <th>Total</th>
                       <th>Status</th>
                       <th className="text-center">Actions</th>
@@ -394,10 +491,9 @@ const AdminOrderRequestPage = ({ role }) => {
                               <div>{order.items[0]?.product?.name}</div>
                               <div className="text-xs space-y-1">
                                 <div>SKU: {order.items[0]?.product?.sku}</div>
-                                <div>ID: {order.items[0]?.product?.id}</div>
                                 <div>Category: {order.items[0]?.product?.category_name}</div>
                                 <div>Brand: {order.items[0]?.product?.brand_name}</div>
-                                <div>Size: {order.items[0]?.variant?.name}</div>
+                                <div>Sizes: {order.items.map(item => item.variant?.name).join(", ")}</div>
                               </div>
                             </div>
                           </td>
@@ -405,13 +501,10 @@ const AdminOrderRequestPage = ({ role }) => {
                             {order.items.reduce((total, item) => total + item.quantity, 0)}
                           </td>
                           <td className="font-medium">
-                            {formatCurrency(order.items[0]?.unit_price)}
-                          </td>
-                          <td className="font-medium">
                             {formatCurrency(order.total_price)}
                           </td>
                           <td className="font-medium">
-                            <span className={`badge badge-sm ${
+                            <span className={`badge badge-sm font-bold whitespace-nowrap ${
                               order.status === 'delivered' ? 'badge-success' :
                               order.status === 'rejected' || order.status === 'cancelled' ? 'badge-error' :
                               order.status === 'accepted' ? 'badge-primary' :
@@ -426,7 +519,7 @@ const AdminOrderRequestPage = ({ role }) => {
                               {activeTab === "new" && (
                                 <>
                                   <button 
-                                    className="btn btn-xs btn-success gap-1"
+                                    className="btn btn-xs btn-success gap-1 font-bold"
                                     onClick={() => handleStatusUpdate(order.id, 'accepted')}
                                     disabled={processingOrders.has(order.id)}
                                   >
@@ -441,14 +534,24 @@ const AdminOrderRequestPage = ({ role }) => {
                                 </>
                               )}
                               {activeTab === "accepted" && (
-                                <button 
-                                  className="btn btn-xs btn-primary gap-1"
-                                  onClick={() => setSelectedOrder(order)}
-                                  disabled={processingOrders.has(order.id)}
-                                >
-                                  <FiTruck size={14} />
-                                  Dispatch
-                                </button>
+                                <>
+                                  <button 
+                                    className="btn btn-xs btn-primary gap-1 font-bold"
+                                    onClick={() => setSelectedOrder(order)}
+                                    disabled={processingOrders.has(order.id)}
+                                  >
+                                    <FiTruck size={14} />
+                                    Dispatch
+                                  </button>
+                                  <button 
+                                    className="btn btn-xs btn-info gap-1 font-bold"
+                                    onClick={() => handleBatchManagement(order)}
+                                    disabled={processingOrders.has(order.id)}
+                                  >
+                                    <FiEdit size={14} />
+                                    Batch
+                                  </button>
+                                </>
                               )}
                               <button 
                                 className="btn btn-xs btn-ghost hover:bg-blue-50 gap-1 font-bold cursor-pointer" 
@@ -516,7 +619,8 @@ const AdminOrderRequestPage = ({ role }) => {
 
       {/* Status Update Modal */}
       {selectedOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <ModalPortal>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-gray-800">
@@ -568,10 +672,10 @@ const AdminOrderRequestPage = ({ role }) => {
                   <h4 className="font-bold text-lg mb-3 text-gray-700">Products</h4>
                   <div className="space-y-4">
                     {selectedOrder.items.map((item, index) => (
-                      <div key={index} className="flex items-start gap-4 p-3 bg-white rounded border border-gray-100">
+                      <div key={index} className="flex items-start gap-4 p-2 bg-white rounded border border-gray-100">
                         <div className="flex-1">
                           <p className="font-medium">{item.product.name}</p>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2 text-sm">
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-2 text-sm">
                             <div>
                               <p className="text-gray-500">SKU</p>
                               <p>{item.product.sku || 'N/A'}</p>
@@ -580,13 +684,17 @@ const AdminOrderRequestPage = ({ role }) => {
                               <p className="text-gray-500">Size</p>
                               <p>{item.variant?.name || 'N/A'}</p>
                             </div>
+                             <div>
+                              <p className="text-gray-500">Base Price</p>
+                              <p>{item.unit_price}</p>
+                            </div>
                             <div>
                               <p className="text-gray-500">Quantity</p>
                               <p>{item.quantity}</p>
                             </div>
                             <div>
-                              <p className="text-gray-500">Price</p>
-                              <p>{formatCurrency(item.unit_price)}</p>
+                              <p className="text-gray-500">Total Price</p>
+                              <p>{formatCurrency(item.final_price)}</p>
                             </div>
                           </div>
                         </div>
@@ -700,10 +808,8 @@ const AdminOrderRequestPage = ({ role }) => {
                     onChange={handleDispatchFormChange}
                     className="input input-bordered w-full"
                     required
-                    min={new Date(new Date().setDate(new Date().getDate() - 6))
-                      .toISOString()
-                      .split("T")[0]}
-                    max={new Date().toISOString().split("T")[0]}
+                    min={minDate}
+                    max={maxDate}
                     disabled={isDispatching}
                   />
                     </div>
@@ -865,7 +971,149 @@ const AdminOrderRequestPage = ({ role }) => {
               </div>
             )}
           </div>
-        </div>
+        </div></ModalPortal>
+      )}
+
+      {/* Batch Management Modal */}
+      {showBatchModal && selectedOrderForBatch && (
+        <ModalPortal>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-gray-800">Manage Batch Details</h3>
+                <button 
+                  onClick={() => {
+                    setShowBatchModal(false);
+                    setSelectedOrderForBatch(null);
+                    setBatchFormData({});
+                  }} 
+                  className="btn btn-sm btn-circle btn-ghost"
+                  disabled={processingOrders.has(selectedOrderForBatch.id)}
+                >
+                  <FiX size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-bold text-lg mb-3 text-gray-700">Order #{selectedOrderForBatch.id}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Customer</p>
+                      <p className="font-medium">{selectedOrderForBatch.buyer?.username}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Total Items</p>
+                      <p className="font-medium">{selectedOrderForBatch.items.length}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="font-bold text-lg text-gray-700">Product Batch Details</h4>
+                  {selectedOrderForBatch.items.map((item, index) => (
+                    <div key={index} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                      <div className="mb-4">
+                        <h5 className="font-semibold text-gray-800">{item.product.name} - {item.variant?.name}</h5>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2 text-sm">
+                          <div>
+                            <p className="text-gray-500">Quantity</p>
+                            <p>{item.quantity}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">SKU</p>
+                            <p>{item.product.sku}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Price</p>
+                            <p>{formatCurrency(item.unit_price)}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Total</p>
+                            <p>{formatCurrency(item.final_price || (item.unit_price * item.quantity))}</p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="form-control">
+                          <label className="label">
+                            <span className="label-text font-medium">Batch Number <span className="text-red-500">*</span></span>
+                          </label>
+                          <input
+                            type="text"
+                            value={batchFormData[index]?.batch_number || ""}
+                            onChange={(e) => handleBatchFormChange(index, 'batch_number', e.target.value)}
+                            className="input input-bordered w-full"
+                            placeholder="Enter batch number"
+                            required
+                            disabled={processingOrders.has(selectedOrderForBatch.id)}
+                          />
+                        </div>
+                        <div className="form-control">
+                          <label className="label">
+                            <span className="label-text font-medium">Manufacture Date <span className="text-red-500">*</span></span>
+                          </label>
+                          <input
+                            type="date"
+                            value={batchFormData[index]?.manufacture_date || ""}
+                            onChange={(e) => handleBatchFormChange(index, 'manufacture_date', e.target.value)}
+                            className="input input-bordered w-full"
+                            required
+                            max={formatLocalDate(new Date())}
+                            disabled={processingOrders.has(selectedOrderForBatch.id)}
+                          />
+                        </div>
+                        <div className="form-control">
+                          <label className="label">
+                            <span className="label-text font-medium">Expiry Date <span className="text-red-500">*</span></span>
+                          </label>
+                          <input
+                            type="date"
+                            value={batchFormData[index]?.expiry_date || ""}
+                            onChange={(e) => handleBatchFormChange(index, 'expiry_date', e.target.value)}
+                            className="input input-bordered w-full"
+                            required
+                            min={formatLocalDate(new Date())}
+                            disabled={processingOrders.has(selectedOrderForBatch.id)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <button 
+                    onClick={() => {
+                      setShowBatchModal(false);
+                      setSelectedOrderForBatch(null);
+                      setBatchFormData({});
+                    }}
+                    className="btn btn-ghost"
+                    disabled={processingOrders.has(selectedOrderForBatch.id)}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={() => handleBatchUpdate(selectedOrderForBatch.id)}
+                    className="btn btn-primary"
+                    disabled={processingOrders.has(selectedOrderForBatch.id)}
+                  >
+                    {processingOrders.has(selectedOrderForBatch.id) ? (
+                      <>
+                        <span className="loading loading-spinner"></span>
+                        Updating...
+                      </>
+                    ) : (
+                      "Update Batch Details"
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
       )}
 
       {/* Order Details Modal */}

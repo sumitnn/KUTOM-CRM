@@ -5,7 +5,7 @@ from .models import Order, OrderItem, OrderHistory, OrderPayment,OrderRequest,Or
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
-    readonly_fields = ('total', 'item_name')
+    readonly_fields = ('item_name',)
     fields = (
         'item_name',
         'product',
@@ -16,7 +16,7 @@ class OrderItemInline(admin.TabularInline):
         'discount_amount',
         'gst_percentage',
         'gst_amount',
-        'total',
+        'final_price','single_quantity_after_gst_and_discount_price'
     )
 
 
@@ -57,7 +57,7 @@ class OrderItemAdmin(admin.ModelAdmin):
         'quantity', 'unit_price',
         'discount_percentage', 'discount_amount',
         'gst_percentage', 'gst_amount',
-        'total'
+         'final_price','single_quantity_after_gst_and_discount_price'
     )
     search_fields = ('order__id', 'product__name', 'variant__name')
 

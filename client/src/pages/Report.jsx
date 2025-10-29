@@ -180,8 +180,8 @@ const Report = () => {
   const prevPage = () => setCurrentPage(prev => Math.max(prev - 1, 1));
 
   return (
-    <div className="min-h-screen bg-gray-50/30">
-      <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen ">
+      <div className="max-w-8xl mx-auto py-4 ">
         {/* Header */}
         <div className="mb-8">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
@@ -455,23 +455,23 @@ const Report = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase ">
                         Product
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase ">
                         Variant
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Date
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase ">
+                        Order Date
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase ">
                         Quantity
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Unit Price
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase ">
+                        Price (included GST And Discount)
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total Price
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase ">
+                        Total Price (Without Shipping)
                       </th>
                     </tr>
                   </thead>

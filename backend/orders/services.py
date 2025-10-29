@@ -3,321 +3,240 @@ from django.db import transaction
 from django.db.models import F
 from .models import Order, OrderItem, OrderHistory
 from products.models import Product, ProductVariant, RoleBasedProduct, ProductVariantPrice, ProductVariantBulkPrice,StockInventory
-from accounts.models import Wallet, StockistAssignment, WalletTransaction
-from accounts.utils import create_notification
+from accounts.models import Wallet, StockistAssignment, WalletTransaction,User
+from accounts.utils import create_notification,send_template_email,send_email_to_user
 from rest_framework.exceptions import ValidationError
-
+from decimal import Decimal, ROUND_HALF_UP
 
 class OrderService:
 
     @staticmethod
     def create_bulk_order(user, items_data):
         """
-        Processes a bulk order by validating product/variant, checking wallet balance, 
-        and creating the order with proper price calculations.
+        Processes a bulk order by creating a SINGLE order with MULTIPLE items
         """
         if not items_data or not isinstance(items_data, list):
             raise ValidationError("Invalid or empty 'items' list.")
         
         with transaction.atomic():
-            # 🔹 Lock wallet for this user
+            # Lock wallet for this user
             try:
                 wallet = Wallet.objects.select_for_update().get(user=user)
             except Wallet.DoesNotExist:
                 raise ValidationError("Wallet not found for this user.")
 
             if wallet.current_balance < 10:
-                raise ValidationError("Insufficient wallet balance. Minimum balance required is 10.")
+                raise ValidationError("Insufficient wallet balance to place an order.")
 
             total_price = Decimal('0.00')
             validated_items = []
+            sellers = set()
 
-            # 🔹 Validate and calculate all items
+            # Validate and calculate all items
             for item in items_data:
                 product_id = item.get("product_id")
                 variant_id = item.get("variant_id")
                 quantity = int(item.get("quantity", 1))
+                rolebased_id = item.get("rolebasedid")
 
-                if not product_id or not variant_id:
-                    raise ValidationError("Each item must include 'product_id' and 'variant_id'.")
+                if not product_id:
+                    raise ValidationError("Each item must include 'product_id'.")
 
                 try:
                     product = Product.objects.get(id=product_id, is_active=True)
-                    variant = ProductVariant.objects.get(id=variant_id, product=product)
+                    variant = ProductVariant.objects.get(id=variant_id, product=product) if variant_id else None
                 except (Product.DoesNotExist, ProductVariant.DoesNotExist):
                     raise ValidationError(f"Invalid product or variant for item: {item}")
 
-                # 🔹 Determine pricing
-                price_obj = (
-                    ProductVariantPrice.objects.filter(variant=variant, user=product.owner, role="vendor")
-                    .first()
-                    or variant.product_variant_prices.filter(role='vendor').first()
-                )
+                # Add seller to set
+                sellers.add(product.owner)
 
+                # Determine pricing
+                price_obj = OrderService._get_product_pricing(variant, product.owner)
                 if not price_obj:
                     raise ValidationError(f"No valid price configuration found for product {product.name}.")
 
-                unit_price = price_obj.actual_price or 0
-                discount_percentage = price_obj.discount or 0
-                gst_percentage = price_obj.gst_percentage or 0
-
-                # 🔹 Check bulk pricing
+                # Check bulk pricing
                 bulk_price = ProductVariantBulkPrice.objects.filter(
                     variant=variant, max_quantity__lte=quantity
-                ).order_by('-max_quantity').first()  # Get the highest applicable bulk price
+                ).order_by('-max_quantity').first()
                 
                 if bulk_price:
-                    # 🔹 BULK PRICING: Use bulk price directly (all-inclusive)
-                    unit_price = bulk_price.price
-                    discount_percentage = 0  # No additional discount for bulk pricing
-                    gst_percentage = 0  # No additional GST for bulk pricing
-                    discount_amount_per_unit = Decimal('0.00')
-                    gst_amount_per_unit = Decimal('0.00')
-                    final_price_per_unit = unit_price  # Bulk price is final price
+                    base_price = bulk_price.price
+                    discount_percentage = bulk_price.discount
+                    gst_percentage = bulk_price.gst_percentage
                 else:
-                    # 🔹 REGULAR PRICING: Calculate discount and GST
-                    discount_amount_per_unit = (unit_price * discount_percentage) / 100
-                    discounted_price = unit_price - discount_amount_per_unit
-                    gst_amount_per_unit = (discounted_price * gst_percentage) / 100
-                    final_price_per_unit = discounted_price + gst_amount_per_unit
+                    base_price = price_obj.price
+                    discount_percentage = price_obj.discount
+                    gst_percentage = price_obj.gst_percentage
 
-                line_total = final_price_per_unit * quantity
+                # 🧮 Apply formula (same as OrderItem.save)
+                discount_value = (base_price * discount_percentage / Decimal('100.00')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                price_after_discount = base_price - discount_value
+                gst_value = (price_after_discount * gst_percentage / Decimal('100.00')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                final_single_price = (price_after_discount + gst_value).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                line_total = (final_single_price * quantity).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
                 total_price += line_total
 
                 validated_items.append({
                     "product": product,
                     "variant": variant,
                     "quantity": quantity,
-                    "unit_price": unit_price,
+                    "unit_price": base_price,
                     "discount_percentage": discount_percentage,
-                    "discount_amount": discount_amount_per_unit * quantity,
                     "gst_percentage": gst_percentage,
-                    "gst_amount": gst_amount_per_unit * quantity,
                     "line_total": line_total,
-                    "bulk_price_applied": bulk_price is not None  # Track if bulk pricing was applied
+                    "rolebased_id": rolebased_id,
+                    "bulk_price_applied": bulk_price is not None,
+                    "seller": product.owner  # Store seller for stock management
                 })
 
-            # 🔹 Final wallet balance check
+            # Final wallet balance check
             if wallet.current_balance < total_price:
                 raise ValidationError("Insufficient wallet balance for this order.")
 
-            # Deduct wallet balance atomically
-            wallet.current_balance = F('current_balance') - total_price
-            wallet.save()
+            # Determine main seller for the order
+            seller = OrderService._determine_seller(user, validated_items)
 
-            # 🔹 Determine seller
-            if user.role == "reseller":
-                stockist_assignment = StockistAssignment.objects.filter(reseller=user).first()
-                seller = stockist_assignment.stockist if stockist_assignment else None
-            else:
-                seller = validated_items[0]["product"].owner if validated_items else None
-
-            # 🔹 Create the main order
+            # Create the SINGLE main order
             order = Order.objects.create(
                 buyer=user,
                 seller=seller,
                 total_price=total_price,
                 status='pending',
-                description="Bulk order placed"
+                description=f"Bulk order placed with {len(validated_items)} items"
             )
 
-            # 🔹 Wallet transaction record
+            # Deduct wallet balance
+            wallet.current_balance = F('current_balance') - total_price
+            wallet.save()
+            wallet.refresh_from_db()
+
+            # Create wallet transaction
             WalletTransaction.objects.create(
                 wallet=wallet,
                 transaction_type='DEBIT',
                 amount=total_price,
-                description=f"Payment for bulk order #{order.id}",
+                description=f"Payment for bulk order #{order.id} with {len(validated_items)} items",
                 transaction_status='SUCCESS',
-                user_id=product.owner.unique_role_id,
+                user_id=seller.unique_role_id if hasattr(seller, 'unique_role_id') else None,
                 order_id=order.id
             )
 
-            # 🔹 Notification
-            create_notification(
-                user=user,
-                title="Order Placed Successfully",
-                message=f"Your order #{order.id} has been placed successfully!",
-                notification_type="order",
-                related_url=f"/orders/{order.id}/"
-            )
-
-            # 🔹 Order history
-            OrderHistory.objects.create(
-                order=order,
-                actor=user,
-                action='pending',
-                notes="Bulk order placed."
-            )
-
-            # 🔹 Create order items and adjust stock
+            # Create order items and adjust stock
+            order_items_count = 0
             for item in validated_items:
-                OrderItem.objects.create(
-                    order=order,
+                order_item = OrderItem.objects.create(
+                    order=order,  # Same order for all items
                     product=item["product"],
                     variant=item["variant"],
                     quantity=item["quantity"],
                     unit_price=item["unit_price"],
                     discount_percentage=item["discount_percentage"],
                     gst_percentage=item["gst_percentage"],
-                    role_based_product=RoleBasedProduct.objects.filter(
-                        product=item["product"], user=user, role=user.role
-                    ).first(),
-                    bulk_price_applied=item["bulk_price_applied"]  # Store if bulk pricing was applied
+                    role_based_product=RoleBasedProduct.objects.filter(id=item["rolebased_id"]).last() if item["rolebased_id"] else None,
+                    bulk_price_applied=item["bulk_price_applied"]
                 )
+                order_items_count += 1
 
-                # Deduct stock (delegated to StockInventory logic)
-                try:
-                    stock_inv = StockInventory.objects.get(
-                        user=seller,
-                        product=item["product"],
-                        variant=item.get("variant", None)
-                    )
-                    stock_inv.adjust_stock(
-                        change_quantity=-item["quantity"],
-                        action="ORDER",
-                        reference_id=order.id
-                    )
-                except StockInventory.DoesNotExist:
-                    raise ValidationError(
-                        f"No stock found for product {item['product'].name} under seller {seller}."
-                    )
+                # Adjust stock for this specific item
+                OrderService._adjust_stock_for_item(order_item, item, order.id)
 
-            return order, total_price
-        
-            
+            # Create notifications and history
+            OrderService._create_post_order_actions(user, order, total_price, order_items_count)
+
+            return order, total_price, order_items_count
+
     @staticmethod
-    def create_order_from_cart(user, cart_items):
-        """
-        Create an order from shopping cart items
-        """
-        with transaction.atomic():
-            try:
-                wallet = Wallet.objects.select_for_update().get(user=user)
-            except Wallet.DoesNotExist:
-                raise ValidationError("Wallet not found for the user.")
+    def _get_product_pricing(variant, seller):
+        """Get product pricing with fallback logic"""
+        if variant:
+            price_obj = ProductVariantPrice.objects.filter(
+                variant=variant, user=seller, role="vendor"
+            ).first()
+            if price_obj:
+                return price_obj
             
-            total_price = Decimal('0.00')
-            validated_items = []
+            price_obj = variant.product_variant_prices.filter(role='vendor').first()
+            if price_obj:
+                return price_obj
+        return None
 
-            for cart_item in cart_items:
-                product_id = cart_item.get("product_id")
-                variant_id = cart_item.get("variant_id")
-                quantity = int(cart_item.get("quantity", 1))
+    @staticmethod
+    def _determine_seller(user, validated_items):
+        """Determine the main seller for the order"""
+        if user.role == "reseller":
+            stockist_assignment = StockistAssignment.objects.filter(reseller=user).first()
+            return stockist_assignment.stockist if stockist_assignment else User.objects.filter(role='stockist', is_default_user=True).first()
+        elif validated_items:
+            # For multiple sellers, choose the first one or implement your logic
+            return validated_items[0]["seller"]
+        return None
 
-                if not product_id:
-                    raise ValidationError("Missing product_id.")
+    @staticmethod
+    def _adjust_stock_for_item(order_item, item, order_id):
+        """Adjust stock for a specific order item"""
+        try:
+            stock_inv = StockInventory.objects.filter(
+                user=item["seller"],
+                product=item["product"],
+                variant=item.get("variant", None),
+                total_quantity__gt=0,
+                is_expired=False
+            ).order_by('manufacture_date', 'created_at').first()
 
-                try:
-                    product = Product.objects.get(id=product_id, is_active=True)
-                    variant = None
-                    
-                    if variant_id:
-                        variant = ProductVariant.objects.get(id=variant_id, product=product, is_active=True)
-                    
-                    # Get appropriate pricing based on user role
-                    role_based_product = RoleBasedProduct.objects.filter(
-                        product=product,
-                        user=user,
-                        role=user.role
-                    ).first()
-                    
-                    if not role_based_product:
-                        raise ValidationError(f"No pricing available for product {product.name}")
-
-                    # Use variant price if available, otherwise product price
-                    if variant:
-                        variant_price = ProductVariantPrice.objects.filter(
-                            variant=variant,
-                            user=user,
-                            role=user.role
-                        ).first()
-                        
-                        if variant_price:
-                            unit_price = variant_price.actual_price
-                            discount_percentage = variant_price.discount
-                            gst_percentage = variant_price.gst_percentage
-                        else:
-                            unit_price = role_based_product.price
-                            discount_percentage = 0
-                            gst_percentage = 0
-                    else:
-                        unit_price = role_based_product.price
-                        discount_percentage = 0
-                        gst_percentage = 0
-
-                    # Calculate line total
-                    line_total = unit_price * quantity
-                    total_price += line_total
-
-                    validated_items.append({
-                        "product": product,
-                        "variant": variant,
-                        "quantity": quantity,
-                        "unit_price": unit_price,
-                        "discount_percentage": discount_percentage,
-                        "gst_percentage": gst_percentage,
-                        "line_total": line_total,
-                        "role_based_product": role_based_product
-                    })
-
-                except (Product.DoesNotExist, ProductVariant.DoesNotExist):
-                    raise ValidationError("Invalid product or product variant.")
-
-            if wallet.current_balance < total_price:
-                raise ValidationError("Insufficient wallet balance.")
-
-            # Deduct balance
-            wallet.current_balance = F('current_balance') - total_price
-            wallet.save()
-
-            # Record wallet transaction
-            WalletTransaction.objects.create(
-                wallet=wallet,
-                transaction_type='DEBIT',
-                amount=total_price,
-                description="Payment for order",
-                transaction_status='SUCCESS'
-            )
-            
-            # Determine seller based on first product
-            seller = validated_items[0]["role_based_product"].user if validated_items else None
-
-            # Create order
-            order = Order.objects.create(
-                buyer=user,
-                seller=seller,
-                total_price=total_price,
-                status='pending',
-                description="Order from shopping cart"
-            )
-            
-            create_notification(
-                user=user,
-                title="Order Placed Successfully",
-                message=f"Your order #{order.id} has been placed successfully!",
-                notification_type="order",
-                related_url=f"/orders/{order.id}/"
-            )
-
-            # Create order history
-            OrderHistory.objects.create(
-                order=order,
-                actor=user,
-                action='pending',
-                notes="Order placed from shopping cart."
-            )
-
-            # Create order items
-            for item in validated_items:
-                OrderItem.objects.create(
-                    order=order,
-                    product=item["product"],
-                    variant=item["variant"],
-                    quantity=item["quantity"],
-                    unit_price=item["unit_price"],
-                    discount_percentage=item["discount_percentage"],
-                    gst_percentage=item["gst_percentage"],
-                    role_based_product=item["role_based_product"]
+            if not stock_inv:
+                raise ValidationError(
+                    f"No available stock found for product {item['product'].name} under seller {item['seller']}."
                 )
 
-            return order, total_price
+            if stock_inv.total_quantity < item["quantity"]:
+                raise ValidationError(
+                    f"Insufficient stock for product {item['product'].name}. Available: {stock_inv.total_quantity}, Requested: {item['quantity']}"
+                )
+
+            # Adjust stock
+            stock_inv.adjust_stock(
+                change_quantity=-item["quantity"],
+                action="ORDER",
+                reference_id=f"Order #{order_id} - Batch: {stock_inv.batch_number}, Expiry: {stock_inv.expiry_date}"
+            )
+
+            # Store batch information
+            order_item.batch_number = stock_inv.batch_number
+            order_item.manufacture_date = stock_inv.manufacture_date
+            order_item.expiry_date = stock_inv.expiry_date
+            order_item.save()
+
+        except StockInventory.DoesNotExist:
+            raise ValidationError(
+                f"No stock found for product {item['product'].name} under seller {item['seller']}."
+            )
+
+    @staticmethod
+    def _create_post_order_actions(user, order, total_price, items_count):
+        """Create notifications, emails, and history after order creation"""
+        # Notification
+        create_notification(
+            user=user,
+            title="Order Placed Successfully And Wallet Amount Is Deducted",
+            message=f"Your order #{order.id} with {items_count} items has been placed successfully!",
+            notification_type="order",
+            related_url=f"/orders/{order.id}/"
+        )
+        
+        # Email notification
+        send_email_to_user(
+            to_email=user.email,
+            subject="Order Placed Successfully and Wallet Amount Is Deducted",
+            message=f"Your order #{order.id} with {items_count} items has been placed successfully! And Wallet Amount is Deducted {total_price}"
+        )
+
+        # Order history
+        OrderHistory.objects.create(
+            order=order,
+            actor=user,
+            action='pending',
+            notes=f"Bulk order placed with {items_count} items."
+        )

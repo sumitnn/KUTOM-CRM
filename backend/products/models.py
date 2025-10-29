@@ -3,7 +3,7 @@ from django.utils.text import slugify
 from django.core.validators import MinValueValidator
 from accounts.models import User
 import uuid
-from decimal import Decimal
+from decimal import Decimal,ROUND_HALF_UP
 
 # Common abstract base model to reduce repetition
 class BaseModel(models.Model):
@@ -229,9 +229,11 @@ class ProductVariantPrice(models.Model):
     gst_percentage = models.IntegerField(default=0)
     gst_tax = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Changed to Decimal
     actual_price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], default=0)
+    stockist_price=models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], default=0)
+    reseller_price=models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], default=0)
 
     class Meta:
-        unique_together = ['variant', 'role', 'user']
+        unique_together = ['variant', 'role', 'user','actual_price']
         indexes = [
             models.Index(fields=['variant', 'role']),
         ]
@@ -263,6 +265,10 @@ class ProductVariantBulkPrice(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='bulk_prices')
     max_quantity = models.IntegerField(default=0)
     price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
+    discount = models.DecimalField(max_digits=5, decimal_places=2, default=0, validators=[MinValueValidator(0)])  # %
+    gst_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0, validators=[MinValueValidator(0)])  # %
+    final_price = models.DecimalField(max_digits=10, decimal_places=2, editable=False, default=0)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -270,6 +276,15 @@ class ProductVariantBulkPrice(models.Model):
         indexes = [
             models.Index(fields=['variant', 'max_quantity']),
         ]
+
+    def save(self, *args, **kwargs):
+ 
+        base = self.price 
+        discount_amount = (base * (self.discount / Decimal(100))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        price_after_discount = base - discount_amount
+        gst_amount = (price_after_discount * (self.gst_percentage / Decimal(100))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.final_price = (price_after_discount + gst_amount).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        super().save(*args, **kwargs)
 
 
 # Role-Based Products - Consolidated into a single model
@@ -302,25 +317,45 @@ class RoleBasedProduct(models.Model):
 
 class ProductCommission(models.Model):
     COMMISSION_TYPE_CHOICES = [
-        ('flat', 'Flat'), 
+        ('flat', 'Flat'),
         ('percent', 'Percentage')
     ]
-    
-    role_product = models.OneToOneField(
-        RoleBasedProduct,
+
+    # Link to role-based product
+    role_product = models.ForeignKey(
+        'RoleBasedProduct',
         on_delete=models.CASCADE,
-        related_name='commission',
-        limit_choices_to={'role': 'admin'}  # Only allow admin products
+        related_name='commissions'
     )
+
+    # Link to specific product variant
+    variant = models.ForeignKey(
+        'ProductVariant',
+        on_delete=models.CASCADE,
+        related_name='variant_commissions',
+        default=None
+    )
+
     commission_type = models.CharField(
         max_length=10,
         choices=COMMISSION_TYPE_CHOICES,
         default='flat'
     )
+
     reseller_commission_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     stockist_commission_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     admin_commission_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['role_product', 'variant']  # ✅ unique per product + variant
+        indexes = [
+            models.Index(fields=['role_product', 'variant']),
+        ]
+
+    def __str__(self):
+        return f"{self.role_product.product.name} - {self.variant.name} Commission"
 
 
 class StockInventory(models.Model):
@@ -329,11 +364,15 @@ class StockInventory(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='inventories')
     total_quantity = models.IntegerField(default=0)
     notes= models.TextField(blank=True, null=True)
+    manufacture_date = models.DateField(null=True, blank=True)
+    expiry_date = models.DateField(null=True, blank=True)
+    batch_number = models.CharField(max_length=100, blank=True, null=True)
+    is_expired = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ['product', 'variant', 'user']
+        unique_together = ['product', 'variant', 'user','batch_number']
         indexes = [
             models.Index(fields=['product', 'variant']),
             models.Index(fields=['user', 'created_at']),
@@ -390,6 +429,12 @@ class StockInventoryHistory(models.Model):
             ("ORDER", "Stock Deducted for Order"),
             ("RETURN", "Stock Returned"),
             ("ADJUST", "Manual Adjustment"),
+            ("EXPIRED", "Stock Expired"),
+            ("REPLACEMENT_STOCK_DEDUCTED", "Stock Deducted For Replacement"),
+            ("REPLACEMENTDONE", "Stock Replaced Successfully"),
+            ("EXCHANGED_STOCK_ADDED", "Stock Exchanged Successfully"),
+            ("REQUEST_REJECTED_STOCK_RESTORED", "Stock Exchanged Request Rejected - Stock Restored"),
+            ("CUSTOMER_PURCHASE", "Customer Purchase"),
         ],
         default="ADJUST",
     )
@@ -406,3 +451,148 @@ class StockInventoryHistory(models.Model):
     def __str__(self):
         return f"| {self.change_quantity} | New: {self.new_quantity}"
 
+
+
+
+
+class StockTransferRequest(models.Model):
+    """Unified model for Expiry, Damaged, and Wrong Product returns/replacements."""
+
+    class RequestType(models.TextChoices):
+        EXPIRED = 'expired', 'Expired Product Return'
+        DAMAGED = 'damaged', 'Damaged Product Return'
+        WRONG_PRODUCT = 'wrong_product', 'Wrong Product Return'
+        DEFECTIVE_PRODUCT = 'defective', 'Defective Product Return'
+        OTHER = 'other', 'Other Issue'
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending Review'
+        APPROVED = 'approved', 'Approved & Processing'
+        REJECTED = 'rejected', 'Rejected / Cancelled'
+        IN_TRANSIT = 'in_transit', 'Return in Transit'
+        IN_DISPATCHING = 'dispatched', 'Dispatching In Progress'
+        RECEIVED = 'received', 'Returned Item Received'
+
+
+    request_id = models.CharField(max_length=20, unique=True, editable=False)
+    request_type = models.CharField(max_length=25, choices=RequestType.choices, default=RequestType.DAMAGED)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+
+    # Relationship fields
+    raised_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='raised_transfer_requests', null=True, blank=True)
+    raised_to = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_transfer_requests', null=True, blank=True)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='transfer_requests', null=True, blank=True)
+    variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, related_name='transfer_requests', null=True, blank=True)
+
+    quantity = models.PositiveIntegerField()
+    batch_number = models.CharField(max_length=100)
+
+    # Details
+    reason = models.TextField(blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+
+    # Expiry-related fields
+    expiry_date = models.DateField(null=True, blank=True)
+    remaining_days = models.IntegerField(null=True, blank=True)
+
+    # Stock tracking
+    original_stock_deducted = models.BooleanField(default=False)
+    replacement_stock_added = models.BooleanField(default=False)
+
+    # Resolution and tracking
+    is_resolved = models.BooleanField(default=False)
+    user_notes = models.TextField(blank=True, null=True)
+    admin_notes = models.TextField(blank=True, null=True)
+
+    # Audit fields
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    approved_date = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    # delivery details 
+    delivery_date = models.DateField(null=True, blank=True)
+
+    # Transport & Dispatch Info
+    courier_name = models.CharField(max_length=100, blank=True, null=True)
+    tracking_number = models.CharField(max_length=100, blank=True, null=True)
+    delivery_note = models.TextField(blank=True, null=True)
+    new_batch_number = models.CharField(max_length=100, blank=True, null=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['request_type', 'status']),
+            models.Index(fields=['created_at']),
+        ]
+        verbose_name = "Stock Transfer Request"
+        verbose_name_plural = "Stock Transfer Requests"
+
+    def save(self, *args, **kwargs):
+        """Auto-generate request ID & handle timestamps."""
+        if not self.request_id:
+            self.request_id = f"REQ-{uuid.uuid4().hex[:8].upper()}"
+
+        if self.status == self.Status.APPROVED and not self.approved_date:
+            from django.utils import timezone
+            self.approved_date = timezone.now()
+
+        if self.status == self.Status.RECEIVED and not self.completed_at:
+            from django.utils import timezone
+            self.completed_at = timezone.now()
+            self.is_resolved = True  # auto mark resolved when completed
+
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.request_id}  - {self.status}"
+
+
+class ExpiryTracker(models.Model):
+    """Track products nearing expiry - Each user sees their own expiring products"""
+
+    class ExpiryStatus(models.TextChoices):
+        EXPIRING_SOON = 'expiring_soon', 'Expiring Soon (30-16 days)'
+        CRITICAL = 'critical', 'Critical (15-1 days)'
+        EXPIRED = 'expired', 'Expired'
+
+    stock_item = models.ForeignKey(StockInventory, on_delete=models.CASCADE, related_name='expiry_trackers')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='expiry_trackers')
+    batch_number = models.CharField(max_length=100)
+    expiry_date = models.DateField()
+    remaining_days = models.IntegerField()
+    status = models.CharField(max_length=20, choices=ExpiryStatus.choices,default=ExpiryStatus.EXPIRING_SOON)
+    can_request_return = models.BooleanField(default=False)
+    stock_quantity = models.IntegerField(default=0)
+    is_resolved = models.BooleanField(default=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['stock_item', 'user','batch_number']
+        indexes = [
+            models.Index(fields=['user', 'status']),
+            models.Index(fields=['remaining_days']),
+        ]
+        ordering = ['remaining_days']
+
+    def __str__(self):
+        return f"{self.stock_item.id} ({self.status}) - {self.remaining_days} days left"
+    
+    def save(self, *args, **kwargs):
+        if not self.user_id:
+            self.user = self.stock_item.user
+        if not self.batch_number:
+            self.batch_number = self.stock_item.batch_number
+        super().save(*args, **kwargs)
+
+
+class RequestImage(models.Model):
+    """Unified image storage for all requests"""
+    transfer_request = models.ForeignKey(StockTransferRequest, on_delete=models.CASCADE, related_name='images')
+    image = models.ImageField(upload_to='return_request_images/')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Image for {self.transfer_request.request_id}"

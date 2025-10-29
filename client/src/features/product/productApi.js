@@ -68,10 +68,10 @@ export const productApi = createApi({
             invalidatesTags: ['MY-Product', 'Product'],
         }),
         updateCommission: builder.mutation({
-            query: ({ productId, commissionData }) => ({
+            query: ({ productId,variantId, commissionData }) => ({
                 url: `/products/${productId}/commission/`,
                 method: 'PUT',
-                data: commissionData,
+                data: { ...commissionData,variantId },
             }),
             invalidatesTags: ['MY-Product', 'Product', 'Commission'],
         }),

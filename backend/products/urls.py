@@ -41,12 +41,20 @@ urlpatterns = [
     path('stocks/<int:stock_id>/history/', StockHistoryAPIView.as_view(), name='get-stock-history'),
 
     path('commissions/<int:product_id>/',ProductCommissionDetail.as_view(),name='product-commission-detail'),
+    # stockist
      path('admin-products/', AdminProductListView.as_view(), name='admin-product-list'),
-     path('admin-products/<int:pk>/', AdminProductListView.as_view(), name='admin-product-details'),
+     path('admin-products/<int:pk>/', AdminProductDetailAPIView.as_view(), name='admin-product-details'),
      
     path('products/<int:product_id>/commission/', ProductCommissionAPIView.as_view(), name='product-commission'),
     path('products/<int:product_id>/featured/', ProductFeaturedStatusAPIView.as_view(), name='product-featured'),
     path('products/<int:product_id>/variants/<int:variant_id>/price/', ProductPriceUpdateAPIView.as_view(), name='product-price-update'),
    
+     # 🔹 Replacement Tab
+    path('replacement/create/', create_replacement_request, name='create_replacement'),
+    path('replacement/list/', list_replacement_requests, name='list_replacement'),
+    path('replacements/<int:pk>/update-status/', update_replacement_status, name='update_replacement_status'),
 
+    # 🔹 Expiry Tab
+    path('expiry/products/', list_expiring_products, name='expiry_products'),
+    path('expiry/request/create/', create_expiry_request, name='create_expiry_request')
 ]

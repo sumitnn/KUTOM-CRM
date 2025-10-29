@@ -26,6 +26,8 @@ import { commissionsApi } from "../features/commission/commissionApi";
 import { adminProductApi } from "../features/adminProduct/adminProductApi";
 import { orderRequestApi } from "../features/order/orderRequest";
 import { customerPurchaseApi } from "../features/customerpurchase/customerPurchaseApi";
+import { expiryApi } from "../features/expiry/expiryApi";
+import { replacementApi } from "../features/returned/replacementApi";
 
 
 
@@ -54,7 +56,9 @@ export const store = configureStore({
         [commissionsApi.reducerPath]: commissionsApi.reducer,
         [adminProductApi.reducerPath]: adminProductApi.reducer,
         [orderRequestApi.reducerPath]: orderRequestApi.reducer,
-        [customerPurchaseApi.reducerPath]:customerPurchaseApi.reducer,
+        [customerPurchaseApi.reducerPath]: customerPurchaseApi.reducer,
+        [expiryApi.reducerPath]: expiryApi.reducer,
+        [replacementApi.reducerPath]:replacementApi.reducer
         
     },
     middleware: (getDefaultMiddleware) =>
@@ -76,6 +80,8 @@ export const store = configureStore({
             commissionsApi.middleware,
             adminProductApi.middleware,
             orderRequestApi.middleware,
-            customerPurchaseApi.middleware
+            customerPurchaseApi.middleware,
+            replacementApi.middleware,
+            expiryApi.middleware
         ),
 });

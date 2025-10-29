@@ -35,7 +35,7 @@ from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from django.core.paginator import Paginator
 from rest_framework.decorators import api_view, permission_classes
-
+from accounts.utils import send_email_to_user
 
 class CreateOrderAPIView(generics.CreateAPIView):
     serializer_class = OrderCreateSerializer
@@ -158,43 +158,54 @@ class BulkOrderCreateView(APIView):
             if request.user.role != "admin":
                 return Response({"message": "You don't have access to order items."}, status=400)
 
-            total_price = 0
-            created_orders = []
+            # Validate all items first before processing
+            validation_errors = self._validate_items(items_data)
+            if validation_errors:
+                return Response({"message": validation_errors}, status=400)
 
-            for item in items_data:
-                product_id = item.get("product_id")
-                variant_id = item.get("variant_id")
-                quantity = item.get("quantity", 0)
+            # Create single order with multiple items
+            order, total_price, items_count = OrderService.create_bulk_order(request.user, items_data)
 
-                # Basic validation
-                if not product_id or quantity <= 0:
-                    return Response({"message": f"Invalid product or quantity in item: {item}"}, status=400)
+            return Response({
+                "message": "Order created successfully with multiple items.",
+                "order_id": order.id,
+                "total_items": items_count,
+                "total_deducted": total_price
+            }, status=status.HTTP_201_CREATED)
 
-                # 🔹 Get product and its owner (seller)
-                try:
-                    product = Product.objects.get(id=product_id)
-                    seller = product.owner  # assuming Product model has a ForeignKey 'owner'
-                except Product.DoesNotExist:
-                    return Response({
-                        "message": f"Product with ID {product_id} not found."
-                    }, status=400)
+        except ValidationError as e:
+            return Response({"message": str(e)}, status=400)
+        except Exception as e:
+            return Response({"message": str(e)}, status=400)
 
-                # 🔹 Check stock using seller
-                try:
-                    stock_inv = StockInventory.objects.get(
-                        user=seller,
-                        product_id=product_id,
-                        variant_id=variant_id
-                    )
-                except StockInventory.DoesNotExist:
-                    return Response({
-                        "message": f"No stock found for This product"
-                                f"Contact vendor to add stock in their inventory."
-                    }, status=400)
-
-                # 🔹 Validate stock quantity
-                if stock_inv.total_quantity < quantity:
-                    # Create low stock notification for seller
+    def _validate_items(self, items_data):
+        """Validate all items before processing"""
+        errors = []
+        
+        for index, item in enumerate(items_data):
+            product_id = item.get("product_id")
+            variant_id = item.get("variant_id")
+            quantity = item.get("quantity", 0)
+            
+            if not product_id or quantity <= 0:
+                errors.append(f"Item {index + 1}: Invalid product_id or quantity")
+                continue
+            
+            try:
+                product = Product.objects.get(id=product_id)
+                seller = product.owner
+                
+                # Check stock
+                stock_inv = StockInventory.objects.filter(
+                    user=seller,
+                    product_id=product_id,
+                    variant_id=variant_id
+                ).first()
+                
+                if not stock_inv:
+                    errors.append(f"Item {index + 1}: No stock found for product {product.name}")
+                elif stock_inv.total_quantity < quantity:
+                    # Create low stock notification
                     create_notification(
                         user=seller,
                         title="Low Stock Alert",
@@ -206,28 +217,15 @@ class BulkOrderCreateView(APIView):
                         notification_type="stock",
                         related_url=f"/inventory/{stock_inv.id}/"
                     )
-
-                    return Response({
-                        "message": f"Insufficient stock for product {product_id}. "
-                                f"Available: {stock_inv.total_quantity}, Requested: {quantity}. "
-                                f"Contact vendor to add stock."
-                    }, status=400)
-
-                # 🔹 Create order (deduction handled inside create_bulk_order)
-                order, order_total = OrderService.create_bulk_order(request.user, [item])
-                total_price += order_total
-                created_orders.append(order.id)
-
-            return Response({
-                "message": "Order(s) created successfully.",
-                "order_ids": created_orders,
-                "total_deducted": total_price
-            }, status=status.HTTP_201_CREATED)
-
-        except ValidationError as e:
-            return Response({"message": str(e)}, status=400)
-        except Exception as e:
-            return Response({"message": str(e)}, status=400)
+                    errors.append(
+                        f"Item {index + 1}: Insufficient stock for {product.name}. "
+                        f"Available: {stock_inv.total_quantity}, Requested: {quantity}"
+                    )
+                        
+            except Product.DoesNotExist:
+                errors.append(f"Item {index + 1}: Product with ID {product_id} not found")
+        
+        return "; ".join(errors) if errors else None
 
 
 
@@ -422,6 +420,7 @@ class UpdateOrderStatusView(APIView):
     def _process_order_status_update(self, order, user, new_status, note):
         """Process order status update within transaction"""
         previous_status = order.status
+        
 
         if new_status == 'cancelled':
             self._handle_cancelled_order(order, user)
@@ -570,7 +569,6 @@ class UpdateOrderStatusView(APIView):
 
     def _setup_buyer_products_and_stock(self, order):
         """Setup RoleBasedProduct, VariantPrice, and StockInventory for buyer"""
-        
         for item in order.items.all():
             try:
                 product = item.product
@@ -585,10 +583,10 @@ class UpdateOrderStatusView(APIView):
                 
                 # Create/update ProductVariantPrice if variant exists
                 if variant:
-                    self._setup_product_variant_price(product, variant, buyer, role, item.unit_price)
+                    self._setup_product_variant_price(product, variant, buyer, role, item)
 
                 # Setup stock inventory
-                self._setup_stock_inventory(product, variant, buyer, item.quantity, order.id)
+                self._setup_stock_inventory(product, variant, buyer, item, order.id)
                 
             except Exception as e:
                 print(e)
@@ -718,43 +716,49 @@ class UpdateOrderStatusView(APIView):
         if variant and variant not in rbp.variants.all():
             rbp.variants.add(variant)
 
-    def _setup_product_variant_price(self, product, variant, user, role, unit_price):
+    def _setup_product_variant_price(self, product, variant, user, role, item):
         """Setup ProductVariantPrice"""
         pvp, created = ProductVariantPrice.objects.get_or_create(
             product=product,
             variant=variant,
             user=user,
             role=role,
+            actual_price=item.single_quantity_after_gst_and_discount_price,  
             defaults={
-                "price": unit_price, 
-                "discount": 0, 
+                "price": item.single_quantity_after_gst_and_discount_price,
+                "discount": 0,
                 "gst_percentage": 0
             }
         )
-        
-        if not created:
-            # Update price if changed
-            pvp.price = unit_price
-            pvp.save()
 
-    def _setup_stock_inventory(self, product, variant, user, quantity, order_id):
+        if not created:
+            # Update price only if it changed
+            if pvp.price != item.single_quantity_after_gst_and_discount_price:
+                pvp.price = item.single_quantity_after_gst_and_discount_price
+                pvp.save()
+    def _setup_stock_inventory(self, product, variant, user, item, order_id):
         """Setup or update stock inventory"""
         stock_inv, created = StockInventory.objects.get_or_create(
             user=user,
             product=product,
             variant=variant,
+            batch_number=item.batch_number,
             defaults={
-                "total_quantity": quantity,
-                "notes": f"Initial stock from Order #{order_id}"
+                "total_quantity": item.quantity,
+                "notes": f"Initial stock from Order #{order_id}",
+                "manufacture_date": item.manufacture_date,
+                "expiry_date": item.expiry_date,
             }
         )
         
-        if not created:
-            stock_inv.adjust_stock(
-                change_quantity=quantity,
+        
+        stock_inv.adjust_stock(
+                change_quantity=item.quantity,
                 action="ADD",
                 reference_id=order_id
             )
+       
+
 
 
     def _create_accepted_status_notifications(self, order):
@@ -982,11 +986,11 @@ class SalesReportView(APIView):
                     'product_image': product_image,
                     'variant_name': item.variant.name if item.variant else '-',
                     'quantity': item.quantity,
-                    'unit_price': item.unit_price,
-                    'total_price': item.total,
+                    'unit_price': item.single_quantity_after_gst_and_discount_price,
+                    'total_price': item.final_price,
                     'order_id': order.id
                 })
-                total_sales += item.total
+                total_sales += item.final_price
                 total_quantity += item.quantity
 
         # Search filtering
@@ -1096,8 +1100,8 @@ class SalesExportCSVView(APIView):
                         'product_name': item.product.name if item.product else 'N/A',
                         'variant_name': item.variant.name if item.variant else 'N/A',
                         'quantity': item.quantity,
-                        'unit_price': str(item.unit_price),
-                        'total_price': str(item.total),
+                        'unit_price': str(item.single_quantity_after_gst_and_discount_price),
+                        'total_price': str(item.final_price),
                         'order_id': order.id
                     })
 
@@ -1208,8 +1212,7 @@ class OrderRequestListCreateView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
-        
-
+      
         serializer = OrderRequestSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         with transaction.atomic():
@@ -1226,6 +1229,7 @@ class OrderRequestListCreateView(APIView):
                 message=f"New order request {order_request.request_id} from {order_request.requested_by.email}",
                 notification_type="order_request",
             )
+            send_email_to_user(admin_user.email,f"New Order Request Recieved From Stockist",f"New Order Request Recieved {order_request.request_id} from {order_request.requested_by.email}")
 
 
 # Order Request Detail, Update, Delete
@@ -1341,45 +1345,54 @@ def _handle_status_change(order_request, old_status, new_status,current_user, us
 
 def _update_inventory(order_request):
     """
-    target_user → The admin whose stock will be reduced.
-    We also credit the stockist's inventory at the same time.
+    Reduces stock from Admin (target_user) and adds stock to Stockist (requested_by),
+    preserving batch details (batch_number, manufacture_date, expiry_date).
     """
+    stockist_user = order_request.requested_by  # buyer
+    target_user = order_request.target_user     # admin whose stock is reduced
 
-    stockist_user = order_request.requested_by  # the buyer
-    target_user=order_request.target_user  # the admin whose stock will be reduced
+    with transaction.atomic():
+        for item in order_request.items.all():
+            # 1️⃣ Get Admin Inventory Record (source of stock)
+            try:
+                admin_stock = StockInventory.objects.get(
+                    product=item.product.product,
+                    variant=item.variant,
+                    user=target_user
+                )
+            except StockInventory.DoesNotExist:
+                raise ValueError(
+                    f"No admin stock found for product {item.product.product} (variant {item.variant})"
+                )
 
-    for item in order_request.items.all():
-        # ---------------------------------------
-        # 1️⃣ Deduct from Admin Inventory
-        # ---------------------------------------
-        admin_stock= StockInventory.objects.get(
-            product=item.product.product,
-            variant=item.variant,
-            user=target_user
-            
-        )
+            # Deduct quantity from admin inventory
+            admin_stock.adjust_stock(
+                change_quantity=-item.quantity,
+                action="ORDER",
+                reference_id=f"OrderReq-{order_request.id}",
+            )
 
-        admin_stock.adjust_stock(
-            change_quantity=-item.quantity,           # deduct
-            action="ORDER",
-            reference_id=f"OrderReq-{order_request.id}",
-        )
+            # 2️⃣ Add stock to Stockist Inventory (target)
+            stockist_stock, _ = StockInventory.objects.get_or_create(
+                product=item.product.product,
+                variant=item.variant,
+                user=stockist_user,
+                batch_number=admin_stock.batch_number,  # ✅ Copy batch
+                defaults={
+                    "total_quantity": 0,
+                    "manufacture_date": admin_stock.manufacture_date,
+                    "expiry_date": admin_stock.expiry_date,
+                    "notes": f"Transferred from Admin Stock on {timezone.now().date()}",
+                },
+            )
 
-        # ---------------------------------------
-        # 2️⃣ Add to Stockist Inventory
-        # ---------------------------------------
-        stockist_stock, _ = StockInventory.objects.get_or_create(
-            product=item.product.product,
-            variant=item.variant,
-            user=stockist_user,
-            defaults={"total_quantity": 0},
-        )
+            stockist_stock.adjust_stock(
+                change_quantity=item.quantity,
+                action="ADD",
+                reference_id=f"OrderReq-{order_request.id}",
+            )
 
-        stockist_stock.adjust_stock(
-            change_quantity=item.quantity,           
-            action="ADD",
-            reference_id=f"OrderReq-{order_request.id}",
-        )
+    return True
 
 # Get requests by status
 @api_view(['GET'])
@@ -1772,6 +1785,7 @@ class ResellerOrderRequestListCreateView(APIView):
                 message=f"New order request {order_request.request_id} from {order_request.requested_by.email}",
                 notification_type="order_request",
             )
+            send_email_to_user(stockist_user.email,"New Order Request Received",f"New order request {order_request.request_id} from {order_request.requested_by.email}")
 
 @api_view(['GET'])
 @permission_classes([IsStockistOrResellerRole])
@@ -1870,8 +1884,9 @@ class UpdateOrderRequestStatusView(APIView):
         
         if new_status == 'approved' and old_status == 'pending':
             # Add amount to admin wallet
+
             admin_wallet, _ = Wallet.objects.get_or_create(user=user)
-            admin_wallet.payout_balance += total_amount
+            admin_wallet.current_balance += total_amount
             admin_wallet.save()
 
             WalletTransaction.objects.create(
@@ -1926,14 +1941,14 @@ class UpdateOrderRequestStatusView(APIView):
     def _update_inventory(cls, order_request):
         reseller_user = order_request.requested_by  # buyer (reseller)
         target_user = order_request.target_user     # stockist 
-        admin_user = User.objects.filter(role="admin").first()  # admin 
-     
+        admin_user = User.objects.filter(role="admin").first()  # admin
 
         validated_items = []
         total_price = 0
+        total_stockist_commission = 0  # ✅ track total commission for stockist
 
         with transaction.atomic():
-            # ✅ Step 1: Preload all stock records in one query
+            # ✅ Step 1: Preload all stock records
             stock_map = {
                 (s.product_id, s.variant_id): s
                 for s in StockInventory.objects.select_for_update().filter(
@@ -1943,26 +1958,56 @@ class UpdateOrderRequestStatusView(APIView):
                 )
             }
 
-            # ✅ Step 2: Validate and deduct in one pass
+            # ✅ Step 2: Validate, deduct, and compute commission
             for item in order_request.items.all():
                 key = (item.product.product.id, item.variant.id)
-                admin_stock = stock_map.get(key)
+                stock_record = stock_map.get(key)
 
-                if not admin_stock:
+                if not stock_record:
                     raise ValueError(f"No stock found for {item.product.product} - {item.variant}")
 
-                if admin_stock.total_quantity < item.quantity:
+                if stock_record.total_quantity < item.quantity:
                     raise ValueError(
                         f"Not enough stock for {item.product.product} - {item.variant}. "
-                        f"Available: {admin_stock.total_quantity}, Requested: {item.quantity}"
+                        f"Available: {stock_record.total_quantity}, Requested: {item.quantity}"
                     )
 
-                # Deduct immediately
-                admin_stock.adjust_stock(
+                # Deduct stock
+                stock_record.adjust_stock(
                     change_quantity=-item.quantity,
                     action="ORDER",
                     reference_id=f"OrderReq-{order_request.id}",
                 )
+
+                # ✅ Commission Calculation
+                if target_user.role == "stockist":
+                    role_product = RoleBasedProduct.objects.filter(
+                        product=item.product.product,
+                        user=admin_user,
+                        role="admin"
+                    ).first()
+                else:
+                    role_product = RoleBasedProduct.objects.filter(
+                        product=item.product.product,
+                        user=target_user,
+                        role=target_user.role
+                    ).first()
+
+                commission = ProductCommission.objects.filter(
+                    role_product=role_product,
+                    variant=item.variant
+                ).first()
+
+                commission_amount = 0
+                if commission:
+                    if commission.commission_type == "flat":
+                        commission_amount = commission.stockist_commission_value * item.quantity
+                    elif commission.commission_type == "percent":
+                        commission_amount = (
+                            (commission.stockist_commission_value / 100)
+                            * (item.unit_price * item.quantity)
+                        )
+                    total_stockist_commission += commission_amount
 
                 validated_items.append({
                     "product": item.product.product,
@@ -1971,6 +2016,7 @@ class UpdateOrderRequestStatusView(APIView):
                     "unit_price": item.unit_price,
                     "discount_percentage": item.discount_percentage,
                     "gst_percentage": item.gst_percentage,
+                    "commission_amount": commission_amount,
                 })
 
                 total_price += item.unit_price * item.quantity
@@ -1992,9 +2038,9 @@ class UpdateOrderRequestStatusView(APIView):
                 notes="Bulk order placed.",
             )
 
-            # ✅ Step 5: Bulk create Order Items
-            order_items = [
-                OrderItem(
+            # ✅ Step 5: Create Order Items using .save() (triggers custom save logic)
+            for item in validated_items:
+                order_item = OrderItem(
                     order=order,
                     product=item["product"],
                     variant=item["variant"],
@@ -2008,50 +2054,62 @@ class UpdateOrderRequestStatusView(APIView):
                         role=admin_user.role
                     ).first(),
                 )
-                for item in validated_items
-            ]
-            OrderItem.objects.bulk_create(order_items)
+                order_item.save()  # ✅ Calls your save() method
 
-            # ✅ Step 6: Send Notification
+            # ✅ Step 6: Handle Stockist Commission Wallet Credit
+            if total_stockist_commission > 0:
+                admin_wallet, _ = Wallet.objects.get_or_create(user=admin_user)
+
+                if admin_wallet.current_balance < total_stockist_commission:
+                    raise ValueError("Admin wallet does not have enough balance to pay commission.")
+
+                # Deduct commission from admin
+                admin_wallet.current_balance -= total_stockist_commission
+                admin_wallet.save()
+
+                WalletTransaction.objects.create(
+                    wallet=admin_wallet,
+                    transaction_type='DEBIT',
+                    amount=total_stockist_commission,
+                    description=f"Commission paid to {target_user.email} for Order #{order.id}",
+                    transaction_status='SUCCESS',
+                    is_refund=False,
+                )
+
+                # Credit commission to stockist
+                stockist_wallet, _ = Wallet.objects.get_or_create(user=target_user)
+                stockist_wallet.payout_balance += total_stockist_commission
+                stockist_wallet.save()
+
+                WalletTransaction.objects.create(
+                    wallet=stockist_wallet,
+                    transaction_type='CREDIT',
+                    amount=total_stockist_commission,
+                    description=f"Commission earned for Order #{order.id}",
+                    transaction_status='SUCCESS',
+                    is_refund=False,
+                )
+
+            # ✅ Step 7: Notifications
             create_notification(
                 user=reseller_user,
                 title="Order Placed Successfully",
-                message=f"Your order #{order.id} has been Approved successfully!",
+                message=f"Your order #{order.id} has been approved successfully!",
                 notification_type="order",
                 related_url=f"/orders/{order.id}/",
             )
             create_notification(
                 user=admin_user,
-                title="New Order Placed by Reseller",
+                title="New Order Request Placed by Reseller",
                 message=f"New order #{order.id} has been placed by {reseller_user.email}",
                 notification_type="order",
                 related_url=f"/orders/{order.id}/",
             )
 
         return order
-        
+
 
             
-
-
-
-
-
-
-# 2️⃣ Add to reseller Inventory
-            # stockist_stock, _ = StockInventory.objects.get_or_create(
-            #     product=item.product.product,
-            #     variant=item.variant,
-            #     user=stockist_user,
-            #     defaults={"total_quantity": 0},
-            # )
-
-            # stockist_stock.adjust_stock(
-            #     change_quantity=item.quantity,
-            #     action="ADD",
-            #     reference_id=f"OrderReq-{order_request.id}",
-            # )
-
 
 class ResellerOrderStatusMange(APIView):
     permission_classes = [IsAdminOrResellerRole]
@@ -2105,7 +2163,7 @@ class ResellerOrderStatusMange(APIView):
             # --- Handle delivered ---
             if new_status == "delivered":
                 self.handle_delivered_status(order, request.user)
-                self.commission_on_delivery(order)
+                # self.commission_on_delivery(order)
 
         # --- Send notifications ---
         self.create_notifications(order, new_status, request.user)
@@ -2159,6 +2217,8 @@ class ResellerOrderStatusMange(APIView):
 
                     order.save(update_fields=["payment_status"])
 
+                
+                
                 # --- 2️⃣ RoleBasedProduct / ProductVariantPrice / StockInventory ---
                 for item in order.items.all():
                     product = item.product
@@ -2177,6 +2237,8 @@ class ResellerOrderStatusMange(APIView):
                     )
                     if variant and variant not in rbp.variants.all():
                         rbp.variants.add(variant)
+                    
+               
 
                     # ProductVariantPrice
                     if variant:
@@ -2185,28 +2247,38 @@ class ResellerOrderStatusMange(APIView):
                             variant=variant,
                             user=buyer,
                             role=role,
-                            defaults={"price": item.unit_price, "discount": 0, "gst_percentage": 0}
+                            actual_price=item.single_quantity_after_gst_and_discount_price,  
+                            defaults={
+                                "price": item.single_quantity_after_gst_and_discount_price,
+                                "discount": 0,
+                                "gst_percentage": 0
+                            }
                         )
-                        if not created_pvp and pvp.price != item.unit_price:
-                            pvp.price = item.unit_price
+                        if not created_pvp and pvp.price != item.single_quantity_after_gst_and_discount_price:
+                            pvp.price = item.single_quantity_after_gst_and_discount_price
                             pvp.save()
+                    
+         
 
                     # StockInventory
                     stock_inv, created_stock = StockInventory.objects.get_or_create(
                         user=buyer,
                         product=product,
                         variant=variant,
+                        batch_number=item.batch_number,
                         defaults={
                             "total_quantity": item.quantity,
-                            "notes": f"Initial stock from Order #{order.id}"
+                            "notes": f"Initial stock from Order #{order.id}",
+                            "manufacture_date": item.manufacture_date,
+                            "expiry_date": item.expiry_date
                         }
                     )
-                    if not created_stock:
-                        stock_inv.adjust_stock(
-                            change_quantity=item.quantity,
-                            action="ADD",
-                            reference_id=order.id
-                        )
+                   
+                    stock_inv.adjust_stock(
+                        change_quantity=item.quantity,
+                        action="ADD",
+                        reference_id=order.id
+                    )
         except Exception as e:
             print(f"Error in handle_delivered_status: {str(e)}")
 
@@ -2343,10 +2415,116 @@ class ResellerVaraintsList(generics.ListAPIView):
 class CustomerPurchaseCreateView(generics.CreateAPIView):
     queryset = CustomerPurchase.objects.all()
     serializer_class = CustomerPurchaseSerializer
-    permission_classes = [IsResellerRole]
+    permission_classes = [IsResellerRole]  # You can also chain with IsAuthenticated
 
     def perform_create(self, serializer):
-        serializer.save(vendor=self.request.user)
+        purchase = serializer.save(vendor=self.request.user)
+        self.process_customer_purchase(purchase)
+
+    def process_customer_purchase(self, purchase: CustomerPurchase):
+        from decimal import Decimal
+        from django.core.exceptions import ObjectDoesNotExist
+
+        with transaction.atomic():
+            # 1️⃣ Deduct stock
+            try:
+                inventory = StockInventory.objects.select_for_update().get(
+                    product=purchase.product.product,
+                    variant=purchase.variant,
+                    user=purchase.vendor
+                )
+            except StockInventory.DoesNotExist:
+                raise ValueError("No stock found for this product and variant.")
+
+            inventory.adjust_stock(
+                -purchase.quantity,
+                action="CUSTOMER_PURCHASE",
+                reference_id=purchase.id
+            )
+
+            # 2️⃣ Get admin user and admin product
+            admin_user = User.objects.filter(role="admin").first()
+            if not admin_user:
+                raise ValueError("Admin user not found.")
+
+            try:
+                role_product = RoleBasedProduct.objects.get(
+                    product=purchase.product.product,
+                    user=admin_user,
+                    role="admin"
+                )
+            except RoleBasedProduct.DoesNotExist:
+                raise ValueError("Admin role-based product not found for commission calculation.")
+
+            # 3️⃣ Get commission record
+            commission = ProductCommission.objects.filter(
+                role_product=role_product,
+                variant=purchase.variant
+            ).first()
+
+            if not commission:
+                return  # No commission defined — skip wallet ops
+
+            # 4️⃣ Compute commission
+            if commission.commission_type == "percent":
+                reseller_comm_value = (purchase.total_price * commission.reseller_commission_value) / Decimal(100)
+            else:
+                reseller_comm_value = commission.reseller_commission_value * purchase.quantity
+
+            total_to_deduct = reseller_comm_value
+
+            # 5️⃣ Admin wallet adjustment
+            admin_wallet, _ = Wallet.objects.get_or_create(user=admin_user)
+
+            if admin_wallet.current_balance < total_to_deduct:
+                raise ValueError("Admin wallet does not have enough balance to pay commission.")
+
+            admin_wallet.current_balance -= total_to_deduct
+            admin_wallet.save(update_fields=["current_balance"])
+
+            # 6️⃣ Reseller wallet adjustment
+            reseller_wallet, _ = Wallet.objects.get_or_create(user=purchase.vendor)
+            reseller_wallet.payout_balance += total_to_deduct
+            reseller_wallet.save(update_fields=["payout_balance"])
+
+            # 7️⃣ Wallet transaction history
+            WalletTransaction.objects.create(
+                wallet=reseller_wallet,
+                transaction_type="CREDIT",
+                amount=total_to_deduct,
+                description=f"Reseller commission For Selling Products to Customer,Customer Puchase ID:{purchase.id}",
+                transaction_status="SUCCESS",
+                reference_id=purchase.id
+            )
+
+            WalletTransaction.objects.create(
+                wallet=admin_wallet,
+                transaction_type="DEBIT",
+                amount=total_to_deduct,
+                description=f"Commission payout to reseller for Selling Products To Customer ",
+                transaction_status="SUCCESS",
+                reference_id=purchase.id
+            )
+
+            # 8️⃣ Notifications
+            create_notification(
+                user=purchase.vendor,
+                title="Commission Earned",
+                message=f"You earned a commission of ₹{total_to_deduct:.2f} from Selling Products To Customer #{purchase.id}.",
+                notification_type="commission",
+                related_url="/wallet/"
+            )
+
+            create_notification(
+                user=admin_user,
+                title="Commission Paid",
+                message=f"You paid ₹{total_to_deduct:.2f} as commission for Selling Products to Customer",
+                notification_type="commission",
+                related_url="/wallet/"
+            )
+
+
+
 
 class CustomerPurchaseListView(generics.ListAPIView):
     serializer_class = CustomerPurchaseSerializer
@@ -2395,3 +2573,39 @@ class CustomerPurchaseListPaginatedView(generics.ListAPIView):
             'previous': purchases.previous_page_number() if purchases.has_previous() else None,
             'results': serializer.data
         })
+    
+class UpdateOrderItemsView(APIView):
+    permission_classes = [IsAdminOrVendorRole] 
+    def patch(self, request, order_id):
+        user = request.user 
+
+        if not user.is_authenticated:
+            return Response(
+                {"detail": "Authentication credentials were not provided."},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            order = Order.objects.get(id=order_id)
+        except Order.DoesNotExist:
+            return Response({"detail": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        items_data = request.data.get("items", [])
+        if not items_data:
+            return Response({"detail": "No items provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+        updated_items = []
+        for item_data in items_data:
+            try:
+                order_item = OrderItem.objects.get(id=item_data["item_id"], order=order)
+            except OrderItem.DoesNotExist:
+                continue
+
+            order_item.batch_number = item_data.get("batch_number", order_item.batch_number)
+            order_item.manufacture_date = item_data.get("manufacture_date", order_item.manufacture_date)
+            order_item.expiry_date = item_data.get("expiry_date", order_item.expiry_date)
+            order_item.save()
+
+            
+
+        return Response({"message": "Batch Details Updated Successfully"}, status=status.HTTP_200_OK)

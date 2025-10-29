@@ -77,6 +77,7 @@ const ProductDetailsPage = ({ role }) => {
     setZoomPos({ x, y });
   };
 
+  // Fixed: Check if exact same product + variant combination exists in cart
   const inCart = cartItems.some(
     (item) => item.id === product?.id && item.variant?.id === selectedVariant?.id
   );
@@ -85,7 +86,7 @@ const ProductDetailsPage = ({ role }) => {
   const calculatePrice = () => {
     // If bulk price is available, use it directly (all-inclusive)
     if (selectedBulkPrice) {
-      return selectedBulkPrice.price;
+      return selectedBulkPrice.final_price;
     }
     
     // Otherwise, calculate price from product_variant_prices with discount
@@ -135,9 +136,9 @@ const ProductDetailsPage = ({ role }) => {
     if (!selectedVariant?.product_variant_prices?.[0]) return "0.00";
     
     const variantPrice = selectedVariant.product_variant_prices[0];
-    const basePrice = Number(variantPrice.price);
-    const discountAmount = basePrice * (variantPrice.discount / 100);
-    return (basePrice - discountAmount).toFixed(2);
+    const basePrice = Number(variantPrice.actual_price);
+ 
+    return basePrice
   };
 
   const handleQuantityChange = (e) => {
@@ -146,43 +147,46 @@ const ProductDetailsPage = ({ role }) => {
   };
 
   const handleAddToCart = () => {
-    if (!selectedVariant) {
-      toast.warning("Please select a variant before adding to cart.");
-      return;
-    }
+  if (!selectedVariant) {
+    toast.warning("Please select a variant before adding to cart.");
+    return;
+  }
 
-    if (inCart) {
-      toast.info("Item already in cart.");
-      return;
-    }
+  // Create unique identifier for cart items
+  const cartItemId = `${product.id}_${selectedVariant.id}`;
+  
+  // Check if exact same product+variant combination exists
+  const existingCartItem = cartItems.find(item => item.cartItemId === cartItemId);
 
-    const itemPrice = Number(calculatePrice());
-    const gstAmount = selectedBulkPrice ? 0 : Number(calculateGST()) / quantity; // GST per unit (0 if bulk pricing)
-    const finalPrice = Number(calculateFinalPrice());
+  if (existingCartItem) {
+    toast.info("This variant is already in your cart.");
+    return;
+  }
 
-    dispatch(
-      addItem({
-        id: product.id,
-        name: product.name,
-        price: itemPrice,
-        gst_percentage: selectedBulkPrice ? 0 : selectedVariant.product_variant_prices[0].gst_percentage,
-        gst_tax: selectedBulkPrice ? 0 : selectedVariant.product_variant_prices[0].gst_tax,
-        gst_amount: gstAmount,
-        final_price: finalPrice,
-        quantity,
-        image: mainImage,
-        variant: selectedVariant,
-        bulk_price: selectedBulkPrice,
-      })
-    );
+  const itemPrice = Number(calculatePrice());
+  const gstAmount = selectedBulkPrice ? 0 : Number(calculateGST()) / quantity;
+  const finalPrice = Number(calculateFinalPrice());
 
-    toast.success(`${quantity} item(s) added to cart!`);
+  const cartItem = {
+    id: productData.id,
+    product_id:product.id,
+    cartItemId: cartItemId, // Unique identifier
+    name: product.name,
+    price: itemPrice,
+    gst_percentage: selectedBulkPrice ? 0 : selectedVariant.product_variant_prices[0]?.gst_percentage || 0,
+    gst_tax: selectedBulkPrice ? 0 : selectedVariant.product_variant_prices[0]?.gst_tax || 0,
+    gst_amount: gstAmount,
+    final_price: finalPrice,
+    quantity: quantity,
+    image: mainImage,
+    variant: selectedVariant,
+    bulk_price: selectedBulkPrice,
   };
 
-  const handleBuyNow = () => {
-    handleAddToCart();
-    navigate(`/${role}/cart`);
-  };
+  dispatch(addItem(cartItem));
+  toast.success(`${quantity} item(s) added to cart!`);
+  setQuantity(1); // Reset quantity
+};
 
   if (isLoading) {
     return (
@@ -311,7 +315,7 @@ const ProductDetailsPage = ({ role }) => {
                 ₹{calculatePrice()}
                 {hasBulkPricing && (
                   <span className="ml-2 text-sm bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                    All-inclusive
+                    All-inclusive ---
                   </span>
                 )}
               </div>
@@ -344,8 +348,8 @@ const ProductDetailsPage = ({ role }) => {
               <div className="mt-3 space-y-1 text-sm">
                 <div className="flex justify-between text-gray-600">
                   <span>
-                    {variantPrice.gst_tax 
-                      ? `GST (₹${variantPrice.gst_tax}/unit):` 
+                    {variantPrice.gst_percentage 
+                      ? `GST (${variantPrice.gst_percentage}%):` 
                       : `GST (${variantPrice.gst_percentage}%):`}
                   </span>
                   <span className="font-semibold">₹{calculateGST()}</span>
@@ -440,7 +444,7 @@ const ProductDetailsPage = ({ role }) => {
                       .map((bulk, index, array) => {
                         // Calculate base price with discount for comparison
                         const basePriceWithDiscount = getBasePrice();
-                        const savings = (Number(basePriceWithDiscount) - Number(bulk.price)).toFixed(2);
+                        const savings = (Number(basePriceWithDiscount) - Number(bulk.final_price)).toFixed(2);
                         return (
                           <tr 
                             key={bulk.id} 
@@ -449,10 +453,10 @@ const ProductDetailsPage = ({ role }) => {
                             }`}
                           >
                             <td className="py-3 font-semibold">
-                              {bulk.max_quantity}+ units
+                              {bulk.max_quantity} + units
                             </td>
                             <td className="text-right font-bold text-green-600">
-                              ₹{bulk.price}
+                              ₹{bulk.final_price}
                               <div className="text-xs text-gray-500 font-normal">(GST & discount included)</div>
                             </td>
                             <td className="text-right text-orange-600 font-semibold">
@@ -498,7 +502,7 @@ const ProductDetailsPage = ({ role }) => {
                 </div>
               </div>
 
-              {/* Action Buttons */}
+              {/* Action Buttons - Removed Buy Now button */}
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={handleAddToCart}
@@ -509,22 +513,11 @@ const ProductDetailsPage = ({ role }) => {
                     !productData?.is_featured
                   }
                 >
-                  <FiShoppingCart className="text-lg" />
+                  <FiShoppingCart className="text-md" />
                   {product.status === "draft" || !productData?.is_featured
                     ? "Unavailable"
                     : `Add to Cart - ₹${(Number(calculateFinalPrice())).toFixed(2)}`}
-                </button>
-                
-                <button
-                  onClick={handleBuyNow}
-                  className="btn btn-secondary btn-lg flex-1 cursor-pointer hover:shadow-lg transition-all duration-300"
-                  disabled={
-                    !selectedVariant || 
-                    product.status === "draft" || 
-                    !productData?.is_featured
-                  }
-                >
-                  Buy Now
+                  
                 </button>
               </div>
             </div>
@@ -626,7 +619,8 @@ const ProductDetailsPage = ({ role }) => {
                 <div>
                   <p className="font-bold text-gray-900">{productData?.user_name || "N/A"}</p>
                   <p className="text-sm text-gray-600">Vendor ID: {productData?.user_unique_id || "N/A"}</p>
-                  <p className="text-xs text-gray-500 mt-1">{variantPrice?.role_display || "Vendor"}</p>
+                  <p className="text-xs text-gray-500 mt-1">{productData?.role_display || "Test"}</p>
+                  
                 </div>
               </div>
             </div>

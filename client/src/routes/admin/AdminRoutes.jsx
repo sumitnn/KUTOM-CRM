@@ -1,11 +1,10 @@
-
 import { lazy, Suspense } from "react";
 import { Route } from "react-router-dom";
 
 
-
-
 // Lazy-loaded page components
+const AdminExpiredAndReplacement =lazy(() => import("../../pages/admin/AdminExpiredAndReplacement"));
+const ExpiryReplacementPage =lazy(() => import("../../components/ExpiryReplacementPage"));
 const AnnouncementsPage =lazy(() => import("../../pages/admin/AnnounceMentsPage"));
 const OrderRequestReport = lazy(() => import("../../pages/OrderRequestReport"));
 const OrderRequestDetailsPage = lazy(() => import("../../pages/OrderRequestDetailsPage"));
@@ -67,6 +66,32 @@ const AdminRoutes = [
         </AdminMainLayout>
       }
     />
+    {/* my expired  */}
+    <Route 
+      path="/my-product-replacement-requests" 
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <AdminExpiredAndReplacement role="admin" />
+          </Suspense>
+        </AdminMainLayout>
+      }
+    />
+
+    {/* reseller expired  */}
+    <Route 
+      path="/reseller/product-replacement-requests" 
+      element={
+        <AdminMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <ExpiryReplacementPage role="admin"/>
+            
+          </Suspense>
+        </AdminMainLayout>
+      }
+    />
+
+
     <Route
       path="/brand"
       element={

@@ -22,6 +22,7 @@ urlpatterns = [
 
       path('order-history/', OrderHistoryListAPIView.as_view(), name='order-history-list'),
     path('order-history/export/', SalesReportView.as_view(), name='order-history-export'),
+    path("orders/<int:order_id>/items/", UpdateOrderItemsView.as_view(), name="update-order-items"),
     # sales 
     path('sales/vendor/', SalesReportView.as_view(), name='vendor-sales'),
     path('sales/vendor/export/', SalesExportCSVView.as_view(), name='vendor-sales-export'),

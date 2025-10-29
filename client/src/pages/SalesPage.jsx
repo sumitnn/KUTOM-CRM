@@ -1,10 +1,11 @@
 import { useState, lazy, Suspense, useEffect } from "react";
-import { FiFileText, FiCheck, FiX, FiTruck, FiRefreshCw, FiSearch, FiFilter } from "react-icons/fi";
+import { FiFileText, FiCheck, FiX, FiTruck, FiRefreshCw, FiSearch, FiFilter, FiEdit } from "react-icons/fi";
 
 import { 
   useGetVendorOrdersQuery, 
   useUpdateOrderStatusMutation,
-  useUpdateDispatchStatusMutation 
+  useUpdateDispatchStatusMutation,
+  useUpdateOrderItemsMutation 
 } from "../features/order/orderApi";
 import { toast } from "react-toastify";
 import ModalPortal from "../components/ModalPortal";
@@ -27,7 +28,10 @@ const SalesPage = ({ role }) => {
   const [processingOrders, setProcessingOrders] = useState(new Set());
   const [searchTerm, setSearchTerm] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  
+  const [showBatchModal, setShowBatchModal] = useState(false);
+  const [selectedOrderForBatch, setSelectedOrderForBatch] = useState(null);
+  const [batchFormData, setBatchFormData] = useState({});
+
   // Dispatch form state
   const [dispatchForm, setDispatchForm] = useState({
     courier_name: "",
@@ -42,18 +46,18 @@ const SalesPage = ({ role }) => {
     page
   });
 
- 
   const [updateOrderStatus] = useUpdateOrderStatusMutation();
   const [updateDispatchStatus] = useUpdateDispatchStatusMutation();
+  const [updateOrderItems] = useUpdateOrderItemsMutation();
   
   const tabs = [
-  { id: "new", label: "New Orders", count: vendorOrders?.status_counts?.new || 0 },
-  { id: "accepted", label: "Accepted", count: vendorOrders?.status_counts?.accepted || 0 },
-  { id: "rejected", label: "Rejected", count: vendorOrders?.status_counts?.rejected || 0 },
-  { id: "cancelled", label: "Cancelled", count: vendorOrders?.status_counts?.cancelled || 0 },
-  { id: "dispatched", label: "Dispatched", count: vendorOrders?.status_counts?.dispatched || 0 },
-  { id: "delivered", label: "Delivered", count: vendorOrders?.status_counts?.delivered || 0 },
-];
+    { id: "new", label: "New Orders", count: vendorOrders?.status_counts?.new || 0 },
+    { id: "accepted", label: "Accepted", count: vendorOrders?.status_counts?.accepted || 0 },
+    { id: "rejected", label: "Rejected", count: vendorOrders?.status_counts?.rejected || 0 },
+    { id: "cancelled", label: "Cancelled", count: vendorOrders?.status_counts?.cancelled || 0 },
+    { id: "dispatched", label: "Dispatched", count: vendorOrders?.status_counts?.dispatched || 0 },
+    { id: "delivered", label: "Delivered", count: vendorOrders?.status_counts?.delivered || 0 },
+  ];
 
   // Handle tab changes with loading state
   useEffect(() => {
@@ -64,6 +68,21 @@ const SalesPage = ({ role }) => {
       return () => clearTimeout(timer);
     }
   }, [vendorOrders, tabChanging]);
+
+  // Initialize batch form data when order is selected
+  useEffect(() => {
+    if (selectedOrderForBatch) {
+      const initialData = {};
+      selectedOrderForBatch.items.forEach((item, index) => {
+        initialData[index] = {
+          batch_number: item.batch_number || "",
+          manufacture_date: item.manufacture_date || "",
+          expiry_date: item.expiry_date || ""
+        };
+      });
+      setBatchFormData(initialData);
+    }
+  }, [selectedOrderForBatch]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -185,6 +204,65 @@ const SalesPage = ({ role }) => {
     }
   };
 
+  const handleBatchUpdate = async (orderId) => {
+    // Validate all batch data
+    const itemsToUpdate = [];
+    let isValid = true;
+
+    Object.keys(batchFormData).forEach(index => {
+      const itemData = batchFormData[index];
+      if (!itemData.batch_number || !itemData.manufacture_date || !itemData.expiry_date) {
+        isValid = false;
+        toast.error(`Please fill all batch details for item ${parseInt(index) + 1}`);
+        return;
+      }
+      
+      itemsToUpdate.push({
+        item_id: selectedOrderForBatch.items[index].id,
+        batch_number: itemData.batch_number,
+        manufacture_date: itemData.manufacture_date,
+        expiry_date: itemData.expiry_date
+      });
+    });
+
+    if (!isValid) return;
+
+    // Add to processing orders to disable button
+    setProcessingOrders(prev => new Set(prev).add(orderId));
+
+    try {
+      await updateOrderItems({
+        orderId,
+        items: itemsToUpdate
+      }).unwrap();
+      
+      toast.success("Batch details updated successfully");
+      setShowBatchModal(false);
+      setSelectedOrderForBatch(null);
+      setBatchFormData({});
+      refetch();
+    } catch (error) {
+      toast.error(error.data?.message || "Failed to update batch details");
+    } finally {
+      // Remove from processing orders
+      setProcessingOrders(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(orderId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleBatchFormChange = (itemIndex, field, value) => {
+    setBatchFormData(prev => ({
+      ...prev,
+      [itemIndex]: {
+        ...prev[itemIndex],
+        [field]: value
+      }
+    }));
+  };
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -224,6 +302,11 @@ const SalesPage = ({ role }) => {
     setShowOrderDetails(true);
   };
 
+  const handleBatchManagement = (order) => {
+    setSelectedOrderForBatch(order);
+    setShowBatchModal(true);
+  };
+
   // Transform API order data to match the OrderDetailsModal format
   const transformOrderForModal = (order) => {
     return {
@@ -258,9 +341,15 @@ const SalesPage = ({ role }) => {
         size: item.variant?.name,
         quantity: item.quantity,
         price: item.unit_price,
-        discount: item.discount || "0.00",
-        gstAmount: item.gst_amount || "0.00",
-        total: (parseFloat(item.unit_price) * item.quantity - parseFloat(item.discount || 0)).toString()
+        discount: item.discount || "0",
+        gst_percentage:item.gst_percentage,
+        total: item.final_price,
+        batch_number: item.batch_number,
+        manufacture_date: item.manufacture_date,
+        expiry_date: item.expiry_date,
+        bulk_price_applied: item.bulk_price_applied,
+        discount_percentage: item.discount_percentage,
+        single_quantity_after_gst_and_discount_price:item.single_quantity_after_gst_and_discount_price
       })) || [],
       totalAmount: order.total_price,
       subtotal: order.subtotal || order.total_price,
@@ -285,11 +374,28 @@ const SalesPage = ({ role }) => {
     order.id.toString().includes(searchTerm) ||
     order.buyer?.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     order.buyer?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.items?.[0]?.product?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+    order.items?.some(item => 
+      item.product?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
   ) || [];
 
+  // Calculate total items and display first product name
+  const getOrderSummary = (order) => {
+    const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0);
+    const firstProduct = order.items[0]?.product;
+    const productNames = [...new Set(order.items.map(item => item.product.name))];
+    
+    return {
+      totalItems,
+      productName: productNames.length > 1 
+        ? `${firstProduct.name} + ${productNames.length - 1} more` 
+        : firstProduct?.name || 'N/A',
+      productCount: productNames.length
+    };
+  };
+
   return (
-    <div className="py-4  max-w-8xl mx-auto">
+    <div className="py-4 max-w-8xl mx-auto">
       {/* Header Section */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
         <div className="flex-1">
@@ -451,8 +557,8 @@ const SalesPage = ({ role }) => {
                       <th className="text-left py-4 px-4">Customer</th>
                       <th className="text-left py-4 px-4 hidden md:table-cell">Product Info</th>
                       <th className="text-center py-4 px-4 hidden sm:table-cell">Qty</th>
-                      <th className="text-left py-4 px-4 hidden xl:table-cell">Price</th>
-                      <th className="text-left py-4 px-4">Total</th>
+                      <th className="text-left py-4 px-4 hidden xl:table-cell">Total Items</th>
+                      <th className="text-left py-4 px-4">Total Price</th>
                       <th className="text-left py-4 px-4">Status</th>
                       <th className="text-center py-4 px-4">Actions</th>
                     </tr>
@@ -460,112 +566,129 @@ const SalesPage = ({ role }) => {
                   
                   <tbody className="divide-y divide-gray-100">
                     {filteredOrders.length > 0 ? (
-                      filteredOrders.map((order, index) => (
-                        <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
-                          <td className="py-4 px-4 font-medium">
-                            {index + 1 + (page - 1) * 10}
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="font-semibold text-primary">#{order.id}</div>
-                          </td>
-                          <td className="py-4 px-4 hidden lg:table-cell">
-                            <div className="text-sm text-gray-600">
-                              {formatDate(order.created_at)}
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <div>
-                              <div className="font-medium text-gray-900">{order.buyer?.username}</div>
-                              <div className="text-xs text-gray-500 truncate max-w-[120px]">
-                                {order.buyer?.email}
+                      filteredOrders.map((order, index) => {
+                        const summary = getOrderSummary(order);
+                        return (
+                          <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
+                            <td className="py-4 px-4 font-medium">
+                              {index + 1 + (page - 1) * 10}
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="font-semibold text-primary">#{order.id}</div>
+                            </td>
+                            <td className="py-4 px-4 hidden lg:table-cell">
+                              <div className="text-sm text-gray-600">
+                                {formatDate(order.created_at)}
                               </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4 hidden md:table-cell">
-                            <div>
-                              <div className="font-medium text-gray-900 truncate max-w-[150px]">
-                                {order.items[0]?.product?.name}
+                            </td>
+                            <td className="py-4 px-4">
+                              <div>
+                                <div className="font-medium text-gray-900">{order.buyer?.username}</div>
+                                <div className="text-xs text-gray-500 truncate max-w-[120px]">
+                                  {order.buyer?.email}
+                                </div>
                               </div>
-                              <div className="text-xs text-gray-500 space-y-0.5">
-                                <div>SKU: {order.items[0]?.product?.sku}</div>
-                                <div>Size: {order.items[0]?.variant?.name}</div>
+                            </td>
+                            <td className="py-4 px-4 hidden md:table-cell">
+                              <div>
+                                <div className="font-medium text-gray-900 truncate max-w-[150px]">
+                                  {summary.productName}
+                                </div>
+                                <div className="text-xs text-gray-500 space-y-0.5">
+                                  <div>SKU: {order.items[0]?.product?.sku}</div>
+                                  <div>Items: {summary.productCount} product(s)</div>
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4 text-center hidden sm:table-cell">
-                            <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-sm font-medium">
-                              {order.items.reduce((total, item) => total + item.quantity, 0)}
-                            </span>
-                          </td>
-                          <td className="py-4 px-4 hidden xl:table-cell">
-                            <div className="font-medium text-gray-900">
-                              {formatCurrency(order.items[0]?.unit_price)}
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="font-bold text-gray-900">
-                              {formatCurrency(order.total_price)}
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <span className={`badge badge-lg font-medium  text-xs whitespace-nowrap ${
-                              order.status === 'delivered' ? 'badge-success' :
-                              order.status === 'rejected' || order.status === 'cancelled' ? 'badge-error' :
-                              order.status === 'accepted' ? 'badge-primary' :
-                              order.status === 'dispatched' ? 'badge-secondary' :
-                              'badge-warning'
-                            }`}>
-                              {order.status_display}
-                            </span>
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                              {activeTab === "new" && (
-                                <>
-                                  <button 
-                                    className="btn btn-sm btn-success gap-1 flex-1"
-                                    onClick={() => handleStatusUpdate(order.id, 'accepted')}
-                                    disabled={processingOrders.has(order.id)}
-                                  >
-                                    {processingOrders.has(order.id) ? (
-                                      <span className="loading loading-spinner loading-xs"></span>
-                                    ) : (
-                                      <FiCheck size={14} />
-                                    )}
-                                    <span className="hidden xs:inline">Accept</span>
-                                  </button>
-                                  <button 
-                                    className="btn btn-sm btn-error gap-1 flex-1"
-                                    onClick={() => setSelectedOrder(order)}
-                                    disabled={processingOrders.has(order.id)}
-                                  >
-                                    <FiX size={14} />
-                                    <span className="hidden xs:inline">Reject</span>
-                                  </button>
-                                </>
-                              )}
-                              {activeTab === "accepted" && (
+                            </td>
+                            <td className="py-4 px-4 text-center hidden sm:table-cell">
+                              <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-sm font-medium">
+                                {summary.totalItems}
+                              </span>
+                            </td>
+                            <td className="py-4 px-4 hidden xl:table-cell">
+                              <div className="font-medium text-gray-900">
+                                {order.items.length} items
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="font-bold text-gray-900">
+                                {Math.round(
+                        order?.transport_charges  > 0
+                          ? parseInt(order?.total_price ) + parseInt(order?.transport_charges )
+                          : order?.total_price 
+                      )}
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <span className={`badge badge-lg font-medium text-xs whitespace-nowrap ${
+                                order.status === 'delivered' ? 'badge-success' :
+                                order.status === 'rejected' || order.status === 'cancelled' ? 'badge-error' :
+                                order.status === 'accepted' ? 'badge-primary' :
+                                order.status === 'dispatched' ? 'badge-secondary' :
+                                'badge-warning'
+                              }`}>
+                                {order.status_display}
+                              </span>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                                {activeTab === "new" && (
+                                  <>
+                                    <button 
+                                      className="btn btn-sm btn-success gap-1 flex-1"
+                                      onClick={() => handleStatusUpdate(order.id, 'accepted')}
+                                      disabled={processingOrders.has(order.id)}
+                                    >
+                                      {processingOrders.has(order.id) ? (
+                                        <span className="loading loading-spinner loading-xs"></span>
+                                      ) : (
+                                        <FiCheck size={14} />
+                                      )}
+                                      <span className="hidden xs:inline">Accept</span>
+                                    </button>
+                                    <button 
+                                      className="btn btn-sm btn-error gap-1 flex-1"
+                                      onClick={() => setSelectedOrder(order)}
+                                      disabled={processingOrders.has(order.id)}
+                                    >
+                                      <FiX size={14} />
+                                      <span className="hidden xs:inline">Reject</span>
+                                    </button>
+                                  </>
+                                )}
+                                {activeTab === "accepted" && (
+                                  <>
+                                    <button 
+                                      className="btn btn-sm btn-primary gap-1 flex-1"
+                                      onClick={() => setSelectedOrder(order)}
+                                      disabled={processingOrders.has(order.id)}
+                                    >
+                                      <FiTruck size={14} />
+                                      <span className="hidden xs:inline">Dispatch</span>
+                                    </button>
+                                    <button 
+                                      className="btn btn-sm btn-info gap-1 flex-1"
+                                      onClick={() => handleBatchManagement(order)}
+                                      disabled={processingOrders.has(order.id)}
+                                    >
+                                      <FiEdit size={14} />
+                                      <span className="hidden xs:inline">Batch</span>
+                                    </button>
+                                  </>
+                                )}
                                 <button 
-                                  className="btn btn-sm btn-primary gap-1 flex-1"
-                                  onClick={() => setSelectedOrder(order)}
+                                  className="btn btn-sm btn-outline gap-1 flex-1" 
+                                  onClick={() => handleViewOrderDetails(order)}
                                   disabled={processingOrders.has(order.id)}
                                 >
-                                  <FiTruck size={14} />
-                                  <span className="hidden xs:inline">Dispatch</span>
+                                  <FiFileText size={14} />
+                                  <span className="hidden xs:inline">Details</span>
                                 </button>
-                              )}
-                              <button 
-                                className="btn btn-sm btn-outline gap-1 flex-1" 
-                                onClick={() => handleViewOrderDetails(order)}
-                                disabled={processingOrders.has(order.id)}
-                              >
-                                <FiFileText size={14} />
-                                <span className="hidden xs:inline">Details</span>
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
                     ) : (
                       <tr>
                         <td colSpan="10" className="text-center py-12">
@@ -631,358 +754,509 @@ const SalesPage = ({ role }) => {
       </div>
 
       {/* Status Update Modal */}
-     {selectedOrder && (
-  <ModalPortal>
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold text-gray-800">
-            {selectedOrder.status === 'new' ? 'Reject Order' : 
-             selectedOrder.status === 'accepted' ? 'Dispatch Order' : 
-             'Order Details'}
-          </h3>
-          <button 
-            onClick={() => {
-              setSelectedOrder(null);
-              setDispatchForm({
-                courier_name: "",
-                tracking_id: "",
-                transport_charges: "",
-                delivery_date: "",
-                receipt: null
-              });
-            }} 
-            className="btn btn-sm btn-circle btn-ghost"
-            disabled={isDispatching}
-          >
-            <FiX size={20} />
-          </button>
-        </div>
-        
-        {selectedOrder.status === 'accepted' ? (
-          <div className="space-y-6">
-            {/* Order Summary Card */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="font-bold text-lg mb-3 text-gray-700">Order Summary</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">Order ID</p>
-                  <p className="font-medium">#{selectedOrder.id}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Order Date</p>
-                  <p className="font-medium">{formatDate(selectedOrder.created_at)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Total Amount</p>
-                  <p className="font-medium">{formatCurrency(selectedOrder.total_price)}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Products Card */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="font-bold text-lg mb-3 text-gray-700">Products</h4>
-              <div className="space-y-4">
-                {selectedOrder.items.map((item, index) => (
-                  <div key={index} className="flex items-start gap-4 p-3 bg-white rounded border border-gray-100">
-                    <div className="flex-1">
-                      <p className="font-medium">{item.product.name}</p>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2 text-sm">
-                        <div>
-                          <p className="text-gray-500">SKU</p>
-                          <p>{item.product.sku || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500">Size</p>
-                          <p>{item.variant?.name || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500">Quantity</p>
-                          <p>{item.quantity}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500">Price</p>
-                          <p>{formatCurrency(item.unit_price)}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Customer Card */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="font-bold text-lg mb-3 text-gray-700">Customer Information</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h5 className="font-medium mb-2 text-gray-600">Contact Details</h5>
-                  <div className="space-y-2">
-                    <p>
-                      <span className="text-gray-500 text-sm">Name: </span>
-                      {selectedOrder.buyer?.username || 'N/A'}
-                    </p>
-                    <p>
-                      <span className="text-gray-500 text-sm">Email: </span>
-                      {selectedOrder.buyer?.email || 'N/A'}
-                    </p>
-                    <p>
-                      <span className="text-gray-500 text-sm">Phone: </span>
-                      {selectedOrder.buyer?.phone || 'N/A'}
-                    </p>
-                  </div>
-                </div>
-                <div>
-                  <h5 className="font-medium mb-2 text-gray-600">Shipping Address</h5>
-                  {selectedOrder.buyer?.address ? (
-                    <div className="space-y-2">
-                      <p>{selectedOrder.buyer.address.street_address || 'N/A'}</p>
-                      <p>
-                        {selectedOrder.buyer.address.city}, 
-                        {selectedOrder.buyer.address.district && ` ${selectedOrder.buyer.address.district},`}
-                        {selectedOrder.buyer.address.state && ` ${selectedOrder.buyer.address.state},`}
-                      </p>
-                      <p>
-                        {selectedOrder.buyer.address.postal_code && `${selectedOrder.buyer.address.postal_code},`}
-                        {selectedOrder.buyer.address.country}
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-gray-500">No address provided</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Dispatch Form */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="font-bold text-lg mb-3 text-gray-700">Dispatch Information</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-medium">Courier Name <span className="text-red-500">*</span></span>
-                  </label>
-                  <input
-                    type="text"
-                    name="courier_name"
-                    value={dispatchForm.courier_name}
-                    onChange={handleDispatchFormChange}
-                    className="input input-bordered w-full"
-                    placeholder="e.g. FedEx, UPS, DHL"
-                    required
-                    disabled={isDispatching}
-                  />
-                </div>
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-medium">Tracking ID <span className="text-red-500">*</span></span>
-                  </label>
-                  <input
-                    type="text"
-                    name="tracking_id"
-                    value={dispatchForm.tracking_id}
-                    onChange={handleDispatchFormChange}
-                    className="input input-bordered w-full"
-                    placeholder="Enter tracking number"
-                    required
-                    disabled={isDispatching}
-                  />
-                </div>
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-medium">Shipping Cost <span className="text-red-500">*</span></span>
-                  </label>
-                  <input
-                    type="number"
-                    name="transport_charges"
-                    value={dispatchForm.transport_charges}
-                    onChange={handleDispatchFormChange}
-                    className="input input-bordered w-full"
-                    placeholder="Enter shipping cost"
-                    min="0"
-                    step="0.01"
-                    required
-                    disabled={isDispatching}
-                  />
-                </div>
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-medium">Delivery Date <span className="text-red-500">*</span></span>
-                  </label>
-                  <input
-                    type="date"
-                    name="delivery_date"
-                    value={dispatchForm.delivery_date}
-                    onChange={handleDispatchFormChange}
-                    className="input input-bordered w-full"
-                    required
-                    min={minDate}
-                    max={maxDate}
-                    disabled={isDispatching}
-                  />
-                </div>
-                <div className="form-control md:col-span-2">
-                  <label className="label">
-                    <span className="label-text font-medium">Shipping Receipt (Optional)</span>
-                  </label>
-                  <input
-                    type="file"
-                    name="receipt"
-                    onChange={handleDispatchFormChange}
-                    className="file-input file-input-bordered w-full"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    disabled={isDispatching}
-                  />
-                  <label className="label">
-                    <span className="label-text-alt">Upload receipt or proof of shipment</span>
-                  </label>
-                </div>
-                <div className="form-control md:col-span-2">
-                  <label className="label">
-                    <span className="label-text font-medium">Notes</span>
-                  </label>
-                  <textarea 
-                    className="textarea textarea-bordered h-24" 
-                    placeholder="Enter any additional notes for this dispatch..."
-                    value={statusNote}
-                    onChange={(e) => setStatusNote(e.target.value)}
-                    disabled={isDispatching}
-                  ></textarea>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4">
-              <button 
-                onClick={() => {
-                  setSelectedOrder(null);
-                  setDispatchForm({
-                    courier_name: "",
-                    tracking_id: "",
-                    transport_charges: "",
-                    delivery_date: "",
-                    receipt: null
-                  });
-                }}
-                className="btn btn-ghost"
-                disabled={isDispatching}
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={() => handleDispatch(selectedOrder.id)}
-                className="btn btn-primary"
-                disabled={!isDispatchFormValid() || isDispatching}
-              >
-                {isDispatching ? (
-                  <>
-                    <span className="loading loading-spinner"></span>
-                    Dispatching...
-                  </>
-                ) : (
-                  "Confirm Dispatch"
-                )}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="font-bold text-lg mb-2 text-gray-700">Order #{selectedOrder.id}</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">Order Date</p>
-                  <p className="font-medium">{formatDate(selectedOrder.created_at)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Status</p>
-                  <p className="font-medium capitalize">{selectedOrder.status_display}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="font-bold text-lg mb-2 text-gray-700">Products</h4>
-              <div className="space-y-3">
-                {selectedOrder.items.map((item, index) => (
-                  <div key={index} className="flex items-start gap-4 p-3 bg-white rounded border border-gray-100">
-                    <div className="flex-1">
-                      <p className="font-medium">{item.product.name}</p>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2 text-sm">
-                        <div>
-                          <p className="text-gray-500">Quantity</p>
-                          <p>{item.quantity}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500">Price</p>
-                          <p>{formatCurrency(item.unit_price)}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500">Total</p>
-                          <p>{formatCurrency(item.unit_price * item.quantity)}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {(selectedOrder.status === 'new' || selectedOrder.status === 'accepted') && (
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text font-medium">
-                    {selectedOrder.status === 'new' ? 'Reason for Rejection' : 'Dispatch Notes'}
-                    <span className="text-red-500">*</span>
-                  </span>
-                </label>
-                <textarea 
-                  className="textarea textarea-bordered h-24" 
-                  placeholder={
-                    selectedOrder.status === 'new' 
-                      ? "Please provide reason for rejecting this order..."
-                      : "Enter any notes about this dispatch..."
-                  }
-                  value={statusNote}
-                  onChange={(e) => setStatusNote(e.target.value)}
-                  required
-                  disabled={processingOrders.has(selectedOrder.id)}
-                ></textarea>
-              </div>
-            )}
-
-            <div className="flex justify-end gap-3 pt-4">
-              <button 
-                onClick={() => setSelectedOrder(null)}
-                className="btn btn-ghost"
-                disabled={processingOrders.has(selectedOrder.id)}
-              >
-                Cancel
-              </button>
-              {selectedOrder.status === 'new' && (
+      {selectedOrder && (
+        <ModalPortal>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-gray-800">
+                  {selectedOrder.status === 'new' ? 'Reject Order' : 
+                  selectedOrder.status === 'accepted' ? 'Dispatch Order' : 
+                  'Order Details'}
+                </h3>
                 <button 
-                  onClick={() => handleStatusUpdate(selectedOrder.id, 'rejected')}
-                  className="btn btn-error"
-                  disabled={!statusNote || processingOrders.has(selectedOrder.id)}
+                  onClick={() => {
+                    setSelectedOrder(null);
+                    setDispatchForm({
+                      courier_name: "",
+                      tracking_id: "",
+                      transport_charges: "",
+                      delivery_date: "",
+                      receipt: null
+                    });
+                  }} 
+                  className="btn btn-sm btn-circle btn-ghost"
+                  disabled={isDispatching}
                 >
-                  {processingOrders.has(selectedOrder.id) ? (
-                    <>
-                      <span className="loading loading-spinner loading-xs"></span>
-                      Processing...
-                    </>
-                  ) : (
-                    "Confirm Rejection"
-                  )}
+                  <FiX size={20} />
                 </button>
+              </div>
+              
+              {selectedOrder.status === 'accepted' ? (
+                <div className="space-y-6">
+                  {/* Order Summary Card */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-bold text-lg mb-3 text-gray-700">Order Summary</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-700">Order ID</p>
+                        <p className="font-medium">#{selectedOrder.id}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-700">Order Created Date</p>
+                        <p className="font-medium">{formatDate(selectedOrder.created_at)}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-700 ">Total Amount</p>
+                        <p className="font-bold">{selectedOrder.total_price}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Products Card */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-bold text-lg mb-3 text-gray-700">Products</h4>
+                    <div className="space-y-4">
+                      {selectedOrder.items.map((item, index) => (
+                        <div key={index} className="flex items-start gap-4 p-3 bg-white rounded border border-gray-100">
+                          <div className="flex-1">
+                            <p className="font-medium">{item.product.name} - {item.variant?.name}</p>
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-2 text-sm">
+                              <div>
+                                <p className="text-gray-500">SKU</p>
+                                <p className="font-bold text-gray-500" >{item.variant.sku || 'N/A'}</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500">Quantity</p>
+                                <p className="font-bold text-gray-500">{item.quantity}</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500">Base Price</p>
+                                <p className="font-bold text-gray-500">{item.unit_price}</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500 ">After GST & Discount </p>
+                                <p className="font-bold text-gray-500">
+                                {(
+                              (item.unit_price - (item.unit_price * item.discount_percentage / 100)) *
+                              (1 + item.gst_percentage / 100)
+                            ).toFixed(2)}
+                              </p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500">Total</p>
+                                <p className="font-bold text-gray-500">{item.final_price }</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Customer Card */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-bold text-lg mb-3 text-gray-700">Customer Information</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h5 className="font-medium mb-2 text-gray-600">Contact Details</h5>
+                        <div className="space-y-2">
+                          <p>
+                            <span className="text-gray-500 text-sm">Name: </span>
+                            {selectedOrder.buyer?.username || 'N/A'}
+                          </p>
+                          <p>
+                            <span className="text-gray-500 text-sm">Email: </span>
+                            {selectedOrder.buyer?.email || 'N/A'}
+                          </p>
+                          <p>
+                            <span className="text-gray-500 text-sm">Phone: </span>
+                            {selectedOrder.buyer?.phone || 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                      <div>
+                        <h5 className="font-medium mb-2 text-gray-600">Shipping Address</h5>
+                        {selectedOrder.buyer?.address ? (
+                          <div className="space-y-2">
+                            <p>{selectedOrder.buyer.address.street_address || 'N/A'}</p>
+                            <p>
+                              {selectedOrder.buyer.address.city}, 
+                              {selectedOrder.buyer.address.district && ` ${selectedOrder.buyer.address.district},`}
+                              {selectedOrder.buyer.address.state && ` ${selectedOrder.buyer.address.state},`}
+                            </p>
+                            <p>
+                              {selectedOrder.buyer.address.postal_code && `${selectedOrder.buyer.address.postal_code},`}
+                              {selectedOrder.buyer.address.country}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-gray-500">No address provided</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dispatch Form */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-bold text-lg mb-3 text-gray-700">Dispatch Information</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="form-control">
+                        <label className="label">
+                          <span className="label-text font-medium">Courier Name <span className="text-red-500">*</span></span>
+                        </label>
+                        <input
+                          type="text"
+                          name="courier_name"
+                          value={dispatchForm.courier_name}
+                          onChange={handleDispatchFormChange}
+                          className="input input-bordered w-full"
+                          placeholder="e.g. FedEx, UPS, DHL"
+                          required
+                          disabled={isDispatching}
+                        />
+                      </div>
+                      <div className="form-control">
+                        <label className="label">
+                          <span className="label-text font-medium">Tracking ID <span className="text-red-500">*</span></span>
+                        </label>
+                        <input
+                          type="text"
+                          name="tracking_id"
+                          value={dispatchForm.tracking_id}
+                          onChange={handleDispatchFormChange}
+                          className="input input-bordered w-full"
+                          placeholder="Enter tracking number"
+                          required
+                          disabled={isDispatching}
+                        />
+                      </div>
+                      <div className="form-control">
+                        <label className="label">
+                          <span className="label-text font-medium">Shipping Cost <span className="text-red-500">*</span></span>
+                        </label>
+                        <input
+                          type="number"
+                          name="transport_charges"
+                          value={dispatchForm.transport_charges}
+                          onChange={handleDispatchFormChange}
+                          className="input input-bordered w-full"
+                          placeholder="Enter shipping cost"
+                          min="0"
+                          step="0.01"
+                          required
+                          disabled={isDispatching}
+                        />
+                      </div>
+                      <div className="form-control">
+                        <label className="label">
+                          <span className="label-text font-medium">Delivery Date <span className="text-red-500">*</span></span>
+                        </label>
+                        <input
+                          type="date"
+                          name="delivery_date"
+                          value={dispatchForm.delivery_date}
+                          onChange={handleDispatchFormChange}
+                          className="input input-bordered w-full"
+                          required
+                          min={minDate}
+                          max={maxDate}
+                          disabled={isDispatching}
+                        />
+                      </div>
+                      <div className="form-control md:col-span-2">
+                        <label className="label">
+                          <span className="label-text font-medium">Shipping Receipt (Optional)</span>
+                        </label>
+                        <input
+                          type="file"
+                          name="receipt"
+                          onChange={handleDispatchFormChange}
+                          className="file-input file-input-bordered w-full"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          disabled={isDispatching}
+                        />
+                        <label className="label">
+                          <span className="label-text-alt">Upload receipt or proof of shipment</span>
+                        </label>
+                      </div>
+                      <div className="form-control md:col-span-2">
+                        <label className="label">
+                          <span className="label-text font-medium">Notes</span>
+                        </label>
+                        <textarea 
+                          className="textarea textarea-bordered h-24" 
+                          placeholder="Enter any additional notes for this dispatch..."
+                          value={statusNote}
+                          onChange={(e) => setStatusNote(e.target.value)}
+                          disabled={isDispatching}
+                        ></textarea>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-4">
+                    <button 
+                      onClick={() => {
+                        setSelectedOrder(null);
+                        setDispatchForm({
+                          courier_name: "",
+                          tracking_id: "",
+                          transport_charges: "",
+                          delivery_date: "",
+                          receipt: null
+                        });
+                      }}
+                      className="btn btn-ghost"
+                      disabled={isDispatching}
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      onClick={() => handleDispatch(selectedOrder.id)}
+                      className="btn btn-primary"
+                      disabled={!isDispatchFormValid() || isDispatching}
+                    >
+                      {isDispatching ? (
+                        <>
+                          <span className="loading loading-spinner"></span>
+                          Dispatching...
+                        </>
+                      ) : (
+                        "Confirm Dispatch"
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-bold text-lg mb-2 text-gray-700">Order #{selectedOrder.id}</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-500">Order Date</p>
+                        <p className="font-medium">{formatDate(selectedOrder.created_at)}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Status</p>
+                        <p className="font-medium capitalize">{selectedOrder.status_display}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-bold text-lg mb-2 text-gray-700">Products</h4>
+                    <div className="space-y-3">
+                      {selectedOrder.items.map((item, index) => (
+                        <div key={index} className="flex items-start gap-4 p-3 bg-white rounded border border-gray-100">
+                          <div className="flex-1">
+                            <p className="font-medium">{item.product.name} - {item.variant?.name}</p>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2 text-sm">
+                              <div>
+                                <p className="text-gray-500">Quantity</p>
+                                <p>{item.quantity}</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500">Price</p>
+                                <p>{formatCurrency(item.unit_price)}</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500">Total</p>
+                                <p>{formatCurrency(item.final_price || (item.unit_price * item.quantity))}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {(selectedOrder.status === 'new' || selectedOrder.status === 'accepted') && (
+                    <div className="form-control">
+                      <label className="label">
+                        <span className="label-text font-medium">
+                          {selectedOrder.status === 'new' ? 'Reason for Rejection' : 'Dispatch Notes'}
+                          <span className="text-red-500">*</span>
+                        </span>
+                      </label>
+                      <textarea 
+                        className="textarea textarea-bordered h-24" 
+                        placeholder={
+                          selectedOrder.status === 'new' 
+                            ? "Please provide reason for rejecting this order..."
+                            : "Enter any notes about this dispatch..."
+                        }
+                        value={statusNote}
+                        onChange={(e) => setStatusNote(e.target.value)}
+                        required
+                        disabled={processingOrders.has(selectedOrder.id)}
+                      ></textarea>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end gap-3 pt-4">
+                    <button 
+                      onClick={() => setSelectedOrder(null)}
+                      className="btn btn-ghost"
+                      disabled={processingOrders.has(selectedOrder.id)}
+                    >
+                      Cancel
+                    </button>
+                    {selectedOrder.status === 'new' && (
+                      <button 
+                        onClick={() => handleStatusUpdate(selectedOrder.id, 'rejected')}
+                        className="btn btn-error"
+                        disabled={!statusNote || processingOrders.has(selectedOrder.id)}
+                      >
+                        {processingOrders.has(selectedOrder.id) ? (
+                          <>
+                            <span className="loading loading-spinner loading-xs"></span>
+                            Processing...
+                          </>
+                        ) : (
+                          "Confirm Rejection"
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           </div>
-        )}
-      </div>
-    </div>
-  </ModalPortal>
-)}
+        </ModalPortal>
+      )}
+
+      {/* Batch Management Modal */}
+      {showBatchModal && selectedOrderForBatch && (
+        <ModalPortal>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-gray-800">Manage Batch Details</h3>
+                <button 
+                  onClick={() => {
+                    setShowBatchModal(false);
+                    setSelectedOrderForBatch(null);
+                    setBatchFormData({});
+                  }} 
+                  className="btn btn-sm btn-circle btn-ghost"
+                  disabled={processingOrders.has(selectedOrderForBatch.id)}
+                >
+                  <FiX size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-bold text-lg mb-3 text-gray-700">Order #{selectedOrderForBatch.id}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Customer</p>
+                      <p className="font-medium">{selectedOrderForBatch.buyer?.username}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Total Items</p>
+                      <p className="font-medium">{selectedOrderForBatch.items.length}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="font-bold text-lg text-gray-700">Product Batch Details</h4>
+                  {selectedOrderForBatch.items.map((item, index) => (
+                    <div key={index} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                      <div className="mb-4">
+                        <h5 className="font-semibold text-gray-800">{item.product.name} - {item.variant?.name}</h5>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2 text-sm">
+                          <div>
+                            <p className="text-gray-500">Quantity</p>
+                            <p>{item.quantity}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">SKU</p>
+                            <p>{item.product.sku}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Price</p>
+                            <p>{formatCurrency(item.unit_price)}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Total</p>
+                            <p>{formatCurrency(item.final_price || (item.unit_price * item.quantity))}</p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="form-control">
+                          <label className="label">
+                            <span className="label-text font-medium">Batch Number <span className="text-red-500">*</span></span>
+                          </label>
+                          <input
+                            type="text"
+                            value={batchFormData[index]?.batch_number || ""}
+                            onChange={(e) => handleBatchFormChange(index, 'batch_number', e.target.value)}
+                            className="input input-bordered w-full"
+                            placeholder="Enter batch number"
+                            required
+                            disabled={processingOrders.has(selectedOrderForBatch.id)}
+                          />
+                        </div>
+                        <div className="form-control">
+                          <label className="label">
+                            <span className="label-text font-medium">Manufacture Date <span className="text-red-500">*</span></span>
+                          </label>
+                          <input
+                            type="date"
+                            value={batchFormData[index]?.manufacture_date || ""}
+                            onChange={(e) => handleBatchFormChange(index, 'manufacture_date', e.target.value)}
+                            className="input input-bordered w-full"
+                            required
+                            max={formatLocalDate(new Date())}
+                            disabled={processingOrders.has(selectedOrderForBatch.id)}
+                          />
+                        </div>
+                        <div className="form-control">
+                          <label className="label">
+                            <span className="label-text font-medium">Expiry Date <span className="text-red-500">*</span></span>
+                          </label>
+                          <input
+                            type="date"
+                            value={batchFormData[index]?.expiry_date || ""}
+                            onChange={(e) => handleBatchFormChange(index, 'expiry_date', e.target.value)}
+                            className="input input-bordered w-full"
+                            required
+                            min={formatLocalDate(new Date())}
+                            disabled={processingOrders.has(selectedOrderForBatch.id)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <button 
+                    onClick={() => {
+                      setShowBatchModal(false);
+                      setSelectedOrderForBatch(null);
+                      setBatchFormData({});
+                    }}
+                    className="btn btn-ghost"
+                    disabled={processingOrders.has(selectedOrderForBatch.id)}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={() => handleBatchUpdate(selectedOrderForBatch.id)}
+                    className="btn btn-primary"
+                    disabled={processingOrders.has(selectedOrderForBatch.id)}
+                  >
+                    {processingOrders.has(selectedOrderForBatch.id) ? (
+                      <>
+                        <span className="loading loading-spinner"></span>
+                        Updating...
+                      </>
+                    ) : (
+                      "Update Batch Details"
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
 
       {/* Order Details Modal */}
       {showOrderDetails && selectedOrderForDetails && (

@@ -8,6 +8,8 @@ django.setup()
 
 from accounts.models import User
 from products.models import Brand, Category, SubCategory
+from products.services import process_expiring_stock_for_admin_vendor
+
 
 def create_initial_data():
     # Create 4 users with different roles
@@ -22,4 +24,5 @@ def create_initial_data():
     
 
 if __name__ == "__main__":
-    create_initial_data()
+    # create_initial_data()
+    process_expiring_stock_for_admin_vendor(30)

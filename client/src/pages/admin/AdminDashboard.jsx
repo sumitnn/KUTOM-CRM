@@ -9,7 +9,8 @@ import {
   Tooltip,
   Legend,
   LineElement,
-  PointElement
+  PointElement,
+  Filler 
 } from 'chart.js';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -30,7 +31,7 @@ import {
 // Import your API hook
 import { useGetADMINDashboardDataQuery } from '../../features/dashboardApi';
 
-ChartJS.register(BarElement, ArcElement, CategoryScale, LinearScale, Tooltip, Legend, LineElement, PointElement);
+ChartJS.register(BarElement, ArcElement, CategoryScale, LinearScale, Tooltip, Legend, LineElement, PointElement,Filler);
 
 // Enhanced Stat Card Component
 const StatCard = ({ title, value, icon: Icon, color, navigateTo, loading = false, isCurrency = false, trend }) => {
@@ -260,7 +261,7 @@ const AdminDashboard = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center ">
         <div className="text-center bg-white rounded-2xl p-8 shadow-lg border border-gray-200 max-w-md w-full">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <FiDollarSign className="text-2xl text-red-600" />
@@ -283,7 +284,7 @@ const AdminDashboard = () => {
     <div className="min-h-screen ">
       {/* Enhanced Header */}
       <div className="bg-white border-b border-gray-200 shadow-xs sticky top-0 z-40">
-        <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-8xl mx-auto ">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-6 gap-4">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
@@ -340,7 +341,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-8xl mx-auto p-4 sm:p-6 lg:p-8">
+      <div className="max-w-8xl mx-auto py-4 ">
         {/* Quick Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
           {quickStats.map((stat, index) => (

@@ -5,6 +5,9 @@ import json
 from collections import defaultdict
 from rest_framework.exceptions import ValidationError
 from django.db import IntegrityError
+from django.utils import timezone
+from .utils import *
+from accounts.utils import create_notification
 
 
 class BrandSerializer(serializers.ModelSerializer):
@@ -123,19 +126,31 @@ class ProductImageSerializer(serializers.ModelSerializer):
 class ProductVariantBulkPriceSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductVariantBulkPrice
-        fields = ["id", "max_quantity", "price", "created_at", "updated_at"]
+        fields = ["id", "max_quantity", "price","discount" ,"gst_percentage","final_price","created_at", "updated_at"]
 
 
 class ProductVariantPriceSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.username', read_only=True)
     role_display = serializers.CharField(source='get_role_display', read_only=True)
-
+    total_available_quantity = serializers.SerializerMethodField(read_only=True)
+    
     class Meta:
         model = ProductVariantPrice
         fields = [
             "id", "user", "user_name", "role", "role_display", "price", "discount",
-            "gst_percentage", "gst_tax", "actual_price"
+            "gst_percentage", "gst_tax", "actual_price","stockist_price","reseller_price","total_available_quantity"
         ]
+    def get_total_available_quantity(self, obj):
+        from .models import StockInventory  # avoid circular import
+        try:
+            inventory = StockInventory.objects.get(
+                product=obj.product,
+                variant=obj.variant,
+                user=obj.user
+            )
+            return inventory.total_quantity
+        except StockInventory.DoesNotExist:
+            return 0
 
 
 class ProductVariantSerializer(serializers.ModelSerializer):
@@ -162,10 +177,7 @@ class ProductVariantSerializer(serializers.ModelSerializer):
             # ✅ For stockists & resellers → show admin-set prices only
             queryset = obj.prices.filter(user__role="admin")
         elif user_role == "admin":
-            # ✅ For admin → prefer admin prices, fallback to vendor prices
-            queryset = obj.prices.filter(user__role="admin")
-            if not queryset.exists():
-                queryset = obj.prices.filter(user__role="vendor")
+            queryset = obj.prices.filter(user__role="vendor")
         else:
             # ✅ For others → show prices set by themselves
             queryset = obj.prices.filter(user=user)
@@ -188,7 +200,48 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
 
 
+class ADMINNEWProductVariantSerializer(serializers.ModelSerializer):
+    product_variant_prices = serializers.SerializerMethodField()
 
+
+    class Meta:
+        model = ProductVariant
+        fields = [
+            "id", "name", "sku", "is_default", "is_active",
+            "created_at", "updated_at", "product_variant_prices"
+        ]
+        read_only_fields = ['sku']
+
+    def get_product_variant_prices(self, obj):
+        request = self.context.get("request")
+        if not request or not hasattr(request, "user"):
+            return []
+
+        user = request.user
+        user_role = getattr(user, "role", None)
+        prices_qs = obj.prices.all()
+
+        queryset = prices_qs.none()
+
+        if user_role in ["stockist", "reseller"]:
+            # ✅ Show admin prices only (fallback to vendor if missing)
+            queryset = prices_qs.filter(user__role="admin")
+            if not queryset.exists():
+                queryset = prices_qs.filter(user__role="vendor")
+
+        elif user_role == "admin":
+            # ✅ Admin → prefer admin, fallback to vendor
+            queryset = prices_qs.filter(user__role="admin")
+            if not queryset.exists():
+                queryset = prices_qs.filter(user__role="vendor")
+
+        else:
+            # ✅ Vendor or others → show own prices, fallback to admin/vendor
+            queryset = prices_qs.filter(user=user)
+            if not queryset.exists():
+                queryset = prices_qs.filter(user__role__in=["admin", "vendor"])
+
+        return ProductVariantPriceSerializer(queryset, many=True, context=self.context).data
 
 class ProductSerializer(serializers.ModelSerializer):
     tags = serializers.SlugRelatedField(
@@ -203,7 +256,7 @@ class ProductSerializer(serializers.ModelSerializer):
         queryset=ProductFeatures.objects.all(),
         required=False
     )
-    variants = ProductVariantSerializer(many=True, required=False, read_only=True)
+    # variants = ProductVariantSerializer(many=True, required=False, read_only=True)
     images = ProductImageSerializer(many=True, required=False, read_only=True)
     brand_name = serializers.CharField(source="brand.name", read_only=True)
     category_name = serializers.CharField(source="category.name", read_only=True)
@@ -295,6 +348,7 @@ class ADMINRoleBasedProductSerializer(serializers.ModelSerializer):
     product_detail = ProductSerializer(source="product", read_only=True)
     inventories = serializers.SerializerMethodField()
     commission = serializers.SerializerMethodField()
+    variants_detail = ADMINNEWProductVariantSerializer(source='variants', many=True, read_only=True)
 
     class Meta:
         model = RoleBasedProduct
@@ -302,7 +356,7 @@ class ADMINRoleBasedProductSerializer(serializers.ModelSerializer):
             "id", "product_detail", "user",
             "is_featured", "price",
             "inventories", "commission",
-            "created_at", "updated_at",
+            "created_at", "updated_at","variants_detail"
         ]
         read_only_fields = ["user"]
 
@@ -325,25 +379,37 @@ class ADMINRoleBasedProductSerializer(serializers.ModelSerializer):
         return StockInventorySerializer(queryset, many=True, context=self.context).data
 
     def get_commission(self, obj):
-        # Commission is already tied to this role-based product
-        commission = getattr(obj, "commission", None)
-        if commission:
-            return ProductCommissionSerializer(commission, context=self.context).data
-        return None
+        """
+        Returns all commission records (variant-wise) linked to this RoleBasedProduct.
+        """
+        commissions = ProductCommission.objects.filter(role_product=obj).select_related('variant')
+
+        if commissions.exists():
+            return ProductCommissionSerializer(commissions, many=True, context=self.context).data
+        return []
 
 
     
 
 class ProductCommissionSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='role_product.product.name', read_only=True)
+    variant_name = serializers.CharField(source='variant.name', read_only=True)
     commission_type_display = serializers.CharField(source='get_commission_type_display', read_only=True)
 
     class Meta:
         model = ProductCommission
         fields = [
-            'id', 'role_product', 'product_name', 'commission_type', 
-            'commission_type_display', 'reseller_commission_value', 
-            'stockist_commission_value', 'admin_commission_value', 'updated_at'
+            'id',
+            'role_product',
+            'product_name',
+            'variant',
+            'variant_name',
+            'commission_type',
+            'commission_type_display',
+            'reseller_commission_value',
+            'stockist_commission_value',
+            'admin_commission_value',
+            'updated_at',
         ]
 
 
@@ -403,10 +469,10 @@ class ProductCreateSerializer(serializers.ModelSerializer):
 
         return data
 
+    @transaction.atomic
     def create(self, validated_data):
         request = self.context["request"]
         user = request.user
-       
 
         tags_data = validated_data.pop("tags", [])
         features_data = validated_data.pop("features", [])
@@ -504,6 +570,8 @@ class ProductCreateSerializer(serializers.ModelSerializer):
                         variant=variant,
                         max_quantity=qty,
                         price=Decimal(tier.get("price") or 0),
+                        gst_percentage=int(tier.get("gst_percentage") or 0),
+                        discount=int(tier.get("discount_percentage") or 0),
                     )
 
         # role-based product
@@ -562,52 +630,68 @@ class ProductUpdateSerializer(serializers.ModelSerializer):
 
         return data
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         request = self.context["request"]
         user = request.user
 
-
+        # Extract nested data
         tags_data = validated_data.pop("tags", [])
         features_data = validated_data.pop("features", [])
         sizes_data = validated_data.pop("sizes", [])
         price_tiers_data = validated_data.pop("price_tiers", [])
         removed_images_data = validated_data.pop("removed_images", [])
-        # If user is not admin, force status to draft
+
+        # Non-admins force product to draft
         if user.role != "admin":
             validated_data["status"] = "draft"
 
-        # Update basic product fields
+        # Update base product fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
-            # Handle removed images - ensure it's a list
+        # 🔹 Handle removed images
         if removed_images_data:
-            # Convert to list if it's a single value
             if not isinstance(removed_images_data, list):
                 removed_images_data = [removed_images_data]
-            # Ensure all items are integers
-            removed_images_data = [int(img_id) for img_id in removed_images_data if str(img_id).isdigit()]
+            removed_images_data = [int(i) for i in removed_images_data if str(i).isdigit()]
             ProductImage.objects.filter(id__in=removed_images_data).delete()
 
-        # Update tags
+        # 🔹 Update Tags
         instance.tags.clear()
         for tag_name in tags_data:
-            tag, _ = Tag.objects.get_or_create(name=tag_name.strip(), defaults={"owner": user})
-            instance.tags.add(tag)
+            tag_name = tag_name.strip()
+            tag_slug = slugify(tag_name)
+            try:
+                tag, _ = Tag.objects.get_or_create(
+                    slug=tag_slug,
+                    defaults={"name": tag_name, "owner": user}
+                )
+            except IntegrityError:
+                tag = Tag.objects.filter(slug=tag_slug).first()
+            if tag:
+                instance.tags.add(tag)
 
-        # Update features
+        # 🔹 Update Features
         instance.features.clear()
         for feature_name in features_data:
-            feature, _ = ProductFeatures.objects.get_or_create(name=feature_name.strip(), defaults={"owner": user})
-            instance.features.add(feature)
+            feature_name = feature_name.strip()
+            try:
+                feature, _ = ProductFeatures.objects.get_or_create(
+                    name=feature_name,
+                    defaults={"owner": user}
+                )
+            except IntegrityError:
+                feature = ProductFeatures.objects.filter(name=feature_name).first()
+            if feature:
+                instance.features.add(feature)
 
-        # Handle main image upload
+        # 🔹 Handle Main Image
         if "image" in request.FILES:
-            # Remove existing featured image
+            # remove old featured image
             instance.images.filter(is_featured=True).delete()
-            
-            # Create new featured image
+
             img_obj = ProductImage.objects.create(
                 image=request.FILES["image"],
                 alt_text=f"{instance.name} main image",
@@ -616,7 +700,7 @@ class ProductUpdateSerializer(serializers.ModelSerializer):
             )
             instance.images.add(img_obj)
 
-        # Handle additional images
+        # 🔹 Handle Additional Images
         for idx, f in enumerate(request.FILES.getlist("additional_images")):
             img_obj = ProductImage.objects.create(
                 image=f,
@@ -626,72 +710,60 @@ class ProductUpdateSerializer(serializers.ModelSerializer):
             )
             instance.images.add(img_obj)
 
-        # Update variants
-        existing_variant_ids = [size.get('id') for size in sizes_data if size.get('id')]
-        
-        # Delete variants that were removed
+        # 🔹 Handle Variants (Update, Create, Delete)
+        existing_variant_ids = [size.get("id") for size in sizes_data if size.get("id")]
         instance.variants.exclude(id__in=existing_variant_ids).delete()
-        
+
         variant_objects = []
+
         for idx, size in enumerate(sizes_data):
-            variant_id = size.get('id')
-            
+            variant_id = size.get("id")
             if variant_id:
                 # Update existing variant
-                variant = ProductVariant.objects.get(id=variant_id)
-                variant.name = size.get("size") or f"Variant {idx+1}"
+                variant = ProductVariant.objects.get(id=variant_id, product=instance)
+                variant.name = size.get("size") or f"Variant {idx + 1}"
                 variant.is_default = size.get("is_default", False)
+                variant.is_active = True
                 variant.save()
             else:
                 # Create new variant
                 variant = ProductVariant.objects.create(
                     product=instance,
-                    name=size.get("size") or f"Variant {idx+1}",
-                    is_default=size.get("is_default", False),
+                    name=size.get("size") or f"Variant {idx + 1}",
+                    is_default=size.get("is_default", (idx == 0)),
                     is_active=True,
                 )
-            
+
             variant_objects.append(variant)
 
-            # Update or create variant price
+            # 🔸 Update or Create ProductVariantPrice
             price_data = {
                 "price": Decimal(size.get("price") or 0),
-                "discount": int(size.get("discount") or 0),
+                "discount": int(size.get("discount_percentage") or 0),
                 "gst_percentage": int(size.get("gst_percentage") or 0),
             }
-            
-            if variant_id:
-                # Update existing price
-                price_obj = ProductVariantPrice.objects.filter(variant=variant).first()
-                if price_obj:
-                    for attr, value in price_data.items():
-                        setattr(price_obj, attr, value)
-                    price_obj.save()
-                else:
-                    ProductVariantPrice.objects.create(
-                        product=instance,
-                        variant=variant,
-                        user=user,
-                        role=user.role,
-                        **price_data
-                    )
+
+            price_obj = ProductVariantPrice.objects.filter(variant=variant).first()
+            if price_obj:
+                for attr, value in price_data.items():
+                    setattr(price_obj, attr, value)
+                price_obj.save()
             else:
-                # Create new price
                 ProductVariantPrice.objects.create(
                     product=instance,
                     variant=variant,
                     user=user,
                     role=user.role,
-                    **price_data
+                    **price_data,
                 )
 
-            # Handle price tiers for this variant
-            variant_tiers = [t for t in price_tiers_data if t.get("variantIndex") == idx or t.get("sizeId") == variant_id]
-            
-            # Delete existing tiers for this variant
+            # 🔸 Handle Bulk Prices (Price Tiers)
             ProductVariantBulkPrice.objects.filter(variant=variant).delete()
-            
-            # Create new tiers
+            variant_tiers = [
+                tier for tier in price_tiers_data
+                if tier.get("variantIndex") == idx or tier.get("sizeId") == variant_id
+            ]
+
             for tier in variant_tiers:
                 qty = int(tier.get("min_quantity") or tier.get("max_quantity") or 0)
                 ProductVariantBulkPrice.objects.create(
@@ -699,25 +771,24 @@ class ProductUpdateSerializer(serializers.ModelSerializer):
                     variant=variant,
                     max_quantity=qty,
                     price=Decimal(tier.get("price") or 0),
+                    gst_percentage=int(tier.get("gst_percentage") or 0),
+                    discount=int(tier.get("discount_percentage") or 0),
                 )
 
-        # Update role-based product
-        if request.user.role == "admin":
-            product_owner = getattr(instance, "owner", None)  
-            if product_owner:
-                role_based_product = RoleBasedProduct.objects.filter(product=instance, user=product_owner).first()
-                if role_based_product and variant_objects:
-                    role_based_product.variants.set(variant_objects)
-        else:
-            role_based_product = RoleBasedProduct.objects.filter(product=instance, user=user).first()
-            if not role_based_product:
-                role_based_product = RoleBasedProduct.objects.create(
-                    product=instance,
-                    user=user,
-                    role=user.role,
-                    is_featured=True,
-                )
-        
+        # 🔹 Handle RoleBasedProduct
+        product_owner = getattr(instance, "owner", user)
+        role_based_product = RoleBasedProduct.objects.filter(
+            product=instance, user=product_owner
+        ).first()
+
+        if not role_based_product:
+            role_based_product = RoleBasedProduct.objects.create(
+                product=instance,
+                user=product_owner,
+                role=product_owner.role,
+                is_featured=True,
+            )
+
         if variant_objects:
             role_based_product.variants.set(variant_objects)
 
@@ -733,6 +804,7 @@ class StockInventorySerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='product.category.name', read_only=True)
     subcategory_name = serializers.CharField(source='product.subcategory.name', read_only=True)
     last_history = serializers.SerializerMethodField()
+    
     class Meta:
         model = StockInventory
         fields = [
@@ -740,11 +812,12 @@ class StockInventorySerializer(serializers.ModelSerializer):
             'product', 'product_name',
             'variant', 'variant_name',
             'user', 'user_name',
-            'total_quantity','notes',
+            'total_quantity', 'notes',
             'created_at', 'updated_at',
-            'brand_name', 'category_name', 'subcategory_name','last_history'
+            'brand_name', 'category_name', 'subcategory_name',
+            'last_history', 'manufacture_date', 'expiry_date', 'batch_number'
         ]
-        read_only_fields = ['user', 'created_at', 'updated_at','last_history']
+        read_only_fields = ['user', 'created_at', 'updated_at', 'last_history']
 
     def get_last_history(self, obj):
         last = obj.history.order_by('-created_at').first()
@@ -752,31 +825,60 @@ class StockInventorySerializer(serializers.ModelSerializer):
             return StockInventoryHistorySerializer(last).data
         return None
     
+    def validate(self, data):
+        """
+        Validate that expiry_date is after manufacture_date
+        """
+        manufacture_date = data.get('manufacture_date')
+        expiry_date = data.get('expiry_date')
+        
+        if manufacture_date and expiry_date:
+            if expiry_date <= manufacture_date:
+                raise serializers.ValidationError({
+                    'expiry_date': 'Expiry date must be after manufacture date.'
+                })
+        
+        return data
+    
     def create(self, validated_data):
         user = self.context['request'].user
         product = validated_data['product']
         variant = validated_data.get('variant', None)
         change_quantity = validated_data.pop('total_quantity', 0)
         notes = validated_data.get('notes', '')
+        manufacture_date = validated_data.get('manufacture_date')
+        expiry_date = validated_data.get('expiry_date')
+        batch_number = validated_data.get('batch_number')
 
-        # Get or create the StockInventory record
-        stock_inventory, created = StockInventory.objects.get_or_create(
+        # Check if stock already exists for this product-variant-batch combination
+        existing_stock = StockInventory.objects.filter(
             user=user,
             product=product,
             variant=variant,
-            defaults={'notes': notes}
-        )
-        if created:
-            # Adjust stock using the method
-            stock_inventory.adjust_stock(change_quantity=change_quantity, action="ADD")
-        else:
-            raise ValidationError(f"Stock for product '{product.name}' and variant '{variant}' already exists for this user."
-        )
+            batch_number=batch_number
+        ).first()
 
-        # Optionally update notes if provided
-        if notes:
-            stock_inventory.notes = notes
-            stock_inventory.save(update_fields=['notes'])
+        if existing_stock:
+            raise ValidationError(
+                f"Stock for product '{product.name}', variant '{variant.name if variant else 'N/A'}' "
+                f"and batch '{batch_number}' already exists for this user."
+            )
+
+        # Create the StockInventory record
+        stock_inventory = StockInventory.objects.create(
+            user=user,
+            product=product,
+            variant=variant,
+            notes=notes,
+            manufacture_date=manufacture_date,
+            expiry_date=expiry_date,
+            batch_number=batch_number,
+            total_quantity=0  # Start with 0, will be adjusted below
+        )
+        
+        # Adjust stock using the method
+        if change_quantity > 0:
+            stock_inventory.adjust_stock(change_quantity=change_quantity, action="ADD")
 
         return stock_inventory
     
@@ -785,19 +887,56 @@ class StockInventorySerializer(serializers.ModelSerializer):
         Update stock record:
         - Adjust total_quantity if provided
         - Update notes if provided
+        - Update batch information if provided
         - Create a StockInventoryHistory entry via adjust_stock
         """
-       
         change_quantity = validated_data.pop('total_quantity', None)
         notes = validated_data.get('notes', None)
+        manufacture_date = validated_data.get('manufacture_date', None)
+        expiry_date = validated_data.get('expiry_date', None)
+        batch_number = validated_data.get('batch_number', None)
 
-        if change_quantity is not None:
-            # Adjust stock quantity and create history
-            instance.adjust_stock(change_quantity=change_quantity, action="ADJUST")
-
+        
+        # Update batch information if provided
+        update_fields = []
+        if manufacture_date is not None:
+            instance.manufacture_date = manufacture_date
+            update_fields.append('manufacture_date')
+        
+        if expiry_date is not None:
+            instance.expiry_date = expiry_date
+            update_fields.append('expiry_date')
+        
+        
+        
         if notes is not None:
             instance.notes = notes
-            instance.save(update_fields=['notes'])
+            update_fields.append('notes')
+        
+        if instance.user.role =="vendor" and instance.batch_number !=batch_number:
+            
+            ExpiryTracker.objects.filter(stock_item=instance,user=instance.user,batch_number=instance.batch_number).delete()
+            
+                
+        if batch_number is not None:
+            instance.batch_number = batch_number
+            update_fields.append('batch_number')
+
+        # Save batch information updates
+        if update_fields:
+            instance.save(update_fields=update_fields)
+
+        # Adjust stock quantity if provided and create history
+        if change_quantity is not None:
+            # Calculate the difference between new quantity and current quantity
+            quantity_difference = change_quantity - instance.total_quantity
+            
+            if quantity_difference != 0:
+                action = "ADD" if quantity_difference > 0 else "ADJUST"
+                instance.adjust_stock(
+                    change_quantity=abs(quantity_difference), 
+                    action=action
+                )
 
         return instance
 
@@ -812,3 +951,216 @@ class ProductVariantMiniSerializer(serializers.ModelSerializer):
         model = ProductVariant
         fields = ["id", "name"]
         read_only_fields = ["id", "name"]
+
+
+
+
+
+
+
+
+class RequestImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RequestImage
+        fields = ['id', 'image', 'uploaded_at']
+
+class StockTransferRequestSerializer(serializers.ModelSerializer):
+    images = RequestImageSerializer(many=True, read_only=True)
+    uploaded_images = serializers.ListField(
+        child=serializers.ImageField(), write_only=True, required=False
+    )
+
+    # 🔹 Extra read-only fields for frontend list
+    product_name = serializers.CharField(source="product.name", read_only=True)
+    brand_name = serializers.CharField(source="product.brand.name", read_only=True)
+    category_name = serializers.CharField(source="product.category.name", read_only=True)
+    variant_name = serializers.CharField(source="variant.name", read_only=True)
+
+    class Meta:
+        model = StockTransferRequest
+        fields = [
+            'id', 'request_id', 'request_type', 'status',
+            'raised_by', 'raised_to', 'quantity',
+            'batch_number', 'reason', 'description',
+            'expiry_date', 'remaining_days',
+            'original_stock_deducted', 'replacement_stock_added',
+            'created_at', 'updated_at', 'completed_at',
+            'images', 'uploaded_images',
+            'product', 'variant',
+            # ✅ New fields for listing
+            'product_name', 'brand_name', 'category_name', 'variant_name','admin_notes','user_notes','approved_date',
+            'delivery_date','tracking_number','courier_name','delivery_note','new_batch_number'
+        ]
+        read_only_fields = [
+            'request_id', 'status', 'created_at', 'updated_at', 'completed_at',
+            'original_stock_deducted', 'replacement_stock_added', 'raised_by','admin_notes','user_notes','approved_date'
+        ]
+
+    # -------------------------------------
+    # Validation logic for request_type
+    # -------------------------------------
+    def validate(self, attrs):
+        request = self.context.get('request')
+        reason = self.initial_data.get('reason', '').lower()
+
+        # If already provided, respect frontend value
+        if attrs.get('request_type'):
+            return attrs
+
+        # Determine base type from reason
+        if "expired" in reason:
+            attrs['request_type'] = (
+                'admin_expiry' if getattr(request.user, 'role', None) == "admin" else 'reseller_expiry'
+            )
+        elif "damaged" in reason:
+            attrs['request_type'] = (
+                'admin_damaged' if getattr(request.user, 'role', None) == "admin" else 'reseller_damaged'
+            )
+        elif "defective" in reason:
+            attrs['request_type'] = (
+                'admin_defective' if getattr(request.user, 'role', None) == "admin" else 'reseller_defective'
+            )
+        elif "incorrect" in reason:
+            attrs['request_type'] = (
+                'admin_incorrect' if getattr(request.user, 'role', None) == "admin" else 'reseller_incorrect'
+            )
+        else:
+            attrs['request_type'] = (
+                'admin_damaged' if getattr(request.user, 'role', None) == "admin" else 'reseller_damaged'
+            )
+        return attrs
+
+    # -------------------------------------
+    # Create logic
+    # -------------------------------------
+    def create(self, validated_data):
+        request = self.context['request']
+
+        # ✅ collect uploaded files
+        uploaded_images = []
+        for key in request.FILES:
+            if key.startswith('images'):
+                uploaded_images.extend(request.FILES.getlist(key))
+
+        tracker_id = request.data.get('tracker_id')
+
+        # ✅ auto-assign raised_by
+        validated_data['raised_by'] = request.user
+
+        # ✅ determine raised_to
+        if getattr(request.user, 'role', None) == 'admin':
+            product = validated_data.get('product')
+            if product and hasattr(product, 'owner'):
+                validated_data['raised_to'] = product.owner
+            else:
+                raise serializers.ValidationError("Product owner not found for admin request.")
+        else:
+            admin_user = User.objects.filter(role='admin').first()
+            if not admin_user:
+                raise serializers.ValidationError("Admin user not found.")
+            validated_data['raised_to'] = admin_user
+
+        # ✅ mark expiry tracker resolved
+        if tracker_id:
+            tracker = ExpiryTracker.objects.filter(id=tracker_id).first()
+            if tracker:
+                tracker.is_resolved = True
+                tracker.save(update_fields=['is_resolved'])
+
+        # ✅ deduct stock from inventory
+        stock_qs = StockInventory.objects.get(product_id=validated_data.get("product"), variant_id=validated_data.get("variant"), batch_number=validated_data.get("batch_number"), user=request.user)
+
+        if not stock_qs.total_quantity >= validated_data.get("quantity"):
+            raise serializers.ValidationError("Insufficient stock available for the requested return/replacement.")
+
+        stock_qs.adjust_stock(
+                change_quantity=-validated_data.get("quantity"),
+                action="REPLACEMENT_STOCK_DEDUCTED",
+                reference_id=f"",
+            )
+        
+        validated_data['original_stock_deducted'] = True
+        # ✅ create request
+        stock_request = super().create(validated_data)
+
+        # ✅ notify
+        create_notification(
+            user=validated_data['raised_to'],
+            title="New Return/Replacement Request" if validated_data['reason']=="expired" else "New Damaged/Defective/Incorrect Request",
+            message=f"A new return/replacement request has been raised for product '{stock_request.product.name}'.",
+            notification_type="returnproduct",
+            related_url=f""
+        )
+
+        # ✅ attach uploaded images
+        for img in uploaded_images:
+            RequestImage.objects.create(transfer_request=stock_request, image=img)
+
+        return stock_request
+
+
+class ExpiredProductSerializer(serializers.ModelSerializer):
+    brand_name = serializers.CharField(source='brand.name', read_only=True)
+    category_name = serializers.CharField(source='category.name', read_only=True)
+
+    class Meta:
+        model = Product
+        fields = ['id', 'name', 'sku', 'brand_name', 'category_name'] # include any extra fields you want
+
+
+class ExpiredProductVariantSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductVariant
+        fields = ['id', 'name', 'sku']  
+
+
+class ExpiredStockInventorySerializer(serializers.ModelSerializer):
+    product = ExpiredProductSerializer(read_only=True)
+    variant = ExpiredProductVariantSerializer(read_only=True)
+
+    class Meta:
+        model = StockInventory
+        fields = [
+            'id', 'product', 'variant', 'user', 'total_quantity',
+            'batch_number', 'manufacture_date', 'expiry_date',
+            'is_expired', 'notes', 'created_at', 'updated_at'
+        ]
+
+from datetime import date
+class ExpiryTrackerSerializer(serializers.ModelSerializer):
+    stock_item = ExpiredStockInventorySerializer(read_only=True)
+    remaining_days = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()  # dynamically computed
+
+    class Meta:
+        model = ExpiryTracker
+        fields = [
+            'id', 'stock_item', 'user', 'batch_number', 'expiry_date',
+            'remaining_days', 'status', 'can_request_return',
+            'created_at', 'updated_at', 'stock_quantity', 'is_resolved'
+        ]
+
+    def get_remaining_days(self, obj):
+        """Calculate how many days remain until expiry."""
+        if not obj.expiry_date:
+            return None
+
+        today = date.today()
+        return (obj.expiry_date - today).days
+
+    def get_status(self, obj):
+        """Determine expiry status based on remaining days."""
+        if not obj.expiry_date:
+            return None
+
+        today = date.today()
+        days_remaining = (obj.expiry_date - today).days
+
+        if days_remaining < 0:
+            return 'expired'
+        elif 1 <= days_remaining <= 15:
+            return 'critical'
+        elif 16 <= days_remaining <= 30:
+            return 'expiring_soon'
+        else:
+            return 'active'
