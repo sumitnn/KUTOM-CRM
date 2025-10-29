@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'orders',
     'storages',
     'whitenoise.runserver_nostatic', #This is used to serve static files in production.
+    'django_crontab',
 ]
 
 MIDDLEWARE = [
@@ -217,3 +218,12 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = config('EMAIL_ID')
 EMAIL_HOST_PASSWORD = config('EMAIL_PASSWORD')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+# cron jobs
+CRONJOBS = [
+    # Every day 2am
+    ('0 2 * * *', 'products.cron.process_expiring_stock_for_admin_vendor'),
+]
+
+# Optional: store cron logs
+CRONTAB_COMMAND_SUFFIX = '>> /home/ubuntu/backend/cron_expiry.log 2>&1'
