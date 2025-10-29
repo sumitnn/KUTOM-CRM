@@ -24,5 +24,5 @@ def create_initial_data():
     
 
 if __name__ == "__main__":
-    # create_initial_data()
-    process_expiring_stock_for_admin_vendor(30)
+    create_initial_data()
+    # process_expiring_stock_for_admin_vendor(30)
