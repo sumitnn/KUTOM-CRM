@@ -128,6 +128,14 @@ export const orderApi = createApi({
                 };
             },
         }),
+        // In your orderApi.js
+        UpdateOrderItems: builder.mutation({
+            query: ({ orderId, items }) => ({
+                url: `/orders/${orderId}/items/`,
+                method: 'PATCH',
+                data: { items }
+            })
+        })
 
         
     }),
@@ -148,5 +156,6 @@ export const {
     useGetAdminProductOrderByIdQuery,
     useCancelOrderMutation,
     useUpdateStockistResellerOrderStatusMutation,
-    useUpdateResellerOrderStatusMutation
+    useUpdateResellerOrderStatusMutation,
+    useUpdateOrderItemsMutation
 } = orderApi;

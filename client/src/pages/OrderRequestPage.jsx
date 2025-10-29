@@ -14,8 +14,7 @@ import {
   FiTag,
   FiPackage,
   FiShoppingCart,
-  FiDollarSign,
-  FiPercent
+
 } from "react-icons/fi";
 import { useGetOrderRequestsByStatusQuery } from "../features/order/orderRequest";
 import { toast } from "react-toastify";
@@ -139,40 +138,11 @@ const OrderRequestPage = ({ role }) => {
   const renderOrderDetails = (items, totalAmount) => {
     if (!items || items.length === 0) return "-";
     
-    const item = items[0]; // Assuming single item for simplicity
-    
     return (
       <div className="space-y-2 min-w-[150px]">
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-500">Qty:</span>
-          <span className="font-bold">{item.quantity}</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-500">Unit Price:</span>
-          <span className="font-medium">{item.unit_price}</span>
-        </div>
-        {item.discount_percentage !== "0.00" && (
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-500 flex items-center gap-1">
-              <FiPercent className="w-3 h-3" /> Discount:
-            </span>
-            <span className="text-error font-medium">{item.discount_percentage}%</span>
-          </div>
-        )}
-        {item.gst_percentage !== "0.00" && (
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-500 flex items-center gap-1">
-              <FiPercent className="w-3 h-3" /> GST:
-            </span>
-            <span className="text-warning font-medium">{item.gst_percentage}%</span>
-          </div>
-        )}
-        <div className="flex justify-between items-center pt-1 border-t border-gray-200">
-          <span className="text-sm font-medium flex items-center gap-1">
-            <FiDollarSign className="w-3 h-3" /> Total:
-          </span>
-          <span className="font-bold text-primary">{totalAmount}</span>
-        </div>
+      
+       <span className="font-bold text-primary">₹{totalAmount}</span>
+       
       </div>
     );
   };
@@ -185,7 +155,7 @@ const OrderRequestPage = ({ role }) => {
         <th>Request ID</th>
         <th>Stockist Details</th>
         <th>Product Details</th>
-        <th>Order Details</th>
+        <th>Total Amount</th>
         <th>Status</th>
         <th className="text-center">Actions</th>
       </tr>
@@ -220,16 +190,16 @@ const OrderRequestPage = ({ role }) => {
             </span>
           </div>
         </td>
-        <td className="font-extrabold text-sm py-4">{item.request_id}</td>
+        <td className="font-extrabold text-sm py-4 whitespace-nowrap">{item.request_id}</td>
         <td className="py-4">{renderStockistDetails(item.requested_by)}</td>
         <td className="py-4">{renderProductDetails(item.items)}</td>
         <td className="py-4">{renderOrderDetails(item.items, item.total_amount)}</td>
-        <td className="py-4">{getStatusBadge(item.status)}</td>
+        <td className="py-4 font-bold whitespace-nowrap">{getStatusBadge(item.status)}</td>
         <td className="text-center py-4">
           <button 
             onClick={() => handleViewDetails(item.id)}
             className="btn btn-ghost btn-xs font-bold tooltip text-info hover:scale-110 transition-transform"
-            data-tip="View Details"
+            data-tip="View Order Details"
           >
             <FiEye className="w-4 h-4" />
           </button>

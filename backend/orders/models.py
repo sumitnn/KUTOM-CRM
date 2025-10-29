@@ -111,50 +111,7 @@ class Order(models.Model):
     def __str__(self):
         return f"Order #{self.id} - {self.buyer.username}"
 
-    def calculate_totals(self):
-        """
-        Recalculate all totals from order items + transport_charges.
-        Uses Decimal arithmetic and rounds to 2 decimals.
-        """
-        subtotal = Decimal('0.00')
-        gst_amount = Decimal('0.00')
-        discount_amount = Decimal('0.00')
-        
-        for item in self.items.all():
-            # item.total property returns Decimal
-            subtotal += Decimal(item.total)
-            gst_amount += Decimal(item.gst_amount or Decimal('0.00'))
-            discount_amount += Decimal(item.discount_amount or Decimal('0.00'))
-        
-        # Calculate final total
-        total = subtotal - discount_amount + gst_amount + Decimal(self.transport_charges or Decimal('0.00'))
-        
-        # Round to 2 decimal places
-        self.subtotal = subtotal.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        self.gst_amount = gst_amount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        self.discount_amount = discount_amount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        self.total_price = total.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        
-        self.save(update_fields=['subtotal', 'gst_amount', 'discount_amount', 'total_price', 'updated_at'])
 
-    def update_inventory(self, reverse=False):
-        """
-        Update inventory levels when order status changes
-        """
-        from products.models import StockInventory
-        
-        multiplier = -1 if reverse else 1
-        
-        for item in self.items.all():
-            if item.variant:
-                # Create inventory adjustment
-                StockInventory.objects.create(
-                    product=item.product,
-                    variant=item.variant,
-                    user=self.seller or self.buyer,
-                    new_quantity=multiplier * item.quantity,
-                    note=f"Order #{self.id} {'reversal' if reverse else 'fulfillment'}"
-                )
 
 
 class OrderItem(models.Model):
@@ -217,7 +174,23 @@ class OrderItem(models.Model):
         blank=True,
         help_text="Reference to the role-based pricing used for this item"
     )
+    
+    final_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))]
+    )
+    single_quantity_after_gst_and_discount_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))]
+    )
     bulk_price_applied = models.BooleanField(default=False)
+    batch_number = models.CharField(max_length=100, blank=True, null=True)
+    manufacture_date = models.DateField(blank=True, null=True)
+    expiry_date = models.DateField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -231,40 +204,29 @@ class OrderItem(models.Model):
     def __str__(self):
         item_name = self.variant.name if self.variant else self.product.name
         return f"{self.quantity} x {item_name}"
-
+    
     def save(self, *args, **kwargs):
-        # Calculate discount and GST amounts if not provided
-        if not self.discount_amount and self.discount_percentage > 0:
-            self.discount_amount = (self.unit_price * self.discount_percentage / Decimal('100.00')).quantize(
-                Decimal('0.01'), rounding=ROUND_HALF_UP
-            )
-        
-        if not self.gst_amount and self.gst_percentage > 0:
-            discounted_price = self.unit_price - self.discount_amount
-            self.gst_amount = (discounted_price * self.gst_percentage / Decimal('100.00')).quantize(
-                Decimal('0.01'), rounding=ROUND_HALF_UP
-            )
-        
-        super().save(*args, **kwargs)
-        
-        # Update order totals after saving
-        if self.order:
-            self.order.calculate_totals()
+        # Base price
+        base_price = self.unit_price
 
-    @property
-    def total(self):
-        """
-        Compute total for this item: (unit_price - discount_amount + gst_amount) * quantity.
-        Returns Decimal rounded to 2 decimal places.
-        """
-        if self.unit_price is None or self.quantity is None:
-            return Decimal('0.00')
-        
-        # Calculate item total
-        unit_total = self.unit_price - self.discount_amount + self.gst_amount
-        total = unit_total * Decimal(self.quantity)
-        
-        return total.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        # Apply discount
+        discount_value = (base_price * self.discount_percentage) / Decimal('100.00')
+        price_after_discount = base_price - discount_value
+
+        # Apply GST on discounted price
+        gst_value = (price_after_discount * self.gst_percentage) / Decimal('100.00')
+        final_single_price = price_after_discount + gst_value
+
+        # Update fields
+        self.discount_amount = discount_value.quantize(Decimal('0.01'))
+        self.gst_amount = gst_value.quantize(Decimal('0.01'))
+        self.single_quantity_after_gst_and_discount_price = final_single_price.quantize(Decimal('0.01'))
+
+        # Total for all quantities
+        self.final_price = (final_single_price * self.quantity).quantize(Decimal('0.01'))
+
+        super().save(*args, **kwargs)
+
 
     @property
     def item_name(self):

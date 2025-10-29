@@ -8,7 +8,9 @@ import Spinner from "../../components/common/Spinner";
 import ProtectedRoute from "../ProtectedRoutes";
 import VendorMainLayout from "../../layout/vendor/VendorMainLayout";
 
+
 // Lazy-loaded page components
+const ExpiryReplacementPage = lazy(() => import("../../components/ExpiryReplacementPage"));
 const OrderDetailPage = lazy(() => import("../../pages/OrderDetailPage"));
 const VendorDashboard = lazy(() => import("../../pages/vendor/VendorDashboard"));
 const Logout = lazy(() => import("../../pages/Logout"));
@@ -62,6 +64,18 @@ const VendorRoutes = [
         <VendorMainLayout>
           <Suspense fallback={<Spinner />}>
             <CategoryManagementPage />
+          </Suspense>
+        </VendorMainLayout>
+      }
+    />
+
+    {/* expired */}
+    <Route
+      path="/expired-exchange-request"
+      element={
+        <VendorMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <ExpiryReplacementPage role="vendor" />
           </Suspense>
         </VendorMainLayout>
       }

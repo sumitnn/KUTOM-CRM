@@ -11,20 +11,20 @@ import {
   useGetSubcategoriesByCategoryQuery,
 } from '../features/category/categoryApi';
 import {
-  FiArrowLeft,
-  FiSave,
   FiPlus,
   FiTrash2,
   FiUpload,
   FiImage,
-  FiPackage,
-  FiTag,
-  FiSettings,
   FiDollarSign,
+  FiTag,
+  FiPackage,
+  FiSettings,
+  FiArrowLeft,
   FiCheck,
   FiAlertCircle,
-  FiEye,
-  FiEdit3
+  FiEdit3,
+  FiSave,
+  FiLock
 } from "react-icons/fi";
 
 const EditProductPage = ({ role = "vendor" }) => {
@@ -32,9 +32,8 @@ const EditProductPage = ({ role = "vendor" }) => {
   const navigate = useNavigate();
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [tagInput, setTagInput] = useState("");
-  const [featureInput, setFeatureInput] = useState("");
   const [activeSection, setActiveSection] = useState("basic");
-  
+  const [featureInput, setFeatureInput] = useState("");
   const { data: product, isLoading, isError } = useGetProductByIdQuery(id);
   const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation();
 
@@ -43,8 +42,9 @@ const EditProductPage = ({ role = "vendor" }) => {
   const { data: subcategoriesData = [] } = useGetSubcategoriesByCategoryQuery(selectedCategoryId, {
     skip: !selectedCategoryId,
   });
-  
+
   const subcategories = Array.isArray(subcategoriesData) ? subcategoriesData : [];
+  const isAdmin = role === "admin";
 
   // Calculate final price for a single size
   const calculateFinalPrice = useCallback((size) => {
@@ -57,6 +57,19 @@ const EditProductPage = ({ role = "vendor" }) => {
     const finalPrice = priceAfterDiscount + gstAmount;
     
     return finalPrice.toFixed(2);
+  }, []);
+
+  // Calculate final bulk price for price tiers
+  const calculateFinalBulkPrice = useCallback((tier) => {
+    const price = parseFloat(tier.price) || 0;
+    const discountPercentage = parseFloat(tier.discount_percentage) || 0;
+    const gstPercentage = parseFloat(tier.gst_percentage) || 0;
+    
+    const priceAfterDiscount = price - (price * discountPercentage / 100);
+    const gstAmount = priceAfterDiscount * gstPercentage / 100;
+    const finalBulkPrice = priceAfterDiscount + gstAmount;
+    
+    return finalBulkPrice.toFixed(2);
   }, []);
 
   const currencyOptions = [
@@ -118,11 +131,18 @@ const EditProductPage = ({ role = "vendor" }) => {
     is_default: false,
   }]);
 
-  const [priceTiers, setPriceTiers] = useState([{
+  // Initialize priceTiers with calculated final_bulk_price
+  const [priceTiers, setPriceTiers] = useState(() => [{
     sizeIndex: 0,
     min_quantity: "",
-    price: ""
-  }]);
+    price: "",
+    discount_percentage: "0",
+    gst_percentage: "0",
+    final_bulk_price: "0.00"
+  }].map(tier => ({
+    ...tier,
+    final_bulk_price: calculateFinalBulkPrice(tier)
+  })));
 
   const [existingImages, setExistingImages] = useState([]);
   const [newImages, setNewImages] = useState([]);
@@ -132,6 +152,14 @@ const EditProductPage = ({ role = "vendor" }) => {
     sizes: false,
     image: false
   });
+
+  // Update price tiers when they change
+  const updatePriceTiersWithCalculations = useCallback((tiers) => {
+    return tiers.map(tier => ({
+      ...tier,
+      final_bulk_price: calculateFinalBulkPrice(tier)
+    }));
+  }, [calculateFinalBulkPrice]);
 
   // Calculate final prices
   useEffect(() => {
@@ -219,11 +247,17 @@ const EditProductPage = ({ role = "vendor" }) => {
                 sizeId: variant.id,
                 min_quantity: tier.max_quantity?.toString() || "",
                 price: tier.price,
+                discount_percentage: "0",
+                gst_percentage: "0",
+                final_bulk_price: tier.price || "0.00"
               });
             });
           }
         });
-        setPriceTiers(tiers);
+        
+        if (tiers.length > 0) {
+          setPriceTiers(updatePriceTiersWithCalculations(tiers));
+        }
       }
 
       if (productDetail?.images) {
@@ -234,7 +268,7 @@ const EditProductPage = ({ role = "vendor" }) => {
         }
       }
     }
-  }, [product]);
+  }, [product, updatePriceTiersWithCalculations]);
 
   // Validate form
   useEffect(() => {
@@ -352,18 +386,36 @@ const EditProductPage = ({ role = "vendor" }) => {
   };
 
   const handleSizeChange = (index, field, value) => {
+    if (isAdmin && (field === 'price' || field === 'discount_percentage' || field === 'gst_percentage')) {
+      toast.warning("Admins cannot modify product prices");
+      return;
+    }
+    
     setSizes(prev => prev.map((size, i) => 
       i === index ? { ...size, [field]: value } : size
     ));
   };
 
   const handlePriceTierChange = (index, field, value) => {
-    setPriceTiers(prev => prev.map((tier, i) => 
-      i === index ? { ...tier, [field]: value } : tier
-    ));
+    if (isAdmin && (field === 'price' || field === 'discount_percentage' || field === 'gst_percentage')) {
+      toast.warning("Admins cannot modify bulk prices");
+      return;
+    }
+    
+    setPriceTiers(prev => {
+      const updatedTiers = prev.map((tier, i) => 
+        i === index ? { ...tier, [field]: value } : tier
+      );
+      return updatePriceTiersWithCalculations(updatedTiers);
+    });
   };
 
   const addSize = () => {
+    if (isAdmin) {
+      toast.warning("Admins cannot add new product sizes");
+      return;
+    }
+    
     setSizes(prev => [...prev, { 
       size: "",
       unit: "gram", 
@@ -377,11 +429,20 @@ const EditProductPage = ({ role = "vendor" }) => {
   };
 
   const removeSize = (index) => {
+    if (isAdmin) {
+      toast.warning("Admins cannot remove product sizes");
+      return;
+    }
+    
     if (sizes.length > 1) {
       const sizeToRemove = sizes[index];
-      setPriceTiers(prev => prev.filter(tier => 
-        tier.sizeIndex !== index && tier.sizeId !== sizeToRemove?.id
-      ));
+      setPriceTiers(prev => {
+        const updatedTiers = prev.map(tier => ({
+          ...tier,
+          sizeIndex: tier.sizeIndex > index ? tier.sizeIndex - 1 : tier.sizeIndex
+        })).filter(tier => tier.sizeIndex !== index && tier.sizeId !== sizeToRemove?.id);
+        return updatePriceTiersWithCalculations(updatedTiers);
+      });
       setSizes(prev => prev.filter((_, i) => i !== index));
     } else {
       toast.warning("At least one size is required");
@@ -389,17 +450,36 @@ const EditProductPage = ({ role = "vendor" }) => {
   };
 
   const addPriceTier = (sizeIndex) => {
+    if (isAdmin) {
+      toast.warning("Admins cannot add bulk pricing tiers");
+      return;
+    }
+    
     const sizeId = sizes[sizeIndex]?.id;
-    setPriceTiers(prev => [...prev, { 
-      sizeIndex,
-      sizeId,
-      min_quantity: "",
-      price: ""
-    }]);
+    setPriceTiers(prev => {
+      const newTier = { 
+        sizeIndex,
+        sizeId,
+        min_quantity: "",
+        price: "",
+        discount_percentage: "0",
+        gst_percentage: "0",
+        final_bulk_price: "0.00"
+      };
+      return updatePriceTiersWithCalculations([...prev, newTier]);
+    });
   };
 
   const removePriceTier = (index) => {
-    setPriceTiers(prev => prev.filter((_, i) => i !== index));
+    if (isAdmin) {
+      toast.warning("Admins cannot remove bulk pricing tiers");
+      return;
+    }
+    
+    setPriceTiers(prev => {
+      const updatedTiers = prev.filter((_, i) => i !== index);
+      return updatePriceTiersWithCalculations(updatedTiers);
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -475,7 +555,7 @@ const EditProductPage = ({ role = "vendor" }) => {
   ];
 
   if (isLoading) return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10 flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center">
       <div className="text-center">
         <div className="loading loading-spinner text-primary loading-lg mb-4"></div>
         <p className="text-gray-600 text-lg">Loading product details...</p>
@@ -484,7 +564,7 @@ const EditProductPage = ({ role = "vendor" }) => {
   );
   
   if (isError) return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10 flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center">
       <div className="text-center">
         <div className="text-6xl mb-4">⚠️</div>
         <h2 className="text-2xl font-bold text-red-600 mb-2">Failed to load product</h2>
@@ -521,12 +601,25 @@ const EditProductPage = ({ role = "vendor" }) => {
                   <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
                     Edit Product
                   </h1>
-                  <p className="text-gray-600 mt-2 text-lg">
-                    Update your product details and pricing
+                  <p className="text-blue-600  font-extrabold mt-2 text-lg">
+                    Update product details{isAdmin ? " (Price editing disabled for admin)" : ""}
                   </p>
                 </div>
               </div>
             </div>
+            
+            {/* Admin Badge */}
+            {isAdmin && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4">
+                <div className="flex items-center gap-3">
+                  <FiLock className="w-5 h-5 text-yellow-600" />
+                  <div>
+                    <p className="text-sm font-semibold text-yellow-800">Admin Mode</p>
+                    <p className="text-xs text-yellow-600">Price editing disabled</p>
+                  </div>
+                </div>
+              </div>
+            )}
             
             {/* Progress Indicator */}
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm border border-gray-200/50">
@@ -878,16 +971,21 @@ const EditProductPage = ({ role = "vendor" }) => {
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                     <div className="flex items-center gap-3">
                       <div className="w-2 h-6 bg-gradient-to-b from-orange-500 to-orange-400 rounded-full"></div>
-                      <h3 className="text-xl font-bold text-gray-900">Product Sizes & Pricing</h3>
+                      <h3 className="text-xl font-bold text-gray-900">
+                        Product Sizes & Pricing
+                        {isAdmin && <span className="text-sm font-normal text-gray-500 ml-2">(View Only)</span>}
+                      </h3>
                     </div>
-                    <button
-                      type="button"
-                      onClick={addSize}
-                      className="flex items-center gap-2 px-4 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-xl"
-                    >
-                      <FiPlus className="w-4 h-4" />
-                      Add Size
-                    </button>
+                    {!isAdmin && (
+                      <button
+                        type="button"
+                        onClick={addSize}
+                        className="flex items-center gap-2 px-4 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-xl"
+                      >
+                        <FiPlus className="w-4 h-4" />
+                        Add Size
+                      </button>
+                    )}
                   </div>
                   
                   {formErrors.sizes && (
@@ -904,18 +1002,28 @@ const EditProductPage = ({ role = "vendor" }) => {
                   <div className="space-y-6">
                     {sizes.map((size, index) => (
                       <div key={size.id || index} className="border-2 border-blue-200 rounded-2xl p-6 bg-gradient-to-br from-blue-50/50 to-indigo-50/30">
+                        {isAdmin && (
+                          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center gap-2">
+                            <FiLock className="w-4 h-4 text-yellow-600" />
+                            <span className="text-sm font-semibold text-yellow-700">Price editing disabled for admin</span>
+                          </div>
+                        )}
+                        
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
                           <div className="space-y-2">
                             <label className="block text-sm font-semibold text-gray-700">
-                              Size <span className="text-red-500">*</span>
+                              Size (Variant) <span className="text-red-500">*</span>
                             </label>
                             <input
                               type="text"
                               placeholder="e.g., Medium, 500g, 1L"
-                              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
+                              className={`w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 ${
+                                isAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
+                              }`}
                               value={size.size}
                               onChange={(e) => handleSizeChange(index, "size", e.target.value)}
                               required
+                              disabled={isAdmin}
                             />
                           </div>
                           
@@ -924,10 +1032,13 @@ const EditProductPage = ({ role = "vendor" }) => {
                               Unit <span className="text-red-500">*</span>
                             </label>
                             <select
-                              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer"
+                              className={`w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer ${
+                                isAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
+                              }`}
                               value={size.unit}
                               onChange={(e) => handleSizeChange(index, "unit", e.target.value)}
                               required
+                              disabled={isAdmin}
                             >
                               <option value="gram">Gram</option>
                               <option value="kg">Kilogram</option>
@@ -939,17 +1050,20 @@ const EditProductPage = ({ role = "vendor" }) => {
                           
                           <div className="space-y-2">
                             <label className="block text-sm font-semibold text-gray-700">
-                              Actual Price (₹) <span className="text-red-500">*</span>
+                              Base Price (₹) <span className="text-red-500">*</span>
                             </label>
                             <input
                               type="number"
                               min="0.01"
                               step="0.01"
-                              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
+                              className={`w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 ${
+                                isAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
+                              }`}
                               value={size.price}
                               onChange={(e) => handleSizeChange(index, "price", e.target.value)}
                               placeholder="0.00"
                               required
+                              disabled={isAdmin}
                             />
                           </div>
                         </div>
@@ -959,9 +1073,12 @@ const EditProductPage = ({ role = "vendor" }) => {
                           <div className="space-y-2">
                             <label className="block text-sm font-semibold text-gray-700">Discount %</label>
                             <select
-                              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer"
+                              className={`w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer ${
+                                isAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
+                              }`}
                               value={String(size.discount_percentage || size.discount || "0")}
                               onChange={(e) => handleSizeChange(index, "discount_percentage", e.target.value)}
+                              disabled={isAdmin}
                             >
                               {discountPercentageOptions.map(option => (
                                 <option key={option.value} value={option.value}>{option.label}</option>
@@ -972,9 +1089,12 @@ const EditProductPage = ({ role = "vendor" }) => {
                           <div className="space-y-2">
                             <label className="block text-sm font-semibold text-gray-700">GST %</label>
                             <select
-                              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer"
+                              className={`w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer ${
+                                isAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
+                              }`}
                               value={String(size.gst_percentage || "0")}
                               onChange={(e) => handleSizeChange(index, "gst_percentage", e.target.value)}
+                              disabled={isAdmin}
                             >
                               {gstPercentageOptions.map(option => (
                                 <option key={option.value} value={option.value}>{option.label}</option>
@@ -993,67 +1113,116 @@ const EditProductPage = ({ role = "vendor" }) => {
                         {/* Price Tiers for this size */}
                         <div className="mt-6">
                           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
-                            <h4 className="text-lg font-semibold text-gray-800">Bulk Pricing Tiers</h4>
-                            <button
-                              type="button"
-                              onClick={() => addPriceTier(index)}
-                              className="flex items-center gap-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg font-semibold hover:bg-blue-200 transition-all duration-300 cursor-pointer"
-                            >
-                              <FiPlus className="w-4 h-4" />
-                              Add Tier
-                            </button>
+                            <h4 className="text-lg font-semibold text-gray-800">
+                              Bulk Pricing Tiers
+                              {isAdmin && <span className="text-sm font-normal text-gray-500 ml-2">(View Only)</span>}
+                            </h4>
+                            {!isAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => addPriceTier(index)}
+                                className="flex items-center gap-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg font-semibold hover:bg-blue-200 transition-all duration-300 cursor-pointer"
+                              >
+                                <FiPlus className="w-4 h-4" />
+                                Add Tier
+                              </button>
+                            )}
                           </div>
                           
                           <div className="space-y-4">
                             {priceTiers.filter(tier => tier.sizeIndex === index || tier.sizeId === size.id).map((tier, tierIndex) => {
-                              const tierKey = tier.id || `${tier.sizeIndex}-${tier.min_quantity}-${tierIndex}`;
-                              const tierIdx = priceTiers.findIndex(t => 
+                              const globalTierIndex = priceTiers.findIndex(t => 
                                 (t.id && tier.id && t.id === tier.id) ||
-                                (t.sizeIndex === tier.sizeIndex && t.min_quantity === tier.min_quantity)
+                                (t.sizeIndex === tier.sizeIndex && t.min_quantity === tier.min_quantity && t.price === tier.price)
                               );
 
                               return (
-                                <div key={tierKey} className="grid grid-cols-1 lg:grid-cols-4 gap-4 p-4 bg-white rounded-xl border border-gray-200">
-                                  <div className="space-y-2">
+                                <div key={tier.id || `${tier.sizeIndex}-${tier.min_quantity}-${tierIndex}`} className="grid grid-cols-1 lg:grid-cols-6 gap-4 p-4 bg-white rounded-xl border border-gray-200">
+                                  <div className="space-y-2 lg:col-span-2">
                                     <label className="block text-sm font-semibold text-gray-700">
                                       Min Quantity <span className="text-red-500">*</span>
                                     </label>
                                     <input
                                       type="number"
                                       min="1"
-                                      className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
+                                      className={`w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 ${
+                                        isAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
+                                      }`}
                                       value={tier.min_quantity}
-                                      onChange={(e) => handlePriceTierChange(tierIdx, "min_quantity", e.target.value)}
-                                      placeholder="Minimum quantity"
+                                      onChange={(e) => handlePriceTierChange(globalTierIndex, "min_quantity", e.target.value)}
                                       required
+                                      disabled={isAdmin}
                                     />
                                   </div>
                                   
                                   <div className="space-y-2">
                                     <label className="block text-sm font-semibold text-gray-700">
-                                      Price (₹) <span className="text-red-500">*</span>
+                                      Base Price (₹) <span className="text-red-500">*</span>
                                     </label>
                                     <input
                                       type="number"
                                       min="0.01"
                                       step="0.01"
-                                      className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
+                                      className={`w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 ${
+                                        isAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
+                                      }`}
                                       value={tier.price}
-                                      onChange={(e) => handlePriceTierChange(tierIdx, "price", e.target.value)}
-                                      placeholder="Tier price"
+                                      onChange={(e) => handlePriceTierChange(globalTierIndex, "price", e.target.value)}
                                       required
+                                      disabled={isAdmin}
                                     />
                                   </div>
-                                  
-                                  <div className="lg:col-span-2 flex items-end">
-                                    <button
-                                      type="button"
-                                      onClick={() => removePriceTier(tierIdx)}
-                                      className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-100 text-red-700 rounded-lg font-semibold hover:bg-red-200 transition-all duration-300 cursor-pointer"
+
+                                  <div className="space-y-2">
+                                    <label className="block text-sm font-semibold text-gray-700">Discount %</label>
+                                    <select
+                                      className={`w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer ${
+                                        isAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
+                                      }`}
+                                      value={tier.discount_percentage}
+                                      onChange={(e) => handlePriceTierChange(globalTierIndex, "discount_percentage", e.target.value)}
+                                      disabled={isAdmin}
                                     >
-                                      <FiTrash2 className="w-4 h-4" />
-                                      Remove Tier
-                                    </button>
+                                      {discountPercentageOptions.map(option => (
+                                        <option key={option.value} value={option.value}>{option.label}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <label className="block text-sm font-semibold text-gray-700">GST %</label>
+                                    <select
+                                      className={`w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer ${
+                                        isAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
+                                      }`}
+                                      value={tier.gst_percentage}
+                                      onChange={(e) => handlePriceTierChange(globalTierIndex, "gst_percentage", e.target.value)}
+                                      disabled={isAdmin}
+                                    >
+                                      {gstPercentageOptions.map(option => (
+                                        <option key={option.value} value={option.value}>{option.label}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <label className="block text-sm font-semibold text-gray-700">Final Price (₹)</label>
+                                    <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg font-semibold text-gray-900 text-center">
+                                      ₹{tier.final_bulk_price || "0.00"}
+                                    </div>
+                                  </div>
+
+                                  <div className="lg:col-span-6 flex justify-end">
+                                    {!isAdmin && (
+                                      <button
+                                        type="button"
+                                        onClick={() => removePriceTier(globalTierIndex)}
+                                        className="flex items-center justify-center gap-2 px-3 py-2 bg-red-100 text-red-700 rounded-lg font-semibold hover:bg-red-200 transition-all duration-300 cursor-pointer"
+                                      >
+                                        <FiTrash2 className="w-4 h-4" />
+                                        Remove Tier
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
                               );
@@ -1068,11 +1237,12 @@ const EditProductPage = ({ role = "vendor" }) => {
                               checked={size.is_default}
                               onChange={(e) => handleSizeChange(index, "is_default", e.target.checked)}
                               className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                              disabled={isAdmin}
                             />
                             Set as default size
                           </label>
                           
-                          {sizes.length > 1 && (
+                          {sizes.length > 1 && !isAdmin && (
                             <button
                               type="button"
                               onClick={() => removeSize(index)}
@@ -1322,6 +1492,20 @@ const EditProductPage = ({ role = "vendor" }) => {
                   </div>
                 </div>
               </div>
+
+              {/* Admin Restrictions Card */}
+              {isAdmin && (
+                <div className="bg-yellow-50/80 backdrop-blur-sm rounded-2xl p-6 border border-yellow-200">
+                  <h4 className="text-lg font-bold text-yellow-900 mb-3">🔒 Admin Restrictions</h4>
+                  <ul className="space-y-2 text-sm text-yellow-800">
+                    <li>• Cannot modify product prices</li>
+                    <li>• Cannot modify bulk pricing</li>
+                    <li>• Cannot add/remove sizes</li>
+                    <li>• Cannot add/remove price tiers</li>
+                    <li>• Can update product information</li>
+                  </ul>
+                </div>
+              )}
 
               {/* Product Preview Card */}
               <div className="bg-blue-50/80 backdrop-blur-sm rounded-2xl p-6 border border-blue-200">

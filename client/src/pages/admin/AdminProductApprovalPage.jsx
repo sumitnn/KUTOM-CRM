@@ -587,7 +587,7 @@ const AdminProductApprovalPage = () => {
                                     </button>
                                   )}
 
-                                  {(activeTab === 'active' || activeTab === 'inactive') && (
+                                  {(activeTab === 'admin' || activeTab === 'admin') && (
                                     <button
                                       onClick={() => handleStatusUpdate(product.product, activeTab === 'active' ? 'inactive' : 'active')}
                                       disabled={loadingStates[product.product]}

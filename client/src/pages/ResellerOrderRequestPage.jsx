@@ -143,35 +143,10 @@ const ResellerOrderRequestPage = ({ role }) => {
     
     return (
       <div className="space-y-2 min-w-[150px]">
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-500">Qty:</span>
-          <span className="font-bold">{item.quantity}</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-500">Unit Price:</span>
-          <span className="font-medium">{item.unit_price}</span>
-        </div>
-        {item.discount_percentage !== "0.00" && (
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-500 flex items-center gap-1">
-              <FiPercent className="w-3 h-3" /> Discount:
-            </span>
-            <span className="text-error font-medium">{item.discount_percentage}%</span>
-          </div>
-        )}
-        {item.gst_percentage !== "0.00" && (
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-500 flex items-center gap-1">
-              <FiPercent className="w-3 h-3" /> GST:
-            </span>
-            <span className="text-warning font-medium">{item.gst_percentage}%</span>
-          </div>
-        )}
+        
         <div className="flex justify-between items-center pt-1 border-t border-gray-200">
-          <span className="text-sm font-medium flex items-center gap-1">
-            <FiDollarSign className="w-3 h-3" /> Total:
-          </span>
-          <span className="font-bold text-primary">{totalAmount}</span>
+          
+          <span className="font-bold text-primary">₹{totalAmount}</span>
         </div>
       </div>
     );
@@ -185,7 +160,7 @@ const ResellerOrderRequestPage = ({ role }) => {
         <th>Request ID</th>
         <th>Reseller Details</th>
         <th>Product Details</th>
-        <th>Order Details</th>
+        <th>Total Amount</th>
         <th>Status</th>
         <th className="text-center">Actions</th>
       </tr>
@@ -224,7 +199,7 @@ const ResellerOrderRequestPage = ({ role }) => {
         <td className="py-4">{renderResellerDetails(item.requested_by)}</td>
         <td className="py-4">{renderProductDetails(item.items)}</td>
         <td className="py-4">{renderOrderDetails(item.items, item.total_amount)}</td>
-        <td className="py-4">{getStatusBadge(item.status)}</td>
+        <td className="py-4 font-bold">{getStatusBadge(item.status)}</td>
         <td className="text-center py-4">
           <button 
             onClick={() => handleViewDetails(item.id)}

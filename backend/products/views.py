@@ -1,7 +1,7 @@
 from rest_framework import viewsets
 from .models import Brand, MainCategory, Category, SubCategory, Product, ProductVariant, ProductImage, ProductVariantPrice, ProductVariantBulkPrice, RoleBasedProduct, ProductCommission, StockInventory, Tag, ProductFeatures
 from .serializers import *
-from accounts.permissions import IsAdminRole, IsAdminOrVendorRole, IsVendorRole, IsAdminStockistResellerRole
+from accounts.permissions import IsAdminRole, IsAdminOrVendorRole, IsVendorRole, IsAdminStockistResellerRole,IsStockistOrResellerRole
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
@@ -23,6 +23,9 @@ from decimal import Decimal
 from accounts.models import User
 from .models import ProductCommission
 from django.core.paginator import Paginator
+from .utils import *
+from rest_framework.decorators import api_view, permission_classes
+from .models import ExpiryTracker, StockTransferRequest
 
 class BrandListCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -410,7 +413,7 @@ class ProductListCreateAPIView(APIView):
 
         # Get role-based products for the current user
         if request.user.role == "admin":
-            role_products = RoleBasedProduct.objects.filter(role="vendor")
+            role_products = RoleBasedProduct.objects.filter(role="vendor",is_featured=True)
         else:
             role_products = RoleBasedProduct.objects.filter(user=request.user)
         
@@ -512,7 +515,7 @@ class ProductDetailAPIView(APIView):
         if "short_description" in data and len(data["short_description"]) > 450:
             data["short_description"] = data["short_description"][:450]
         
-        print(data)
+        
 
         serializer = ProductUpdateSerializer(
             product, 
@@ -787,51 +790,99 @@ class ProductCommissionAPIView(APIView):
             })
     
     def put(self, request, product_id):
-       
- 
+        
         try:
-            role_product = RoleBasedProduct.objects.get(
-                id=product_id,
+            variant_id = request.data.get("variantId")
+            if not variant_id:
+                return Response(
+                    {"error": "variant_id is required"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # ✅ Get the role-based product for this user & product
+            role_product = RoleBasedProduct.objects.filter(
+                product_id=product_id,
                 user=request.user
+            ).first()
+
+            if not role_product:
+                return Response(
+                    {"error": "RoleBasedProduct not found for this user"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # ✅ Ensure the variant exists
+            try:
+                variant = ProductVariant.objects.get(id=variant_id)
+            except ProductVariant.DoesNotExist:
+                return Response(
+                    {"error": "Variant not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # ✅ Try to get existing commission for (role_product, variant)
+            commission, created = ProductCommission.objects.get_or_create(
+                role_product=role_product,
+                variant=variant
             )
-            
-            commission= ProductCommission.objects.filter(
-                role_product=role_product
-            ).last()
-            
-            if commission:
-                serializer = ProductCommissionSerializer(commission, data=request.data, partial=True)
-                if serializer.is_valid():
-                    serializer.save()
-                    return Response(serializer.data)
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            
-            return Response(ProductCommissionSerializer(commission).data)
-            
-        except RoleBasedProduct.DoesNotExist:
+
+            # ✅ Update values using serializer
+            serializer = ProductCommissionSerializer(
+                commission,
+                data=request.data,
+                partial=True
+            )
+
+            if serializer.is_valid():
+                serializer.save()
+                return Response({
+                    "success": True,
+                    "created": created,
+                    "data": serializer.data
+                }, status=status.HTTP_200_OK)
+
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
             return Response(
-                {'error': 'Product not found'}, 
-                status=status.HTTP_404_NOT_FOUND
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
             )
 
 class ProductPriceUpdateAPIView(APIView):
     permission_classes = [IsAdminRole]
     
     def put(self, request, product_id, variant_id):
-
         try:
-            updated = ProductVariantPrice.objects.filter(id=variant_id).update(price=request.data.get('price'),actual_price=request.data.get('price'))
+            # ✅ Locate the correct admin-level price record
+            obj = ProductVariantPrice.objects.filter(
+                product_id=product_id,
+                variant_id=variant_id,
+                user__role="admin"
+            ).first()
 
-            if updated == 0:
+            if not obj:
                 return Response(
-                    {"error": "No matching ProductVariantPrice found."},
+                    {"error": "Price record not found for this variant"},
                     status=status.HTTP_404_NOT_FOUND
                 )
 
-            return Response({"success": True})
+            # ✅ Safely parse and update decimal fields
+            reseller_price = request.data.get('reseller_price')
+            stockist_price = request.data.get('stockist_price')
+
+            if reseller_price is not None:
+                obj.reseller_price = Decimal(reseller_price or 0)
+            if stockist_price is not None:
+                obj.stockist_price = Decimal(stockist_price or 0)
+
+            obj.save()
+
+            return Response({"success": True}, status=status.HTTP_200_OK)
+        
         except Exception as e:
             return Response(
-                {"error": str(e)}, 
+                {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -909,7 +960,7 @@ class StockListCreateAPIView(APIView):
     def get(self, request):
         
         user = request.user
-        queryset = StockInventory.objects.filter(user=user)
+        queryset = StockInventory.objects.filter(user=user).exclude(is_expired=True)
         
 
         product = request.query_params.get('product')
@@ -972,11 +1023,12 @@ class AdminProductListView(generics.ListAPIView):
     def get_queryset(self):
         queryset = RoleBasedProduct.objects.filter(
             role="admin",
-            product__status="published"
+            product__status="published",
+            is_featured=True
         ).select_related(
             'product__brand', 'product__category', 'product__subcategory', 'user'
         ).prefetch_related(
-            'product__images', 'product__role_based_products__commission'
+            'product__images', 'commissions'
         )
 
         # 🔎 filters
@@ -1057,3 +1109,209 @@ class StockHistoryAPIView(APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+# -------------------------------
+# 🔹 REPLACEMENT TAB ENDPOINTS
+# -------------------------------
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_replacement_request(request):
+    """
+    Reseller creates a damaged/defective/incorrect product request.
+    Deducts stock automatically.
+    """
+    serializer = StockTransferRequestSerializer(
+        data=request.data, context={'request': request}
+    )
+
+    if serializer.is_valid():
+        instance = serializer.save()
+        return Response(StockTransferRequestSerializer(instance).data, status=status.HTTP_201_CREATED)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_replacement_requests(request):
+  
+    user = request.user
+    status_filter = request.query_params.get('status')
+    is_own_record = request.query_params.get('is_own')
+    # ✅ Filter by replacement types (reseller_* requests)
+    if user.role == 'admin':
+        if is_own_record == 'true':
+            qs = StockTransferRequest.objects.filter(
+               raised_by=user
+            ).order_by('-created_at')
+        else:
+            qs = StockTransferRequest.objects.filter(
+                raised_to=user
+            ).order_by('-created_at')
+    elif user.role == 'reseller':
+        qs = StockTransferRequest.objects.filter(  
+            raised_by=user
+        ).order_by('-created_at')
+    else:
+        
+        qs = StockTransferRequest.objects.filter(  
+            raised_to=user
+        ).order_by('-created_at')
+
+    # ✅ Optional status filter
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+
+    # ✅ Pagination
+    paginator = PageNumberPagination()
+    paginator.page_size_query_param = 'page_size'
+    paginator.page_size = int(request.query_params.get('page_size', 10))
+    result_page = paginator.paginate_queryset(qs, request)
+
+    serializer = StockTransferRequestSerializer(result_page, many=True)
+    return paginator.get_paginated_response(serializer.data)
+
+
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_replacement_status(request, pk):
+    """Update replacement status with clear role & direction logic."""
+    status = request.data.get('status')
+    notes = request.data.get('notes')
+    new_batch_number = request.data.get('new_batch_number')
+    tracking_id = request.data.get('tracking_id')
+    courier_name = request.data.get('courier_name')
+    delivery_date = request.data.get('delivery_date')
+
+    try:
+        req = StockTransferRequest.objects.get(pk=pk)
+    except StockTransferRequest.DoesNotExist:
+        return Response({'error': 'Request not found'}, status=404)
+
+    user = request.user
+    current_status = req.status
+
+    # Determine whether user is requestor or receiver
+    is_requester = (req.raised_by == user)
+    is_receiver = (req.raised_to == user)
+
+    if not (is_requester or is_receiver):
+        return Response({'error': 'You are not authorized to update this request.'}, status=403)
+
+    # Allowed statuses depending on role and direction
+    if is_receiver:
+        allowed_statuses = ['approved', 'rejected', 'dispatched']
+    elif is_requester:
+        allowed_statuses = ['received']
+    else:
+        allowed_statuses = []
+
+    # Validate allowed status
+    if status not in allowed_statuses:
+        return Response({
+            'error': f'You cannot change status to "{status}". Allowed: {", ".join(allowed_statuses)}'
+        }, status=403)
+
+    # Define valid transitions to prevent illogical jumps
+    valid_transitions = {
+        'pending': ['approved', 'rejected'],
+        'approved': ['dispatched'],
+        'dispatched': ['received'],
+        'received': ['completed'],
+        'rejected': [],
+        'completed': [],
+    }
+
+    if status not in valid_transitions.get(current_status, []):
+        return Response({
+            'error': f'Cannot change status from "{current_status}" to "{status}". '
+                     f'Valid transitions: {", ".join(valid_transitions.get(current_status, [])) or "None"}'
+        }, status=400)
+
+    # Update the request status and fields
+    req.status = status
+
+    if is_receiver:
+        # Receiver (requestto) adding their feedback or dispatch details
+        if status == 'dispatched':
+            req.delivery_note = notes
+            req.new_batch_number = new_batch_number
+            req.tracking_number = tracking_id
+            req.courier_name = courier_name
+            req.delivery_date = delivery_date
+        else:
+            req.admin_notes = notes or ''
+    elif is_requester:
+        # Requester (requestby) marking as received
+        req.user_notes = notes or ''
+
+    req.save()
+
+    return Response({
+        'detail': f'Status updated to "{status}" successfully.',
+        'new_status': status,
+        'timestamp': timezone.now()
+    })
+
+
+
+# -------------------------------
+# 🔹 EXPIRY TAB ENDPOINTS
+# -------------------------------
+
+class ExpiryTrackerPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_expiring_products(request):
+    """Show expiry tracking for current user (Admin/Vendor) with pagination"""
+    user = request.user
+    qs = ExpiryTracker.objects.filter(user=user).exclude(is_resolved=True).order_by('remaining_days')
+    
+    # Apply pagination
+    paginator = ExpiryTrackerPagination()
+    paginated_qs = paginator.paginate_queryset(qs, request)
+    
+    serializer = ExpiryTrackerSerializer(paginated_qs, many=True)
+    return paginator.get_paginated_response(serializer.data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_expiry_request(request):
+    """
+    Admin raises expiry return request (Admin → Vendor)
+    """
+    serializer = StockTransferRequestSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save(raised_by=request.user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+
+class AdminProductDetailAPIView(APIView):
+    permission_classes = [IsStockistOrResellerRole]
+
+    def get_object(self, pk, user):
+       
+        try:
+            return RoleBasedProduct.objects.get(id=pk)
+        except RoleBasedProduct.DoesNotExist:
+            raise NotFound("Product not found ")
+       
+
+    def get(self, request, pk):
+        role_product = self.get_object(pk, request.user)
+        serializer = RoleBasedProductSerializer(role_product, context={"request": request})
+        return Response(serializer.data)

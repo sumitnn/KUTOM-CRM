@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   FiEdit, 
@@ -8,16 +8,11 @@ import {
   FiX, 
   FiFilter, 
   FiCopy, 
-  FiShoppingCart, 
-  FiHeart,
-  FiShare2,
-  FiTrendingUp,
-  FiStar,
-  FiGrid,
-  FiList,
+  FiShoppingCart,
   FiTag,
   FiPercent,
-  FiDollarSign
+  FiDollarSign,
+  FiStar
 } from "react-icons/fi";
 import {
   useGetAllProductsQuery,
@@ -43,7 +38,6 @@ const getProductImage = (prod) => {
   return "/placeholder.png";
 };
 
-// Updated function to get price from product_variant_prices
 const getVariantPriceInfo = (variants) => {
   if (!variants || variants.length === 0) return { 
     basePrice: '0.00', 
@@ -66,7 +60,6 @@ const getVariantPriceInfo = (variants) => {
     };
   }
 
-  // Calculate final price with discount and GST
   const basePrice = Number(variantPrice.price);
   const discountAmount = basePrice * (variantPrice.discount / 100);
   const priceAfterDiscount = basePrice - discountAmount;
@@ -101,8 +94,6 @@ const ProductListPage = ({ role }) => {
   const [selectedSubCategory, setSelectedSubCategory] = useState("");
   const [selectedBrand, setSelectedBrand] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  const [viewMode, setViewMode] = useState('grid');
-  const [sortBy, setSortBy] = useState('name');
 
   // API calls
   const {
@@ -117,49 +108,28 @@ const ProductListPage = ({ role }) => {
     brand: selectedBrand,
   });
 
-  // Extract products from the API response with useMemo
-  const products = useMemo(() => {
-    return apiResponse.map(item => ({
-      ...item,
-      ...item.product_detail,
-      product_detail: item.product_detail,
-      variants_detail: item.variants_detail,
-      user_name: item.user_name,
-      user_unique_id: item.user_unique_id,
-      role: item.role,
-      is_featured: item.is_featured
-    }));
-  }, [apiResponse]);
+  const [deleteProductApi] = useDeleteProductMutation();
 
-  // Sort products
-  const sortedProducts = useMemo(() => {
-    const sorted = [...products];
-    switch (sortBy) {
-      case 'price-low':
-        return sorted.sort((a, b) => {
-          const priceA = getVariantPriceInfo(a.variants_detail).finalPrice;
-          const priceB = getVariantPriceInfo(b.variants_detail).finalPrice;
-          return parseFloat(priceA) - parseFloat(priceB);
-        });
-      case 'price-high':
-        return sorted.sort((a, b) => {
-          const priceA = getVariantPriceInfo(a.variants_detail).finalPrice;
-          const priceB = getVariantPriceInfo(b.variants_detail).finalPrice;
-          return parseFloat(priceB) - parseFloat(priceA);
-        });
-      case 'name':
-      default:
-        return sorted.sort((a, b) => a.name.localeCompare(b.name));
-    }
-  }, [products, sortBy]);
+  // Extract products from the API response
+const products = useMemo(() => {
+  return apiResponse.map(item => ({
+    id: item.id, // keep top-level ID separate
+    product_id: item.product_detail?.id, // store product_detail id separately
+    product_detail: item.product_detail, // keep full product_detail nested
+    variants_detail: item.variants_detail,
+    user_name: item.user_name,
+    user_unique_id: item.user_unique_id,
+    role: item.role,
+    is_featured: item.is_featured,
+  }));
+}, [apiResponse]);
+  
 
   const { data: categories = [] } = useGetCategoriesQuery();
   const { data: subcategories = [] } = useGetSubcategoriesByCategoryQuery(selectedCategory, {
     skip: !selectedCategory,
   });
   const { data: brands = [] } = useGetBrandsQuery();
-
-  const [deleteProductApi] = useDeleteProductMutation();
 
   const handleSearch = () => {
     setActiveSearch(searchTerm);
@@ -186,57 +156,61 @@ const ProductListPage = ({ role }) => {
     }
   };
 
-  const handleAddToCart = (prod) => {
-    const defaultVariant = prod.variants_detail?.find(variant => variant.is_default) || prod.variants_detail?.[0];
-    
-    if (!defaultVariant) {
-      toast.error("No variant available for this product");
-      return;
-    }
+const handleAddToCart = (prod) => {
+  const defaultVariant = prod.variants_detail?.find(variant => variant.is_default) || prod.variants_detail?.[0];
+  
+  if (!defaultVariant) {
+    toast.error("No variant available for this product");
+    return;
+  }
 
-    const priceInfo = getVariantPriceInfo(prod.variants_detail);
-    
-    if (!priceInfo.variantPrice) {
-      toast.error("Price information not available for this product");
-      return;
-    }
+  const priceInfo = getVariantPriceInfo(prod.variants_detail);
+  
+  if (!priceInfo.variantPrice) {
+    toast.error("Price information not available for this product");
+    return;
+  }
 
-    const isAlreadyInCart = cartItems.some((item) => 
-      item.id === prod.id && item.variantId === defaultVariant.id
-    );
+  // Create unique cartItemId for precise matching
+  const cartItemId = `${prod.product_id}_${defaultVariant.id}`;
 
-    if (isAlreadyInCart) {
-      toast.info("Item already in cart.");
-      return;
-    }
+  // Check if exact same product+variant combination exists
+  const isAlreadyInCart = cartItems.some((item) => item.cartItemId === cartItemId);
 
-    dispatch(
-      addItem({
-        id: prod.id,
-        name: prod.name,
-        price: Number(priceInfo.priceAfterDiscount),
-        basePrice: Number(priceInfo.basePrice),
-        discount: priceInfo.discount,
-        gst_percentage: priceInfo.gstPercentage,
-        gst_amount: Number(priceInfo.gstAmount),
-        final_price: Number(priceInfo.finalPrice),
-        quantity: 1, // Fixed quantity of 1
-        image: getProductImage(prod) || "/placeholder.png",
-        variantId: defaultVariant.id,
-        variant: defaultVariant,
-        variantPrice: priceInfo.variantPrice
-      })
-    );
+  if (isAlreadyInCart) {
+    toast.info("Item already in cart.");
+    return;
+  }
 
-    toast.success("Item added to cart successfully!");
-  };
+  dispatch(
+    addItem({
+      id: prod.id,
+      product_id:prod.product_id,
+      cartItemId: cartItemId, // Add unique identifier
+      name: prod.name,
+      price: Number(priceInfo.priceAfterDiscount),
+      basePrice: Number(priceInfo.basePrice),
+      discount: priceInfo.discount,
+      gst_percentage: priceInfo.gstPercentage,
+      gst_amount: Number(priceInfo.gstAmount),
+      final_price: Number(priceInfo.finalPrice),
+      quantity: 1,
+      image: getProductImage(prod) || "/placeholder.png",
+      variantId: defaultVariant.id,
+      variant: defaultVariant,
+      variantPrice: priceInfo.variantPrice
+    })
+  );
+
+  toast.success("Item added to cart successfully!");
+};
 
   const hasFilters = activeSearch || selectedCategory || selectedSubCategory || selectedBrand;
 
   // Product Card Component
   const ProductCard = ({ prod }) => {
     const priceInfo = getVariantPriceInfo(prod.variants_detail);
-
+  
     return (
       <div className="group bg-white rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-500 border border-gray-100 hover:border-primary/20 overflow-hidden">
         {/* Product Image */}
@@ -276,14 +250,14 @@ const ProductListPage = ({ role }) => {
           {/* Status Badge */}
           <div className="absolute top-16 left-4">
             <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-lg backdrop-blur-sm ${
-              prod.status === 'published' && prod.is_featured 
+              prod?.product_detail?.status=== 'published' && prod.is_featured 
                 ? 'bg-green-500 text-white' 
-                : prod.status === 'draft'
+                : prod?.product_detail?.status === 'draft'
                 ? 'bg-yellow-500 text-white'
                 : 'bg-gray-500 text-white'
             }`}>
-              {prod.status === 'published' && prod.is_featured ? 'Live' : 
-               prod.status === 'draft' ? 'Draft' : 'Inactive'}
+              {prod?.product_detail?.status === 'published' && prod.is_featured ? 'Live' : 
+               prod?.product_detail?.status === 'draft' ? 'Draft' : 'Inactive'}
             </span>
           </div>
 
@@ -293,7 +267,7 @@ const ProductListPage = ({ role }) => {
               className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg hover:bg-white hover:scale-110 transition-all duration-200 cursor-pointer"
               onClick={(e) => {
                 e.stopPropagation();
-                copyToClipboard(prod.sku);
+                copyToClipboard(prod.product_detail.sku);
               }}
               title="Copy SKU"
             >
@@ -307,7 +281,7 @@ const ProductListPage = ({ role }) => {
                   e.stopPropagation();
                   handleAddToCart(prod);
                 }}
-                disabled={prod.status === 'draft' || !prod.is_featured}
+                disabled={prod?.product_detail?.status === 'draft' || !prod.is_featured}
                 title="Add to cart"
               >
                 <FiShoppingCart className="w-4 h-4 text-white" />
@@ -318,7 +292,7 @@ const ProductListPage = ({ role }) => {
           {/* Vendor Badge */}
           <div className="absolute bottom-4 left-4">
             <span className="bg-black/70 text-white px-2 py-1 rounded-lg text-xs font-medium backdrop-blur-sm">
-              {prod.brand_name || 'No Brand'}
+              {prod.product_detail.brand_name || 'No Brand'}
             </span>
           </div>
         </div>
@@ -328,12 +302,12 @@ const ProductListPage = ({ role }) => {
           {/* Category */}
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-semibold text-primary bg-primary/10 px-3 py-1 rounded-full">
-              {prod.category_name || 'Uncategorized'}
+              {prod.product_detail.category_name || 'Uncategorized'}
             </span>
-            {prod.rating && (
+            {prod?.product_detail?.rating && (
               <div className="flex items-center gap-1 text-amber-500">
                 <FiStar className="w-4 h-4 fill-current" />
-                <span className="text-sm font-bold">{prod.rating}</span>
+                <span className="text-sm font-bold">{prod?.product_detail?.rating}</span>
               </div>
             )}
           </div>
@@ -343,13 +317,13 @@ const ProductListPage = ({ role }) => {
             className="font-bold text-gray-900 mb-2 line-clamp-2 hover:text-primary transition-colors cursor-pointer text-lg leading-tight"
             onClick={() => navigate(`/${role}/products/${prod.id}`)}
           >
-            {prod.name}
+            {prod?.product_detail?.name}
           </h3>
 
           {/* Short Description */}
-          {prod.short_description && (
+          {prod?.product_detail?.short_description && (
             <p className="text-gray-600 text-sm mb-4 line-clamp-2 leading-relaxed">
-              {prod.short_description}
+              {prod?.product_detail?.short_description}
             </p>
           )}
 
@@ -399,25 +373,6 @@ const ProductListPage = ({ role }) => {
             </div>
           </div>
 
-          {/* Features */}
-          {prod.features && prod.features.length > 0 && (
-            <div className="mb-4">
-              <div className="text-sm font-semibold text-gray-900 mb-2">Key Features</div>
-              <div className="flex flex-wrap gap-1">
-                {prod.features.slice(0, 2).map((feature, index) => (
-                  <span key={index} className="bg-blue-50 text-blue-700 px-2 py-1 rounded-lg text-xs font-medium">
-                    {feature}
-                  </span>
-                ))}
-                {prod.features.length > 2 && (
-                  <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-lg text-xs font-medium">
-                    +{prod.features.length - 2} more
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* Action Buttons */}
           <div className="flex gap-2">
             <button
@@ -425,7 +380,7 @@ const ProductListPage = ({ role }) => {
               onClick={() => navigate(`/${role}/products/${prod.id}`)}
             >
               <FiEye className="w-4 h-4" />
-              View Details
+              View
             </button>
             
             {["reseller", "admin"].includes(role) && (
@@ -436,7 +391,7 @@ const ProductListPage = ({ role }) => {
                 title="Add To Cart"
               >
                 <FiShoppingCart className="w-4 h-4" />
-                Add to Cart
+                
               </button>
             )}
           </div>
@@ -451,13 +406,7 @@ const ProductListPage = ({ role }) => {
                 <FiEdit className="w-4 h-4" />
                 Edit
               </button>
-              <button
-                className="flex-1 bg-red-50 hover:bg-red-100 text-red-700 py-2 rounded-lg font-medium transition-all duration-200 cursor-pointer flex items-center justify-center gap-2"
-                onClick={() => deleteProduct(prod.id)}
-              >
-                <FiTrash2 className="w-4 h-4" />
-                Delete
-              </button>
+             
             </div>
           )}
         </div>
@@ -466,8 +415,8 @@ const ProductListPage = ({ role }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
-      <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen">
+      <div className="max-w-8xl mx-auto py-4">
         {/* Header Section */}
         <div className="mb-8">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8">
@@ -487,8 +436,8 @@ const ProductListPage = ({ role }) => {
                   <FiSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
                     type="text"
-                    placeholder="Search products, brands, categories..."
-                    className="w-full pl-12 pr-4 py-4 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 shadow-sm hover:shadow-md"
+                    placeholder="Search products.."
+                    className="w-full p-4 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 shadow-sm hover:shadow-md"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onKeyUp={(e) => e.key === 'Enter' && handleSearch()}
@@ -498,21 +447,24 @@ const ProductListPage = ({ role }) => {
                       onClick={() => setSearchTerm("")}
                       className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
                     >
-                      <FiX className="w-5 h-5" />
+                      <FiX className="w-3 h-3" />
                     </button>
                   )}
                 </div>
               </div>
               
+              {/* Search Button */}
+              <button
+                onClick={handleSearch}
+                className="btn btn-primary cursor-pointer rounded-2xl px-6 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary border-0 shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                <FiSearch className="mr-2" />
+                Search
+              </button>
+
               {/* Action Buttons */}
               <div className="flex gap-3">
-                <button
-                  className="btn btn-outline border-gray-300 hover:border-gray-400 bg-white/80 backdrop-blur-sm cursor-pointer rounded-2xl px-6"
-                  onClick={() => setShowFilters(!showFilters)}
-                >
-                  <FiFilter className="mr-2" />
-                  {showFilters ? 'Hide Filters' : 'Filters'}
-                </button>
+               
                 
                 {role === "vendor" && (
                   <button
@@ -526,49 +478,9 @@ const ProductListPage = ({ role }) => {
             </div>
           </div>
 
-          {/* View Controls and Sort */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-            <div className="flex items-center gap-4">
-              {/* View Mode Toggle */}
-              <div className="flex bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200 p-1">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`p-3 rounded-xl transition-all duration-200 cursor-pointer ${
-                    viewMode === 'grid' 
-                      ? 'bg-primary text-white shadow-lg' 
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  <FiGrid className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`p-3 rounded-xl transition-all duration-200 cursor-pointer ${
-                    viewMode === 'list' 
-                      ? 'bg-primary text-white shadow-lg' 
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  <FiList className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Sort Dropdown */}
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer"
-              >
-                <option value="name">Sort by Name</option>
-                <option value="price-low">Price: Low to High</option>
-                <option value="price-high">Price: High to Low</option>
-              </select>
-            </div>
-
-            {/* Results Count */}
-            <div className="text-sm text-gray-600 bg-white/50 backdrop-blur-sm px-4 py-2 rounded-xl">
-              Showing <span className="font-semibold text-gray-900">{products.length}</span> products
-            </div>
+          {/* Results Count */}
+          <div className="text-sm text-gray-600 bg-white/50 backdrop-blur-sm px-4 py-2 rounded-xl inline-block">
+            Showing <span className="font-semibold text-gray-900">{products.length}</span> products
           </div>
         </div>
 
@@ -712,14 +624,10 @@ const ProductListPage = ({ role }) => {
           </div>
         ) : (
           <>
-            {sortedProducts.length > 0 ? (
-              <div className={`grid gap-6 ${
-                viewMode === 'grid' 
-                  ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' 
-                  : 'grid-cols-1'
-              }`}>
-                {sortedProducts.map((prod) => (
-                  <ProductCard key={prod.id} prod={prod} />
+            {products.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {products.map((prod) => (
+                  <ProductCard key={prod.id} prod={prod}  />
                 ))}
               </div>
             ) : (

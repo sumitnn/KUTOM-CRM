@@ -3,6 +3,7 @@ import { Route } from "react-router-dom";
 
 
 // Lazy-loaded components
+const AdminExpiredAndReplacement = lazy(() => import("../../pages/admin/AdminExpiredAndReplacement"));
 const CustomerPurchasesList = lazy(() => import("../../components/vendor/CustomerPurchasesList"));
 const CreateCustomerPurchase = lazy(() => import("../../components/vendor/CreateCustomerPurchase"));
 const CommonMyStockPage = lazy(() => import("../../pages/CommonMyStockPage"));
@@ -58,6 +59,18 @@ const ResellerRoutes = [
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
             <CommonProductDetailPage role="reseller" />
+          </Suspense>
+        </ResellerMainLayout>
+      }
+    />
+
+    {/* replaced  */}
+    <Route
+      path="/reseller/replacement-request"
+      element={
+        <ResellerMainLayout>
+          <Suspense fallback={<Spinner />}>
+            <AdminExpiredAndReplacement role="reseller" />
           </Suspense>
         </ResellerMainLayout>
       }

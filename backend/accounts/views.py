@@ -27,7 +27,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.db import transaction
 from django.utils.timezone import make_aware
 from django.db.models import Sum, F, DecimalField, ExpressionWrapper
-from .utils import create_notification
+from .utils import create_notification,send_email_to_user,send_template_email
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 from django.utils import timezone
@@ -482,10 +482,29 @@ class ForgotPasswordView(APIView):
             user = User.objects.get(email=email)
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
-            reset_link = f"http://localhost:3000/reset-password/{uid}/{token}"
+            reset_link = f"https://stocktn.com/reset-password/{uid}/{token}"
+            
 
             # In production, send email here
-            print(f"Password reset link for {email}: {reset_link}")
+
+            email_message = f"""
+            Hello <strong>{user.username or user.email}</strong>,<br><br>
+            
+            We received a request to reset your password. Please click the link below to set a new password:<br><br>
+            If you did not request a password reset, please ignore this email.<br><br>
+            
+            Please make sure to change your password after logging in for security reasons.<br><br>
+            <a href="{reset_link}" style="background:#1a73e8;color:#fff;padding:10px 18px;text-decoration:none;border-radius:6px;">Reset Password</a><br><br>
+            Welcome StockTn! We are excited to have you as part of our community.<br><br>
+            """
+
+            # ✅ Send email with HTML formatting
+            send_template_email(
+                to_email=user.email,
+                subject="Password Reset Request for Your StockTn Account",
+                message=email_message,
+                html=True,
+            )
 
             return Response({"detail": "Password reset link has been sent to your email."})
         except User.DoesNotExist:
@@ -1236,6 +1255,7 @@ class NewUserCreationView(APIView):
 
     def post(self, request):
         serializer = NewUserRegistrationSerializer(data=request.data)
+      
         if not serializer.is_valid():
             return Response({
                 'message': 'Invalid data',
@@ -1255,6 +1275,9 @@ class NewUserCreationView(APIView):
                 notification_type='new_application',
                 related_url=''
             )
+        # send email to user
+        send_email_to_user(request.data.get("email"), "Your Account Opening Application Send To Admin", "Your account opening application has been successfully submitted and is under review. We will notify you once the review process is complete.")
+
 
         return Response({
             'message': 'Application submitted successfully',
@@ -1329,6 +1352,27 @@ class ApproveApplicationView(APIView):
             notification_type='account_approval',
             related_url=''
         )
+        login_link = "https://stocktn.com/"
+        email_message = f"""
+        Hello <strong>{user.username or user.email}</strong>,<br><br>
+        🎉 Great news! Your StockTn account has been approved by the Admin.<br><br>
+        You can now log in using the following credentials:<br>
+        <ul>
+            <li><strong>Email:</strong> {user.email}</li>
+            <li><strong>Temporary Password:</strong> {default_password}</li>
+        </ul>
+        Please make sure to change your password after logging in for security reasons.<br><br>
+        <a href="{login_link}" style="background:#1a73e8;color:#fff;padding:10px 18px;text-decoration:none;border-radius:6px;">Login to your account</a><br><br>
+        Welcome StockTn! We are excited to have you as part of our community.<br><br>
+        """
+
+        # ✅ Send email with HTML formatting
+        send_template_email(
+            to_email=user.email,
+            subject="🎉 Your Kutom Account Approved!",
+            message=email_message,
+            html=True,
+        )
 
         return Response({'message': 'Application approved successfully'}, status=status.HTTP_200_OK)
 
@@ -1352,6 +1396,12 @@ class RejectNewUserApplicationView(APIView):
             message=f"Your application was rejected. Reason: {user.rejected_reason}",
             notification_type='account_rejection',
             related_url=''
+        )
+        # send email 
+        send_email_to_user(
+            user.email,
+            "Your Account Application Rejected",
+            f"Dear {user.username or user.email},\n\nWe regret to inform you that your account application has been rejected.\n\nReason: {user.rejected_reason}\n\nIf you have any questions, please contact our support team.\n\nBest regards,\nStockTn Team & Kutom Team"
         )
 
         return Response({'message': 'Application rejected successfully'}, status=status.HTTP_200_OK)

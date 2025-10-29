@@ -18,7 +18,7 @@ import { FaBoxArchive } from "react-icons/fa6";
 import { PiHandWithdrawFill } from "react-icons/pi";
 import { VscGitPullRequestGoToChanges } from "react-icons/vsc";
 import ModalPortal from "./ModalPortal";
-
+import { TbTruckReturn } from "react-icons/tb";
 const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobile = false }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -86,6 +86,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
           { label: "Registration", path: "/reseller" },
           { label: "Sales & Reports", path: "/admin/reseller-sales-report" },
           { label: "Order Requests", path: "/reseller/order-requests" },
+          { label: "Product Replacement Requests", path: "/reseller/product-replacement-requests" },
         ],
       },
       {
@@ -113,6 +114,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
           { label: "My Products", path: "/my-products" },
         ],
       },
+      { icon: <TbTruckReturn />, label: "Expiry & Replacement Request", path: "/my-product-replacement-requests" },
       { icon: <MdProductionQuantityLimits />, label: "My Cart", path: "/my-cart" },
       { icon: <CiWallet />, label: "Wallet", path: "/my-wallet" },
       { icon: <TfiAnnouncement />, label: "Announcements", path: "/announcements" },
@@ -203,6 +205,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
           { label: "Withdrawal Request History", path: "/reseller/my-withdrawl-history" },
         ],
       },
+      
       {
         icon: <MdInventory />,
         label: "Stock Management",
@@ -210,6 +213,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
           { label: "My Stocks & Inventory", path: "/reseller/my-stocks" },
         ],
       },
+      { icon: <TbTruckReturn />, label: "Product Replacement Requests", path: "/reseller/replacement-request" },
       { icon: <CiWallet />, label: "My Wallet", path: "/reseller/my-wallet" },
       { icon: <MdProductionQuantityLimits />, label: "My Cart", path: "/reseller/my-cart" },
       
@@ -237,6 +241,14 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
         label: "Business",
         children: [
           { label: "Orders", path: "/vendor/my-sales" },
+        ],
+      },
+      {
+        icon: <TbTruckReturn />,
+        label: "Product Expiry & Replacement",
+        children: [
+          { label: "Expired & Replacement Request ", path: "/expired-exchange-request" },
+         
         ],
       },
       {

@@ -66,17 +66,18 @@ class OrderItemSerializer(serializers.ModelSerializer):
         write_only=True
     )
     item_name = serializers.CharField(read_only=True)  # Uses @property from model
-    total = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)  # Uses @property from model
+
 
     class Meta:
         model = OrderItem
         fields = [
             'id', 'product', 'product_id', 'variant', 'variant_id', 
             'item_name', 'quantity', 'unit_price', 'discount_percentage', 
-            'discount_amount', 'gst_percentage', 'gst_amount', 'total',
-            'role_based_product'
+            'discount_amount', 'gst_percentage', 'gst_amount', 'final_price',
+            'role_based_product','bulk_price_applied','expiry_date','batch_number','manufacture_date',
+            'single_quantity_after_gst_and_discount_price'
         ]
-        read_only_fields = ['total']
+        read_only_fields = ['final_price']
 
 
 
@@ -91,7 +92,7 @@ class OrderItemDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'item_name', 'unit_price', 'quantity', 
             'variant_name', 'discount_percentage', 'discount_amount',
-            'gst_percentage', 'gst_amount', 'images', 'total'
+            'gst_percentage', 'gst_amount', 'images', 'final_price','single_quantity_after_gst_and_discount_price'
         ]
 
     def get_images(self, obj):
@@ -297,7 +298,7 @@ class OrderRequestItemSerializer(serializers.ModelSerializer):
             'id', 'product', 'rolebaseid', 'product_name', 'product_sku', 'product_type', 
             'quantity', 'unit_price', 'total_price', 'variant', 'gst_percentage', 'discount_percentage'
         ]
-        read_only_fields = ['total_price', 'product_name', 'product_sku', 'product_type', 'product']
+        read_only_fields = ['total_price', 'product_name', 'product_sku', 'product_type', 'product','unit_price']
 
 # serializers.py
 
@@ -325,7 +326,6 @@ class OrderRequestSerializer(serializers.ModelSerializer):
         request_user = self.context["request"].user
         items_data = validated_data.pop('items', [])
         admin_user = User.objects.filter(role='admin').first()
-        
 
         total_amount = Decimal("0.00")
 
@@ -349,29 +349,30 @@ class OrderRequestSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     "error": f"No valid price found for variant {variant.id} and role admin"
                 })
-
-            unit_price = price_obj.price
-            discount = price_obj.discount
-            gst_percentage = price_obj.gst_percentage
+            
+            if request_user and request_user.role =="stockist":
+                unit_price = price_obj.stockist_price
+                # discount = price_obj.discount
+                # gst_percentage = price_obj.gst_percentage
 
             # Apply discount
-            discounted_price = unit_price - (unit_price * Decimal(discount) / 100)
+            # discounted_price = unit_price - (unit_price * Decimal(discount) / 100)
 
             # GST calculation
-            gst_tax = discounted_price * Decimal(gst_percentage) / 100
-            final_price = discounted_price + gst_tax
+            # gst_tax = discounted_price * Decimal(gst_percentage) / 100
+            # final_price = discounted_price + gst_tax
 
-            total_price = final_price * quantity
+            total_price = unit_price * quantity
             total_amount += total_price
 
             secure_items.append({
                 "variant": variant,
                 "quantity": quantity,
                 "unit_price": unit_price,
-                "discount": discount,
-                "gst_percentage": gst_percentage,
-                "gst_tax": gst_tax,
-                "final_price": final_price,
+                "discount": 0,
+                "gst_percentage": 0,
+                "gst_tax": 0,
+                "final_price": unit_price,
                 "total_price": total_price,
                 "product": role_based_product  # RoleBasedProduct instance
             })
@@ -522,6 +523,7 @@ class ResellerOrderRequestSerializer(serializers.ModelSerializer):
             .select_related("stockist")
             .last()
         )
+        
 
         stockist_user = stockist_user.stockist if stockist_user else (
             User.objects.filter(role="stockist", is_default_user=True).last()
@@ -546,29 +548,31 @@ class ResellerOrderRequestSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"error": f"No valid price found for variant {variant.id} and role admin"}
                 )
-
-            unit_price = price_obj.price
-            discount = price_obj.discount
-            gst_percentage = price_obj.gst_percentage
+            unit_price=100000
+            if request_user and request_user.role =="reseller":
+                unit_price = price_obj.reseller_price
+            # unit_price = price_obj.price
+            # discount = price_obj.discount
+            # gst_percentage = price_obj.gst_percentage
 
             # Apply discount
-            discounted_price = unit_price - (unit_price * Decimal(discount) / 100)
+            # discounted_price = unit_price - (unit_price * Decimal(discount) / 100)
 
-            # GST calculation
-            gst_tax = discounted_price * Decimal(gst_percentage) / 100
-            final_price = discounted_price + gst_tax
+            # # GST calculation
+            # gst_tax = discounted_price * Decimal(gst_percentage) / 100
+            # final_price = discounted_price + gst_tax
 
-            total_price = final_price * quantity
+            total_price = unit_price * quantity
             total_amount += total_price
 
             secure_items.append({
                 "variant_id": variant.id,
                 "quantity": quantity,
                 "unit_price": unit_price,
-                "discount": discount,
-                "gst_percentage": gst_percentage,
-                "gst_tax": gst_tax,
-                "final_price": final_price,
+                "discount": 0,
+                "gst_percentage": 0,
+                "gst_tax": 0,
+                "final_price": unit_price,
                 "total_price": total_price,
                 "product_id": role_product.id
             })

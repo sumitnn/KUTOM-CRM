@@ -119,7 +119,7 @@ export default function VendorTable({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm p-2 md:p-4">
+    <div className="bg-white ">
       {/* Tabs */}
       <div className="flex flex-col md:flex-row justify-between gap-4 mb-4">
         <div className="tabs tabs-boxed bg-gray-100 p-1 rounded-lg overflow-x-auto">

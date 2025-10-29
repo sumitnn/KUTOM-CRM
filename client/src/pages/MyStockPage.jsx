@@ -2,7 +2,7 @@ import { useState, useEffect, lazy, Suspense } from "react";
 import { 
   FiPackage, FiCheckCircle, FiPlus, FiEdit, FiX, 
   FiRefreshCw, FiBox, FiTrendingUp, FiTrendingDown, 
-  FiInfo, FiLayers 
+  FiInfo, FiLayers, FiCalendar, FiHash 
 } from "react-icons/fi";
 import { FaHistory } from "react-icons/fa";
 import { useGetStocksQuery, useCreateStockMutation, useUpdateStockMutation, useGetStockHistoryQuery } from "../features/stocks/stocksApi";
@@ -31,7 +31,10 @@ const MyStockPage = ({ role }) => {
     variant: '',
     total_quantity: '',
     status: 'in_stock',
-    notes: ''
+    notes: '',
+    batch_number: '',
+    manufacture_date: '',
+    expiry_date: ''
   });
 
   const { data: stocks = [], isLoading, isError, error, refetch } = useGetStocksQuery({
@@ -62,6 +65,23 @@ const MyStockPage = ({ role }) => {
   useEffect(() => {
     if (showEditForm && selectedStock) {
       setSelectedProductId(selectedStock.product);
+      // Format dates for input fields (YYYY-MM-DD)
+      const formatDateForInput = (dateString) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return date.toISOString().split('T')[0];
+      };
+      
+      setFormData({
+        product: selectedStock.product,
+        variant: selectedStock.variant,
+        total_quantity: selectedStock.total_quantity,
+        status: selectedStock.status,
+        notes: selectedStock.notes || '',
+        batch_number: selectedStock.batch_number || '',
+        manufacture_date: formatDateForInput(selectedStock.manufacture_date),
+        expiry_date: formatDateForInput(selectedStock.expiry_date)
+      });
     }
   }, [showEditForm, selectedStock]);
 
@@ -81,7 +101,10 @@ const MyStockPage = ({ role }) => {
       variant: '',
       total_quantity: '',
       status: 'in_stock',
-      notes: ''
+      notes: '',
+      batch_number: '',
+      manufacture_date: '',
+      expiry_date: ''
     });
     setSelectedProductId(null);
     setShowCreateForm(true);
@@ -89,13 +112,6 @@ const MyStockPage = ({ role }) => {
 
   const openEditForm = (stock) => {
     setSelectedStock(stock);
-    setFormData({
-      product: stock.product,
-      variant: stock.variant,
-      total_quantity: stock.total_quantity,
-      status: stock.status,
-      notes: stock.notes || ''
-    });
     setShowEditForm(true);
   };
 
@@ -136,6 +152,18 @@ const MyStockPage = ({ role }) => {
   const handleSubmit = async (e) => {
     setIsDisabled(true);
     e.preventDefault();
+    
+    // Validate dates
+    if (formData.manufacture_date && formData.expiry_date) {
+      const manufactureDate = new Date(formData.manufacture_date);
+      const expiryDate = new Date(formData.expiry_date);
+      
+      if (expiryDate <= manufactureDate) {
+        toast.error("Expiry date must be after manufacture date");
+        setIsDisabled(false);
+        return;
+      }
+    }
     
     try {
       const payload = {
@@ -181,6 +209,20 @@ const MyStockPage = ({ role }) => {
     }
   };
 
+  const formatDateDisplay = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  const isExpired = (expiryDate) => {
+    if (!expiryDate) return false;
+    return new Date(expiryDate) < new Date();
+  };
+
   const renderTableHeaders = () => {
     switch (activeTab) {
       case "new_stock":
@@ -190,6 +232,7 @@ const MyStockPage = ({ role }) => {
             <th className="px-6 py-4 text-left text-sm font-semibold text-indigo-700">Date</th>
             <th className="px-6 py-4 text-left text-sm font-semibold text-indigo-700">Product Info</th>
             <th className="px-6 py-4 text-left text-sm font-semibold text-indigo-700">Variant</th>
+            <th className="px-6 py-4 text-left text-sm font-semibold text-indigo-700">Batch Info</th>
             <th className="px-6 py-4 text-left text-sm font-semibold text-indigo-700">Stock Details</th>
             <th className="px-6 py-4 text-left text-sm font-semibold text-indigo-700">Actions</th>
           </tr>
@@ -201,6 +244,7 @@ const MyStockPage = ({ role }) => {
             <th className="px-6 py-4 text-left text-sm font-semibold text-green-700">Last Updated</th>
             <th className="px-6 py-4 text-left text-sm font-semibold text-green-700">Product Info</th>
             <th className="px-6 py-4 text-left text-sm font-semibold text-green-700">Variant</th>
+            <th className="px-6 py-4 text-left text-sm font-semibold text-green-700">Batch Info</th>
             <th className="px-6 py-4 text-left text-sm font-semibold text-green-700">Available Stock</th>
             <th className="px-6 py-4 text-left text-sm font-semibold text-green-700">Actions</th>
           </tr>
@@ -212,6 +256,7 @@ const MyStockPage = ({ role }) => {
             <th className="px-6 py-4 text-left text-sm font-semibold text-red-700">Stock Out Date</th>
             <th className="px-6 py-4 text-left text-sm font-semibold text-red-700">Product Info</th>
             <th className="px-6 py-4 text-left text-sm font-semibold text-red-700">Category</th>
+            <th className="px-6 py-4 text-left text-sm font-semibold text-red-700">Batch Info</th>
             <th className="px-6 py-4 text-left text-sm font-semibold text-red-700">Last Stock</th>
             <th className="px-6 py-4 text-left text-sm font-semibold text-red-700">Actions</th>
           </tr>
@@ -221,13 +266,36 @@ const MyStockPage = ({ role }) => {
     }
   };
 
+  const renderBatchInfo = (item) => (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <FiHash className="w-3 h-3 text-gray-400" />
+        <span className="text-xs font-medium bg-gray-100 px-2 py-1 rounded">
+          {item.batch_number || 'N/A'}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <FiCalendar className="w-3 h-3 text-gray-400" />
+        <span className="text-xs text-gray-600">
+          Mfg: {formatDateDisplay(item.manufacture_date)}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <FiCalendar className={`w-3 h-3 ${isExpired(item.expiry_date) ? 'text-red-400' : 'text-gray-400'}`} />
+        <span className={`text-xs ${isExpired(item.expiry_date) ? 'text-red-600 font-semibold' : 'text-gray-600'}`}>
+          Exp: {formatDateDisplay(item.expiry_date)}
+          {isExpired(item.expiry_date) && ' (Expired)'}
+        </span>
+      </div>
+    </div>
+  );
+
   const renderTableRow = (item, index) => {
     const productInfo = (
       <div className="space-y-1">
         <div className="font-semibold text-gray-900">{item.product_name}</div>
-        
-        <div className="text-xs text-gray-500"><strong>Brand:</strong> {item.brand_name}</div>
-        <div className="text-xs text-gray-500"><strong>Category:</strong> {item.category_name}</div>
+        <div className="text-xs text-gray-500"><h2>Brand:</h2> {item.brand_name}</div>
+        <div className="text-xs text-gray-500"><h2>Category:</h2> {item.category_name}</div>
       </div>
     );
 
@@ -260,6 +328,9 @@ const MyStockPage = ({ role }) => {
               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                 {item.variant_name}
               </span>
+            </td>
+            <td className="px-6 py-4">
+              {renderBatchInfo(item)}
             </td>
             <td className="px-6 py-4">
               <div className="space-y-2">
@@ -313,6 +384,9 @@ const MyStockPage = ({ role }) => {
               </span>
             </td>
             <td className="px-6 py-4">
+              {renderBatchInfo(item)}
+            </td>
+            <td className="px-6 py-4">
               <span className="inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 shadow-sm">
                 <FiBox className="mr-2" /> {item.total_quantity} units
               </span>
@@ -351,6 +425,9 @@ const MyStockPage = ({ role }) => {
             <td className="px-6 py-4">{productInfo}</td>
             <td className="px-6 py-4">{categoryInfo}</td>
             <td className="px-6 py-4">
+              {renderBatchInfo(item)}
+            </td>
+            <td className="px-6 py-4">
               <span className="inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium bg-red-100 text-red-800">
                 <FiTrendingDown className="mr-2" /> Out of Stock
               </span>
@@ -381,7 +458,7 @@ const MyStockPage = ({ role }) => {
   const renderTableContent = () => {
     if (isLoading) return (
       <tr>
-        <td colSpan={6} className="text-center py-12">
+        <td colSpan={7} className="text-center py-12">
           <Suspense fallback={<div>Loading...</div>}>
             <Spinner />
           </Suspense>
@@ -391,7 +468,7 @@ const MyStockPage = ({ role }) => {
 
     if (isError) return (
       <tr>
-        <td colSpan={6} className="text-center py-12">
+        <td colSpan={7} className="text-center py-12">
           <Suspense fallback={<div>Error loading...</div>}>
             <ErrorMessage message={error?.data?.message || "Failed to load stocks"} />
           </Suspense>
@@ -401,7 +478,7 @@ const MyStockPage = ({ role }) => {
 
     if (!stocks || stocks.length === 0) return (
       <tr>
-        <td colSpan={6} className="text-center py-12">
+        <td colSpan={7} className="text-center py-12">
           <div className="flex flex-col items-center justify-center gap-3 text-gray-500">
             <FiPackage className="w-16 h-16 text-gray-300" />
             <h3 className="text-lg font-medium text-gray-400">
@@ -422,7 +499,7 @@ const MyStockPage = ({ role }) => {
   };
 
   return (
-    <div className="px-4 py-8 max-w-8xl mx-auto">
+    <div className="py-4 max-w-8xl mx-auto">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
@@ -461,9 +538,6 @@ const MyStockPage = ({ role }) => {
         >
           <FiTrendingUp className="mr-2" />
           Today's Stock
-          <span className="ml-2 px-2 py-1 text-xs bg-indigo-100 text-indigo-800 rounded-full">
-            {stocks.length}
-          </span>
         </button>
         <button
           className={`flex items-center px-6 py-3 rounded-lg text-sm font-medium transition-all transform cursor-pointer ${
@@ -533,7 +607,7 @@ const MyStockPage = ({ role }) => {
       {/* Create/Edit Stock Form Overlay */}
       {(showCreateForm || showEditForm) && (
         <ModalPortal>
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+        <div className="fixed inset-0 bg-black/50  flex items-center justify-center p-4 z-50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-6 border-b border-gray-200">
               <h3 className="text-xl font-semibold text-gray-900">
@@ -541,7 +615,7 @@ const MyStockPage = ({ role }) => {
               </h3>
               <button 
                 onClick={closeForm} 
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-400 cursor-pointer hover:text-gray-600 transition-colors"
               >
                 <FiX className="w-5 h-5" />
               </button>
@@ -617,12 +691,49 @@ const MyStockPage = ({ role }) => {
                 </div>
                 
                 <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">Batch Number</label>
+                  <input
+                    type="text"
+                    name="batch_number"
+                    value={formData.batch_number}
+                    onChange={handleInputChange}
+                    className="block w-full cursor-pointer px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    required
+                    placeholder="Enter batch number"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">Manufacture Date</label>
+                  <input
+                    type="date"
+                    name="manufacture_date"
+                    value={formData.manufacture_date}
+                    onChange={handleInputChange}
+                    className="block w-full cursor-pointer px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">Expiry Date</label>
+                  <input
+                    type="date"
+                    name="expiry_date"
+                    value={formData.expiry_date}
+                    onChange={handleInputChange}
+                    className="block w-full cursor-pointer px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">Status</label>
                   <select
                     name="status"
                     value={formData.status}
                     onChange={handleInputChange}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    className="block w-full cursor-pointer px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                     required
                   >
                     <option value="in_stock">New Stock Adding</option>
@@ -635,7 +746,7 @@ const MyStockPage = ({ role }) => {
                     name="notes"
                     value={formData.notes}
                     onChange={handleInputChange}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    className="block w-full cursor-pointer px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                     rows="3"
                     placeholder="Add any notes about this stock item..."
                   />
@@ -645,14 +756,14 @@ const MyStockPage = ({ role }) => {
                 <button 
                   type="button" 
                   onClick={closeForm} 
-                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                  className="px-4 py-2 cursor-pointer border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isDisabled}
-                  className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white 
+                  className={`px-4 py-2 cursor-pointer border border-transparent rounded-md shadow-sm text-sm font-medium text-white 
                     ${isDisabled ? "bg-gray-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700"} 
                     focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors`}
                 >
@@ -667,7 +778,7 @@ const MyStockPage = ({ role }) => {
       {/* Stock History Modal */}
       {showHistoryModal && selectedStock && (
         <ModalPortal>
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+        <div className="fixed inset-0 bg-black/50  flex items-center justify-center p-4 z-50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-6 border-b border-gray-200">
               <div>
@@ -675,6 +786,12 @@ const MyStockPage = ({ role }) => {
                 <p className="text-sm text-gray-500 mt-1 font-extrabold">
                   {selectedStock.product_name} - {selectedStock.variant_name}
                 </p>
+                <div className="text-xs text-gray-600 font-bold mt-1">
+                  Batch: {selectedStock.batch_number} | 
+                  Mfg: {formatDateDisplay(selectedStock.manufacture_date)} | 
+                  Exp: {formatDateDisplay(selectedStock.expiry_date)}
+                  {isExpired(selectedStock.expiry_date) && <span className="text-red-600 font-semibold"> (Expired)</span>}
+                </div>
               </div>
               <button 
                 onClick={closeHistoryModal} 
@@ -711,7 +828,7 @@ const MyStockPage = ({ role }) => {
                       </div>
                       <div className="text-right">
                         <div className="flex items-center space-x-4 text-sm">
-                          <span className="text-gray-500"><stong>Old: </stong>{history.old_quantity}</span>
+                          <span className="text-gray-500"><h2>Old: </h2>{history.old_quantity}</span>
                           <span className={`font-medium ${
                             history.action === 'ADD' ? 'text-green-600' : 
                             history.action === 'SELL' ? 'text-red-600' : 'text-blue-600'

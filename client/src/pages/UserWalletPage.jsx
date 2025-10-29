@@ -180,7 +180,7 @@ const UserWalletPage = ({ role }) => {
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="bg-white/10 rounded-xl p-4">
-                      <div className="text-xl font-bold">${summaryData?.payout_balance || 0}</div>
+                      <div className="text-xl font-bold">₹{summaryData?.payout_balance || 0}</div>
                       <p className="text-white/80 text-xs">Available for Withdrawal</p>
                     </div>
                     

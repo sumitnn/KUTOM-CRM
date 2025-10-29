@@ -432,3 +432,25 @@ class ProfileApprovalStatus(models.Model):
 
     def __str__(self):
         return f"ApprovalStatus({self.user.email})"
+    
+
+class ActivityLog(models.Model):
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='api_logs')
+    method = models.CharField(max_length=10,blank=True, null=True)
+    url = models.TextField(blank=True, null=True)
+    body = models.TextField(blank=True, null=True)
+    action = models.CharField(max_length=50, blank=True)
+    status_code = models.PositiveIntegerField(default=200)
+    description = models.TextField(blank=True, null=True)
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    user_agent = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'method', 'url']),
+        ]
+
+    def __str__(self):
+        return f"{self.user} - {self.method} {self.url} [{self.status_code}]"

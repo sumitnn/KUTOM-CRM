@@ -59,23 +59,6 @@ const CreateProductPage = () => {
     is_default: false,
   }]);
 
-  const [priceTiers, setPriceTiers] = useState([{
-    sizeIndex: 0,
-    min_quantity: "",
-    price: ""
-  }]);
-
-  const [images, setImages] = useState([]);
-  const [featureInput, setFeatureInput] = useState("");
-
-  const { data: categories = [] } = useGetCategoriesQuery();
-  const { data: brands = [] } = useGetBrandsQuery();
-  const { data: subcategoriesData = [] } = useGetSubcategoriesByCategoryQuery(selectedCategoryId, {
-    skip: !selectedCategoryId,
-  });
-
-  const subcategories = Array.isArray(subcategoriesData) ? subcategoriesData : [];
-
   // Calculate final price for a single size
   const calculateFinalPrice = useCallback((size) => {
     const price = parseFloat(size.price) || 0;
@@ -89,6 +72,44 @@ const CreateProductPage = () => {
     return finalPrice.toFixed(2);
   }, []);
 
+  // Calculate final bulk price for price tiers
+  const calculateFinalBulkPrice = useCallback((tier) => {
+    const price = parseFloat(tier.price) || 0;
+    const discountPercentage = parseFloat(tier.discount_percentage) || 0;
+    const gstPercentage = parseFloat(tier.gst_percentage) || 0;
+    
+    const priceAfterDiscount = price - (price * discountPercentage / 100);
+    const gstAmount = priceAfterDiscount * gstPercentage / 100;
+    const finalBulkPrice = priceAfterDiscount + gstAmount;
+    
+    return finalBulkPrice.toFixed(2);
+  }, []);
+
+  // Initialize priceTiers with calculated final_bulk_price
+  const [priceTiers, setPriceTiers] = useState(() => [{
+    sizeIndex: 0,
+    min_quantity: "",
+    price: "",
+    discount_percentage: "0",
+    gst_percentage: "0",
+    final_bulk_price: "0.00"
+  }].map(tier => ({
+    ...tier,
+    final_bulk_price: calculateFinalBulkPrice(tier)
+  })));
+
+  const [images, setImages] = useState([]);
+  const [featureInput, setFeatureInput] = useState("");
+
+  const { data: categories = [] } = useGetCategoriesQuery();
+  const { data: brands = [] } = useGetBrandsQuery();
+  const { data: subcategoriesData = [] } = useGetSubcategoriesByCategoryQuery(selectedCategoryId, {
+    skip: !selectedCategoryId,
+  });
+
+  const subcategories = Array.isArray(subcategoriesData) ? subcategoriesData : [];
+
+  // Update sizes final prices
   useEffect(() => {
     const needsUpdate = sizes.some(size => {
       const currentFinal = parseFloat(size.final_price) || 0;
@@ -104,6 +125,14 @@ const CreateProductPage = () => {
       setSizes(updatedSizes);
     }
   }, [sizes, calculateFinalPrice]);
+
+  // Update price tiers when they change - FIXED VERSION
+  const updatePriceTiersWithCalculations = useCallback((tiers) => {
+    return tiers.map(tier => ({
+      ...tier,
+      final_bulk_price: calculateFinalBulkPrice(tier)
+    }));
+  }, [calculateFinalBulkPrice]);
 
   const [formErrors, setFormErrors] = useState({
     sizes: false,
@@ -233,9 +262,12 @@ const CreateProductPage = () => {
   };
 
   const handlePriceTierChange = (index, field, value) => {
-    setPriceTiers(prev => prev.map((tier, i) => 
-      i === index ? { ...tier, [field]: value } : tier
-    ));
+    setPriceTiers(prev => {
+      const updatedTiers = prev.map((tier, i) => 
+        i === index ? { ...tier, [field]: value } : tier
+      );
+      return updatePriceTiersWithCalculations(updatedTiers);
+    });
   };
 
   const addSize = () => {
@@ -254,25 +286,37 @@ const CreateProductPage = () => {
   const removeSize = (index) => {
     if (sizes.length > 1) {
       setSizes(prev => prev.filter((_, i) => i !== index));
-      setPriceTiers(prev => prev.map(tier => ({
-        ...tier,
-        sizeIndex: tier.sizeIndex > index ? tier.sizeIndex - 1 : tier.sizeIndex
-      })).filter(tier => tier.sizeIndex !== index));
+      setPriceTiers(prev => {
+        const updatedTiers = prev.map(tier => ({
+          ...tier,
+          sizeIndex: tier.sizeIndex > index ? tier.sizeIndex - 1 : tier.sizeIndex
+        })).filter(tier => tier.sizeIndex !== index);
+        return updatePriceTiersWithCalculations(updatedTiers);
+      });
     } else {
       toast.warning("At least one size is required");
     }
   };
 
   const addPriceTier = (sizeIndex) => {
-    setPriceTiers(prev => [...prev, { 
-      sizeIndex,
-      min_quantity: "",
-      price: ""
-    }]);
+    setPriceTiers(prev => {
+      const newTier = { 
+        sizeIndex,
+        min_quantity: "",
+        price: "",
+        discount_percentage: "0",
+        gst_percentage: "0",
+        final_bulk_price: "0.00"
+      };
+      return updatePriceTiersWithCalculations([...prev, newTier]);
+    });
   };
 
   const removePriceTier = (index) => {
-    setPriceTiers(prev => prev.filter((_, i) => i !== index));
+    setPriceTiers(prev => {
+      const updatedTiers = prev.filter((_, i) => i !== index);
+      return updatePriceTiersWithCalculations(updatedTiers);
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -339,8 +383,8 @@ const CreateProductPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="min-h-screen ">
+      <div className="max-w-8xl mx-auto py-4">
         {/* Header */}
         <div className="mb-8">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6">
@@ -735,11 +779,11 @@ const CreateProductPage = () => {
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
                           <div className="space-y-2">
                             <label className="block text-sm font-semibold text-gray-700">
-                              Size <span className="text-red-500">*</span>
+                              Size (Variant) <span className="text-red-500">*</span>
                             </label>
                             <input
                               type="text"
-                              placeholder="e.g., Medium, 500g, 1L"
+                              placeholder="e.g.Color,Size,Name"
                               className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
                               value={size.size}
                               onChange={(e) => handleSizeChange(index, "size", e.target.value)}
@@ -749,7 +793,7 @@ const CreateProductPage = () => {
                           
                           <div className="space-y-2">
                             <label className="block text-sm font-semibold text-gray-700">
-                              Unit <span className="text-red-500">*</span>
+                              Variant Unit Type <span className="text-red-500">*</span>
                             </label>
                             <select
                               className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer"
@@ -767,7 +811,7 @@ const CreateProductPage = () => {
                           
                           <div className="space-y-2">
                             <label className="block text-sm font-semibold text-gray-700">
-                              Actual Price (₹) <span className="text-red-500">*</span>
+                              Base Price (₹) <span className="text-red-500">*</span>
                             </label>
                             <input
                               type="number"
@@ -833,59 +877,85 @@ const CreateProductPage = () => {
                           </div>
                           
                           <div className="space-y-4">
-                            {priceTiers.filter(tier => tier.sizeIndex === index).map((tier, tierIndex) => (
-                              <div key={tierIndex} className="grid grid-cols-1 lg:grid-cols-4 gap-4 p-4 bg-white rounded-xl border border-gray-200">
-                                <div className="space-y-2">
-                                  <label className="block text-sm font-semibold text-gray-700">
-                                    Min Quantity <span className="text-red-500">*</span>
-                                  </label>
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
-                                    value={tier.min_quantity}
-                                    onChange={(e) => handlePriceTierChange(
-                                      priceTiers.findIndex(t => t.sizeIndex === index && t.min_quantity === tier.min_quantity),
-                                      "min_quantity",
-                                      e.target.value
-                                    )}
-                                    required
-                                  />
+                            {priceTiers.filter(tier => tier.sizeIndex === index).map((tier, tierIndex) => {
+                              const globalTierIndex = priceTiers.findIndex(t => t.sizeIndex === index && t.min_quantity === tier.min_quantity && t.price === tier.price);
+                              return (
+                                <div key={tierIndex} className="grid grid-cols-1 lg:grid-cols-6 gap-4 p-4 bg-white rounded-xl border border-gray-200">
+                                  <div className="space-y-2 lg:col-span-2">
+                                    <label className="block text-sm font-semibold text-gray-700">
+                                      Min Quantity <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
+                                      value={tier.min_quantity}
+                                      onChange={(e) => handlePriceTierChange(globalTierIndex, "min_quantity", e.target.value)}
+                                      required
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <label className="block text-sm font-semibold text-gray-700">
+                                      Base Price (₹) <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min="0.01"
+                                      step="0.01"
+                                      className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
+                                      value={tier.price}
+                                      onChange={(e) => handlePriceTierChange(globalTierIndex, "price", e.target.value)}
+                                      required
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <label className="block text-sm font-semibold text-gray-700">Discount %</label>
+                                    <select
+                                      className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer"
+                                      value={tier.discount_percentage}
+                                      onChange={(e) => handlePriceTierChange(globalTierIndex, "discount_percentage", e.target.value)}
+                                    >
+                                      {discountPercentageOptions.map(option => (
+                                        <option key={option.value} value={option.value}>{option.label}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <label className="block text-sm font-semibold text-gray-700">GST %</label>
+                                    <select
+                                      className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer"
+                                      value={tier.gst_percentage}
+                                      onChange={(e) => handlePriceTierChange(globalTierIndex, "gst_percentage", e.target.value)}
+                                    >
+                                      {gstPercentageOptions.map(option => (
+                                        <option key={option.value} value={option.value}>{option.label}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <label className="block text-sm font-semibold text-gray-700">Final Price (₹)</label>
+                                    <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg font-semibold text-gray-900 text-center">
+                                      ₹{tier.final_bulk_price || "0.00"}
+                                    </div>
+                                  </div>
+
+                                  <div className="lg:col-span-6 flex justify-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => removePriceTier(globalTierIndex)}
+                                      className="flex items-center justify-center gap-2 px-3 py-2 bg-red-100 text-red-700 rounded-lg font-semibold hover:bg-red-200 transition-all duration-300 cursor-pointer"
+                                    >
+                                      <FiTrash2 className="w-4 h-4" />
+                                      Remove Tier
+                                    </button>
+                                  </div>
                                 </div>
-                                
-                                <div className="space-y-2">
-                                  <label className="block text-sm font-semibold text-gray-700">
-                                    Price (₹) <span className="text-red-500">*</span>
-                                  </label>
-                                  <input
-                                    type="number"
-                                    min="0.01"
-                                    step="0.01"
-                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
-                                    value={tier.price}
-                                    onChange={(e) => handlePriceTierChange(
-                                      priceTiers.findIndex(t => t.sizeIndex === index && t.min_quantity === tier.min_quantity),
-                                      "price",
-                                      e.target.value
-                                    )}
-                                    required
-                                  />
-                                </div>
-                                
-                                <div className="lg:col-span-2 flex items-end">
-                                  <button
-                                    type="button"
-                                    onClick={() => removePriceTier(
-                                      priceTiers.findIndex(t => t.sizeIndex === index && t.min_quantity === tier.min_quantity)
-                                    )}
-                                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-100 text-red-700 rounded-lg font-semibold hover:bg-red-200 transition-all duration-300 cursor-pointer"
-                                  >
-                                    <FiTrash2 className="w-4 h-4" />
-                                    Remove Tier
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                         

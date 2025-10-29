@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import (
     Brand, MainCategory, Category, SubCategory, Tag, ProductFeatures,
     Product, ProductVariant, ProductImage, ProductVariantPrice, ProductVariantBulkPrice,
-    RoleBasedProduct, ProductCommission, StockInventory, StockInventoryHistory
+    RoleBasedProduct, ProductCommission, StockInventory, StockInventoryHistory,RequestImage, StockTransferRequest, ExpiryTracker
 )
 
 
@@ -121,7 +121,7 @@ class ProductImageAdmin(admin.ModelAdmin):
 
 @admin.register(ProductVariantPrice)
 class ProductVariantPriceAdmin(admin.ModelAdmin):
-    list_display = ('id','product', 'variant', 'user', 'role', 'price', 'discount', 'gst_percentage', 'actual_price')
+    list_display = ('id','product', 'variant', 'user', 'role', 'price', 'discount', 'gst_percentage', 'actual_price','stockist_price','reseller_price')
     search_fields = ('product__name', 'variant__name', 'user__username')
     list_filter = ('role', 'user')
     
@@ -132,8 +132,7 @@ class ProductVariantPriceAdmin(admin.ModelAdmin):
 
 @admin.register(ProductVariantBulkPrice)
 class ProductVariantBulkPriceAdmin(admin.ModelAdmin):
-    list_display = ('id','product', 'variant', 'max_quantity', 'price', 'created_at')
-    list_filter = ('created_at',)
+    list_display = ('id','product', 'variant', 'max_quantity', 'price','discount','final_price','gst_percentage', 'created_at')
     search_fields = ('product__name', 'variant__name')
     
     # Optimize queryset
@@ -173,20 +172,34 @@ class RoleBasedProductAdmin(admin.ModelAdmin):
 @admin.register(ProductCommission)
 class ProductCommissionAdmin(admin.ModelAdmin):
     list_display = (
-        'get_product_name', 'commission_type',
-        'reseller_commission_value', 'stockist_commission_value',
-        'admin_commission_value', 'updated_at'
+        'get_product_name',
+        'get_variant_name',
+        'commission_type',
+        'reseller_commission_value',
+        'stockist_commission_value',
+        'admin_commission_value',
+        'updated_at',
     )
-    search_fields = ('role_product__product__name',)
+    search_fields = (
+        'role_product__product__name',
+        'variant__name',
+    )
     list_filter = ('commission_type',)
-    
+
     def get_product_name(self, obj):
         return obj.role_product.product.name
     get_product_name.short_description = 'Product'
-    
-    # Optimize queryset
+
+    def get_variant_name(self, obj):
+        return obj.variant.name
+    get_variant_name.short_description = 'Variant'
+
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('role_product__product')
+        return (
+            super()
+            .get_queryset(request)
+            .select_related('role_product__product', 'variant')
+        )
 
 
 class StockInventoryHistoryInline(admin.TabularInline):
@@ -213,6 +226,9 @@ class StockInventoryAdmin(admin.ModelAdmin):
         "total_quantity",
         "created_at",
         "updated_at",
+        "manufacture_date",
+        "expiry_date",
+        "batch_number"
     )
     list_filter = ("product", "variant", "user", "created_at", "updated_at")
     search_fields = ("product__name", "variant__name", "user__username")
@@ -250,3 +266,35 @@ class StockInventoryHistoryAdmin(admin.ModelAdmin):
         "created_at",
     )
     ordering = ("-created_at",)
+
+
+# Inline for images
+class RequestImageInline(admin.TabularInline):
+    model = RequestImage
+    extra = 0
+    readonly_fields = ['uploaded_at', 'image']
+
+# StockTransferRequest admin
+@admin.register(StockTransferRequest)
+class StockTransferRequestAdmin(admin.ModelAdmin):
+    list_display = ['request_id', 'request_type', 'status', 'product', 'variant',
+                    'quantity', 'batch_number', 'raised_by', 'raised_to', 'is_resolved']
+    list_filter = ['status', 'request_type', 'is_resolved', 'created_at']
+    search_fields = ['request_id', 'product__name', 'variant__name', 'batch_number', 'raised_by__username']
+    readonly_fields = ['request_id', 'approved_date', 'completed_at', 'created_at', 'updated_at']
+    inlines = [RequestImageInline]
+
+# ExpiryTracker admin
+@admin.register(ExpiryTracker)
+class ExpiryTrackerAdmin(admin.ModelAdmin):
+    list_display = ['stock_item', 'user', 'batch_number', 'expiry_date', 'remaining_days', 'status', 'stock_quantity', 'is_resolved']
+    list_filter = ['status', 'is_resolved']
+    search_fields = ['stock_item__product__name', 'batch_number', 'user__username']
+    readonly_fields = ['created_at', 'updated_at']
+
+# RequestImage admin
+@admin.register(RequestImage)
+class RequestImageAdmin(admin.ModelAdmin):
+    list_display = ['transfer_request', 'uploaded_at']
+    search_fields = ['transfer_request__request_id']
+    readonly_fields = ['uploaded_at', 'image']

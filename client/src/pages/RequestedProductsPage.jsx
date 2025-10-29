@@ -98,10 +98,10 @@ const RequestedProductsPage = ({ role }) => {
         category: product.category_name,
         subcategory: product.subcategory_name,
         quantity: 0,
-        baseprice: parseFloat(variantPrice || product.price || 0),
-        actual_price: parseFloat(totalprice || product.price || 0),
+        baseprice: parseFloat(variantPrice ||  0),
+        actual_price: parseFloat(totalprice  || 0),
         gst: parseFloat(gsttax || product.price || 0),
-        discount: parseFloat(discount || product.price || 0),
+        discount: parseFloat(discount  || 0),
         demandDate: product.updated_at || item.updated_at,
         status: product.status || item.status,
         isFeatured: item.is_featured || product.is_featured,
@@ -439,8 +439,8 @@ const RequestedProductsPage = ({ role }) => {
                               <td className="px-4 py-4 hidden md:table-cell">
                                 <div className="space-y-2">
                                   <div className="flex items-center gap-2">
-                                    <FiDollarSign className="w-3 h-3 text-gray-400" />
-                                    <span className="text-sm font-semibold text-gray-900">₹{item.baseprice}</span>
+                                 
+                                    <span className="text-sm font-semibold text-gray-900">Base Price ₹{item.baseprice}</span>
                                   </div>
                                   <div className="flex items-center gap-3 text-xs">
                                     <div className="flex items-center gap-1">
@@ -452,7 +452,7 @@ const RequestedProductsPage = ({ role }) => {
                                     </div>
                                   </div>
                                   <div className="text-sm font-bold text-primary">
-                                    ₹{item.actual_price}
+                                    Total ₹{item.actual_price}
                                   </div>
                                 </div>
                               </td>

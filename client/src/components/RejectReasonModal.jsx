@@ -1,5 +1,6 @@
 // RejectReasonModal.jsx
 import React, { useState } from 'react';
+import ModalPortal from './ModalPortal';
 
 export default function RejectReasonModal({ onClose, onSubmit }) {
   const [reason, setReason] = useState('');
@@ -21,6 +22,7 @@ export default function RejectReasonModal({ onClose, onSubmit }) {
   };
 
   return (
+    <ModalPortal>
     <div className="modal modal-open">
       <div className="modal-box">
         <h3 className="font-bold text-lg">Provide Rejection Reason</h3>
@@ -59,6 +61,6 @@ export default function RejectReasonModal({ onClose, onSubmit }) {
           </div>
         </form>
       </div>
-    </div>
+    </div></ModalPortal>
   );
 }

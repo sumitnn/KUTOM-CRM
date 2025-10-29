@@ -1,11 +1,10 @@
 // AdminMyProduct.jsx
-import React, { useState } from "react";
+import React, { useState, lazy, Suspense } from "react";
 import { 
     useGetMyProductsQuery,
     useUpdateCommissionMutation,
     useUpdateProductPriceMutation,
     useUpdateProductFeaturedStatusMutation,
-    useUpdateProductStatusMutation
 } from "../../features/product/productApi";
 import { useGetBrandsQuery } from "../../features/brand/brandApi";
 import { 
@@ -15,388 +14,36 @@ import {
 import { toast } from "react-toastify";
 
 import {
-   
     FiEye,
     FiSearch,
-    FiX,
     FiFilter,
-    FiDollarSign,
     FiPackage,
     FiXCircle,
     FiArrowUp,
     FiArrowDown,
     FiChevronLeft,
     FiChevronRight,
-    FiRefreshCw
+    FiRefreshCw,
+    FiLayers,
+    FiUser,
+    FiUsers
 } from "react-icons/fi";
 import "react-toastify/dist/ReactToastify.css";
-import ModalPortal from "../../components/ModalPortal";
 
-// Commission Modal Component
-const CommissionModal = ({ product, isOpen, onClose, onSave }) => {
-    const [commissionData, setCommissionData] = useState({
-        commission_type: "percentage",
-        reseller_commission_value: "0",
-        stockist_commission_value: "0",
-        admin_commission_value: "0"
-    });
-   
-    React.useEffect(() => {
-        if (product?.commission) {
-            setCommissionData({
-                commission_type: product.commission.commission_type || "flat",
-                reseller_commission_value: product.commission.reseller_commission_value || "0",
-                stockist_commission_value: product.commission.stockist_commission_value || "0",
-                admin_commission_value: product.commission.admin_commission_value || "0"
-            });
-        }
-    }, [product]);
+// Lazy imports for modal components
+const PriceEditModal = lazy(() => import("./PriceEditModal"));
+const VariantsModal = lazy(() => import("./VariantsModal"));
+const ProductDetailsModal = lazy(() => import("./ProductDetailsModal"));
 
-    if (!isOpen) return null;
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        
-        // Validate commission values
-        const commissions = [
-            commissionData.reseller_commission_value,
-            commissionData.stockist_commission_value,
-            commissionData.admin_commission_value
-        ];
-        
-        if (commissions.some(commission => commission < 0)) {
-            toast.error("Commission values cannot be negative");
-            return;
-        }
-        
-        if (commissionData.commission_type === 'percentage' && 
-            commissions.some(commission => commission > 100)) {
-            toast.error("Percentage commission cannot exceed 100%");
-            return;
-        }
-        
-        onSave(product.id, commissionData);
-    };
-
-    const handleCommissionChange = (field, value) => {
-        setCommissionData(prev => ({
-            ...prev,
-            [field]: value
-        }));
-    };
-  
-    return (
-        <ModalPortal>
-        <div className="modal modal-open">
-            <div className="modal-box max-w-md">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-bold">
-                        {product?.commission ? "Edit" : "Add"} Commission - {product?.product_detail?.name}
-                    </h3>
-                    <button onClick={onClose} className="btn btn-sm btn-circle">
-                        <FiX />
-                    </button>
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="form-control">
-                        <label className="label">
-                            <span className="label-text font-extrabold">Product Price : {product?.product_detail?.variants?.[0]?.product_variant_prices?.[0].price} </span>
-                        </label>
-                        
-                    </div>
-
-                    <div className="space-y-3">
-                        <div className="form-control">
-                            <label className="label">
-                                <span className="label-text">
-                                    Reseller Commission ({commissionData.commission_type === 'percentage' ? '%' : '₹'})
-                                </span>
-                            </label>
-                            <input
-                                type="number"
-                                step={commissionData.commission_type === 'percentage' ? "0.01" : "1"}
-                                min="0"
-                                max={commissionData.commission_type === 'percentage' ? "100" : ""}
-                                className="input input-bordered cursor-pointer"
-                                value={commissionData.reseller_commission_value}
-                                onChange={(e) => handleCommissionChange('reseller_commission_value', e.target.value)}
-                            />
-                        </div>
-
-                        <div className="form-control">
-                            <label className="label">
-                                <span className="label-text">
-                                    Stockist Commission ({commissionData.commission_type === 'percentage' ? '%' : '₹'})
-                                </span>
-                            </label>
-                            <input
-                                type="number"
-                                step={commissionData.commission_type === 'percentage' ? "0.01" : "1"}
-                                min="0"
-                                max={commissionData.commission_type === 'percentage' ? "100" : ""}
-                                className="input input-bordered cursor-pointer"
-                                value={commissionData.stockist_commission_value}
-                                onChange={(e) => handleCommissionChange('stockist_commission_value', e.target.value)}
-                            />
-                        </div>
-
-                        <div className="form-control">
-                            <label className="label">
-                                <span className="label-text">
-                                    Admin Commission ({commissionData.commission_type === 'percentage' ? '%' : '₹'})
-                                </span>
-                            </label>
-                            <input
-                                type="number"
-                                step="10"
-                                min="0"
-                                className="input input-bordered cursor-pointer"
-                                value={commissionData.admin_commission_value}
-                                onChange={(e) => handleCommissionChange('admin_commission_value', e.target.value)}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="modal-action">
-                        <button type="button" onClick={onClose} className="btn btn-ghost">
-                            Cancel
-                        </button>
-                        <button type="submit" className="btn btn-primary cursor-pointer">
-                            Save Commission
-                        </button>
-                    </div>
-                </form>
-            </div>
-            </div>
-            </ModalPortal>
-    );
-};
-
-// Product Details Modal Component
-const ProductDetailsModal = ({ product, isOpen, onClose }) => {
-    if (!isOpen || !product) return null;
-
-    // Get admin price from variants
-    const getAdminPrice = () => {
-        if (product.product_detail?.variants && product.product_detail.variants.length > 0) {
-            const variant = product.product_detail.variants[0];
-            const adminPrice = variant.product_variant_prices?.find(
-                price => price.role === 'admin'
-            );
-            return adminPrice ? `₹${adminPrice.price}` : 'N/A';
-        }
-        return 'N/A';
-    };
-
-    // Get first image
-    const getFirstImage = () => {
-        const images = product.product_detail?.images || [];
-        if (images.length > 0) {
-            const defaultImg = images.find(img => img.is_default);
-            const featuredImg = images.find(img => img.is_featured);
-            return defaultImg?.image || featuredImg?.image || images[0].image;
-        }
-        return "/placeholder.png";
-    };
-
-    // Get total available stock
-    const getTotalStock = () => {
-        return product.inventories?.reduce((total, inventory) => 
-            total + (inventory.total_quantity || 0), 0) || 0;
-    };
-
-    const totalStock = getTotalStock();
-    const isLowStock = totalStock < 10;
-
-    return (
-        <ModalPortal>
-        <div className="modal modal-open">
-            <div className="modal-box max-w-4xl max-h-[90vh] overflow-y-auto">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold">Product Details</h3>
-                    <button onClick={onClose} className="btn btn-sm btn-circle">
-                        <FiX />
-                    </button>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Product Images */}
-                    <div>
-                        <div className="bg-gray-100 rounded-lg p-4 mb-4">
-                            <img
-                                src={getFirstImage()}
-                                alt={product.product_detail?.name}
-                                className="w-full h-64 object-contain"
-                            />
-                        </div>
-                        {product.product_detail?.images && product.product_detail.images.length > 1 && (
-                            <div className="flex gap-2 overflow-x-auto">
-                                {product.product_detail.images.map((img, index) => (
-                                    <img
-                                        key={img.id}
-                                        src={img.image}
-                                        alt={`${product.product_detail.name} ${index + 1}`}
-                                        className="w-16 h-16 object-cover rounded border"
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Product Information */}
-                    <div className="space-y-4">
-                        <div>
-                            <h4 className="font-semibold text-lg">{product.product_detail?.name}</h4>
-                            <p className="text-gray-600">SKU: {product.product_detail?.sku}</p>
-                        </div>
-
-                        {/* Stock Information */}
-                        <div className={`p-3 rounded-lg ${isLowStock ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'}`}>
-                            <div className="flex justify-between items-center">
-                                <span className="font-semibold">Stock Status:</span>
-                                <span className={`badge ${isLowStock ? 'badge-error' : 'badge-success'}`}>
-                                    {isLowStock ? 'Low Stock' : 'In Stock'}
-                                </span>
-                            </div>
-                            <div className="mt-2">
-                                <span className="font-medium">Total Available Quantity: </span>
-                                <span className={isLowStock ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
-                                    {totalStock} units
-                                </span>
-                            </div>
-                            {isLowStock && (
-                                <p className="text-red-600 text-sm mt-1">
-                                    ⚠️ Stock is running low. Consider restocking.
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Basic Info */}
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div><strong>Brand:</strong> {product.product_detail?.brand_name || "N/A"}</div>
-                            <div><strong>Category:</strong> {product.product_detail?.category_name || "N/A"}</div>
-                            <div><strong>Subcategory:</strong> {product.product_detail?.subcategory_name || "N/A"}</div>
-                            <div><strong>Product Type:</strong> {product.product_detail?.product_type_display || "N/A"}</div>
-                            <div><strong>Status:</strong> 
-                                <span className={`badge badge-sm ml-2 ${
-                                    product.product_detail?.status === 'published' ? 'badge-success' : 'badge-warning'
-                                }`}>
-                                    {product.product_detail?.status_display}
-                                </span>
-                            </div>
-                            <div><strong>Admin Price:</strong> {getAdminPrice()}</div>
-                            <div><strong>Weight:</strong> {product.product_detail?.weight} {product.product_detail?.weight_unit}</div>
-                            <div><strong>Dimensions:</strong> {product.product_detail?.dimensions || "N/A"}</div>
-                        </div>
-
-                        {/* Commission Information */}
-                        {product.commission && (
-                            <div className="border rounded-lg p-3">
-                                <h5 className="font-semibold mb-2">Commission Details</h5>
-                                <div className="grid grid-cols-2 gap-2 text-sm">
-                                    <div><strong>Type:</strong> {product.commission.commission_type_display}</div>
-                                    <div><strong>Reseller:</strong> {product.commission.reseller_commission_value} {product.commission.commission_type === 'percentage' ? '%' : '₹'}</div>
-                                    <div><strong>Stockist:</strong> {product.commission.stockist_commission_value} {product.commission.commission_type === 'percentage' ? '%' : '₹'}</div>
-                                    <div><strong>Admin:</strong> {product.commission.admin_commission_value} {product.commission.commission_type === 'percentage' ? '%' : '₹'}</div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Inventory Details */}
-                        {product.inventories && product.inventories.length > 0 && (
-                            <div>
-                                <h5 className="font-semibold mb-2">Inventory Details</h5>
-                                <div className="space-y-2">
-                                    {product.inventories.map((inventory) => (
-                                        <div key={inventory.id} className="border rounded p-2 text-sm">
-                                            <div className="flex justify-between">
-                                                <span><strong>Variant:</strong> {inventory.variant_name}</span>
-                                                <span className={`badge badge-sm ${inventory.total_quantity < 10 ? 'badge-error' : 'badge-success'}`}>
-                                                    {inventory.total_quantity} units
-                                                </span>
-                                            </div>
-                                            <div><strong>Last Updated:</strong> {new Date(inventory.updated_at).toLocaleDateString()}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-        </div></ModalPortal>
-    );
-};
-
-// Price Edit Modal Component
-const PriceEditModal = ({ product, isOpen, onClose, onSave }) => {
-    const [price, setPrice] = useState("");
-    const [variantId, setVaraintId] = useState("");  
-   
-    React.useEffect(() => {
-        if (product?.product_detail?.variants && product.product_detail.variants.length > 0) {
-            const variant = product.product_detail.variants[0];
-            const adminPrice = variant.product_variant_prices?.find(
-                price => price.role === 'admin'
-            );
-            
-            setPrice(adminPrice?.price || "");
-            setVaraintId(adminPrice?.id || "");
-        }
-    }, [product]);
-
-    if (!isOpen) return null;
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (!price || price <= 0) {
-            toast.error("Please enter a valid price");
-            return;
-        }
-        onSave(parseFloat(price),variantId);
-    };
-
-    return (
-        <ModalPortal>
-        <div className="modal modal-open">
-            <div className="modal-box max-w-md">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-bold">Edit Price - {product?.product_detail?.name}</h3>
-                    <button onClick={onClose} className="btn btn-sm btn-circle">
-                        <FiX />
-                    </button>
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="form-control">
-                        <label className="label">
-                            <span className="label-text">New Price (₹)</span>
-                        </label>
-                        <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            className="input input-bordered"
-                            value={price}
-                            onChange={(e) => setPrice(e.target.value)}
-                            required
-                        />
-                    </div>
-
-                    <div className="modal-action">
-                        <button type="button" onClick={onClose} className="btn btn-ghost">
-                            Cancel
-                        </button>
-                        <button type="submit" className="btn btn-primary">
-                            Update Price
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div></ModalPortal>
-    );
-};
+// Loading component for lazy loaded modals
+const ModalLoading = () => (
+    <div className="flex items-center justify-center h-32">
+        <div className="text-center">
+            <span className="loading loading-spinner text-primary loading-lg"></span>
+            <p className="mt-2 text-gray-600">Loading...</p>
+        </div>
+    </div>
+);
 
 const AdminMyProduct = () => {
     // Filter states
@@ -419,8 +66,8 @@ const AdminMyProduct = () => {
     
     // Modal states
     const [detailsModalOpen, setDetailsModalOpen] = useState(false);
-    const [commissionModalOpen, setCommissionModalOpen] = useState(false);
     const [priceModalOpen, setPriceModalOpen] = useState(false);
+    const [variantsModalOpen, setVariantsModalOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
 
     // API calls
@@ -435,7 +82,6 @@ const AdminMyProduct = () => {
     const [updateCommission] = useUpdateCommissionMutation();
     const [updateProductPrice] = useUpdateProductPriceMutation();
     const [updateProductFeaturedStatus] = useUpdateProductFeaturedStatusMutation();
-    const [updateProductStatus] = useUpdateProductStatusMutation();
 
     // Products API call with active filters
     const {
@@ -505,8 +151,6 @@ const AdminMyProduct = () => {
         setCurrentPage(1);
     };
 
-  
-
     const toggleFeaturedStatus = async (productId, currentFeatured) => {
         try {
             const newFeaturedStatus = !currentFeatured;
@@ -520,37 +164,46 @@ const AdminMyProduct = () => {
         }
     };
 
-    const handleSaveCommission = async (productId, commissionData) => {
+    const handleSavePrice = async (priceData) => {
         try {
-            await updateCommission({
-                productId,
-                commissionData
+            await updateProductPrice({
+                productId: selectedProduct.id,
+                priceData
             }).unwrap();
-            toast.success("Commission saved successfully");
-            setCommissionModalOpen(false);
+            toast.success("Prices updated successfully");
+            setPriceModalOpen(false);
         } catch (error) {
-            toast.error("Failed to save commission");
+            toast.error("Failed to update prices");
+        }
+    };
+   
+    const handleSaveVariantPrice = async (variantId, priceData) => {
+        try {
+            await updateProductPrice({
+                productId: selectedProduct?.product_detail?.id,
+                variantId,
+                priceData
+            }).unwrap();
+            setVariantsModalOpen(false);
+            toast.success("Variant prices updated successfully");
+        } catch (error) {
+            toast.error("Failed to update variant prices");
         }
     };
 
-    const handleSavePrice = async (newPrice,variantId) => {
-      
+    const handleSaveVariantCommission = async (variantId, commissionData) => {
+        
         try {
-            // Assuming first variant for simplicity
-            const productId = 424324;
-            if (variantId) {
-                await updateProductPrice({
-                    productId,
-                    variantId,
-                    priceData: { price: newPrice }
-                }).unwrap();
-                toast.success("Price updated successfully");
-                setPriceModalOpen(false);
-            } else {
-                toast.error("No variant found for this product");
-            }
+            await updateCommission({
+                productId: selectedProduct?.product_detail?.id,
+                variantId,
+                commissionData
+            }).unwrap();
+            setVariantsModalOpen(false);
+            toast.success("Variant commission saved successfully");
+            
         } catch (error) {
-            toast.error("Failed to update price");
+            toast.error("Failed to save variant commission");
         }
     };
 
@@ -559,14 +212,14 @@ const AdminMyProduct = () => {
         setDetailsModalOpen(true);
     };
 
-    const openCommissionModal = (product) => {
-        setSelectedProduct(product);
-        setCommissionModalOpen(true);
-    };
-
     const openPriceModal = (product) => {
         setSelectedProduct(product);
         setPriceModalOpen(true);
+    };
+
+    const openVariantsModal = (product) => {
+        setSelectedProduct(product);
+        setVariantsModalOpen(true);
     };
 
     // Get total stock for a product
@@ -598,17 +251,12 @@ const AdminMyProduct = () => {
         return "/placeholder.png";
     };
 
-    // Get admin price from variants
-    const getAdminPrice = (product) => {
-        
-        if (product.product_detail?.variants && product.product_detail.variants.length > 0) {
-            const variant = product.product_detail.variants[0];
-            const adminPrice = variant.product_variant_prices?.find(
-                price => price.role === 'admin'
-            );
-            return adminPrice ? `₹${adminPrice.price}` : 'N/A';
-        }
-        return 'N/A';
+    // Get price display for product
+
+
+    // Check if product has variants
+    const hasVariants = (product) => {
+        return product.product_detail?.variants && product.product_detail.variants.length > 0;
     };
 
     const SortableHeader = ({ field, children }) => (
@@ -626,15 +274,15 @@ const AdminMyProduct = () => {
     );
 
     return (
-        <div className="px-6 py-8 max-w-8xl mx-auto">
+        <div className="py-4 max-w-8xl mx-auto px-4">
             {/* Header */}
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">My Products</h1>
+                    <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">My Products</h1>
                     <p className="text-gray-600 mt-2">Manage and monitor your product listings</p>
                 </div>
                 <div className="flex gap-2">
-                    <button onClick={handleRefresh} className="btn btn-outline">
+                    <button onClick={handleRefresh} className="btn btn-outline btn-sm lg:btn-md">
                         <FiRefreshCw className="mr-2" />
                         Refresh
                     </button>
@@ -642,7 +290,7 @@ const AdminMyProduct = () => {
             </div>
 
             {/* Filters Section */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 mb-6">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 lg:p-6 mb-6">
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-4 gap-4">
                     <h3 className="text-lg font-semibold flex items-center gap-2">
                         <FiFilter className="text-gray-600" />
@@ -670,7 +318,7 @@ const AdminMyProduct = () => {
                             <input
                                 type="text"
                                 placeholder="Search by name or SKU..."
-                                className="input input-bordered w-full pl-10 cursor-pointer"
+                                className="input input-bordered w-full pl-10"
                                 value={filters.search}
                                 onChange={(e) => handleFilterChange('search', e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -685,7 +333,7 @@ const AdminMyProduct = () => {
                             <span className="label-text">Featured Status</span>
                         </label>
                         <select
-                            className="select select-bordered cursor-pointer"
+                            className="select select-bordered"
                             value={filters.featured}
                             onChange={(e) => handleFilterChange('featured', e.target.value)}
                         >
@@ -701,7 +349,7 @@ const AdminMyProduct = () => {
                             <span className="label-text">Category</span>
                         </label>
                         <select
-                            className="select select-bordered cursor-pointer"
+                            className="select select-bordered"
                             value={filters.category}
                             onChange={(e) => {
                                 handleFilterChange('category', e.target.value);
@@ -723,7 +371,7 @@ const AdminMyProduct = () => {
                             <span className="label-text">Subcategory</span>
                         </label>
                         <select
-                            className="select select-bordered cursor-pointer"
+                            className="select select-bordered"
                             value={filters.subcategory}
                             onChange={(e) => handleFilterChange('subcategory', e.target.value)}
                             disabled={filters.category === 'all'}
@@ -746,7 +394,7 @@ const AdminMyProduct = () => {
                             <span className="label-text">Brand</span>
                         </label>
                         <select
-                            className="select select-bordered cursor-pointer"
+                            className="select select-bordered"
                             value={filters.brand}
                             onChange={(e) => handleFilterChange('brand', e.target.value)}
                         >
@@ -765,14 +413,13 @@ const AdminMyProduct = () => {
                             <span className="label-text">Items Per Page</span>
                         </label>
                         <select
-                            className="select select-bordered cursor-pointer"
+                            className="select select-bordered"
                             value={itemsPerPage}
                             onChange={(e) => setItemsPerPage(Number(e.target.value))}
                         >
                             <option value={5}>5 per page</option>
                             <option value={10}>10 per page</option>
                             <option value={25}>25 per page</option>
-                          
                         </select>
                     </div>
 
@@ -808,7 +455,6 @@ const AdminMyProduct = () => {
                             Showing {products.length} of {totalCount} products
                         </p>
                     </div>
-                   
                 </div>
 
                 {isLoading ? (
@@ -836,20 +482,22 @@ const AdminMyProduct = () => {
                                 <thead>
                                     <tr className="bg-gray-50">
                                         <SortableHeader field="name">Product</SortableHeader>
-                                        <SortableHeader field="sku">SKU</SortableHeader>
+                                        <th>SKU</th>
                                         <th>Category</th>
                                         <th>Brand</th>
-                                        <SortableHeader field="price">Price</SortableHeader>
-                                        <th>Stock</th>
                                        
+                                        <th>Stock</th>
                                         <th>Featured</th>
-                                        <th>Commission</th>
+                                        <th>Variants</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {products.map((product) => {
                                         const totalStock = getTotalStock(product);
+                                        
+                                        const variantsCount = product.product_detail?.variants?.length || 0;
+                                        
                                         return (
                                             <tr key={product.id} className="hover:bg-gray-50">
                                                 <td>
@@ -864,35 +512,26 @@ const AdminMyProduct = () => {
                                                             </div>
                                                         </div>
                                                         <div>
-                                                            <div className="font-medium">{product.product_detail?.name}</div>
-                                                            <div className="text-sm text-gray-500">{product.product_detail?.product_type_display}</div>
+                                                            <div className="font-bold">{product.product_detail?.name}</div>
+                                                            <div className="text-sm text-gray-500 whitespace-nowrap">{product.product_detail?.product_type_display}</div>
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="font-extrabold text-sm">{product.product_detail?.sku}</td>
+                                                <td className="font-bold text-sm whitespace-nowrap">{product.product_detail?.sku}</td>
                                                 <td>
                                                     <div>{product.product_detail?.category_name}</div>
                                                     <div className="text-xs text-gray-500">{product.product_detail?.subcategory_name}</div>
                                                 </td>
                                                 <td>{product.product_detail?.brand_name}</td>
+                                              
                                                 <td>
-                                                    <div className="font-bold">{getAdminPrice(product)}</div>
-                                                    <button 
-                                                        onClick={() => openPriceModal(product)}
-                                                        className="text-xs text-blue-600 hover:text-blue-800 cursor-pointer"
-                                                    >
-                                                        Edit Price
-                                                    </button>
-                                                </td>
-                                                <td>
-                                                    <div className="flex flex-col gap-1">
+                                                    <div className="flex flex-col gap-1 whitespace-nowrap">
                                                         {getStockBadge(product)}
-                                                        <span className="text-xs text-gray-600">
+                                                        <span className="text-xs text-gray-600 whitespace-nowrap">
                                                             Qty: {totalStock}
                                                         </span>
                                                     </div>
                                                 </td>
-                                              
                                                 <td>
                                                     <button
                                                         onClick={() => toggleFeaturedStatus(product.id, product.is_featured)}
@@ -900,22 +539,24 @@ const AdminMyProduct = () => {
                                                             product.is_featured ? 'btn-primary' : 'btn-ghost'
                                                         }`}
                                                     >
-                                                        {product.is_featured ? 'Currently Active' : 'Currently Not Active'}
+                                                        {product.is_featured ? 'Featured' : 'Not Featured'}
                                                     </button>
                                                 </td>
                                                 <td>
-                                                    <button
-                                                        onClick={() => openCommissionModal(product)}
-                                                        className={`btn btn-xs ${
-                                                            product.commission ? 'btn-success' : 'btn-outline'
-                                                        }`}
-                                                    >
-                                                        <FiDollarSign className="mr-1" />
-                                                        {product.commission ? 'Edit' : 'Add'}
-                                                    </button>
+                                                    {hasVariants(product) ? (
+                                                        <button
+                                                            onClick={() => openVariantsModal(product)}
+                                                            className="btn btn-xs btn-outline whitespace-nowrap"
+                                                        >
+                                                            <FiLayers className="mr-1" />
+                                                            {variantsCount} Variants
+                                                        </button>
+                                                    ) : (
+                                                        <span className="text-xs text-gray-500">No variants</span>
+                                                    )}
                                                 </td>
                                                 <td>
-                                                    <div className="flex gap-2">
+                                                    <div className="flex gap-1">
                                                         <button
                                                             onClick={() => openDetailsModal(product)}
                                                             className="btn btn-xs btn-ghost"
@@ -923,7 +564,6 @@ const AdminMyProduct = () => {
                                                         >
                                                             <FiEye />
                                                         </button>
-                                                        
                                                     </div>
                                                 </td>
                                             </tr>
@@ -954,11 +594,9 @@ const AdminMyProduct = () => {
                             )}
                         </div>
 
-                
-
                         {/* Pagination */}
                         {totalPages > 1 && (
-                            <div className="flex justify-between items-center p-4 border-t">
+                            <div className="flex flex-col lg:flex-row justify-between items-center p-4 border-t gap-4">
                                 <div className="text-sm text-gray-600">
                                     Page {currentPage} of {totalPages} • {totalCount} total products
                                 </div>
@@ -1014,26 +652,39 @@ const AdminMyProduct = () => {
                 )}
             </div>
 
-            {/* Modals */}
-            <ProductDetailsModal
-                product={selectedProduct}
-                isOpen={detailsModalOpen}
-                onClose={() => setDetailsModalOpen(false)}
-            />
+            {/* Lazy Loaded Modals with Suspense */}
+            <Suspense fallback={null}>
+                {detailsModalOpen && (
+                    <ProductDetailsModal
+                        product={selectedProduct}
+                        isOpen={detailsModalOpen}
+                        onClose={() => setDetailsModalOpen(false)}
+                    />
+                )}
+            </Suspense>
 
-            <CommissionModal
-                product={selectedProduct}
-                isOpen={commissionModalOpen}
-                onClose={() => setCommissionModalOpen(false)}
-                onSave={handleSaveCommission}
-            />
+            <Suspense fallback={null}>
+                {priceModalOpen && (
+                    <PriceEditModal
+                        product={selectedProduct}
+                        isOpen={priceModalOpen}
+                        onClose={() => setPriceModalOpen(false)}
+                        onSave={handleSavePrice}
+                    />
+                )}
+            </Suspense>
 
-            <PriceEditModal
-                product={selectedProduct}
-                isOpen={priceModalOpen}
-                onClose={() => setPriceModalOpen(false)}
-                onSave={handleSavePrice}
-            />
+            <Suspense fallback={<ModalLoading />}>
+                {variantsModalOpen && (
+                    <VariantsModal
+                        product={selectedProduct}
+                        isOpen={variantsModalOpen}
+                        onClose={() => setVariantsModalOpen(false)}
+                        onUpdatePrice={handleSaveVariantPrice}
+                        onUpdateCommission={handleSaveVariantCommission}
+                    />
+                )}
+            </Suspense>
         </div>
     );
 };
