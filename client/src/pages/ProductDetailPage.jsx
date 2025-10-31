@@ -27,6 +27,8 @@ const ProductDetailsPage = ({ role }) => {
   // Extract product and variants from the response
   const product = productData?.product_detail;
   const variants = productData?.variants_detail || [];
+  const isProductFeatured = productData?.is_featured;
+ 
 
   useEffect(() => {
     if (product) {
@@ -299,10 +301,16 @@ const ProductDetailsPage = ({ role }) => {
             </h1>
             <div className="flex items-center gap-4 text-sm text-gray-600">
               <span>SKU: <strong className="font-mono">{product.sku}</strong></span>
-              {productData?.is_featured && (
+              {isProductFeatured && (
                 <span className="flex items-center gap-1 bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
                   <FiStar className="text-xs" />
-                  Featured
+                  Active
+                </span>
+              )}
+              {!isProductFeatured && (
+                <span className="flex items-center gap-1 bg-red-100 text-red-800 px-2 py-1 rounded-full">
+                  <FiStar className="text-xs" />
+                  In-Active
                 </span>
               )}
             </div>
@@ -481,7 +489,7 @@ const ProductDetailsPage = ({ role }) => {
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
                     className="btn btn-circle btn-outline cursor-pointer hover:bg-gray-100 transition-colors"
-                    disabled={product.status === "draft" || !productData?.is_featured || quantity <= 1}
+                    disabled={product.status === "draft" || !isProductFeatured|| quantity <= 1}
                   >
                     <FiMinus />
                   </button>
@@ -495,7 +503,7 @@ const ProductDetailsPage = ({ role }) => {
                   <button
                     onClick={() => setQuantity(quantity + 1)}
                     className="btn btn-circle btn-outline cursor-pointer hover:bg-gray-100 transition-colors"
-                    disabled={product.status === "draft" || !productData?.is_featured}
+                    disabled={product.status === "draft" || !isProductFeatured}
                   >
                     <FiPlus />
                   </button>
@@ -510,11 +518,11 @@ const ProductDetailsPage = ({ role }) => {
                   disabled={
                     !selectedVariant ||
                     product.status === "draft" ||
-                    !productData?.is_featured
+                    !isProductFeatured
                   }
                 >
                   <FiShoppingCart className="text-md" />
-                  {product.status === "draft" || !productData?.is_featured
+                  {product.status === "draft" || !isProductFeatured
                     ? "Unavailable"
                     : `Add to Cart - ₹${(Number(calculateFinalPrice())).toFixed(2)}`}
                   
@@ -584,14 +592,30 @@ const ProductDetailsPage = ({ role }) => {
                     <strong className="text-gray-900">Dimensions:</strong> 
                     <span>{product.dimensions}</span>
                   </div>
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <strong className="text-gray-900">Status:</strong> 
-                    <span className={`badge ${
-                      product.status === 'published' ? 'badge-success' : 'badge-warning'
-                    }`}>
-                      {product.status_display || product.status || "N/A"}
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                  <strong className="text-gray-900">Status:</strong>
+                  
+                  <div className="flex gap-2">
+                    {/* Product Status */}
+                    <span
+                      className={`badge font-bold ${
+                        product.status === 'published' ? 'badge-success' : 'badge-warning'
+                      }`}
+                    >
+                      { product.status || "draft"}
+                    </span>
+
+                    {/* Featured Status */}
+                    <span
+                      className={`badge font-bold ${
+                        isProductFeatured ? 'badge-success' : 'badge-secondary'
+                      }`}
+                    >
+                      {isProductFeatured ? 'Active' : 'Inactive'}
                     </span>
                   </div>
+                </div>
+
                   <div className="flex justify-between py-2 border-b border-gray-100">
                     <strong className="text-gray-900">Warranty:</strong> 
                     <span className="flex items-center gap-1">
@@ -618,8 +642,8 @@ const ProductDetailsPage = ({ role }) => {
                 </div>
                 <div>
                   <p className="font-bold text-gray-900">{productData?.user_name || "N/A"}</p>
-                  <p className="text-sm text-gray-600">Vendor ID: {productData?.user_unique_id || "N/A"}</p>
-                  <p className="text-xs text-gray-500 mt-1">{productData?.role_display || "Test"}</p>
+                  <p className="text-sm text-gray-600 font-bold">Vendor ID: {productData?.user_unique_id || "N/A"}</p>
+                  
                   
                 </div>
               </div>

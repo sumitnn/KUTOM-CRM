@@ -12,8 +12,11 @@ import {
   MdArrowForward
 } from "react-icons/md";
 import { FaSpinner } from "react-icons/fa";
+import {
+  useSendContactMessageMutation,
+} from "../../features/dashboardApi";
 
-// Animation variants
+// Animation variants (keep your existing variants)
 const fadeInUp = {
   hidden: { opacity: 0, y: 30 },
   visible: {
@@ -107,7 +110,16 @@ const ContactCard = memo(({ icon: Icon, title, content, link, delay = 0 }) => (
   </motion.div>
 ));
 
-const RoleCard = memo(({ icon: Icon, title, description, buttonText, delay = 0, gradient }) => (
+const RoleCard = memo(({ 
+  icon: Icon, 
+  title, 
+  description, 
+  buttonText, 
+  delay = 0, 
+  gradient,
+  onRegister,
+  isSubmitting 
+}) => (
   <motion.div
     variants={fadeInUp}
     transition={{ delay }}
@@ -119,8 +131,21 @@ const RoleCard = memo(({ icon: Icon, title, description, buttonText, delay = 0, 
     </div>
     <h3 className="text-2xl font-bold text-gray-900 mb-4">{title}</h3>
     <p className="text-gray-600 leading-relaxed text-lg mb-6">{description}</p>
-    <button className="w-full bg-gray-900 hover:bg-black text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2">
-      {buttonText} <MdArrowForward className="text-xl" />
+    <button 
+      onClick={onRegister}
+      disabled={isSubmitting}
+      className="w-full bg-gray-900 hover:bg-black text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+    >
+      {isSubmitting ? (
+        <>
+          <FaSpinner className="animate-spin" />
+          Registering...
+        </>
+      ) : (
+        <>
+          {buttonText} <MdArrowForward className="text-xl" />
+        </>
+      )}
     </button>
   </motion.div>
 ));
@@ -133,8 +158,12 @@ const ContactUsPage = () => {
     message: ""
   });
   const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
+  const [registrationMessage, setRegistrationMessage] = useState("");
+
+  // RTK Query mutations
+  const [sendContactMessage, { isLoading: isSubmittingContact }] = useSendContactMessageMutation();
+
 
   const contactMethods = [
     {
@@ -154,35 +183,12 @@ const ContactUsPage = () => {
     {
       icon: MdLocationOn,
       title: "Office",
-      content: "Tamil Nadu, India",
+      content: "Savedi,Ahilyanagar, Maharashtra-414003 India",
       link: null,
       delay: 0.3
     }
   ];
 
-  const roleOptions = [
-    {
-      icon: MdBusiness,
-      title: "Register as Vendor",
-      description: "Sell your products nationwide with trusted stockists and resellers. Bulk order sales with higher margins.",
-      buttonText: "Join as Vendor",
-      gradient: "bg-gradient-to-r from-blue-500 to-cyan-500"
-    },
-    {
-      icon: MdStore,
-      title: "Register as Stockist",
-      description: "Become a regional distributor and earn consistent income. Purchase in bulk from verified vendors.",
-      buttonText: "Join as Stockist",
-      gradient: "bg-gradient-to-r from-green-500 to-emerald-500"
-    },
-    {
-      icon: MdShoppingCart,
-      title: "Register as Reseller",
-      description: "Start your own business with low investment. Buy small quantities from stockists and earn profits.",
-      buttonText: "Join as Reseller",
-      gradient: "bg-gradient-to-r from-orange-500 to-red-500"
-    }
-  ];
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -225,15 +231,18 @@ const ContactUsPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (validateForm()) {
-      setIsSubmitting(true);
-      // Simulate API call
-      setTimeout(() => {
+      try {
+        const result = await sendContactMessage(formData).unwrap();
         setSubmitMessage("Thank you for your message! We'll get back to you within 24 hours.");
         setFormData({ name: "", email: "", subject: "", message: "" });
-        setIsSubmitting(false);
-      }, 2000);
+      } catch (error) {
+        setSubmitMessage("Sorry, there was an error sending your message. Please try again later.");
+        console.error('Error sending message:', error);
+      }
     }
   };
+
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-orange-50">
@@ -306,9 +315,13 @@ const ContactUsPage = () => {
                 <motion.div 
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6"
+                  className={`${
+                    submitMessage.includes('error') 
+                      ? 'bg-red-50 border-red-200 text-red-700'
+                      : 'bg-green-50 border-green-200 text-green-700'
+                  } border rounded-xl p-4 mb-6`}
                 >
-                  <p className="text-green-700 text-center font-medium">{submitMessage}</p>
+                  <p className="text-center font-medium">{submitMessage}</p>
                 </motion.div>
               )}
 
@@ -370,12 +383,12 @@ const ContactUsPage = () => {
 
                 <motion.button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmittingContact}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   className="w-full flex cursor-pointer justify-center items-center bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 text-white font-bold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  {isSubmitting ? (
+                  {isSubmittingContact ? (
                     <>
                       <FaSpinner className="animate-spin mr-3 text-xl" />
                       Sending Message...
@@ -416,9 +429,19 @@ const ContactUsPage = () => {
               Be part of India's most trusted B2B e-commerce platform.<br />
               Register now as a Vendor, Stockist, or Reseller and take your business online.
             </motion.p>
+            
+            {registrationMessage && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-green-600 text-white rounded-xl p-4 max-w-2xl mx-auto mb-6"
+              >
+                <p className="text-lg font-medium">{registrationMessage}</p>
+              </motion.div>
+            )}
           </motion.div>
 
-        
+          
 
           {/* Footer Tagline */}
           <motion.div

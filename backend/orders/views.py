@@ -387,6 +387,7 @@ class UpdateOrderStatusView(APIView):
     permission_classes = [IsAdminOrVendorRole]
 
     def patch(self, request, pk):
+        
         try:
             order = Order.objects.select_related('buyer', 'seller').prefetch_related('items').get(pk=pk)
         except Order.DoesNotExist:
@@ -420,6 +421,7 @@ class UpdateOrderStatusView(APIView):
     def _process_order_status_update(self, order, user, new_status, note):
         """Process order status update within transaction"""
         previous_status = order.status
+        
         
 
         if new_status == 'cancelled':

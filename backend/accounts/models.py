@@ -301,7 +301,7 @@ class Notification(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
     title = models.CharField(max_length=100)
     message = models.TextField()
-    notification_type = models.CharField(max_length=20, default='system')
+    notification_type = models.CharField(max_length=50, default='system')
     is_read = models.BooleanField(default=False)
     related_url = models.URLField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

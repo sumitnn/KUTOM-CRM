@@ -77,5 +77,8 @@ urlpatterns = [
     path('stockist-assignments/', StockistAssignmentView.as_view(), name='stockist-assignments'),
     path('stockist-assignments/<uuid:reseller_id>/', StockistAssignmentView.as_view(), name='stockist-assignment-detail'),
 
+    # contact us 
+     path('contact/send-message/', send_contact_message, name='send_contact_message'),
+
 
 ]

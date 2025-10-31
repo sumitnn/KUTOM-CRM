@@ -3,7 +3,7 @@ import { useGetAdminWithdrawalsQuery, useUpdateWithdrawalMutation } from '../../
 import { format } from 'date-fns';
 import ModalPortal from '../../components/ModalPortal';
 import { toast } from 'react-toastify';
-import { FiSearch, FiFilter, FiX, FiEye, FiCheck, FiXCircle, FiUpload, FiChevronDown, FiChevronUp, FiDollarSign } from 'react-icons/fi';
+import { FiSearch, FiFilter, FiX, FiEye, FiCheck, FiXCircle, FiUpload, FiChevronDown, FiChevronUp, FiDollarSign, FiCreditCard, FiUser, FiMapPin } from 'react-icons/fi';
 
 const statusOptions = [
   { value: '', label: 'All Status' },
@@ -137,11 +137,16 @@ const AdminWithdrawalRequest = () => {
     
     if (payment_method === 'upi') {
       return (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <div className="w-20 text-sm font-semibold text-gray-600">UPI ID:</div>
-            <div className="text-sm font-medium text-gray-900 bg-gray-50 px-3 py-1 rounded-lg">
-              {payment_details?.upi_id || 'N/A'}
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="w-6 h-6 bg-green-100 rounded-lg flex items-center justify-center">
+              <FiCreditCard className="h-3 w-3 text-green-600" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-gray-600">UPI ID</div>
+              <div className="text-lg font-bold text-gray-900 bg-green-50 px-3 py-2 rounded-xl border border-green-200">
+                {payment_details?.upi_id || 'N/A'}
+              </div>
             </div>
           </div>
         </div>
@@ -150,29 +155,46 @@ const AdminWithdrawalRequest = () => {
     
     if (payment_method === 'bank') {
       return (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <div className="w-20 text-sm font-semibold text-gray-600">Bank:</div>
-            <div className="text-sm font-medium text-gray-900 bg-gray-50 px-3 py-1 rounded-lg">
-              {payment_details?.bank_name || 'N/A'}
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center">
+              <FiUser className="h-3 w-3 text-blue-600" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-gray-600">Account Holder</div>
+              <div className="text-lg font-bold text-gray-900 bg-blue-50 px-3 py-2 rounded-xl border border-blue-200">
+                {payment_details?.account_holder_name || 'N/A'}
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-20 text-sm font-semibold text-gray-600">Account:</div>
-            <div className="text-sm font-medium text-gray-900 bg-gray-50 px-3 py-1 rounded-lg">
-              {payment_details?.account_number ? `****${payment_details.account_number.slice(-4)}` : 'N/A'}
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <div className="text-sm font-semibold text-gray-600">Bank Name</div>
+              <div className="text-base font-medium text-gray-900 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+                {payment_details?.bank_name || 'N/A'}
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-20 text-sm font-semibold text-gray-600">Holder:</div>
-            <div className="text-sm font-medium text-gray-900 bg-gray-50 px-3 py-1 rounded-lg">
-              {payment_details?.account_holder_name || 'N/A'}
+            
+            <div className="space-y-2">
+              <div className="text-sm font-semibold text-gray-600">Account Number</div>
+              <div className="text-base font-medium text-gray-900 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200 font-mono">
+                {payment_details?.account_number || 'N/A'}
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-20 text-sm font-semibold text-gray-600">IFSC:</div>
-            <div className="text-sm font-medium text-gray-900 bg-gray-50 px-3 py-1 rounded-lg">
-              {payment_details?.ifsc_code || 'N/A'}
+            
+            <div className="space-y-2">
+              <div className="text-sm font-semibold text-gray-600">IFSC Code</div>
+              <div className="text-base font-medium text-gray-900 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200 font-mono">
+                {payment_details?.ifsc_code || 'N/A'}
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <div className="text-sm font-semibold text-gray-600">Branch</div>
+              <div className="text-base font-medium text-gray-900 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+                {payment_details?.branch_name || 'N/A'}
+              </div>
             </div>
           </div>
         </div>
@@ -182,9 +204,113 @@ const AdminWithdrawalRequest = () => {
     return <span className="text-gray-500 text-sm">No payment details available</span>;
   };
 
+  const renderPaymentDetailsModal = (withdrawal) => {
+    const { payment_method, payment_details } = withdrawal;
+    
+    if (payment_method === 'upi') {
+      return (
+        <div className="bg-green-50 p-4 rounded-2xl border border-green-200 mb-4">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+              <FiCreditCard className="h-4 w-4 text-green-600" />
+            </div>
+            <div>
+              <h4 className="font-bold text-gray-900">UPI Transfer Details</h4>
+              <p className="text-sm text-gray-600">Payment will be sent via UPI</p>
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-green-200">
+            <div className="text-center">
+              <div className="text-sm font-semibold text-gray-600 mb-1">UPI ID</div>
+              <div className="text-xl font-bold text-gray-900 bg-green-50 px-4 py-3 rounded-lg border border-green-200">
+                {payment_details?.upi_id || 'N/A'}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    if (payment_method === 'bank') {
+      return (
+        <div className="bg-blue-50 p-4 rounded-2xl border border-blue-200 mb-4">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+              <FiUser className="h-4 w-4 text-blue-600" />
+            </div>
+            <div>
+              <h4 className="font-bold text-gray-900">Bank Transfer Details</h4>
+              <p className="text-sm text-gray-600">Payment will be sent via Bank Transfer</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white p-4 rounded-xl border border-blue-200">
+              <div className="space-y-3">
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Account Holder</div>
+                  <div className="text-lg font-bold text-gray-900">
+                    {payment_details?.account_holder_name || 'N/A'}
+                  </div>
+                </div>
+                
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Bank Name</div>
+                  <div className="text-base font-medium text-gray-900">
+                    {payment_details?.bank_name || 'N/A'}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white p-4 rounded-xl border border-blue-200">
+              <div className="space-y-3">
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Account Number</div>
+                  <div className="text-lg font-bold text-gray-900 font-mono">
+                    {payment_details?.account_number || 'N/A'}
+                  </div>
+                </div>
+                
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">IFSC Code</div>
+                  <div className="text-base font-medium text-gray-900 font-mono">
+                    {payment_details?.ifsc_code || 'N/A'}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {payment_details?.branch_name && (
+              <div className="md:col-span-2 bg-white p-4 rounded-xl border border-blue-200">
+                <div className="flex items-center gap-2">
+                  <FiMapPin className="h-4 w-4 text-gray-400" />
+                  <div>
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Branch</div>
+                    <div className="text-base font-medium text-gray-900">
+                      {payment_details.branch_name}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="bg-yellow-50 p-4 rounded-2xl border border-yellow-200 mb-4">
+        <div className="text-center">
+          <div className="text-sm font-semibold text-yellow-700">No payment details available</div>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="max-w-8xl mx-auto">
+    <div className="min-h-screen py-4">
+      <div className="max-w-8xl mx-auto ">
         {/* Header */}
         <div className="mb-8">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -196,13 +322,11 @@ const AdminWithdrawalRequest = () => {
                 Manage and review all withdrawal requests
               </p>
             </div>
-            
-           
           </div>
         </div>
 
         {/* Filters Section */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-8">
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 sm:p-6 mb-8">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
             <div className="relative flex-1 lg:max-w-md">
               <div className="relative flex rounded-2xl shadow-sm bg-white border border-gray-200 hover:border-gray-300 transition-all duration-200">
@@ -234,23 +358,23 @@ const AdminWithdrawalRequest = () => {
                 className="flex cursor-pointer items-center gap-2 px-4 py-3 bg-white border border-gray-200 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all duration-200 font-semibold shadow-sm"
               >
                 <FiFilter className="h-4 w-4" />
-                Filters
+                <span className="hidden sm:inline">Filters</span>
                 {showFilters ? <FiChevronUp className="h-4 w-4" /> : <FiChevronDown className="h-4 w-4" />}
               </button>
               
               <button
                 onClick={handleSearch}
-                className="px-6 py-3 cursor-pointer bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-2"
+                className="px-4 sm:px-6 py-3 cursor-pointer bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-2"
               >
                 <FiSearch className="h-4 w-4" />
-                Search
+                <span className="hidden sm:inline">Search</span>
               </button>
             </div>
           </div>
 
           {/* Advanced Filters */}
           {showFilters && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-gray-200">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-gray-200">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Status</label>
                 <select
@@ -301,7 +425,7 @@ const AdminWithdrawalRequest = () => {
                 />
               </div>
               
-              <div className="md:col-span-2 lg:col-span-4 flex justify-end gap-3">
+              <div className="sm:col-span-2 lg:col-span-4 flex justify-end gap-3">
                 <button
                   onClick={handleResetFilters}
                   className="px-6 py-3 cursor-pointer bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-2xl font-semibold transition-all duration-200 hover:shadow-md"
@@ -330,14 +454,14 @@ const AdminWithdrawalRequest = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                     <tr>
-                      <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">Request</th>
-                      <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">User Details</th>
-                      <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">Amount</th>
-                      <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider hidden lg:table-cell">Payment</th>
-                      <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider hidden md:table-cell">Status</th>
-                      <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider hidden xl:table-cell">Date</th>
-                      <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider hidden xl:table-cell">Transaction ID</th>
-                      <th className="px-6 py-4 text-right text-sm font-bold text-gray-700 uppercase tracking-wider">Actions</th>
+                      <th className="px-4 sm:px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">Request</th>
+                      <th className="px-4 sm:px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">User Details</th>
+                      <th className="px-4 sm:px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">Amount</th>
+                      <th className="px-4 sm:px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider hidden lg:table-cell">Payment</th>
+                      <th className="px-4 sm:px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider hidden md:table-cell">Status</th>
+                      <th className="px-4 sm:px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider hidden xl:table-cell">Date</th>
+                      <th className="px-4 sm:px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider hidden xl:table-cell">Transaction ID</th>
+                      <th className="px-4 sm:px-6 py-4 text-right text-sm font-bold text-gray-700 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
@@ -347,9 +471,8 @@ const AdminWithdrawalRequest = () => {
                           className="hover:bg-gray-50 transition-colors duration-150 group cursor-pointer"
                           onClick={() => toggleRowExpansion(withdrawal.id)}
                         >
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-3">
-                             
                               <div>
                                 <div className="text-sm font-bold text-gray-900">#{withdrawal.id}</div>
                                 <div className="lg:hidden text-xs text-gray-500 mt-1">
@@ -366,7 +489,7 @@ const AdminWithdrawalRequest = () => {
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-4 sm:px-6 py-4">
                             <div className="text-sm font-bold text-gray-900">
                               {withdrawal.user?.username || withdrawal.user?.email || 'Unknown'}
                             </div>
@@ -374,7 +497,6 @@ const AdminWithdrawalRequest = () => {
                               {withdrawal.user?.email}
                             </div>
                             <div className="flex flex-wrap gap-1 mt-1">
-                             
                               {withdrawal.user?.vendor_id && (
                                 <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
                                   Vendor : {withdrawal.user.vendor_id}
@@ -392,15 +514,15 @@ const AdminWithdrawalRequest = () => {
                               )}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                             <div className="text-lg font-bold text-gray-900">
                               ₹{withdrawal.amount}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-bold hidden lg:table-cell">
+                          <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-bold hidden lg:table-cell">
                             {withdrawal.payment_method_display}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap hidden md:table-cell">
+                          <td className="px-4 sm:px-6 py-4 whitespace-nowrap hidden md:table-cell">
                             <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${statusColors[withdrawal.status]}`}>
                               {withdrawal.status}
                             </span>
@@ -410,13 +532,13 @@ const AdminWithdrawalRequest = () => {
                               </div>
                             )}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-bold hidden xl:table-cell">
+                          <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-bold hidden xl:table-cell">
                             {format(new Date(withdrawal.created_at), 'MMM dd, yyyy')}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-bold hidden xl:table-cell">
+                          <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-bold hidden xl:table-cell">
                             {withdrawal.transaction_id}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex justify-end gap-2">
                               {withdrawal.status === 'pending' && (
                                 <div className="flex gap-2">
@@ -430,7 +552,7 @@ const AdminWithdrawalRequest = () => {
                                     className="inline-flex cursor-pointer items-center gap-1 px-3 py-2 bg-green-50 hover:bg-green-100 text-green-700 rounded-xl font-semibold transition-all duration-200 hover:shadow-md text-xs"
                                   >
                                     <FiCheck className="h-3 w-3" />
-                                    Approve
+                                    <span className="hidden sm:inline">Approve</span>
                                   </button>
                                   <button
                                     onClick={(e) => {
@@ -442,7 +564,7 @@ const AdminWithdrawalRequest = () => {
                                     className="inline-flex cursor-pointer items-center gap-1 px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 rounded-xl font-semibold transition-all duration-200 hover:shadow-md text-xs"
                                   >
                                     <FiXCircle className="h-3 w-3" />
-                                    Reject
+                                    <span className="hidden sm:inline">Reject</span>
                                   </button>
                                 </div>
                               )}
@@ -458,7 +580,7 @@ const AdminWithdrawalRequest = () => {
                                     className="inline-flex cursor-pointer items-center gap-1 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl font-semibold transition-all duration-200 hover:shadow-md text-xs"
                                   >
                                     <FiUpload className="h-3 w-3" />
-                                    {withdrawal?.screenshot ? "Update" : "Proof"}
+                                    <span className="hidden sm:inline">{withdrawal?.screenshot ? "Update" : "Proof"}</span>
                                   </button>
                                 )}
                                 {withdrawal.screenshot && (
@@ -470,7 +592,7 @@ const AdminWithdrawalRequest = () => {
                                     className="inline-flex items-center gap-1 px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-xl font-semibold transition-all duration-200 hover:shadow-md text-xs"
                                   >
                                     <FiEye className="h-3 w-3" />
-                                    View
+                                    <span className="hidden sm:inline">View</span>
                                   </button>
                                 )}
                               </div>
@@ -479,8 +601,8 @@ const AdminWithdrawalRequest = () => {
                         </tr>
                         {expandedRow === withdrawal.id && (
                           <tr className="bg-blue-50">
-                            <td colSpan="7" className="px-6 py-6">
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <td colSpan="8" className="px-4 sm:px-6 py-6">
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                                 <div className="bg-white p-4 rounded-2xl border border-blue-200">
                                   <h4 className="font-bold text-sm text-gray-700 mb-3 flex items-center gap-2">
                                     <FiDollarSign className="h-4 w-4 text-blue-600" />
@@ -551,7 +673,7 @@ const AdminWithdrawalRequest = () => {
                     <button
                       key={i + 1}
                       onClick={() => setPage(i + 1)}
-                      className={`px-4 py-2 rounded-xl font-semibold transition-all duration-200 ${
+                      className={`px-3 sm:px-4 py-2 rounded-xl font-semibold transition-all duration-200 ${
                         page === i + 1 
                           ? 'bg-blue-600 text-white shadow-lg' 
                           : 'bg-white text-gray-700 hover:bg-gray-50 shadow-sm border border-gray-200'
@@ -571,117 +693,123 @@ const AdminWithdrawalRequest = () => {
         
         {/* Upload Proof Modal */}
         {openDialog && (
-          <ModalPortal>
-            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 relative">
-                <button
-                  onClick={() => setOpenDialog(false)}
-                  className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <FiX className="h-6 w-6" />
-                </button>
-                
-                <div className="text-center mb-2">
-                  <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                    Upload Payment Proof
-                  </h3>
-                  <p className="text-gray-600 mt-2">Add payment confirmation screenshot</p>
-                </div>
+  <ModalPortal>
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 relative mx-4">
+        <button
+          onClick={() => {
+            setOpenDialog(false);
+            setScreenshotFile(null);
+          }}
+          className="absolute cursor-pointer top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors z-10"
+        >
+          <FiX className="h-6 w-6" />
+        </button>
+        
+        <div className="text-center mb-2">
+          <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            Upload Payment Proof
+          </h3>
+          <p className="text-gray-600 mt-2">Add payment confirmation screenshot</p>
+        </div>
 
-                <div className="mt-6 space-y-4">
-                  {selectedWithdrawal && (
-                    <>
-                      <div className="bg-blue-50 p-4 rounded-2xl border border-blue-200">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-semibold text-gray-700">Withdrawal ID:</span>
-                          <span className="text-sm font-bold text-gray-900">#{selectedWithdrawal.id}</span>
-                        </div>
-                        <div className="flex justify-between items-center mt-2">
-                          <span className="text-sm font-semibold text-gray-700">Amount:</span>
-                          <span className="text-lg font-bold text-green-600">₹{selectedWithdrawal.amount}</span>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-3">
-                          Upload Screenshot (PDF/Image)
-                        </label>
-                        <div className="border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center hover:border-blue-400 transition-colors duration-200">
-                          <FiUpload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                          <p className="text-sm text-gray-600 mb-2">
-                            Click to upload or drag and drop
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            PNG, JPG, PDF up to 10MB
-                          </p>
-                          <input
-                            type="file"
-                            accept="image/*,.pdf"
-                            onChange={(e) => setScreenshotFile(e.target.files[0])}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                          />
-                        </div>
-                        {screenshotFile && (
-                          <p className="text-sm text-green-600 mt-2 font-medium">
-                            Selected: {screenshotFile.name}
-                          </p>
-                        )}
-                      </div>
-                    </>
-                  )}
+        <div className="mt-6 space-y-4">
+          {selectedWithdrawal && (
+            <>
+              <div className="bg-blue-50 p-4 rounded-2xl border border-blue-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-semibold text-gray-700">Withdrawal ID:</span>
+                  <span className="text-sm font-bold text-gray-900">#{selectedWithdrawal.id}</span>
                 </div>
-
-                <div className="mt-8 flex justify-end gap-3">
-                  <button
-                    onClick={() => setOpenDialog(false)}
-                    disabled={isProcessing}
-                    className="px-6 py-3 cursor-pointer border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-all duration-200 font-semibold hover:shadow-md"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleUploadScreenshot}
-                    disabled={!screenshotFile || isProcessing}
-                    className={`px-6 py-3 cursor-pointer text-white font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 ${
-                      !screenshotFile || isProcessing
-                        ? 'bg-blue-400 cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5'
-                    }`}
-                  >
-                    {isProcessing ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <FiUpload className="h-4 w-4" />
-                        Upload Proof
-                      </>
-                    )}
-                  </button>
+                <div className="flex justify-between items-center mt-2">
+                  <span className="text-sm font-semibold text-gray-700">Amount:</span>
+                  <span className="text-lg font-bold text-green-600">₹{selectedWithdrawal.amount}</span>
                 </div>
               </div>
-            </div>
-          </ModalPortal>
-        )}
+              
+              <div className="relative">
+                <label className="block text-sm font-bold text-gray-700 mb-3">
+                  Upload Screenshot (PDF/Image)
+                </label>
+                <div className="border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center hover:border-blue-400 transition-colors duration-200 relative">
+                  <FiUpload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                  <p className="text-sm text-gray-600 mb-2">
+                    Click to upload or drag and drop
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    PNG, JPG, PDF up to 10MB
+                  </p>
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={(e) => setScreenshotFile(e.target.files[0])}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                </div>
+                {screenshotFile && (
+                  <p className="text-sm text-green-600 mt-2 font-medium">
+                    Selected: {screenshotFile.name}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
 
-        {/* Approve Confirmation Modal with Transaction ID */}
+        <div className="mt-8 flex justify-end gap-3">
+          <button
+            onClick={() => {
+              setOpenDialog(false);
+              setScreenshotFile(null);
+            }}
+            disabled={isProcessing}
+            className="px-6 py-3 cursor-pointer border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-all duration-200 font-semibold hover:shadow-md"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleUploadScreenshot}
+            disabled={!screenshotFile || isProcessing}
+            className={`px-6 py-3 cursor-pointer text-white font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 ${
+              !screenshotFile || isProcessing
+                ? 'bg-blue-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5'
+            }`}
+          >
+            {isProcessing ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Uploading...
+              </>
+            ) : (
+              <>
+                <FiUpload className="h-4 w-4" />
+                Upload Proof
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  </ModalPortal>
+)}
+
+        {/* Approve Confirmation Modal with Bank Details */}
         {openApproveConfirm && (
           <ModalPortal>
             <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 relative">
+              <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-6 relative mx-4">
                 <button
                   onClick={() => {
                     setOpenApproveConfirm(false);
                     setTransactionId('');
                   }}
-                  className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors"
+                  className="absolute  cursor-pointer top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   <FiX className="h-6 w-6" />
                 </button>
                 
-                <div className="text-center mb-2">
+                <div className="text-center mb-4">
                   <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                     <FiCheck className="h-8 w-8 text-green-600" />
                   </div>
@@ -689,24 +817,31 @@ const AdminWithdrawalRequest = () => {
                   <p className="text-gray-600 mt-2">Approve this withdrawal request</p>
                 </div>
 
-                <div className="mt-6 space-y-4">
+                <div className="mt-6 space-y-6">
                   {selectedWithdrawal && (
                     <>
+                      {/* Payment Details */}
+                      {renderPaymentDetailsModal(selectedWithdrawal)}
+                      
+                      {/* Request Summary */}
                       <div className="bg-green-50 p-4 rounded-2xl border border-green-200">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-semibold text-gray-700">Withdrawal ID:</span>
-                          <span className="text-sm font-bold text-gray-900">#{selectedWithdrawal.id}</span>
-                        </div>
-                        <div className="flex justify-between items-center mt-2">
-                          <span className="text-sm font-semibold text-gray-700">Amount:</span>
-                          <span className="text-lg font-bold text-green-600">₹{selectedWithdrawal.amount}</span>
-                        </div>
-                        <div className="flex justify-between items-center mt-2">
-                          <span className="text-sm font-semibold text-gray-700">User:</span>
-                          <span className="text-sm font-bold text-gray-900">{selectedWithdrawal.user?.username}</span>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <div className="text-center">
+                            <div className="text-sm font-semibold text-gray-700">Withdrawal ID</div>
+                            <div className="text-lg font-bold text-gray-900">#{selectedWithdrawal.id}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm font-semibold text-gray-700">Amount</div>
+                            <div className="text-2xl font-bold text-green-600">₹{selectedWithdrawal.amount}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm font-semibold text-gray-700">User</div>
+                            <div className="text-lg font-bold text-gray-900">{selectedWithdrawal.user?.username}</div>
+                          </div>
                         </div>
                       </div>
                       
+                      {/* Transaction ID Input */}
                       <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">
                           Transaction ID (Optional)
@@ -726,7 +861,7 @@ const AdminWithdrawalRequest = () => {
                   )}
                 </div>
 
-                <div className="mt-8 flex justify-end gap-3">
+                <div className="mt-8 flex flex-col sm:flex-row justify-end gap-3">
                   <button
                     onClick={() => {
                       setOpenApproveConfirm(false);
@@ -764,22 +899,22 @@ const AdminWithdrawalRequest = () => {
           </ModalPortal>
         )}
 
-        {/* Reject Reason Modal */}
+        {/* Reject Reason Modal with Bank Details */}
         {openRejectModal && (
           <ModalPortal>
             <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 relative">
+              <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-6 relative mx-4">
                 <button
                   onClick={() => {
                     setOpenRejectModal(false);
                     setRejectionReason('');
                   }}
-                  className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors"
+                  className="absolute cursor-pointer top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   <FiX className="h-6 w-6" />
                 </button>
                 
-                <div className="text-center mb-2">
+                <div className="text-center mb-4">
                   <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                     <FiXCircle className="h-8 w-8 text-red-600" />
                   </div>
@@ -787,20 +922,31 @@ const AdminWithdrawalRequest = () => {
                   <p className="text-gray-600 mt-2">Provide reason for rejection</p>
                 </div>
 
-                <div className="mt-6 space-y-4">
+                <div className="mt-6 space-y-6">
                   {selectedWithdrawal && (
                     <>
+                      {/* Payment Details */}
+                      {renderPaymentDetailsModal(selectedWithdrawal)}
+                      
+                      {/* Request Summary */}
                       <div className="bg-red-50 p-4 rounded-2xl border border-red-200">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-semibold text-gray-700">Withdrawal ID:</span>
-                          <span className="text-sm font-bold text-gray-900">#{selectedWithdrawal.id}</span>
-                        </div>
-                        <div className="flex justify-between items-center mt-2">
-                          <span className="text-sm font-semibold text-gray-700">Amount:</span>
-                          <span className="text-lg font-bold text-red-600">₹{selectedWithdrawal.amount}</span>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <div className="text-center">
+                            <div className="text-sm font-semibold text-gray-700">Withdrawal ID</div>
+                            <div className="text-lg font-bold text-gray-900">#{selectedWithdrawal.id}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm font-semibold text-gray-700">Amount</div>
+                            <div className="text-2xl font-bold text-red-600">₹{selectedWithdrawal.amount}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm font-semibold text-gray-700">User</div>
+                            <div className="text-lg font-bold text-gray-900">{selectedWithdrawal.user?.username}</div>
+                          </div>
                         </div>
                       </div>
                       
+                      {/* Rejection Reason */}
                       <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">
                           Reason for Rejection *
@@ -817,7 +963,7 @@ const AdminWithdrawalRequest = () => {
                   )}
                 </div>
 
-                <div className="mt-8 flex justify-end gap-3">
+                <div className="mt-8 flex flex-col sm:flex-row justify-end gap-3">
                   <button
                     onClick={() => {
                       setOpenRejectModal(false);
@@ -864,7 +1010,7 @@ const AdminWithdrawalRequest = () => {
                   <h3 className="text-xl font-bold text-gray-900">Payment Screenshot</h3>
                   <button
                     onClick={() => setScreenshotModal(false)}
-                    className="text-gray-500 hover:text-gray-700 transition-colors"
+                    className="text-gray-500 cursor-pointer hover:text-gray-700 transition-colors"
                   >
                     <FiX className="h-6 w-6" />
                   </button>

@@ -7,12 +7,9 @@ import {
   FiEye,
   FiEyeOff,
   FiRotateCw,
-  FiRefreshCw,
   FiPackage,
-  FiUser,
   FiTag,
   FiLayers,
-  FiDollarSign,
   FiPercent,
   FiShoppingBag
 } from "react-icons/fi";
@@ -109,22 +106,39 @@ const RequestedProductsPage = ({ role }) => {
     });
   };
 
+  // Helper function to get stats from any of the API responses
+  const getTabStats = () => {
+    // Use data from any of the API calls (they all have the same total counts)
+    const sourceData = draftData || publishedData || activeData || inactiveData;
+    
+    return {
+      draft: sourceData?.total_draft || 0,
+      published: sourceData?.total_published || 0,
+      active: sourceData?.total_active || 0,
+      inactive: sourceData?.total_inactive || 0,
+      total: sourceData?.total_products || 0
+    };
+  };
+
+  const stats = getTabStats();
+
+  // Update requestData to use current_status_count for pagination
   const requestData = {
     draft: {
       data: transformProductData(draftData?.results),
-      count: draftData?.count || 0,
+      count: draftData?.current_status_count || 0,
     },
     published: {
       data: transformProductData(publishedData?.results),
-      count: publishedData?.count || 0,
+      count: publishedData?.current_status_count || 0,
     },
     active: {
       data: transformProductData(activeData?.results),
-      count: activeData?.count || 0,
+      count: activeData?.current_status_count || 0,
     },
     inactive: {
       data: transformProductData(inactiveData?.results),
-      count: inactiveData?.count || 0,
+      count: inactiveData?.current_status_count || 0,
     },
   };
 
@@ -198,32 +212,6 @@ const RequestedProductsPage = ({ role }) => {
       day: "numeric"
     });
   };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'published':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'active':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'inactive':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'draft':
-      default:
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-    }
-  };
-
-  const getTabStats = () => {
-    return {
-      draft: requestData.draft.count,
-      published: requestData.published.count,
-      active: requestData.active.count,
-      inactive: requestData.inactive.count,
-      total: requestData.draft.count + requestData.published.count + requestData.active.count + requestData.inactive.count
-    };
-  };
-
-  const stats = getTabStats();
 
   return (
     <div className="min-h-screen  py-4 " key={refreshKey}>
@@ -439,7 +427,6 @@ const RequestedProductsPage = ({ role }) => {
                               <td className="px-4 py-4 hidden md:table-cell">
                                 <div className="space-y-2">
                                   <div className="flex items-center gap-2">
-                                 
                                     <span className="text-sm font-semibold text-gray-900">Base Price ₹{item.baseprice}</span>
                                   </div>
                                   <div className="flex items-center gap-3 text-xs">

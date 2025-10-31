@@ -641,44 +641,76 @@ class ProductByStatusAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Get role-based products for the current user with proper DISTINCT ON ordering
+        # Get base queryset based on user role
         if request.user.role == 'admin':
-            role_products = (
-                RoleBasedProduct.objects
-                .filter(product__isnull=False)
-                .distinct('product')
-            )
+            # For admin, get all unique products from RoleBasedProduct
+            product_ids = RoleBasedProduct.objects.filter(
+                product__isnull=False
+            ).values_list('product_id', flat=True).distinct()
+            
+            base_queryset = RoleBasedProduct.objects.filter(
+                product_id__in=product_ids
+            ).order_by('-created_at')
         else:
+            # For vendors, get their products only
             products_id = Product.objects.filter(owner=request.user).values_list('id', flat=True)
-            role_products = RoleBasedProduct.objects.filter(
+            base_queryset = RoleBasedProduct.objects.filter(
                 product_id__in=products_id, 
                 user=request.user, 
                 role=request.user.role
-            ).order_by('product')
+            ).order_by('-created_at')
 
+        # Calculate total counts for all statuses
+        if request.user.role == 'admin':
+            # For admin, count distinct products for each status
+            total_counts = {
+                'total_draft': base_queryset.filter(product__status='draft').values('product').distinct().count(),
+                'total_published': base_queryset.filter(product__status='published').values('product').distinct().count(),
+                'total_active': base_queryset.filter(is_featured=True).values('product').distinct().count(),
+                'total_inactive': base_queryset.filter(is_featured=False).values('product').distinct().count(),
+                'total_products': base_queryset.values('product').distinct().count()
+            }
+        else:
+            # For vendors, use regular counts
+            total_counts = {
+                'total_draft': base_queryset.filter(product__status='draft').count(),
+                'total_published': base_queryset.filter(product__status='published').count(),
+                'total_active': base_queryset.filter(is_featured=True).count(),
+                'total_inactive': base_queryset.filter(is_featured=False).count(),
+                'total_products': base_queryset.count()
+            }
+
+        # Filter for current status
         if status_param == "active":
-            role_products = role_products.filter(is_featured=True)
+            current_products = base_queryset.filter(is_featured=True)
         elif status_param == "inactive":
-            role_products = role_products.filter(is_featured=False)
+            current_products = base_queryset.filter(is_featured=False)
         elif status_param in ["draft", "published"]:
-            role_products = role_products.filter(product__status=status_param)
+            current_products = base_queryset.filter(product__status=status_param)
+        else:
+            current_products = base_queryset.none()
 
         if featured and featured.lower() in ["1", "true", "yes"]:
-            role_products = role_products.filter(is_featured=True)
+            current_products = current_products.filter(is_featured=True)
 
-        # Apply final ordering for consistent pagination
-        role_products = role_products
+        # Get count for current status
+        current_status_count = current_products.count()
 
         # Pagination
         paginator = PageNumberPagination()
         paginator.page_size = int(page_size)
-        paginated_products = paginator.paginate_queryset(role_products, request)
+        paginated_products = paginator.paginate_queryset(current_products, request)
 
         serializer = RoleBasedProductSerializer(
             paginated_products, many=True, context={"request": request}
         )
 
-        return paginator.get_paginated_response(serializer.data)
+        # Return response with all counts
+        response = paginator.get_paginated_response(serializer.data)
+        # Add all counts to response
+        response.data.update(total_counts)
+        response.data['current_status_count'] = current_status_count
+        return response
 
 
 class MyProductListAPIView(APIView):

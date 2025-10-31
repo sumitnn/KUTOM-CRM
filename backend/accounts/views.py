@@ -32,8 +32,11 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 from django.utils import timezone
 from django.core.exceptions import ObjectDoesNotExist
-
-
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+import json
+from django.core.mail import send_mail
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -339,6 +342,7 @@ class WalletUpdateView(APIView):
                     transaction_type="DEBIT",
                     amount=amount,
                     transaction_status="SUCCESS",
+                    user_id=user.unique_role_id,
                     description=f"Amount transferred to user {user.email}."
                 )
 
@@ -1369,7 +1373,7 @@ class ApproveApplicationView(APIView):
         # ✅ Send email with HTML formatting
         send_template_email(
             to_email=user.email,
-            subject="🎉 Your Kutom Account Approved!",
+            subject="🎉 Your StockTn Account Approved!",
             message=email_message,
             html=True,
         )
@@ -1772,3 +1776,67 @@ class StockistAssignmentView(APIView):
                 "message": "Assignment not found"
             }, status=status.HTTP_404_NOT_FOUND)
     
+
+
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def send_contact_message(request):
+    try:
+        data = json.loads(request.body)
+        
+        # Extract form data
+        name = data.get('name', '')
+        email = data.get('email', '')
+        subject = data.get('subject', '')
+        message = data.get('message', '')
+        
+        # Email to admin
+        admin_subject = f"New Contact Enquiry: {subject}"
+        admin_message = f"""
+        New contact enquiry form submission received:
+        
+        Name: {name}
+        Email: {email}
+        Subject: {subject}
+        Message: {message}
+        
+        Please respond to this inquiry within 24 hours.
+        """
+        
+        send_mail(
+            subject=admin_subject,
+            message=admin_message,
+            from_email="stocktn.com@gmail.com",
+            recipient_list=["stocktn.com@gmail.com"],
+            fail_silently=False,
+        )
+        
+        # Confirmation email to user
+        user_subject = "Thank you for contacting StockTN"
+        user_message = f"""
+        Dear {name},
+        
+        Thank you for reaching out to StockTN! We have received your message and our team will get back to you within 24 hours.
+        
+        Here's a Details of your Enquiry:
+        Subject: {subject}
+        Message: {message}
+        
+        Best regards,
+        StockTN Team
+        """
+        
+        send_mail(
+            subject=user_subject,
+            message=user_message,
+            from_email="stocktn.com@gmail.com",
+            recipient_list=[email],
+            fail_silently=False,
+        )
+        
+        return JsonResponse({'success': True, 'message': 'Message sent successfully!'})
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)

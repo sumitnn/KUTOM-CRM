@@ -1,9 +1,8 @@
 from rest_framework_simplejwt.tokens import RefreshToken
-from  .models import Notification,User,ActivityLog
+from  .models import Notification,User
 from django.core.mail import send_mail
 from django.core.mail import EmailMultiAlternatives
-from django.db import transaction
-from django.utils import timezone
+from email.utils import formataddr
 
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
@@ -54,7 +53,9 @@ def send_template_email(to_email, subject, message, html=False, link=None, link_
     - Otherwise, sends plain text email
     """
 
-    from_email = "stocktn.com@gmail.com"
+    # ✅ Include friendly name for the sender
+    from_name = "StockTn"
+    from_email = formataddr((from_name, "stocktn.com@gmail.com"))
 
     try:
         if html:
@@ -70,7 +71,7 @@ def send_template_email(to_email, subject, message, html=False, link=None, link_
                 <p>{message}</p>
                 {f'<p><a href="{link}" style="color:#1a73e8; text-decoration:none;">{link_text}</a></p>' if link else ""}
                 <br>
-                <p style="font-size: 13px; color: #666;">Best regards,<br><strong>Kutom Team</strong></p>
+                <p style="font-size: 13px; color: #666;">Best regards,<br><strong>StockTn Team</strong></p>
               </body>
             </html>
             """
@@ -85,15 +86,13 @@ def send_template_email(to_email, subject, message, html=False, link=None, link_
             email.send(fail_silently=False)
 
         else:
-            # Plain text email
             send_mail(
                 subject=subject,
                 message=message,
-                from_email=from_email,
+                from_email=from_email,  # ✅ includes friendly name now
                 recipient_list=[to_email],
                 fail_silently=False,
             )
 
     except Exception as e:
-        # Log email errors without interrupting the flow
         print(f"Error sending email to {to_email}: {e}")
