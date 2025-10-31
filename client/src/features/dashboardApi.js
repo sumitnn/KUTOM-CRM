@@ -21,12 +21,21 @@ export const dashboardApi = createApi({
                 params: { period }
             }),
             providesTags: ['Dashboard'],
+        }),
+        sendContactMessage: builder.mutation({
+            query: (contactData) => ({
+                url: '/contact/send-message/',
+                method: 'POST',
+                data: contactData,
+            }),
+            invalidatesTags: ['Contact'],
         })
     }),
 });
 
 export const {
     useGetDashboardDataQuery,
-    useGetADMINDashboardDataQuery
+    useGetADMINDashboardDataQuery,
+    useSendContactMessageMutation
 
  } = dashboardApi;

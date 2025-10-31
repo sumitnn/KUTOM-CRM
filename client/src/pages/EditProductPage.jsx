@@ -1157,7 +1157,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                                   
                                   <div className="space-y-2">
                                     <label className="block text-sm font-semibold text-gray-700">
-                                      Base Price (₹) <span className="text-red-500">*</span>
+                                      Final Price (₹) <span className="text-red-500">*</span>
                                     </label>
                                     <input
                                       type="number"
@@ -1206,7 +1206,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                                   </div>
 
                                   <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">Final Price (₹)</label>
+                                    <label className="block text-sm font-semibold text-gray-700">Selling Price (₹)</label>
                                     <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg font-semibold text-gray-900 text-center">
                                       ₹{tier.final_bulk_price || "0.00"}
                                     </div>

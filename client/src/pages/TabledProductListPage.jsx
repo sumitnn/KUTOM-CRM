@@ -22,6 +22,7 @@ const statusColors = {
   pending: "bg-yellow-100 text-yellow-800",
   out_of_stock: "bg-red-100 text-red-800",
   draft: "bg-purple-100 text-purple-800",
+  published:"bg-orange-100 text-orange-800"
 };
 
 const TabledProductListPage = ({ role }) => {
@@ -265,14 +266,27 @@ const TabledProductListPage = ({ role }) => {
                         </td>
                         <td>{prod.category_name || '-'}</td>
                         <td>{prod.subcategory_name || '-'}</td>
-                        <td>₹{Number(price).toFixed(2)}</td>
-                        <td>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            statusColors[prod.status?.toLowerCase() || 'active']
-                          }`}>
-                            {prod.status_display || prod.status || 'Active'}
-                          </span>
-                        </td>
+                        <td>₹{price}</td>
+                        <td className="space-x-2">
+                            {/* Status badge */}
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                statusColors[prod.status?.toLowerCase() || 'draft']
+                              }`}
+                            >
+                              { prod.status || 'draft'}
+                            </span>
+
+                            {/* Featured badge */}
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                prod.is_featured ? statusColors['active'] : statusColors['inactive']
+                              }`}
+                            >
+                              {prod.is_featured ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+
                         <td>{prod.user_name || '-'}</td>
                         <td>
                           <div className="flex justify-center gap-3">

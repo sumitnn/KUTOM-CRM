@@ -97,7 +97,7 @@ const AdminProductApprovalPage = () => {
       
       return {
         id: item.id,
-        product:item.product,
+        product: item.product,
         sku: product.sku,
         name: product.name,
         vendorId: item.user_unique_id || "N/A",
@@ -123,22 +123,39 @@ const AdminProductApprovalPage = () => {
     });
   };
 
+  // Helper function to get stats from any of the API responses
+  const getTabStats = () => {
+    // Use data from any of the API calls (they all have the same total counts)
+    const sourceData = pendingData || publishedData || activeData || inactiveData;
+    
+    return {
+      pending: sourceData?.total_draft || 0,
+      published: sourceData?.total_published || 0,
+      active: sourceData?.total_active || 0,
+      inactive: sourceData?.total_inactive || 0,
+      total: sourceData?.total_products || 0
+    };
+  };
+
+  const stats = getTabStats();
+
+  // Update productData to use current_status_count for pagination
   const productData = {
     pending: {
       data: transformProductData(pendingData?.results),
-      count: pendingData?.count || 0,
+      count: pendingData?.current_status_count || 0,
     },
     published: {
       data: transformProductData(publishedData?.results),
-      count: publishedData?.count || 0,
+      count: publishedData?.current_status_count || 0,
     },
     active: {
       data: transformProductData(activeData?.results),
-      count: activeData?.count || 0,
+      count: activeData?.current_status_count || 0,
     },
     inactive: {
       data: transformProductData(inactiveData?.results),
-      count: inactiveData?.count || 0,
+      count: inactiveData?.current_status_count || 0,
     },
   };
 
@@ -234,18 +251,6 @@ const AdminProductApprovalPage = () => {
     }
   };
 
-  const getTabStats = () => {
-    return {
-      pending: productData.pending.count,
-      published: productData.published.count,
-      active: productData.active.count,
-      inactive: productData.inactive.count,
-      total: productData.pending.count + productData.published.count + productData.active.count + productData.inactive.count
-    };
-  };
-
-  const stats = getTabStats();
-
   return (
     <div className="min-h-screen py-4 ">
       <div className="max-w-8xl mx-auto">
@@ -267,7 +272,7 @@ const AdminProductApprovalPage = () => {
                 </div>
               </div>
               
-              {/* Stats Overview */}
+              {/* Stats Overview - Now using accurate counts from backend */}
               <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mt-6">
                 <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm border border-gray-200/50">
                   <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
@@ -562,12 +567,12 @@ const AdminProductApprovalPage = () => {
                                         disabled={loadingStates[product.product]}
                                         className="flex items-center gap-2 px-3 py-2 bg-green-50 text-green-700 rounded-lg font-semibold hover:bg-green-100 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm"
                                       >
-                                        {loadingStates[product.id] ? (
+                                        {loadingStates[product.product] ? (
                                           <div className="w-4 h-4 border-2 border-green-700 border-t-transparent rounded-full animate-spin"></div>
                                         ) : (
                                           <FiCheckCircle className="w-4 h-4" />
                                         )}
-                                        {loadingStates[product.id] ? 'Publishing...' : 'Publish'}
+                                        {loadingStates[product.product] ? 'Publishing...' : 'Publish'}
                                       </button>
                                     </div>
                                   )}
@@ -587,7 +592,7 @@ const AdminProductApprovalPage = () => {
                                     </button>
                                   )}
 
-                                  {(activeTab === 'admin' || activeTab === 'admin') && (
+                                  {(activeTab === 'active' || activeTab === 'inactive') && (
                                     <button
                                       onClick={() => handleStatusUpdate(product.product, activeTab === 'active' ? 'inactive' : 'active')}
                                       disabled={loadingStates[product.product]}
@@ -652,14 +657,13 @@ const AdminProductApprovalPage = () => {
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
                 <div className="space-y-3">
-                 
-                   <button
-      onClick={() => navigate("/admin/products")}
-      className="w-full flex items-center gap-3 p-3  bg-green-50 rounded-xl border border-green-200 text-green-700 font-semibold hover:bg-green-100 transition-all duration-300 cursor-pointer"
-    >
-      <FiExternalLink className="w-5 h-5" />
-      View All Products
-    </button>
+                  <button
+                    onClick={() => navigate("/admin/products")}
+                    className="w-full flex items-center gap-3 p-3 bg-green-50 rounded-xl border border-green-200 text-green-700 font-semibold hover:bg-green-100 transition-all duration-300 cursor-pointer"
+                  >
+                    <FiExternalLink className="w-5 h-5" />
+                    View All Products
+                  </button>
                 </div>
               </div>
 
@@ -686,15 +690,7 @@ const AdminProductApprovalPage = () => {
                 </div>
               </div>
 
-              {/* Recent Activity */}
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
-                <div className="space-y-3 text-sm text-gray-600">
-                  <p>• 5 products published today</p>
-                  <p>• 12 pending reviews</p>
-                  <p>• 3 vendors awaiting approval</p>
-                </div>
-              </div>
+            
             </div>
           </div>
         </div>

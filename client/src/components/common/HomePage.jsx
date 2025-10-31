@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, useInView, useAnimation } from "framer-motion";
 import { 
@@ -13,8 +13,16 @@ import {
   MdAttachMoney,
   MdVerified,
   MdBusiness,
-  MdArrowForward
+  MdArrowForward,
+  MdClose,
+  MdPerson,
+  MdEmail,
+  MdPhone,
+  MdWork,
+  MdArrowDropDown
 } from "react-icons/md";
+import { FaSpinner } from "react-icons/fa";
+import axios from "axios";
 
 // Animation variants
 const containerVariants = {
@@ -75,6 +83,70 @@ const scaleUp = {
   }
 };
 
+// ModalWrapper component
+const ModalWrapper = memo(({ children, onClose }) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 bg-opacity-40 backdrop-blur-sm">
+    <div className="bg-white rounded-2xl shadow-2xl p-6 w-[90%] max-w-md relative animate-fade-in">
+      <button
+        onClick={onClose}
+        className="absolute top-3 right-3 text-gray-500 hover:text-red-600 text-3xl cursor-pointer"
+        aria-label="Close modal"
+      >
+        <MdClose />
+      </button>
+      {children}
+    </div>
+  </div>
+));
+
+// InputField Component
+const InputField = memo(({ 
+  id, 
+  name, 
+  value, 
+  onChange, 
+  placeholder, 
+  error, 
+  icon: Icon, 
+  type = "text",
+  ...props 
+}) => {
+  return (
+    <div>
+      <label
+        htmlFor={id}
+        className="block text-sm font-bold text-gray-700"
+      >
+        {placeholder}
+      </label>
+      <div className="mt-1 relative rounded-md shadow-sm">
+        {Icon && (
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Icon className="h-5 w-5 text-gray-400 font-bold" />
+          </div>
+        )}
+        <input
+          type={type}
+          id={id}
+          name={name}
+          value={value}
+          onChange={onChange}
+          className={`block w-full ${Icon ? 'pl-10' : 'pl-3'} pr-3 py-2 border ${
+            error
+              ? "border-red-300 focus:ring-red-500 focus:border-red-500"
+              : "border-gray-300 focus:ring-indigo-500 focus:border-indigo-500"
+          } rounded-md shadow-sm`}
+          placeholder={placeholder}
+          {...props}
+        />
+      </div>
+      {error && (
+        <p className="mt-1 text-sm text-red-600">{error}</p>
+      )}
+    </div>
+  );
+});
+
 // Feature Card Component
 const FeatureCard = memo(({ icon: Icon, title, description, delay = 0 }) => {
   const ref = useRef(null);
@@ -106,7 +178,7 @@ const FeatureCard = memo(({ icon: Icon, title, description, delay = 0 }) => {
 });
 
 // Business Opportunity Card
-const BusinessCard = memo(({ icon: Icon, title, description, profitMargin, example, buttonText, delay = 0, gradient }) => {
+const BusinessCard = memo(({ icon: Icon, title, description, profitMargin, example, buttonText, delay = 0, gradient, onApplyClick }) => {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, threshold: 0.2 });
   const controls = useAnimation();
@@ -135,7 +207,10 @@ const BusinessCard = memo(({ icon: Icon, title, description, profitMargin, examp
         <p className="text-green-800 font-semibold text-lg">Profit Margin: {profitMargin}</p>
         {example && <p className="text-green-700 mt-2 text-sm">{example}</p>}
       </div>
-      <button className="w-full bg-gray-900 hover:bg-black text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2">
+      <button 
+        onClick={onApplyClick}
+        className="w-full cursor-pointer bg-gray-900 hover:bg-black text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
+      >
         {buttonText} 
       </button>
     </motion.div>
@@ -205,6 +280,165 @@ const HomePage = () => {
   const workflowRef = useRef(null);
   const isWorkflowInView = useInView(workflowRef, { once: true, threshold: 0.2 });
 
+  // Modal state
+  const [showApplyModal, setShowApplyModal] = useState(false);
+  const [formData, setFormData] = useState({
+    role: "",
+    full_name: "",
+    email: "",
+    phone: "",
+  });
+  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState("");
+
+  const ROLES = [
+    { value: "", label: "Select a role", disabled: true },
+    { value: "vendor", label: "Vendor" },
+    { value: "stockist", label: "Stockist" },
+    { value: "reseller", label: "Reseller" },
+  ];
+
+  // Handler functions for different roles
+  const handleVendorApply = () => {
+    setFormData(prev => ({ ...prev, role: "vendor" }));
+    setShowApplyModal(true);
+  };
+
+  const handleStockistApply = () => {
+    setFormData(prev => ({ ...prev, role: "stockist" }));
+    setShowApplyModal(true);
+  };
+
+  const handleResellerApply = () => {
+    setFormData(prev => ({ ...prev, role: "reseller" }));
+    setShowApplyModal(true);
+  };
+
+  // Form handlers
+  const handleNameChange = (e) => {
+    const value = e.target.value.replace(/[^a-zA-Z\s]/g, '');
+    setFormData(prev => ({
+      ...prev,
+      full_name: value
+    }));
+    if (errors.full_name) {
+      setErrors(prev => ({ ...prev, full_name: "" }));
+    }
+  };
+
+  const handlePhoneChange = (e) => {
+    const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+    setFormData(prev => ({
+      ...prev,
+      phone: value
+    }));
+    if (errors.phone) {
+      setErrors(prev => ({ ...prev, phone: "" }));
+    }
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }));
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: "" }));
+    }
+  };
+
+  // Validation
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!formData.role) newErrors.role = "Please select a role";
+    
+    if (!formData.full_name.trim()) {
+      newErrors.full_name = "Full name is required";
+    } else if (!/^[a-zA-Z\s]{3,}$/.test(formData.full_name)) {
+      newErrors.full_name = "Name should only contain letters and spaces (min 3 characters)";
+    }
+    
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email";
+    }
+    
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Phone number is required";
+    } else if (!/^\d{10}$/.test(formData.phone)) {
+      newErrors.phone = "Please enter a valid 10-digit phone number";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const submitNewAccountApplication = async () => {
+    try {
+      setIsSubmitting(true);
+      setErrors({});
+      setSubmitMessage("");
+
+      const response = await axios.post(
+        `${import.meta.env.VITE_BACKEND_API_URL}/apply/`, 
+        formData
+      );
+      
+      if (response.status === 201) {
+        setSubmitMessage(
+          "Thank you for joining our team! Our executive will call you within 24 hours. For more details, call +91 9270301020."
+        );
+        setFormData({
+          role: "",
+          full_name: "",
+          email: "",
+          phone: "",
+        });
+      }
+    } catch (error) {
+      if (error.response?.data?.errors) {
+        const apiErrors = error.response.data.errors;
+        const formattedErrors = {};
+        
+        if (apiErrors.email) {
+          formattedErrors.email = apiErrors.email[0];
+        }
+        if (apiErrors.phone) {
+          formattedErrors.phone = apiErrors.phone[0];
+        }
+        
+        setErrors(formattedErrors);
+        
+        if (Object.keys(formattedErrors).length > 0) {
+          setSubmitMessage("Please fix the errors below and try again.");
+        }
+      } else {
+        const message = error?.response?.data?.message || 
+                       "An error occurred. Please try again later.";
+        setSubmitMessage(message);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (validateForm()) {
+      submitNewAccountApplication();
+    }
+  };
+
+  const closeApplyModal = () => {
+    setShowApplyModal(false);
+    setSubmitMessage("");
+    setErrors({});
+  };
+
   const businessOpportunities = [
     {
       icon: MdBusiness,
@@ -213,7 +447,8 @@ const HomePage = () => {
       profitMargin: "15% – 30%",
       example: "Sell at ₹100, earn up to ₹130 through network reselling",
       buttonText: "Become a Vendor",
-      gradient: "bg-gradient-to-r from-blue-500 to-cyan-500"
+      gradient: "bg-gradient-to-r from-blue-500 to-cyan-500",
+      onApplyClick: handleVendorApply
     },
     {
       icon: MdStore,
@@ -222,7 +457,8 @@ const HomePage = () => {
       profitMargin: "15% – 25%",
       example: "Multiple brands, one platform — become a key local supplier",
       buttonText: "Become a Stockist",
-      gradient: "bg-gradient-to-r from-green-500 to-emerald-500"
+      gradient: "bg-gradient-to-r from-green-500 to-emerald-500",
+      onApplyClick: handleStockistApply
     },
     {
       icon: MdShoppingCart,
@@ -231,7 +467,8 @@ const HomePage = () => {
       profitMargin: "10% – 30%",
       example: "Start reselling today — earn profits from your phone!",
       buttonText: "Become a Reseller",
-      gradient: "bg-gradient-to-r from-orange-500 to-red-500"
+      gradient: "bg-gradient-to-r from-orange-500 to-red-500",
+      onApplyClick: handleResellerApply
     }
   ];
 
@@ -274,6 +511,127 @@ const HomePage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple to-indigo-50">
+      {/* Apply Modal */}
+      {showApplyModal && (
+        <ModalWrapper key="apply-modal" onClose={closeApplyModal}>
+          <h2 className="text-2xl font-extrabold text-center text-gray-900 mb-6">
+            Join Our Team
+          </h2>
+
+          {submitMessage && !Object.keys(errors).length > 0 ? (
+            <div className="text-center py-4">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+              <p className="text-green-600 mb-4 font-medium">{submitMessage}</p>
+              <button
+                onClick={closeApplyModal}
+                className="btn btn-sm bg-indigo-600 hover:bg-indigo-700 text-white px-6 mt-4"
+              >
+                Close
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {submitMessage && (
+                <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                  <p className="text-red-600 text-sm text-center font-medium">{submitMessage}</p>
+                </div>
+              )}
+
+              {/* Role Selection */}
+              <div>
+                <label className="block text-md font-bold text-gray-800 mb-2">
+                  Select Role
+                </label>
+                <div className="relative">
+                  <select
+                    name="role"
+                    value={formData.role}
+                    onChange={handleChange}
+                    className={`block w-full pl-3 pr-10 py-2 border ${
+                      errors.role
+                        ? "border-red-300 focus:ring-red-500 focus:border-red-500"
+                        : "border-gray-300 focus:ring-indigo-500 focus:border-indigo-500"
+                    } rounded-md shadow-sm appearance-none cursor-pointer bg-white`}
+                  >
+                    {ROLES.map((option) => (
+                      <option 
+                        key={option.value} 
+                        value={option.value}
+                        disabled={option.disabled}
+                      >
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                    <MdArrowDropDown className="h-5 w-5 text-gray-400" />
+                  </div>
+                </div>
+                {errors.role && (
+                  <p className="mt-1 text-sm text-red-600">{errors.role}</p>
+                )}
+              </div>
+
+              {/* Form Fields */}
+              <InputField
+                id="full_name"
+                name="full_name"
+                value={formData.full_name}
+                onChange={handleNameChange}
+                placeholder="Full Name"
+                error={errors.full_name}
+                icon={MdPerson}
+              />
+
+              <InputField
+                id="email"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="Email"
+                error={errors.email}
+                icon={MdEmail}
+              />
+
+              <InputField
+                id="phone"
+                name="phone"
+                type="tel"
+                value={formData.phone}
+                onChange={handlePhoneChange}
+                placeholder="Phone Number"
+                error={errors.phone}
+                icon={MdPhone}
+                maxLength={10}
+              />
+
+              {/* Submit Button */}
+              <div className="pt-4">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full flex justify-center items-center btn btn-md bg-indigo-600 hover:bg-indigo-700 text-white px-6 disabled:opacity-70 transition-all duration-200 transform hover:-translate-y-0.5 hover:shadow-lg"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <FaSpinner className="animate-spin mr-2" />
+                      Submitting...
+                    </>
+                  ) : (
+                    "Submit Application"
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
+        </ModalWrapper>
+      )}
+
       {/* Hero Section */}
       <section className="pt-24 pb-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-orange-500/5 to-red-500/5"></div>
@@ -318,24 +676,24 @@ const HomePage = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.7 }}
               >
-                <Link
-                  to="#"
-                  className="inline-flex items-center px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+                <button
+                  onClick={handleVendorApply}
+                  className="inline-flex cursor-pointer items-center px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
                 >
                   🏭 Become a Vendor
-                </Link>
-                <Link
-                  to="#"
-                  className="inline-flex items-center px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+                </button>
+                <button
+                  onClick={handleStockistApply}
+                  className="inline-flex cursor-pointer items-center px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
                 >
                   🏢 Become a Stockist
-                </Link>
-                <Link
-                  to="#"
-                  className="inline-flex items-center px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+                </button>
+                <button
+                  onClick={handleResellerApply}
+                  className="inline-flex cursor-pointer items-center px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
                 >
                   🛍️ Become a Reseller
-                </Link>
+                </button>
               </motion.div>
             </motion.div>
             <motion.div
@@ -573,12 +931,12 @@ const HomePage = () => {
               From startup sellers to established distributors — everyone grows with StockTN
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link
-                to="/login"
+              <button
+                onClick={handleVendorApply}
                 className="inline-flex items-center px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
               >
                 Start Your Journey
-              </Link>
+              </button>
               <Link
                 to="/contact-us"
                 className="inline-flex items-center px-8 py-4 bg-transparent hover:bg-gray-800 text-white font-bold rounded-xl border-2 border-white transition-all duration-300"
