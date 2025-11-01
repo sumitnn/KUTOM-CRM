@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { useGetCustomerPurchasesQuery } from "../../features/customerpurchase/customerPurchaseApi";
+import { useGetAllCustomerPurchasesQuery } from "../../features/customerpurchase/customerPurchaseApi";
 import { Link } from "react-router-dom";
 
 const CustomerPurchasesList = ({ role }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   
-  const { data: purchasesData, isLoading, error } = useGetCustomerPurchasesQuery({
+  const { data: purchasesData, isLoading, error } = useGetAllCustomerPurchasesQuery({
     page: currentPage,
     pageSize: pageSize
   });
@@ -47,8 +47,8 @@ const CustomerPurchasesList = ({ role }) => {
   const pagination = purchasesData || {};
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-8 px-4 sm:px-6 lg:px-8 cursor-default">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen py-4 cursor-default">
+      <div className="max-w-8xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
           <div>

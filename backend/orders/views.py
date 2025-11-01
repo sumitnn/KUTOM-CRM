@@ -36,6 +36,9 @@ from rest_framework.decorators import action
 from django.core.paginator import Paginator
 from rest_framework.decorators import api_view, permission_classes
 from accounts.utils import send_email_to_user
+from decimal import Decimal
+from django.core.exceptions import ObjectDoesNotExist
+
 
 class CreateOrderAPIView(generics.CreateAPIView):
     serializer_class = OrderCreateSerializer
@@ -537,7 +540,8 @@ class UpdateOrderStatusView(APIView):
                     amount=transport_charges,
                     description=f"Transport charges for Order #{order.id}",
                     transaction_status='SUCCESS',
-                    order_id=order.id
+                    order_id=order.id,
+                    user_id=order.seller.unique_role_id
                 )
                 WalletTransaction.objects.create(
                     wallet=seller_wallet,
@@ -545,7 +549,8 @@ class UpdateOrderStatusView(APIView):
                     amount=transport_charges,
                     description=f"Received transport charges for Order #{order.id}",
                     transaction_status='SUCCESS',
-                    order_id=order.id
+                    order_id=order.id,
+                    user_id=order.buyer.unique_role_id
                 )
                 
                 # Update payment status for transport charges
@@ -690,7 +695,8 @@ class UpdateOrderStatusView(APIView):
                 amount=order.total_price,
                 description=f"Refund for cancelled Order #{order.id}",
                 transaction_status='SUCCESS',
-                order_id=order.id
+                order_id=order.id,
+                user_id=order.buyer.unique_role_id
             )
         except Exception as e:
             print(e)
@@ -1414,6 +1420,7 @@ def get_requests_by_status(request, status):
         queryset = queryset.filter(status=status)
     
     # Pagination
+    queryset = queryset.order_by('-created_at')
     page = request.GET.get('page', 1)
     page_size = request.GET.get('page_size', 10)
     
@@ -1794,16 +1801,21 @@ class ResellerOrderRequestListCreateView(APIView):
 def get_reseller_order_requests_by_status(request, status):
     user = request.user
     queryset = OrderRequest.objects.select_related('requested_by', 'target_user').prefetch_related('items')
-    if not user.role=="stockist":
+    
+    if not user.role == "stockist":
         queryset = queryset.filter(requested_by=user)
     
-    if user.role=="stockist":
+    if user.role == "stockist":
         queryset = queryset.filter(target_user=user).exclude(status='cancelled')
     
-    if status=="rejected" and not user.role=="stockist":
+    if status == "rejected" and not user.role == "stockist":
         queryset = queryset.filter(Q(status='rejected') | Q(status='cancelled'))
     else:
         queryset = queryset.filter(status=status)
+    
+    # Add ordering to fix the pagination warning
+    # Order by creation date (newest first) or by ID as fallback
+    queryset = queryset.order_by('-created_at', '-id')
     
     # Pagination
     page = request.GET.get('page', 1)
@@ -1897,7 +1909,8 @@ class UpdateOrderRequestStatusView(APIView):
                 amount=total_amount,
                 description=f"Order Request {order_request.request_id} By Reseller",
                 transaction_status='SUCCESS',
-                is_refund=False
+                is_refund=False,
+                user_id=order_request.requested_by.unique_role_id
             )
 
             Notification.objects.create(
@@ -2076,6 +2089,7 @@ class UpdateOrderRequestStatusView(APIView):
                     description=f"Commission paid to {target_user.email} for Order #{order.id}",
                     transaction_status='SUCCESS',
                     is_refund=False,
+                    user_id=target_user.unique_role_id
                 )
 
                 # Credit commission to stockist
@@ -2195,7 +2209,8 @@ class ResellerOrderStatusMange(APIView):
                             amount=transport_charges,
                             description=f"Transport charges for Order #{order.id}",
                             transaction_status="SUCCESS",
-                            order_id=order.id
+                            order_id=order.id,
+                            user_id=order.seller.unique_role_id
                         )
                         WalletTransaction.objects.create(
                             wallet=seller_wallet,
@@ -2203,7 +2218,8 @@ class ResellerOrderStatusMange(APIView):
                             amount=transport_charges,
                             description=f"Received transport charges for Order #{order.id}",
                             transaction_status="SUCCESS",
-                            order_id=order.id
+                            order_id=order.id,
+                            user_id=order.buyer.unique_role_id
                         )
                         order.payment_status = "paid"
                     else:
@@ -2424,9 +2440,6 @@ class CustomerPurchaseCreateView(generics.CreateAPIView):
         self.process_customer_purchase(purchase)
 
     def process_customer_purchase(self, purchase: CustomerPurchase):
-        from decimal import Decimal
-        from django.core.exceptions import ObjectDoesNotExist
-
         with transaction.atomic():
             # 1️⃣ Deduct stock
             try:
@@ -2496,7 +2509,7 @@ class CustomerPurchaseCreateView(generics.CreateAPIView):
                 amount=total_to_deduct,
                 description=f"Reseller commission For Selling Products to Customer,Customer Puchase ID:{purchase.id}",
                 transaction_status="SUCCESS",
-                reference_id=purchase.id
+                order_id=purchase.email
             )
 
             WalletTransaction.objects.create(
@@ -2505,14 +2518,15 @@ class CustomerPurchaseCreateView(generics.CreateAPIView):
                 amount=total_to_deduct,
                 description=f"Commission payout to reseller for Selling Products To Customer ",
                 transaction_status="SUCCESS",
-                reference_id=purchase.id
+                order_id="",
+                user_id=purchase.vendor.unique_role_id
             )
 
             # 8️⃣ Notifications
             create_notification(
                 user=purchase.vendor,
                 title="Commission Earned",
-                message=f"You earned a commission of ₹{total_to_deduct:.2f} from Selling Products To Customer #{purchase.id}.",
+                message=f"You earned a commission of ₹{total_to_deduct:.2f} from Selling Products To Customer #{purchase.email}.",
                 notification_type="commission",
                 related_url="/wallet/"
             )
@@ -2611,3 +2625,99 @@ class UpdateOrderItemsView(APIView):
             
 
         return Response({"message": "Batch Details Updated Successfully"}, status=status.HTTP_200_OK)
+    
+
+class CustomerSearchView(generics.ListAPIView):
+    permission_classes = [IsResellerRole]
+    
+    def get_queryset(self):
+        # Get customers from previous purchases made by this vendor
+        return CustomerPurchase.objects.filter(
+            vendor=self.request.user
+        ).values(
+            'full_name', 'phone', 'email', 'address', 'city', 'state', 'district', 'postal_code'
+        ).distinct()
+    
+    def list(self, request, *args, **kwargs):
+        search_query = request.query_params.get('search', '')
+        
+        
+        # Get unique customers from vendor's purchase history
+        purchases = CustomerPurchase.objects.filter(vendor=request.user)
+        
+        if search_query:
+            purchases = purchases.filter(
+                Q(full_name__icontains=search_query) |
+                Q(phone__icontains=search_query) |
+                Q(email__icontains=search_query)
+            )
+        
+        # Get unique customer data
+        customer_data = purchases.values(
+            'full_name', 'phone', 'email', 'address', 'city', 
+            'state_id', 'district_id', 'postal_code'
+        ).distinct()
+        
+        # Convert to list and include state/district names
+        customers = []
+        for customer in customer_data:
+            customer_dict = {
+                'full_name': customer['full_name'],
+                'phone': customer['phone'],
+                'email': customer['email'],
+                'address': customer['address'],
+                'city': customer['city'],
+                'postal_code': customer['postal_code'],
+                'state': customer['state_id'],
+                'district': customer['district_id'],
+            }
+            customers.append(customer_dict)
+        
+        return Response(customers)
+    
+@api_view(['GET'])
+@permission_classes([IsResellerRole])  
+def get_variant_buying_price(request):
+    """
+    Get actual buying price for a product variant based on user's role
+    """
+    variant_id = request.GET.get('variant_id')
+    user_id = request.GET.get('user_id')
+    
+
+    
+    if not variant_id or not user_id:
+        return Response({
+            'success': False,
+            'error': 'Variant ID and User ID are required'
+        }, status=400)
+    
+    try:
+        # Get the price for the specific variant, user, and role
+        variant_price = ProductVariantPrice.objects.filter(
+            variant_id=variant_id,
+            role="admin" 
+        ).first()
+        
+        if variant_price:
+            return Response({
+                'success': True,
+                'actual_price': str(variant_price.reseller_price),
+                'price': str(variant_price.price),
+                'discount': variant_price.discount,
+                'gst_percentage': variant_price.gst_percentage,
+                'gst_tax': str(variant_price.gst_tax),
+                'stockist_price': str(variant_price.stockist_price),
+                'reseller_price': str(variant_price.reseller_price)
+            })
+        else:
+            return Response({
+                'success': False,
+                'error': 'Price not found for this variant and role'
+            }, status=404)
+            
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=500)

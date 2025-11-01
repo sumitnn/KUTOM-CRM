@@ -3,15 +3,13 @@ import { useState, useEffect } from "react";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import { useGetVendorSalesQuery, useExportVendorSalesMutation } from "../features/sales/salesApi";
 import {
-  LineChart,
-  Line,
+
   BarChart,
   Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   Cell
 } from 'recharts';
@@ -64,14 +62,8 @@ const Report = () => {
     setRangeFilter('custom');
   };
 
-  const handleSearchChange = (e) => {
-    setSearchInput(e.target.value);
-  };
 
-  const handleSearchSubmit = () => {
-    setSearchTerm(searchInput);
-    setCurrentPage(1);
-  };
+
 
   const handleRangeFilterChange = (range) => {
     setRangeFilter(range);
@@ -154,7 +146,7 @@ const Report = () => {
   };
 
   // Chart data
-  const dailySalesData = salesData?.charts?.daily_sales || [];
+  
   const topProductsData = salesData?.charts?.top_products || [];
 
   // Custom tooltip for charts
@@ -331,44 +323,9 @@ const Report = () => {
         </div>
 
         {/* Charts */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
+        <div className="grid grid-cols-1 xl:grid-cols-1 gap-8 mb-8">
           {/* Daily Sales Chart */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900">Daily Sales Trend</h3>
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                Sales Amount
-              </div>
-            </div>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={dailySalesData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis 
-                    dataKey="sale_date__date" 
-                    tickFormatter={(date) => format(new Date(date), 'MMM dd')}
-                    stroke="#6b7280"
-                    fontSize={12}
-                  />
-                  <YAxis 
-                    stroke="#6b7280"
-                    fontSize={12}
-                    tickFormatter={(value) => `₹${value / 1000}k`}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Line 
-                    type="monotone" 
-                    dataKey="daily_total" 
-                    stroke={chartColors.primary}
-                    strokeWidth={3}
-                    dot={{ fill: chartColors.primary, strokeWidth: 2, r: 4 }}
-                    activeDot={{ r: 6, fill: chartColors.primary }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+        
 
           {/* Top Products Chart */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">

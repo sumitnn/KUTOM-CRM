@@ -639,7 +639,7 @@ class CustomerPurchaseSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'total_price', 'vendor', 'created_at', 'updated_at')
 
     def create(self, validated_data):
-      
+        
         # Set the vendor to the current user
         validated_data['vendor'] = self.context['request'].user
         return super().create(validated_data)
@@ -661,5 +661,5 @@ class CustomerPurchaseListSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = CustomerPurchase
-        fields = ['id','address','full_name','email','phone','product_name', 'variant_name', 'quantity', 'price_per_unit', 'total_price', 'payment_method', 'purchase_date', 'state_name', 'district_name']
+        fields = ['id','address','full_name','email','phone','product_name', 'variant_name', 'quantity', 'price_per_unit', 'total_price', 'payment_method', 'purchase_date', 'state_name', 'district_name','selling_price']
         read_only_fields = ('id', 'total_price', 'vendor', 'created_at', 'updated_at')

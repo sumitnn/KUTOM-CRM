@@ -28,12 +28,15 @@ const WithdrawlRequestsList = ({ role }) => {
   const [modalImage, setModalImage] = useState(null);
 
   const requests = responseData.results || [];
-  const currentBalance = requests.length > 0 ? requests[0].wallet?.payout_balance || 0 : 0;
+  const currentBalance =
+  requests.length > 0
+    ? role === "vendor"
+      ? requests[0].wallet?.current_balance || 0
+      : requests[0].wallet?.payout_balance || 0
+    : 0;
 
-  const openModal = (imageUrl) => {
-    setModalImage(imageUrl);
-    document.getElementById("screenshot_modal").showModal();
-  };
+
+ 
 
   const openInNewTab = (url) => {
     if (!url) return;
@@ -82,7 +85,7 @@ const WithdrawlRequestsList = ({ role }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50/30 py-6 sm:py-8 px-4 sm:px-6 lg:px-8 cursor-default">
+    <div className="min-h-screen cursor-default py-4">
       <div className="max-w-8xl mx-auto">
         {/* Header Section */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8">
@@ -144,11 +147,7 @@ const WithdrawlRequestsList = ({ role }) => {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 bg-white/20 rounded-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
+                  
                   <h2 className="text-xl font-semibold opacity-95">Available Payout Balance</h2>
                 </div>
                 <p className="text-4xl sm:text-5xl font-bold mb-2">₹{currentBalance}</p>
@@ -156,7 +155,7 @@ const WithdrawlRequestsList = ({ role }) => {
               </div>
               <div className="mt-4 sm:mt-0">
                 <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                  <p className="text-sm opacity-90">Total Requests: {requests.length}</p>
+                  <p className="text-sm opacity-90 font-extrabold">Total Requests: {requests.length}</p>
                 </div>
               </div>
             </div>
@@ -203,7 +202,7 @@ const WithdrawlRequestsList = ({ role }) => {
             requests.map((request, index) => (
               <div 
                 key={request.id} 
-                className="group bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 overflow-hidden hover:shadow-lg transition-all duration-300 hover:border-gray-300 cursor-pointer p-6"
+                className="group bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 overflow-hidden hover:shadow-lg transition-all duration-300 hover:border-gray-300 cursor-pointer p-4"
               >
                 {/* Header */}
                 <div className="flex items-start justify-between mb-4">

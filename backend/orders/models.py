@@ -435,6 +435,7 @@ class CustomerPurchase(models.Model):
     quantity = models.PositiveIntegerField(default=1)
     price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
     total_price = models.DecimalField(max_digits=12, decimal_places=2, editable=False)
+    selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     payment_method = models.CharField(max_length=50, blank=True, null=True)
     transaction_id = models.CharField(max_length=100, blank=True, null=True)

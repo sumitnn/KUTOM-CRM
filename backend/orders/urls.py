@@ -47,5 +47,6 @@ urlpatterns = [
     path('customer/purchases/', CustomerPurchaseListPaginatedView.as_view(), name='purchase-list'),
     path('customer/purchases/create/', CustomerPurchaseCreateView.as_view(), name='purchase-create'),
     path('customer/purchases/<uuid:id>/', CustomerPurchaseDetailView.as_view(), name='purchase-detail'),
-
+    path('customer/search-customers/', CustomerSearchView.as_view(), name='customer-search'),
+    path('customer/variant-price/', get_variant_buying_price, name='customer-varaint-price'),
 ]
