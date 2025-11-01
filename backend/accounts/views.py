@@ -1590,29 +1590,38 @@ class AdminWithdrawalRequestDetailAPIView(APIView):
             admin_wallet = Wallet.objects.get(user=request.user)
             admin_wallet.current_balance += withdrawal.amount
             admin_wallet.save()
+            # update status 
+            WalletTransaction.objects.filter(wallet=withdrawal.wallet, amount=withdrawal.amount,transaction_type="DEBIT").update(transaction_status="SUCCESS")
 
             WalletTransaction.objects.create(
                 wallet=admin_wallet,
                 transaction_type='CREDIT',
                 amount=withdrawal.amount,
                 description=f"Withdrawal request amount credited in Your Account #{withdrawal.id}",
-                transaction_status='SUCCESS'
+                transaction_status='SUCCESS',
+                user_id=withdrawal.user.unique_role_id
             )
             withdrawal.status = status_action
 
 
         if status_action == 'rejected':
             # Refund amount to user's wallet
-            wallet = withdrawal.wallet
-            wallet.current_balance += withdrawal.amount
-            wallet.save()
+            if withdrawal.user.role =="vendor":
+                wallet = withdrawal.wallet
+                wallet.current_balance += withdrawal.amount
+                wallet.save()
+            else:
+                wallet = withdrawal.wallet
+                wallet.payout_balance += withdrawal.amount
+                wallet.save()
+            WalletTransaction.objects.filter(wallet=withdrawal.wallet, amount=withdrawal.amount,transaction_type="DEBIT").update(transaction_status="CANCELLED")
 
             WalletTransaction.objects.create(
                 wallet=wallet,
                 transaction_type='CREDIT',
                 amount=withdrawal.amount,
                 description=f"Refund for rejected withdrawal #{withdrawal.id}",
-                transaction_status='REFUND'
+                transaction_status='SUCCESS'
             )
             withdrawal.status = status_action
         

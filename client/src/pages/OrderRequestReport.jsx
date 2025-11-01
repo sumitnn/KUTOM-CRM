@@ -189,7 +189,6 @@ const OrderRequestReport = () => {
   };
 
   // Chart data
-  const dailyRequestsData = orderRequestsData?.charts?.daily_requests || [];
   const statusDistributionData = orderRequestsData?.charts?.status_distribution || [];
 
   // Custom tooltip for charts
@@ -410,72 +409,8 @@ const OrderRequestReport = () => {
           </div>
         </div>
 
-        {/* Charts */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
-          {/* Daily Requests & Sales Chart */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900">Daily Requests & Sales Trend</h3>
-              <div className="flex items-center gap-4 text-sm text-gray-500">
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                  Requests Count
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                  Sales Amount
-                </div>
-              </div>
-            </div>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={dailyRequestsData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis 
-                    dataKey="request_date" 
-                    tickFormatter={(date) => format(new Date(date), 'MMM dd')}
-                    stroke="#6b7280"
-                    fontSize={12}
-                  />
-                  <YAxis 
-                    yAxisId="left"
-                    stroke="#6b7280"
-                    fontSize={12}
-                  />
-                  <YAxis 
-                    yAxisId="right"
-                    orientation="right"
-                    stroke="#6b7280"
-                    fontSize={12}
-                    tickFormatter={(value) => formatCurrency(value)}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend />
-                  <Line 
-                    yAxisId="left"
-                    type="monotone" 
-                    dataKey="daily_count" 
-                    name="Requests Count"
-                    stroke={chartColors.primary}
-                    strokeWidth={3}
-                    dot={{ fill: chartColors.primary, strokeWidth: 2, r: 4 }}
-                    activeDot={{ r: 6, fill: chartColors.primary }}
-                  />
-                  <Line 
-                    yAxisId="right"
-                    type="monotone" 
-                    dataKey="daily_sales" 
-                    name="Sales Amount"
-                    stroke={chartColors.secondary}
-                    strokeWidth={3}
-                    dot={{ fill: chartColors.secondary, strokeWidth: 2, r: 4 }}
-                    activeDot={{ r: 6, fill: chartColors.secondary }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
+        {/* Charts - Only Status Distribution Chart remains */}
+        <div className="grid grid-cols-1 gap-8 mb-8">
           {/* Status Distribution Chart */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-center justify-between mb-6">

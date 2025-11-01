@@ -107,6 +107,7 @@ class CustomerPurchaseAdmin(admin.ModelAdmin):
         'quantity', 
         'price_per_unit',
         'total_price',
+        'selling_price',
         'payment_method',
         'purchase_date',
         'created_at',

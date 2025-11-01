@@ -66,7 +66,7 @@ class WithdrawalRequestSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = self.context['request'].user
         amount = validated_data.get('amount')
-        
+ 
 
         if amount is None or amount <= 0:
             raise ValidationError({"status": False, "message": "Amount must be greater than zero"})
@@ -99,7 +99,8 @@ class WithdrawalRequestSerializer(serializers.ModelSerializer):
                 transaction_type='DEBIT',
                 amount=amount,
                 description=f"Withdrawal request #{withdrawal.id}",
-                transaction_status='PENDING'
+                transaction_status='PENDING',
+                user_id=user.unique_role_id
             )
 
             # Notify admin
