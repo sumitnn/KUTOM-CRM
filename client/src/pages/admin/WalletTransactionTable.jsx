@@ -69,9 +69,9 @@ const WalletTransactionTable = () => {
   );
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="space-y-2 ">
       {/* Enhanced Filters */}
-      <div className="bg-white/50 backdrop-blur-sm p-6 rounded-xl shadow-lg border border-white/50">
+      <div className="bg-white/50 backdrop-blur-sm p-2 rounded-xl shadow-lg border border-white/50">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>

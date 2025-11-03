@@ -539,11 +539,11 @@ class ResellerOrderRequestSerializer(serializers.ModelSerializer):
             role_product= item_data.get("product")
 
             try:
-                price_obj = ProductVariantPrice.objects.get(
+                price_obj = ProductVariantPrice.objects.filter(
                     variant=variant,
                     role="admin",
                     product=role_product.product
-                )
+                ).last()
             except ProductVariantPrice.DoesNotExist:
                 raise serializers.ValidationError(
                     {"error": f"No valid price found for variant {variant.id} and role admin"}

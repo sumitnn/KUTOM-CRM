@@ -16,7 +16,7 @@ const WalletManagementPage = () => {
   const [showAddModal, setShowAddModal] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-orange-50/20 to-red-50/30 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
+    <div className="min-h-screen  py-4">
       {/* Header Section */}
       <div className="max-w-8xl mx-auto">
         <div className="text-center mb-6 sm:mb-8 lg:mb-12">
@@ -52,7 +52,7 @@ const WalletManagementPage = () => {
 
         {/* Transaction History Section */}
         <section className="bg-white/90 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl border border-white/50 overflow-hidden hover:shadow-xl transition-shadow duration-300">
-          <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 bg-gradient-to-r from-blue-700 to-cyan-500">
+          <div className=" sm:px-6 lg:px-8 py-4 sm:py-5 bg-gradient-to-r from-blue-700 to-cyan-500">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2 sm:space-x-3">
                 <div className="p-1 sm:p-2 bg-white/20 rounded-lg">

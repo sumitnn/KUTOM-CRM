@@ -18,7 +18,8 @@ import {
   FiSettings,
   FiArrowLeft,
   FiCheck,
-  FiAlertCircle
+  FiAlertCircle,
+  FiArrowRight
 } from "react-icons/fi";
 
 const CreateProductPage = () => {
@@ -27,6 +28,15 @@ const CreateProductPage = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [tagInput, setTagInput] = useState("");
   const [activeSection, setActiveSection] = useState("basic");
+
+  // Define sections in order
+  const sections = [
+    { id: "basic", label: "Basic Info", icon: FiPackage },
+    { id: "categories", label: "Categories", icon: FiTag },
+    { id: "specs", label: "Specifications", icon: FiSettings },
+    { id: "pricing", label: "Pricing", icon: FiDollarSign },
+    { id: "images", label: "Images", icon: FiImage }
+  ];
 
   const [product, setProduct] = useState({
     name: "",
@@ -319,6 +329,39 @@ const CreateProductPage = () => {
     });
   };
 
+  // Navigation functions
+  const goToNextSection = () => {
+    const currentIndex = sections.findIndex(section => section.id === activeSection);
+    if (currentIndex < sections.length - 1) {
+      setActiveSection(sections[currentIndex + 1].id);
+    }
+  };
+
+  const goToPreviousSection = () => {
+    const currentIndex = sections.findIndex(section => section.id === activeSection);
+    if (currentIndex > 0) {
+      setActiveSection(sections[currentIndex - 1].id);
+    }
+  };
+
+  const isCurrentSectionValid = () => {
+    switch (activeSection) {
+      case "basic":
+        return product.name && product.brand && product.short_description && product.description;
+      case "categories":
+        return product.category;
+      case "pricing":
+        return !formErrors.sizes;
+      case "images":
+        return !formErrors.image;
+      case "specs":
+        // Specifications are optional, so always valid
+        return true;
+      default:
+        return false;
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -373,14 +416,8 @@ const CreateProductPage = () => {
     product.name && product.description && product.short_description && 
     product.brand && product.category;
 
-  // Navigation sections
-  const sections = [
-    { id: "basic", label: "Basic Info", icon: FiPackage },
-    { id: "categories", label: "Categories", icon: FiTag },
-    { id: "specs", label: "Specifications", icon: FiSettings },
-    { id: "pricing", label: "Pricing", icon: FiDollarSign },
-    { id: "images", label: "Images", icon: FiImage }
-  ];
+  const isLastSection = activeSection === sections[sections.length - 1].id;
+  const isFirstSection = activeSection === sections[0].id;
 
   return (
     <div className="min-h-screen ">
@@ -413,7 +450,7 @@ const CreateProductPage = () => {
                     {isFormValid ? 'Ready to create' : 'Complete all required fields'}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {sizes.length} size{sizes.length !== 1 ? 's' : ''} • {images.length} image{images.length !== 1 ? 's' : ''}
+                    Step {sections.findIndex(s => s.id === activeSection) + 1} of {sections.length} • {sizes.length} size{sizes.length !== 1 ? 's' : ''} • {images.length} image{images.length !== 1 ? 's' : ''}
                   </p>
                 </div>
               </div>
@@ -423,8 +460,9 @@ const CreateProductPage = () => {
           {/* Navigation Tabs */}
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-sm border border-gray-200/50">
             <div className="flex overflow-x-auto scrollbar-hide">
-              {sections.map((section) => {
+              {sections.map((section, index) => {
                 const Icon = section.icon;
+                const isCompleted = index < sections.findIndex(s => s.id === activeSection);
                 return (
                   <button
                     key={section.id}
@@ -432,10 +470,16 @@ const CreateProductPage = () => {
                     className={`flex items-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all duration-300 whitespace-nowrap cursor-pointer ${
                       activeSection === section.id
                         ? 'bg-primary text-white shadow-lg'
+                        : isCompleted
+                        ? 'bg-green-100 text-green-700 hover:bg-green-200'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                     }`}
                   >
-                    <Icon className="w-4 h-4" />
+                    {isCompleted ? (
+                      <FiCheck className="w-4 h-4" />
+                    ) : (
+                      <Icon className="w-4 h-4" />
+                    )}
                     {section.label}
                   </button>
                 );
@@ -449,7 +493,7 @@ const CreateProductPage = () => {
           <div className="lg:col-span-3">
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Basic Information Section */}
-              {(activeSection === "basic" || activeSection === "all") && (
+              {activeSection === "basic" && (
                 <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-2 h-6 bg-gradient-to-b from-primary to-primary/70 rounded-full"></div>
@@ -596,7 +640,7 @@ const CreateProductPage = () => {
               )}
 
               {/* Categories Section */}
-              {(activeSection === "categories" || activeSection === "all") && (
+              {activeSection === "categories" && (
                 <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-2 h-6 bg-gradient-to-b from-green-500 to-green-400 rounded-full"></div>
@@ -646,7 +690,7 @@ const CreateProductPage = () => {
               )}
 
               {/* Product Specifications Section */}
-              {(activeSection === "specs" || activeSection === "all") && (
+              {activeSection === "specs" && (
                 <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-2 h-6 bg-gradient-to-b from-purple-500 to-purple-400 rounded-full"></div>
@@ -749,7 +793,7 @@ const CreateProductPage = () => {
               )}
 
               {/* Product Sizes & Pricing Section */}
-              {(activeSection === "pricing" || activeSection === "all") && (
+              {activeSection === "pricing" && (
                 <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                     <div className="flex items-center gap-3">
@@ -978,7 +1022,7 @@ const CreateProductPage = () => {
               )}
 
               {/* Images Section */}
-              {(activeSection === "images" || activeSection === "all") && (
+              {activeSection === "images" && (
                 <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-2 h-6 bg-gradient-to-b from-pink-500 to-pink-400 rounded-full"></div>
@@ -1088,33 +1132,61 @@ const CreateProductPage = () => {
                 </div>
               )}
 
-              {/* Submit Button */}
+              {/* Navigation Buttons */}
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
-                <div className="flex flex-col sm:flex-row justify-end gap-4">
-                  <button
-                    type="button"
-                    onClick={() => navigate("/vendor/products")}
-                    className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-300 cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isLoading || !isFormValid}
-                    className="flex items-center justify-center gap-3 px-8 py-3 bg-gradient-to-r from-primary to-primary/90 text-white rounded-xl font-semibold hover:from-primary/90 hover:to-primary transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-lg hover:shadow-xl"
-                  >
-                    {isLoading ? (
-                      <>
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Creating Product...
-                      </>
-                    ) : (
-                      <>
-                        <FiCheck className="w-5 h-5" />
-                        Create Product
-                      </>
+                <div className="flex flex-col sm:flex-row justify-between gap-4">
+                  <div>
+                    {!isFirstSection && (
+                      <button
+                        type="button"
+                        onClick={goToPreviousSection}
+                        className="flex items-center gap-2 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-300 cursor-pointer"
+                      >
+                        <FiArrowLeft className="w-4 h-4" />
+                        Previous
+                      </button>
                     )}
-                  </button>
+                  </div>
+                  
+                  <div className="flex gap-4">
+                    <button
+                      type="button"
+                      onClick={() => navigate("/vendor/products")}
+                      className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-300 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    
+                    {!isLastSection ? (
+                      <button
+                        type="button"
+                        onClick={goToNextSection}
+                        disabled={!isCurrentSectionValid()}
+                        className="flex items-center justify-center gap-3 px-8 py-3 bg-gradient-to-r from-primary to-primary/90 text-white rounded-xl font-semibold hover:from-primary/90 hover:to-primary transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-lg hover:shadow-xl"
+                      >
+                        Next
+                        <FiArrowRight className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <button
+                        type="submit"
+                        disabled={isLoading || !isFormValid}
+                        className="flex items-center justify-center gap-3 px-8 py-3 bg-gradient-to-r from-primary to-primary/90 text-white rounded-xl font-semibold hover:from-primary/90 hover:to-primary transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-lg hover:shadow-xl"
+                      >
+                        {isLoading ? (
+                          <>
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Creating Product...
+                          </>
+                        ) : (
+                          <>
+                            <FiCheck className="w-5 h-5" />
+                            Create Product
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </form>
@@ -1127,49 +1199,80 @@ const CreateProductPage = () => {
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
                 <h4 className="text-lg font-bold text-gray-900 mb-4">Creation Progress</h4>
                 <div className="space-y-4">
-                  {sections.map((section) => (
-                    <button
-                      key={section.id}
-                      onClick={() => setActiveSection(section.id)}
-                      className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-300 cursor-pointer ${
-                        activeSection === section.id
-                          ? 'bg-primary text-white shadow-lg'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      <div className={`w-2 h-2 rounded-full ${
-                        activeSection === section.id ? 'bg-white' : 'bg-gray-400'
-                      }`}></div>
-                      <span className="font-semibold text-sm">{section.label}</span>
-                    </button>
-                  ))}
+                  {sections.map((section, index) => {
+                    const isCompleted = index < sections.findIndex(s => s.id === activeSection);
+                    const isCurrent = section.id === activeSection;
+                    return (
+                      <button
+                        key={section.id}
+                        onClick={() => setActiveSection(section.id)}
+                        className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-300 cursor-pointer ${
+                          isCurrent
+                            ? 'bg-primary text-white shadow-lg'
+                            : isCompleted
+                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        <div className={`w-2 h-2 rounded-full ${
+                          isCurrent ? 'bg-white' : isCompleted ? 'bg-green-500' : 'bg-gray-400'
+                        }`}></div>
+                        <span className="font-semibold text-sm">{section.label}</span>
+                        {isCompleted && <FiCheck className="w-4 h-4 ml-auto" />}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               {/* Requirements Card */}
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
-                <h4 className="text-lg font-bold text-gray-900 mb-4">Requirements</h4>
+                <h4 className="text-lg font-bold text-gray-900 mb-4">Current Step Requirements</h4>
                 <div className="space-y-3">
-                  <div className={`flex items-center gap-3 ${product.name ? 'text-green-600' : 'text-gray-400'}`}>
-                    <FiCheck className="w-5 h-5" />
-                    <span className="text-sm font-semibold">Product Name</span>
-                  </div>
-                  <div className={`flex items-center gap-3 ${product.brand ? 'text-green-600' : 'text-gray-400'}`}>
-                    <FiCheck className="w-5 h-5" />
-                    <span className="text-sm font-semibold">Brand</span>
-                  </div>
-                  <div className={`flex items-center gap-3 ${product.category ? 'text-green-600' : 'text-gray-400'}`}>
-                    <FiCheck className="w-5 h-5" />
-                    <span className="text-sm font-semibold">Category</span>
-                  </div>
-                  <div className={`flex items-center gap-3 ${!formErrors.sizes ? 'text-green-600' : 'text-red-400'}`}>
-                    <FiCheck className="w-5 h-5" />
-                    <span className="text-sm font-semibold">Pricing & Sizes</span>
-                  </div>
-                  <div className={`flex items-center gap-3 ${!formErrors.image ? 'text-green-600' : 'text-red-400'}`}>
-                    <FiCheck className="w-5 h-5" />
-                    <span className="text-sm font-semibold">Main Image</span>
-                  </div>
+                  {activeSection === "basic" && (
+                    <>
+                      <div className={`flex items-center gap-3 ${product.name ? 'text-green-600' : 'text-gray-400'}`}>
+                        <FiCheck className="w-5 h-5" />
+                        <span className="text-sm font-semibold">Product Name</span>
+                      </div>
+                      <div className={`flex items-center gap-3 ${product.brand ? 'text-green-600' : 'text-gray-400'}`}>
+                        <FiCheck className="w-5 h-5" />
+                        <span className="text-sm font-semibold">Brand</span>
+                      </div>
+                      <div className={`flex items-center gap-3 ${product.short_description ? 'text-green-600' : 'text-gray-400'}`}>
+                        <FiCheck className="w-5 h-5" />
+                        <span className="text-sm font-semibold">Short Description</span>
+                      </div>
+                      <div className={`flex items-center gap-3 ${product.description ? 'text-green-600' : 'text-gray-400'}`}>
+                        <FiCheck className="w-5 h-5" />
+                        <span className="text-sm font-semibold">Description</span>
+                      </div>
+                    </>
+                  )}
+                  {activeSection === "categories" && (
+                    <div className={`flex items-center gap-3 ${product.category ? 'text-green-600' : 'text-red-400'}`}>
+                      <FiCheck className="w-5 h-5" />
+                      <span className="text-sm font-semibold">Category Selection</span>
+                    </div>
+                  )}
+                  {activeSection === "pricing" && (
+                    <div className={`flex items-center gap-3 ${!formErrors.sizes ? 'text-green-600' : 'text-red-400'}`}>
+                      <FiCheck className="w-5 h-5" />
+                      <span className="text-sm font-semibold">Valid Pricing & Sizes</span>
+                    </div>
+                  )}
+                  {activeSection === "images" && (
+                    <div className={`flex items-center gap-3 ${!formErrors.image ? 'text-green-600' : 'text-red-400'}`}>
+                      <FiCheck className="w-5 h-5" />
+                      <span className="text-sm font-semibold">Main Image</span>
+                    </div>
+                  )}
+                  {activeSection === "specs" && (
+                    <div className="text-green-600 flex items-center gap-3">
+                      <FiCheck className="w-5 h-5" />
+                      <span className="text-sm font-semibold">Optional - Ready to proceed</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
