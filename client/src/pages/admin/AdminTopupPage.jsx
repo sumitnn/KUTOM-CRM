@@ -6,7 +6,7 @@ const TopUpRequestsTable = lazy(() => import('./TopUpRequestsTable'))
 
 const AdminTopupPage = () => {
   return (
-    <section className="p-4 lg:p-6">
+    <section className="py-4">
       <div className="max-w-8xl mx-auto">
         <div className="text-center mb-8">
           <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-3">
