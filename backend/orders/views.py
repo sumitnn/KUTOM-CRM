@@ -746,13 +746,14 @@ class UpdateOrderStatusView(APIView):
                 pvp.save()
     def _setup_stock_inventory(self, product, variant, user, item, order_id):
         """Setup or update stock inventory"""
+
         stock_inv, created = StockInventory.objects.get_or_create(
             user=user,
             product=product,
             variant=variant,
             batch_number=item.batch_number,
             defaults={
-                "total_quantity": item.quantity,
+                
                 "notes": f"Initial stock from Order #{order_id}",
                 "manufacture_date": item.manufacture_date,
                 "expiry_date": item.expiry_date,

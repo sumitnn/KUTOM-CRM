@@ -25,7 +25,7 @@ const AddressModal = ({ address, onClose, onSave }) => {
 
   return (
     <ModalPortal>
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
         <div className="flex justify-between items-center border-b px-4 py-3">
           <div className="flex items-center space-x-2">

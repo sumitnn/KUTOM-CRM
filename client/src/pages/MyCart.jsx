@@ -99,7 +99,7 @@ const MyCart = ({ role }) => {
     if (item.variant?.product_variant_prices?.[0]?.total_available_quantity) {
       return Number(item.variant.product_variant_prices[0].total_available_quantity);
     }
-    return item.maxQuantity || 100; // Fallback to maxQuantity or default 100
+    return 0 ; 
   };
 
   const handleQuantityChange = (cartItemId, newQuantity) => {
@@ -107,8 +107,12 @@ const MyCart = ({ role }) => {
     if (!item) return;
 
     const maxAvailable = getMaxAvailableQuantity(item);
-    
+  
     // Prevent ordering more than available quantity
+    if (maxAvailable === 0) {
+      toast.error(`Sorry, This Product is currently out of stock`);
+      return;
+    }
     if (newQuantity > maxAvailable) {
       toast.error(`Only ${maxAvailable} units available for ${item.name}`);
       return;
@@ -160,11 +164,15 @@ const MyCart = ({ role }) => {
       const maxAvailable = getMaxAvailableQuantity(item);
       return item.quantity > maxAvailable;
     });
-
+    
     if (outOfStockItems.length > 0) {
-      toast.error(`Some items exceed available quantity. Please adjust quantities.`);
-      return;
+    if (role === "admin") {
+      toast.error("Some items are Out Of Stock. Please contact the vendor to add more stock.");
+    } else {
+      toast.error("Some items exceed available quantity. Please adjust quantities.");
     }
+    return;
+  }
 
     try {
       if (role === "stockist" || role === "reseller") {

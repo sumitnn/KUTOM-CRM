@@ -121,7 +121,7 @@ class ProductImageAdmin(admin.ModelAdmin):
 
 @admin.register(ProductVariantPrice)
 class ProductVariantPriceAdmin(admin.ModelAdmin):
-    list_display = ('id','product', 'variant', 'user', 'role', 'price', 'discount', 'gst_percentage', 'actual_price','stockist_price','reseller_price')
+    list_display = ('id','product', 'variant', 'user', 'role', 'price', 'discount', 'gst_percentage', 'actual_price','stockist_price','reseller_price','reseller_gst','reseller_discount','stockist_gst','stockist_discount')
     search_fields = ('product__name', 'variant__name', 'user__username')
     list_filter = ('role', 'user')
     

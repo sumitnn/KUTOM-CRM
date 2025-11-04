@@ -883,8 +883,9 @@ class ProductCommissionAPIView(APIView):
 
 class ProductPriceUpdateAPIView(APIView):
     permission_classes = [IsAdminRole]
-    
+
     def put(self, request, product_id, variant_id):
+        
         try:
             # ✅ Locate the correct admin-level price record
             obj = ProductVariantPrice.objects.filter(
@@ -898,20 +899,42 @@ class ProductPriceUpdateAPIView(APIView):
                     {"error": "Price record not found for this variant"},
                     status=status.HTTP_404_NOT_FOUND
                 )
+            print(request.data)
+            # === Parse Input ===
+            stockist_price = Decimal(request.data.get('stockist_price', 0))
+            stockist_discount = Decimal(request.data.get('stockist_discount', 0))
+            stockist_gst = Decimal(request.data.get('stockist_gst', 0))
+            stockist_base_price = Decimal(request.data.get('stockist_actual_price', 0))
+            
+            reseller_price = Decimal(request.data.get('reseller_price', 0))
+            reseller_discount = Decimal(request.data.get('reseller_discount', 0))
+            reseller_gst = Decimal(request.data.get('reseller_gst', 0))
+            reseller_base_price = Decimal(request.data.get('reseller_actual_price', 0))
 
-            # ✅ Safely parse and update decimal fields
-            reseller_price = request.data.get('reseller_price')
-            stockist_price = request.data.get('stockist_price')
+            
 
-            if reseller_price is not None:
-                obj.reseller_price = Decimal(reseller_price or 0)
-            if stockist_price is not None:
-                obj.stockist_price = Decimal(stockist_price or 0)
+            # === Update object fields ===
+            obj.stockist_price = stockist_price
+            obj.stockist_discount = stockist_discount
+            obj.stockist_gst = stockist_gst
+            obj.stockist_actual_price= stockist_base_price
 
-            obj.save()
+            obj.reseller_price = reseller_price
+            obj.reseller_discount = reseller_discount
+            obj.reseller_gst = reseller_gst
+            obj.reseller_actual_price= reseller_base_price
 
-            return Response({"success": True}, status=status.HTTP_200_OK)
-        
+            obj.save(update_fields=[
+                'stockist_price', 'stockist_discount', 'stockist_gst',
+                'reseller_price', 'reseller_discount', 'reseller_gst','reseller_actual_price','stockist_actual_price'
+            ])
+
+            return Response({
+                "success": True,
+                "final_stockist_price": float(stockist_price),
+                "final_reseller_price": float(reseller_price)
+            }, status=status.HTTP_200_OK)
+
         except Exception as e:
             return Response(
                 {"error": str(e)},
@@ -1010,6 +1033,8 @@ class StockListCreateAPIView(APIView):
             queryset = queryset.filter(total_quantity__gt=5)
         elif status =="out_of_stock":
             queryset = queryset.filter(total_quantity__lte=5)
+        
+        queryset=queryset.order_by('-created_at')
 
         serializer = StockInventorySerializer(queryset, many=True)
         return Response(serializer.data)

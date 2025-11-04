@@ -31,6 +31,7 @@ class OrderService:
             total_price = Decimal('0.00')
             validated_items = []
             sellers = set()
+            
 
             # Validate and calculate all items
             for item in items_data:

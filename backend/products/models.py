@@ -229,8 +229,17 @@ class ProductVariantPrice(models.Model):
     gst_percentage = models.IntegerField(default=0)
     gst_tax = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Changed to Decimal
     actual_price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], default=0)
+
     stockist_price=models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], default=0)
+    stockist_gst=models.IntegerField(default=0)
+    stockist_discount=models.IntegerField(default=0)
+    stockist_actual_price=models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], default=0)
+
     reseller_price=models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], default=0)
+    reseller_gst=models.IntegerField(default=0)
+    reseller_discount=models.IntegerField(default=0)
+    reseller_actual_price=models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], default=0)
+
 
     class Meta:
         unique_together = ['variant', 'role', 'user','actual_price']
@@ -243,6 +252,8 @@ class ProductVariantPrice(models.Model):
     
     def save(self, *args, **kwargs):
         # Calculate actual price with discount
+        
+
         if self.discount > 0:
             discount_amount = (self.price * Decimal(self.discount)) / Decimal(100)
             self.actual_price = self.price - discount_amount

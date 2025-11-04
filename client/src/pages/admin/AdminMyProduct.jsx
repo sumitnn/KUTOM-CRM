@@ -25,8 +25,7 @@ import {
     FiChevronRight,
     FiRefreshCw,
     FiLayers,
-    FiUser,
-    FiUsers
+ 
 } from "react-icons/fi";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -493,7 +492,7 @@ const AdminMyProduct = () => {
                                     {products.map((product) => {
                                         const totalStock = getTotalStock(product);
                                         
-                                        const variantsCount = product.product_detail?.variants?.length || 0;
+                                        const variantsCount = product?.variants_detail.length || 0;
                                         
                                         return (
                                             <tr key={product.id} className="hover:bg-gray-50">

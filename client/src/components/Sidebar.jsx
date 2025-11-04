@@ -56,6 +56,19 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
     if (isMobile && onMobileClose) onMobileClose();
   };
 
+  // 🆕 NEW: Handle parent menu click
+  const handleParentMenuClick = (item) => {
+    const hasChildren = Array.isArray(item.children);
+    
+    if (hasChildren) {
+      // If it has children, toggle the menu
+      toggleMenu(item.label);
+    } else if (item.path) {
+      // If it has a path and no children, navigate
+      handleNavigation(item.path);
+    }
+  };
+
   useEffect(() => {
     if (!expanded) {
       setOpenMenus({});
@@ -333,7 +346,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
                       ? "bg-blue-600 shadow-lg shadow-blue-500/25 text-white"
                       : "text-slate-300 hover:bg-slate-700 hover:text-white"
                   }`}
-                  onClick={() => !hasChildren && item.path && handleNavigation(item.path)}
+                  onClick={() => handleParentMenuClick(item)} // 🆕 UPDATED: Use new handler
                   title={!expanded ? (item.parentLabel ? `${item.parentLabel} → ${item.label}` : item.label) : ""}
                 >
                   <div className="flex items-center gap-4">
