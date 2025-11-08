@@ -756,7 +756,7 @@ const SalesPage = ({ role }) => {
       {/* Status Update Modal */}
       {selectedOrder && (
         <ModalPortal>
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-bold text-gray-800">
@@ -1119,7 +1119,7 @@ const SalesPage = ({ role }) => {
       {/* Batch Management Modal */}
       {showBatchModal && selectedOrderForBatch && (
         <ModalPortal>
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-bold text-gray-800">Manage Batch Details</h3>
@@ -1261,7 +1261,7 @@ const SalesPage = ({ role }) => {
       {/* Order Details Modal */}
       {showOrderDetails && selectedOrderForDetails && (
         <Suspense fallback={
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-8">
               <span className="loading loading-spinner loading-lg text-primary"></span>
             </div>

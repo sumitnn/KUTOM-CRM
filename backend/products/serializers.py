@@ -138,7 +138,8 @@ class ProductVariantPriceSerializer(serializers.ModelSerializer):
         model = ProductVariantPrice
         fields = [
             "id", "user", "user_name", "role", "role_display", "price", "discount",
-            "gst_percentage", "gst_tax", "actual_price","stockist_price","reseller_price","total_available_quantity"
+            "gst_percentage", "gst_tax", "actual_price","stockist_price","reseller_price","total_available_quantity",
+            "reseller_gst","reseller_discount","stockist_gst","stockist_discount","stockist_actual_price","reseller_actual_price",
         ]
     def get_total_available_quantity(self, obj):
         from .models import StockInventory  # avoid circular import
@@ -473,12 +474,14 @@ class ProductCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         request = self.context["request"]
         user = request.user
+       
 
         tags_data = validated_data.pop("tags", [])
         features_data = validated_data.pop("features", [])
         sizes_data = validated_data.pop("sizes", [])
         price_tiers_data = validated_data.pop("price_tiers", [])
         
+        print(sizes_data)
         
 
         # create product
@@ -547,7 +550,7 @@ class ProductCreateSerializer(serializers.ModelSerializer):
             variant = ProductVariant.objects.create(
                 product=product,
                 name=size.get("size") or f"Variant {idx+1}",
-                is_default=size.get("is_default", (idx == 0)),
+                is_default=(idx == 0),
                 is_active=True,
             )
             variant_objects.append(variant)
@@ -579,7 +582,7 @@ class ProductCreateSerializer(serializers.ModelSerializer):
             product=product,
             user=user,
             role=user.role,
-            is_featured=True,
+            is_featured=False,
         )
         if variant_objects:
             role_based_product.variants.set(variant_objects)

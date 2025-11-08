@@ -5,7 +5,7 @@ import ModalPortal from "../../components/ModalPortal";
 
 const ProductDetailsModal = ({ product, isOpen, onClose }) => {
     if (!isOpen || !product) return null;
-
+    
     // Get first image
     const getFirstImage = () => {
         const images = product.product_detail?.images || [];
@@ -149,7 +149,7 @@ const ProductDetailsModal = ({ product, isOpen, onClose }) => {
                                                 </div>
                                                 <div>
                                                     <label className="font-semibold text-gray-600">Total Variants</label>
-                                                    <p className="mt-1">{product.product_detail?.variants?.length || 0}</p>
+                                                    <p className="mt-1">{product.variants_detail?.length || 0}</p>
                                                 </div>
                                             </div>
                                         </div>

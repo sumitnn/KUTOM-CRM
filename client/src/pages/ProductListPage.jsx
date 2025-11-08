@@ -2,13 +2,10 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   FiEdit, 
-  FiTrash2, 
   FiEye, 
   FiSearch, 
   FiX, 
-  FiFilter, 
-  FiCopy, 
-  FiShoppingCart,
+  FiCopy,
   FiTag,
   FiPercent,
   FiDollarSign,
@@ -16,15 +13,12 @@ import {
 } from "react-icons/fi";
 import {
   useGetAllProductsQuery,
-  useDeleteProductMutation,
 } from "../features/product/productApi";
 import { useGetBrandsQuery } from "../features/brand/brandApi";
 import {
   useGetCategoriesQuery,
   useGetSubcategoriesByCategoryQuery,
 } from '../features/category/categoryApi';
-import { useDispatch, useSelector } from "react-redux";
-import { addItem } from "../features/cart/cartSlice";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -84,8 +78,6 @@ const copyToClipboard = (text) => {
 
 const ProductListPage = ({ role }) => {
   const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const cartItems = useSelector((state) => state.cart.items);
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState("");
@@ -108,21 +100,19 @@ const ProductListPage = ({ role }) => {
     brand: selectedBrand,
   });
 
-  const [deleteProductApi] = useDeleteProductMutation();
-
   // Extract products from the API response
-const products = useMemo(() => {
-  return apiResponse.map(item => ({
-    id: item.id, // keep top-level ID separate
-    product_id: item.product_detail?.id, // store product_detail id separately
-    product_detail: item.product_detail, // keep full product_detail nested
-    variants_detail: item.variants_detail,
-    user_name: item.user_name,
-    user_unique_id: item.user_unique_id,
-    role: item.role,
-    is_featured: item.is_featured,
-  }));
-}, [apiResponse]);
+  const products = useMemo(() => {
+    return apiResponse.map(item => ({
+      id: item.id, // keep top-level ID separate
+      product_id: item.product_detail?.id, // store product_detail id separately
+      product_detail: item.product_detail, // keep full product_detail nested
+      variants_detail: item.variants_detail,
+      user_name: item.user_name,
+      user_unique_id: item.user_unique_id,
+      role: item.role,
+      is_featured: item.is_featured,
+    }));
+  }, [apiResponse]);
   
 
   const { data: categories = [] } = useGetCategoriesQuery();
@@ -142,68 +132,6 @@ const products = useMemo(() => {
     setSelectedSubCategory("");
     setSelectedBrand("");
   };
-
-  const deleteProduct = async (id) => {
-    if (window.confirm("Are you sure you want to delete this product?")) {
-      try {
-        await deleteProductApi(id).unwrap();
-        toast.success("Product deleted successfully!");
-        refetch();
-      } catch (error) {
-        toast.error("Failed to delete product");
-        console.error("Failed to delete product:", error);
-      }
-    }
-  };
-
-const handleAddToCart = (prod) => {
-  const defaultVariant = prod.variants_detail?.find(variant => variant.is_default) || prod.variants_detail?.[0];
-  
-  if (!defaultVariant) {
-    toast.error("No variant available for this product");
-    return;
-  }
-
-  const priceInfo = getVariantPriceInfo(prod.variants_detail);
-  
-  if (!priceInfo.variantPrice) {
-    toast.error("Price information not available for this product");
-    return;
-  }
-
-  // Create unique cartItemId for precise matching
-  const cartItemId = `${prod.product_id}_${defaultVariant.id}`;
-
-  // Check if exact same product+variant combination exists
-  const isAlreadyInCart = cartItems.some((item) => item.cartItemId === cartItemId);
-
-  if (isAlreadyInCart) {
-    toast.info("Item already in cart.");
-    return;
-  }
-
-  dispatch(
-    addItem({
-      id: prod.id,
-      product_id:prod.product_id,
-      cartItemId: cartItemId, // Add unique identifier
-      name: prod.name,
-      price: Number(priceInfo.priceAfterDiscount),
-      basePrice: Number(priceInfo.basePrice),
-      discount: priceInfo.discount,
-      gst_percentage: priceInfo.gstPercentage,
-      gst_amount: Number(priceInfo.gstAmount),
-      final_price: Number(priceInfo.finalPrice),
-      quantity: 1,
-      image: getProductImage(prod) || "/placeholder.png",
-      variantId: defaultVariant.id,
-      variant: defaultVariant,
-      variantPrice: priceInfo.variantPrice
-    })
-  );
-
-  toast.success("Item added to cart successfully!");
-};
 
   const hasFilters = activeSearch || selectedCategory || selectedSubCategory || selectedBrand;
 
@@ -273,20 +201,6 @@ const handleAddToCart = (prod) => {
             >
               <FiCopy className="w-4 h-4 text-gray-600" />
             </button>
-            
-            {["reseller", "admin"].includes(role) && (
-              <button
-                className="w-10 h-10 bg-primary/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg hover:bg-primary hover:scale-110 transition-all duration-200 cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleAddToCart(prod);
-                }}
-                disabled={prod?.product_detail?.status === 'draft' || !prod.is_featured}
-                title="Add to cart"
-              >
-                <FiShoppingCart className="w-4 h-4 text-white" />
-              </button>
-            )}
           </div>
 
           {/* Vendor Badge */}
@@ -382,18 +296,6 @@ const handleAddToCart = (prod) => {
               <FiEye className="w-4 h-4" />
               View
             </button>
-            
-            {["reseller", "admin"].includes(role) && (
-              <button
-                className="flex-1 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-white py-3 rounded-xl font-semibold transition-all duration-200 hover:shadow-lg cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() => handleAddToCart(prod)}
-                disabled={prod.status === 'draft' || !prod.is_featured}
-                title="Add To Cart"
-              >
-                <FiShoppingCart className="w-4 h-4" />
-                
-              </button>
-            )}
           </div>
 
           {/* Admin/Vendor Actions */}
@@ -406,7 +308,6 @@ const handleAddToCart = (prod) => {
                 <FiEdit className="w-4 h-4" />
                 Edit
               </button>
-             
             </div>
           )}
         </div>
@@ -464,8 +365,6 @@ const handleAddToCart = (prod) => {
 
               {/* Action Buttons */}
               <div className="flex gap-3">
-               
-                
                 {role === "vendor" && (
                   <button
                     className="btn btn-primary cursor-pointer rounded-2xl px-6 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary border-0 shadow-lg hover:shadow-xl transition-all duration-300"

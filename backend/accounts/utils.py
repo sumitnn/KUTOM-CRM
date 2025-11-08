@@ -96,3 +96,50 @@ def send_template_email(to_email, subject, message, html=False, link=None, link_
 
     except Exception as e:
         print(f"Error sending email to {to_email}: {e}")
+
+
+def send_html_email(to_email, subject, messages):
+    """
+    Send a styled HTML email that supports multiple paragraphs.
+    - `messages` can be a list of strings (each will appear as a separate paragraph)
+      or a single string (will be sent as one paragraph).
+    """
+
+    from_name = "StockTn"
+    from_email = formataddr((from_name, "stocktn.com@gmail.com"))
+
+    try:
+        # If messages is a list, combine each item as a paragraph
+        if isinstance(messages, list):
+            message_html = "".join([f"<p>{m}</p>" for m in messages])
+            text_content = "\n\n".join(messages)
+        else:
+            message_html = f"<p>{messages}</p>"
+            text_content = messages
+
+        # HTML email body
+        html_content = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
+              {message_html}
+              <br>
+              <p style="font-size: 13px; color: #666;">
+                Best regards,<br><strong>StockTn Team</strong>
+              </p>
+            </div>
+          </body>
+        </html>
+        """
+
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=text_content,
+            from_email=from_email,
+            to=[to_email],
+        )
+        email.attach_alternative(html_content, "text/html")
+        email.send(fail_silently=False)
+
+    except Exception as e:
+        print(f"Error sending HTML email to {to_email}: {e}")

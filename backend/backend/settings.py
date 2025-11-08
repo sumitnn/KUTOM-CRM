@@ -223,6 +223,7 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 CRONJOBS = [
     # Every day 2am
     ('0 2 * * *', 'products.cron.process_expiring_stock_for_admin_vendor'),
+    ('*/30 * * * *', 'products.cron.transfer_expired_orders_to_default_stockist'),
 ]
 
 # Optional: store cron logs

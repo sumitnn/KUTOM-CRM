@@ -229,8 +229,17 @@ class ProductVariantPrice(models.Model):
     gst_percentage = models.IntegerField(default=0)
     gst_tax = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Changed to Decimal
     actual_price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], default=0)
+
     stockist_price=models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], default=0)
+    stockist_gst=models.IntegerField(default=0)
+    stockist_discount=models.IntegerField(default=0)
+    stockist_actual_price=models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], default=0)
+
     reseller_price=models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], default=0)
+    reseller_gst=models.IntegerField(default=0)
+    reseller_discount=models.IntegerField(default=0)
+    reseller_actual_price=models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], default=0)
+
 
     class Meta:
         unique_together = ['variant', 'role', 'user','actual_price']
@@ -243,6 +252,8 @@ class ProductVariantPrice(models.Model):
     
     def save(self, *args, **kwargs):
         # Calculate actual price with discount
+        
+
         if self.discount > 0:
             discount_amount = (self.price * Decimal(self.discount)) / Decimal(100)
             self.actual_price = self.price - discount_amount
@@ -300,7 +311,7 @@ class RoleBasedProduct(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='role_based_products')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
     variants = models.ManyToManyField(ProductVariant, blank=True, related_name='role_based_products')
-    is_featured = models.BooleanField(default=True)
+    is_featured = models.BooleanField(default=False)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -408,8 +419,26 @@ class StockInventory(models.Model):
             action=action,
             reference_id=reference_id,
         )
+        if change_quantity > 0 and self.user.role == 'stockist':
+            self._reset_transfer_due_orders()
 
         return self.total_quantity
+    
+    def _reset_transfer_due_orders(self):
+        """
+        Clear transfer_due_at for pending stock orders
+        when stock is replenished.
+        """
+        from orders.models import OrderRequest
+        pending_orders = OrderRequest.objects.filter(
+            target_user=self.user,
+            status="pending",
+            transfer_due_at__isnull=False,
+        )
+
+        if pending_orders.exists():
+            count = pending_orders.update(transfer_due_at=None)
+            print(f"✅ Cleared transfer_due_at for {count} pending orders of user {self.user.username}")
     
 class StockInventoryHistory(models.Model):
     stock_inventory = models.ForeignKey(

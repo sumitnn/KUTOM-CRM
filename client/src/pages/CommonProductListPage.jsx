@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { 
   FiEdit, FiTrash2, FiEye, FiSearch, FiX, FiFilter, 
   FiCopy, FiRefreshCw, FiShoppingCart, FiStar, FiTag,
-  FiBox, FiTrendingUp, FiArchive
+  FiBox, FiTrendingUp, FiArchive, FiPercent
 } from "react-icons/fi";
 import {
   useGetAdminProductsQuery,
@@ -17,6 +17,97 @@ import { useDispatch, useSelector } from "react-redux";
 import { addItem } from "../features/cart/cartSlice";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+
+// Add these pricing calculation functions (same as in your product detail page)
+const getBasePrice = (variantPrices, role) => {
+  if (!variantPrices || variantPrices.length === 0) return 0;
+  
+  const priceData = variantPrices[0];
+  switch (role) {
+    case "stockist":
+      return parseFloat(priceData.stockist_actual_price );
+    case "reseller":
+      return parseFloat(priceData.reseller_actual_price );
+    default:
+      return parseFloat(priceData.actual_price);
+  }
+};
+
+const getDiscountPercentage = (variantPrices, role) => {
+  if (!variantPrices || variantPrices.length === 0) return 0;
+  
+  const priceData = variantPrices[0];
+  return role === "stockist" ? priceData.stockist_discount : 
+         role === "reseller" ? priceData.reseller_discount : 
+         0;
+};
+
+const getGstPercentage = (variantPrices, role) => {
+  if (!variantPrices || variantPrices.length === 0) return 0;
+  
+  const priceData = variantPrices[0];
+  return role === "stockist" ? priceData.stockist_gst : 
+         role === "reseller" ? priceData.reseller_gst : 
+         priceData.gst_percentage;
+};
+
+const calculatePriceBreakdown = (variantPrices, role) => {
+  if (!variantPrices || variantPrices.length === 0) {
+    return {
+      basePrice: 0,
+      discountPercentage: 0,
+      discountAmount: 0,
+      priceAfterDiscount: 0,
+      gstPercentage: 0,
+      gstAmount: 0,
+      finalPrice: 0
+    };
+  }
+
+  const basePrice = getBasePrice(variantPrices, role);
+  const discountPercentage = getDiscountPercentage(variantPrices, role);
+  const gstPercentage = getGstPercentage(variantPrices, role);
+  
+  // Calculate discount amount
+  const discountAmount = (basePrice * discountPercentage) / 100;
+  const priceAfterDiscount = basePrice - discountAmount;
+  
+  // Calculate GST amount
+  const gstAmount = (priceAfterDiscount * gstPercentage) / 100;
+  const finalPrice = priceAfterDiscount + gstAmount;
+
+  return {
+    basePrice,
+    discountPercentage,
+    discountAmount,
+    priceAfterDiscount,
+    gstPercentage,
+    gstAmount,
+    finalPrice
+  };
+};
+
+const calculateTotalPrice = (variantPrices, quantity, role) => {
+  if (!variantPrices || variantPrices.length === 0) {
+    return {
+      totalBase: 0,
+      totalDiscount: 0,
+      totalPriceAfterDiscount: 0,
+      totalGst: 0,
+      totalFinal: 0
+    };
+  }
+
+  const breakdown = calculatePriceBreakdown(variantPrices, role);
+  
+  return {
+    totalBase: breakdown.basePrice * quantity,
+    totalDiscount: breakdown.discountAmount * quantity,
+    totalPriceAfterDiscount: breakdown.priceAfterDiscount * quantity,
+    totalGst: breakdown.gstAmount * quantity,
+    totalFinal: breakdown.finalPrice * quantity
+  };
+};
 
 const getProductImage = (prod) => {
   if (prod.product_detail?.images?.length > 0) {
@@ -37,13 +128,13 @@ const getDefaultPrice = (product, role) => {
 
   if (!variantPrice) return "0.00";
 
-  // ✅ Choose price field based on role
+  // Choose price field based on role
   if (role === "stockist") {
-    return variantPrice.stockist_price || variantPrice.actual_price || "0.00";
+    return variantPrice.stockist_price || "0.00";
   } else if (role === "reseller") {
-    return variantPrice.reseller_price || variantPrice.actual_price || "0.00";
+    return variantPrice.reseller_price || "0.00";
   } else {
-    return variantPrice.actual_price || "0.00";
+    return "0.00";
   }
 };
 
@@ -85,7 +176,7 @@ const CommonProductListPage = ({ role }) => {
   const [showFilters, setShowFilters] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
-  const [showOutOfStock, setShowOutOfStock] = useState(false); // New state for out-of-stock filter
+  const [showOutOfStock, setShowOutOfStock] = useState(false);
 
   // API calls
   const {
@@ -147,17 +238,16 @@ const CommonProductListPage = ({ role }) => {
     }
 
     const variant = prod.variants_detail?.[0] || null;
-    const variantPrice = variant?.product_variant_prices?.[0];
+    const variantPrices = variant?.product_variant_prices;
     
-    if (!variant) {
-      toast.error("Product variant not available");
+    if (!variant || !variantPrices || variantPrices.length === 0) {
+      toast.error("Product pricing not available");
       return;
     }
 
     // Check if item already in cart with same variant
     const isAlreadyInCart = cartItems.some(item => 
-      item.product_id === prod.product_detail?.id && 
-      item.variant?.id === variant?.id
+      item.cartItemId === `${prod.product_detail?.id}_${variant?.id}`
     );
 
     if (isAlreadyInCart) {
@@ -165,42 +255,38 @@ const CommonProductListPage = ({ role }) => {
       return;
     }
 
-    // Get role-based price
-    let unitPrice;
-    if (role === "stockist") {
-      unitPrice = variantPrice?.stockist_price || variantPrice?.actual_price;
-    } else if (role === "reseller") {
-      unitPrice = variantPrice?.reseller_price || variantPrice?.actual_price;
-    } else {
-      unitPrice = variantPrice?.actual_price;
-    }
+    // Calculate price breakdown using the same logic as product detail page
+    const breakdown = calculatePriceBreakdown(variantPrices, role);
+    const totalPrice = calculateTotalPrice(variantPrices, 1, role);
 
-    dispatch(
-      addItem({
-        id: prod.product_detail?.id,
-        product_id: prod.product_detail?.id,
-        rolebaseid: prod.id,
-        cartItemId: `${prod.product_detail?.id}_${variant.id}`,
-        name: prod.product_detail?.name || prod.name,
-        price: Number(unitPrice) || 0,
-        actual_price: Number(variantPrice?.actual_price) || 0,
-        quantity: 1,
-        image: getProductImage(prod),
-        variant: {
-          id: variant.id,
-          name: variant.name,
-          sku: variant.sku,
-          product_variant_prices: variant.product_variant_prices ? [variant.product_variant_prices[0]] : [],
-          bulk_prices: variant.bulk_prices || []
-        },
-        product_type: 'admin_product',
-        description: prod.product_detail?.short_description,
-        gst_tax: variantPrice?.gst_tax,
-        gst_percentage: variantPrice?.gst_percentage,
-        maxQuantity: availableQuantity
-      })
-    );
+    const cartItem = {
+      id: prod.id,
+      product_id: prod.product_detail?.id,
+      cartItemId: `${prod.product_detail?.id}_${variant.id}`,
+      name: prod.product_detail?.name || prod.name,
+      base_price: breakdown.basePrice,
+      discount_percentage: breakdown.discountPercentage,
+      discount_amount: breakdown.discountAmount,
+      price_after_discount: breakdown.priceAfterDiscount,
+      gst_percentage: breakdown.gstPercentage,
+      gst_amount: breakdown.gstAmount,
+      final_price: breakdown.finalPrice,
+      quantity: 1,
+      total_price: totalPrice.totalFinal,
+      image: getProductImage(prod),
+      variant: {
+        id: variant.id,
+        name: variant.name,
+        sku: variant.sku,
+        product_variant_prices: variant.product_variant_prices,
+        bulk_prices: variant.bulk_prices || [],
+      },
+      rolebaseid: prod.id,
+      maxQuantity: availableQuantity,
+      user_role: role
+    };
 
+    dispatch(addItem(cartItem));
     toast.success("🎉 Item added to cart!");
   };
 
@@ -209,7 +295,6 @@ const CommonProductListPage = ({ role }) => {
   // Stats for header
   const totalProducts = products.length;
   const outOfStockProducts = products.filter(prod => getAvailableQuantity(prod) <= 0).length;
-  const featuredProducts = products.filter(prod => prod.is_featured).length;
 
   return (
     <div className="min-h-screen  py-4">
@@ -563,14 +648,19 @@ const CommonProductListPage = ({ role }) => {
                   const isOutOfStock = availableQuantity <= 0;
                   const productDetail = prod.product_detail;
                   const variant = prod.variants_detail?.[0];
-                  const variantPrice = variant?.product_variant_prices?.[0];
+                  const variantPrices = variant?.product_variant_prices;
                   
-                  // Get role-based price display
-                  const displayPrice = getDefaultPrice(prod, role);
-                  const actualPrice = variantPrice?.actual_price;
-                  const showDiscount = (role === "stockist" || role === "reseller") && 
-                                    displayPrice !== actualPrice && 
-                                    actualPrice > displayPrice;
+                  // Calculate price breakdown for proper display
+                  const breakdown = variantPrices ? calculatePriceBreakdown(variantPrices, role) : null;
+                  
+                  // Get final price (with GST & discount included)
+                  const finalPrice = breakdown ? breakdown.finalPrice : 0;
+                  const basePrice = breakdown ? breakdown.basePrice : 0;
+                  const discountPercentage = breakdown ? breakdown.discountPercentage : 0;
+                  const gstPercentage = breakdown ? breakdown.gstPercentage : 0;
+                  
+                  const showDiscount = discountPercentage > 0;
+                  const showGST = gstPercentage > 0;
                   
                   return viewMode === 'grid' ? (
                     // Grid View Card
@@ -612,13 +702,22 @@ const CommonProductListPage = ({ role }) => {
                           )}
                           {showDiscount && (
                             <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
-                              {role} Price
+                              {discountPercentage}% OFF
                             </span>
                           )}
                         </div>
                         
+                        {/* GST Badge */}
+                        {showGST && (
+                          <div className="absolute top-3 right-3">
+                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
+                              GST {gstPercentage}%
+                            </span>
+                          </div>
+                        )}
+                        
                         {/* SKU Badge */}
-                        <div className="absolute top-3 right-3">
+                        <div className="absolute bottom-3 left-3">
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
@@ -677,13 +776,20 @@ const CommonProductListPage = ({ role }) => {
                         {/* Price and Stock */}
                         <div className="space-y-2 mb-4">
                           <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-2">
-                              <div className="text-xl font-bold text-green-600">
-                                ₹{displayPrice}
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-2">
+                                <div className="text-xl font-bold text-green-600">
+                                  ₹{finalPrice.toFixed(2)}
+                                </div>
+                                {showDiscount && (
+                                  <div className="text-sm text-slate-400 line-through">
+                                    ₹{basePrice.toFixed(2)}
+                                  </div>
+                                )}
                               </div>
                               {showDiscount && (
-                                <div className="text-sm text-slate-400 line-through">
-                                  ₹{actualPrice}
+                                <div className="text-xs text-green-600 font-medium">
+                                  You save ₹{(basePrice - finalPrice).toFixed(2)}!
                                 </div>
                               )}
                             </div>
@@ -695,9 +801,28 @@ const CommonProductListPage = ({ role }) => {
                               {isOutOfStock ? 'Out of Stock' : `${availableQuantity} available`}
                             </div>
                           </div>
-                          {showDiscount && (
-                            <div className="text-xs text-green-600 font-medium">
-                              🎉 Special {role} pricing applied!
+                          
+                          {/* Price Breakdown */}
+                          {breakdown && (
+                            <div className="text-xs text-gray-500 space-y-1">
+                              {showDiscount && (
+                                <div className="flex justify-between">
+                                  <span>Discount:</span>
+                                  <span className="text-red-500">-{discountPercentage}%</span>
+                                </div>
+                              )}
+                              {showGST && (
+                                <div className="flex justify-between">
+                                  <span>GST:</span>
+                                  <span className="text-blue-500">+{gstPercentage}%</span>
+                                </div>
+                              )}
+                              {(role === "stockist" || role === "reseller") && (
+                                <div className="flex justify-between text-green-600 font-medium">
+                                  <span>{role} Price:</span>
+                                  <span>₹{finalPrice.toFixed(2)}</span>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -757,7 +882,12 @@ const CommonProductListPage = ({ role }) => {
                                 )}
                                 {showDiscount && (
                                   <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
-                                    {role} Price
+                                    {discountPercentage}% OFF
+                                  </span>
+                                )}
+                                {showGST && (
+                                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
+                                    GST {gstPercentage}%
                                   </span>
                                 )}
                               </div>
@@ -787,17 +917,22 @@ const CommonProductListPage = ({ role }) => {
                             <div className="flex flex-col items-end gap-3">
                               <div className="text-right">
                                 <div className="text-2xl font-bold text-green-600">
-                                  ₹{displayPrice}
+                                  ₹{finalPrice.toFixed(2)}
                                 </div>
                                 {showDiscount && (
                                   <>
                                     <div className="text-sm text-slate-400 line-through">
-                                      ₹{actualPrice}
+                                      ₹{basePrice.toFixed(2)}
                                     </div>
                                     <div className="text-xs text-green-600 font-medium">
-                                      {role} pricing
+                                      You save ₹{(basePrice - finalPrice).toFixed(2)}
                                     </div>
                                   </>
+                                )}
+                                {(role === "stockist" || role === "reseller") && (
+                                  <div className="text-xs text-green-600 font-medium">
+                                    {role} pricing applied
+                                  </div>
                                 )}
                                 <div className={`mt-1 px-2 py-1 rounded-lg text-xs font-semibold ${
                                   isOutOfStock 
