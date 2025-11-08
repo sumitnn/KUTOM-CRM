@@ -17,7 +17,7 @@ const Logout = lazy(() => import("../../pages/Logout"));
 const CommonProductListPage = lazy(() => import("../../pages/CommonProductListPage"));
 const OrdersManagement = lazy(() => import("../../pages/OrdersManagement"));
 const UserWalletPage = lazy(() => import("../../pages/UserWalletPage"));
-const MyCart = lazy(() => import("../../pages/MyCart"));
+const CommonMyCart = lazy(() => import("../../pages/CommonMyCart"));
 const CommonProductDetailPage = lazy(() => import("../../pages/CommonProductDetailPage"));
 const Profile = lazy(() => import("../../pages/common/Profile"));
 const ChangePassword = lazy(() => import("../../components/auths/ChangePassword"));
@@ -218,7 +218,7 @@ const ResellerRoutes = [
       element={
         <ResellerMainLayout>
           <Suspense fallback={<Spinner />}>
-            <MyCart role="reseller"/>
+            <CommonMyCart role="reseller"/>
           </Suspense>
         </ResellerMainLayout>
       }

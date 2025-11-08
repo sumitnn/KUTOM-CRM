@@ -13,7 +13,7 @@ import {
   FiAlertCircle,
   FiTag,
   FiLayers,
-  FiTruck,
+
   FiInfo,
   FiImage,
   FiShoppingBag
@@ -96,7 +96,7 @@ const OrderRequestDetailsPage = ({ role }) => {
   const mainProduct = orderRequest.items?.[0]?.product;
 
   return (
-    <div className="px-4 py-8 max-w-7xl mx-auto">
+    <div className="py-4 max-w-8xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div className="flex items-center gap-4">

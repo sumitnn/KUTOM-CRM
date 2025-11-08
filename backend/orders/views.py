@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from .models import *
 from .serializers import *
 from django.utils.timezone import now
-from accounts.permissions import IsAdminRole, IsStockistRole, IsVendorRole, IsAdminOrVendorRole, IsAdminStockistResellerRole,IsAdminOrStockistRole,IsStockistOrResellerRole,IsAdminOrResellerRole,IsResellerRole
+from accounts.permissions import IsAdminRole, IsStockistRole, IsVendorRole, IsAdminOrVendorRole, IsAdminStockistResellerRole,IsAdminOrStockistRole,IsStockistOrResellerRole,IsAdminOrResellerRole,IsResellerRole,IsAdminOrVendorRoleorStockistRole
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import status
@@ -38,7 +38,7 @@ from rest_framework.decorators import api_view, permission_classes
 from accounts.utils import send_email_to_user
 from decimal import Decimal
 from django.core.exceptions import ObjectDoesNotExist
-
+from accounts.utils import send_html_email
 
 class CreateOrderAPIView(generics.CreateAPIView):
     serializer_class = OrderCreateSerializer
@@ -932,19 +932,17 @@ class OrderSummaryView(APIView):
             }
         })
 
-
 class SalesReportView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         user = request.user
         
-        range_filter = request.query_params.get('range', 'last_3_days')  # Default to last 3 days
+        range_filter = request.query_params.get('range', 'last_3_days')
         search_term = request.query_params.get('search', '')
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
 
-        # Date filtering with last 3 days as default
         today = now().date()
         if start_date and end_date:
             try:
@@ -957,89 +955,128 @@ class SalesReportView(APIView):
                 start_date = today
                 end_date = today
             elif range_filter == 'last_3_days':
-                start_date = today - timedelta(days=2)  # Last 3 days including today
+                start_date = today - timedelta(days=2)
                 end_date = today
             elif range_filter == 'this_week':
-                start_date = today - timedelta(days=6)  # Last 7 days
+                start_date = today - timedelta(days=6)
                 end_date = today
             elif range_filter == 'last_month':
                 start_date = today - timedelta(days=30)
                 end_date = today
-            else:  # Default to last 3 days
+            else:
                 start_date = today - timedelta(days=2)
                 end_date = today
 
-       
-        orders = Order.objects.filter(
-            seller=user, 
-            status='delivered',
-            created_at__date__range=(start_date, end_date)
-        ).select_related('buyer').prefetch_related('items__product', 'items__variant')
+        # ---------------------------
+        # CASE 1: Vendor Sales (Order)
+        # ---------------------------
+        if user.role != "stockist":
+            orders = (
+                Order.objects.filter(
+                    seller=user, 
+                    status='delivered',
+                    created_at__date__range=(start_date, end_date)
+                )
+                .select_related('buyer')
+                .prefetch_related('items__product', 'items__variant')
+            )
 
-        # Calculate sales data from order items
-        sales_data = []
-        total_sales = Decimal('0.00')
-        total_quantity = 0
-        total_orders = orders.count()
+            sales_data = []
+            total_sales = Decimal('0.00')
+            total_quantity = 0
+            total_orders = orders.count()
 
-        for order in orders:
-            for item in order.items.all():
-                product_image = None
-                if item.product and item.product.images.exists():
-                    product_image = item.product.images.first().image.url
-                
-                sales_data.append({
-                    'id': f"{order.id}-{item.id}",
-                    'order_date': order.created_at,
-                    'product_name': item.product.name if item.product else 'N/A',
-                    'product_image': product_image,
-                    'variant_name': item.variant.name if item.variant else '-',
-                    'quantity': item.quantity,
-                    'unit_price': item.single_quantity_after_gst_and_discount_price,
-                    'total_price': item.final_price,
-                    'order_id': order.id
-                })
-                total_sales += item.final_price
-                total_quantity += item.quantity
+            for order in orders:
+                for item in order.items.all():
+                    product_image = None
+                    if item.product and item.product.images.exists():
+                        product_image = item.product.images.first().image.url
 
-        # Search filtering
+                    sales_data.append({
+                        'id': f"{order.id}-{item.id}",
+                        'order_date': order.created_at,
+                        'product_name': item.product.name if item.product else 'N/A',
+                        'product_image': product_image,
+                        'variant_name': item.variant.name if item.variant else '-',
+                        'quantity': item.quantity,
+                        'unit_price': item.single_quantity_after_gst_and_discount_price,
+                        'total_price': item.final_price,
+                        'order_id': order.id
+                    })
+                    total_sales += item.final_price
+                    total_quantity += item.quantity
+
+        # -------------------------------
+        # CASE 2: Stockist Sales (OrderRequest)
+        # -------------------------------
+        else:
+            orders = (
+                OrderRequest.objects.filter(
+                    target_user=user,
+                    status='approved',
+                    created_at__date__range=(start_date, end_date)
+                )
+                .select_related('requested_by')
+                .prefetch_related('items__product', 'items__variant')
+            )
+
+            sales_data = []
+            total_sales = Decimal('0.00')
+            total_quantity = 0
+            total_orders = orders.count()
+
+            for order in orders:
+                for item in order.items.all():
+                    product_image = None
+                    if item.product and hasattr(item.product, 'images') and item.product.images.exists():
+                        product_image = item.product.images.first().image.url
+
+                    sales_data.append({
+                        'id': f"{order.id}-{item.id}",
+                        'order_date': order.created_at,
+                        'product_name': item.product.product.name if item.product else 'N/A',
+                        'product_image': product_image,
+                        'variant_name': item.variant.name if item.variant else '-',
+                        'quantity': item.quantity,
+                        'unit_price': item.unit_price,
+                        'total_price': item.total_price,
+                        'order_id': order.id
+                    })
+                    total_sales += item.total_price
+                    total_quantity += item.quantity
+
+        # ---------------------------------
+        # Shared logic for both user types
+        # ---------------------------------
+
         if search_term:
-            sales_data = [sale for sale in sales_data if search_term.lower() in sale['product_name'].lower()]
+            sales_data = [s for s in sales_data if search_term.lower() in s['product_name'].lower()]
 
-        # Get daily sales data for line chart
         daily_sales = {}
         for sale in sales_data:
             date_str = sale['order_date'].strftime('%Y-%m-%d')
-            if date_str not in daily_sales:
-                daily_sales[date_str] = Decimal('0.00')
+            daily_sales.setdefault(date_str, Decimal('0.00'))
             daily_sales[date_str] += sale['total_price']
 
-        daily_sales_list = [{
-            'sale_date__date': date,
-            'daily_total': float(total)
-        } for date, total in sorted(daily_sales.items())]
+        daily_sales_list = [
+            {'sale_date__date': d, 'daily_total': float(t)} 
+            for d, t in sorted(daily_sales.items())
+        ]
 
-        # Get top products for bar chart (top 10)
         product_sales = {}
         for sale in sales_data:
-            product_key = sale['product_name']
-            if product_key not in product_sales:
-                product_sales[product_key] = Decimal('0.00')
-            product_sales[product_key] += sale['total_price']
+            product_sales.setdefault(sale['product_name'], Decimal('0.00'))
+            product_sales[sale['product_name']] += sale['total_price']
 
-        top_products = [{
-            'product__name': product,
-            'product_total': float(total)
-        } for product, total in sorted(
-            product_sales.items(), 
-            key=lambda x: x[1], 
-            reverse=True
-        )[:10]]
+        top_products = [
+            {'product__name': p, 'product_total': float(t)}
+            for p, t in sorted(product_sales.items(), key=lambda x: x[1], reverse=True)[:10]
+        ]
 
         summary_stats = {
             'total_sales': float(total_sales),
             'total_quantity': total_quantity,
-            'total_orders': total_orders
+            'total_orders': total_orders,
         }
 
         response_data = {
@@ -1047,19 +1084,19 @@ class SalesReportView(APIView):
             'summary': summary_stats,
             'charts': {
                 'daily_sales': daily_sales_list,
-                'top_products': top_products
+                'top_products': top_products,
             },
             'filters': {
                 'start_date': start_date.strftime('%Y-%m-%d'),
                 'end_date': end_date.strftime('%Y-%m-%d'),
-                'range': range_filter
-            }
+                'range': range_filter,
+            },
         }
 
         return Response(response_data)
 
 class SalesExportCSVView(APIView):
-    permission_classes = [IsAdminOrVendorRole]
+    permission_classes = [IsAdminOrVendorRoleorStockistRole]
 
     def get(self, request):
         try:
@@ -1069,7 +1106,7 @@ class SalesExportCSVView(APIView):
             start_date = request.query_params.get('start_date')
             end_date = request.query_params.get('end_date')
 
-            # Date filtering (same logic as VendorSalesReportView)
+            # Date filtering (same logic as SalesReportView)
             today = now().date()
             if start_date and end_date:
                 try:
@@ -1094,37 +1131,77 @@ class SalesExportCSVView(APIView):
                     start_date = today - timedelta(days=2)
                     end_date = today
 
-            # Get orders and prepare data
-            orders = Order.objects.filter(
-                seller=user, 
-                status='delivered',
-                created_at__date__range=(start_date, end_date)
-            ).prefetch_related('items__product', 'items__variant')
-
             sales_data = []
-            for order in orders:
-                for item in order.items.all():
-                    sales_data.append({
-                        'order_date': order.created_at.strftime('%Y-%m-%d %H:%M'),
-                        'product_name': item.product.name if item.product else 'N/A',
-                        'variant_name': item.variant.name if item.variant else 'N/A',
-                        'quantity': item.quantity,
-                        'unit_price': str(item.single_quantity_after_gst_and_discount_price),
-                        'total_price': str(item.final_price),
-                        'order_id': order.id
-                    })
 
-            # Search filtering
+            # ---------------------------
+            # CASE 1: Vendor Sales (Order)
+            # ---------------------------
+            if user.role != "stockist":
+                orders = (
+                    Order.objects.filter(
+                        seller=user,
+                        status='delivered',
+                        created_at__date__range=(start_date, end_date),
+                    )
+                    .prefetch_related('items__product', 'items__variant')
+                )
+
+                for order in orders:
+                    for item in order.items.all():
+                        sales_data.append({
+                            'order_date': order.created_at.strftime('%Y-%m-%d %H:%M'),
+                            'product_name': item.product.name if item.product else 'N/A',
+                            'variant_name': item.variant.name if item.variant else 'N/A',
+                            'quantity': item.quantity,
+                            'unit_price': str(item.single_quantity_after_gst_and_discount_price),
+                            'total_price': str(item.final_price),
+                            'order_id': order.id
+                        })
+
+            # -------------------------------
+            # CASE 2: Stockist Sales (OrderRequest)
+            # -------------------------------
+            else:
+                orders = (
+                    OrderRequest.objects.filter(
+                        target_user=user,
+                        status='approved',
+                        created_at__date__range=(start_date, end_date),
+                    )
+                    .prefetch_related('items__product', 'items__variant')
+                )
+
+                for order in orders:
+                    for item in order.items.all():
+                        sales_data.append({
+                            'order_date': order.created_at.strftime('%Y-%m-%d %H:%M'),
+                            'product_name': item.product.product.name if item.product else 'N/A',
+                            'variant_name': item.variant.name if item.variant else 'N/A',
+                            'quantity': item.quantity,
+                            'unit_price': str(item.unit_price),
+                            'total_price': str(item.total_price),
+                            'order_id': order.request_id
+                        })
+
+            # Apply search filtering
             if search_term:
-                sales_data = [sale for sale in sales_data if search_term.lower() in sale['product_name'].lower()]
+                sales_data = [
+                    s for s in sales_data
+                    if search_term.lower() in s['product_name'].lower()
+                ]
 
-            # Create CSV response
+            # ------------------------
+            # Generate CSV file
+            # ------------------------
             response = HttpResponse(content_type='text/csv')
             filename = f"sales_report_{start_date}_to_{end_date}.csv"
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
 
             writer = csv.writer(response)
-            writer.writerow(['Order Date', 'Product', 'Variant', 'Quantity', 'Unit Price', 'Total Price', 'Order ID'])
+            writer.writerow([
+                'Order Date', 'Product', 'Variant', 'Quantity',
+                'Unit Price', 'Total Price', 'Order ID'
+            ])
 
             for sale in sales_data:
                 writer.writerow([
@@ -1134,7 +1211,7 @@ class SalesExportCSVView(APIView):
                     sale['quantity'],
                     sale['unit_price'],
                     sale['total_price'],
-                    sale['order_id']
+                    sale['order_id'],
                 ])
 
             return response
@@ -1308,7 +1385,8 @@ def _handle_status_change(order_request, old_status, new_status,current_user, us
                 amount=total_amount,    
                 description=f"Order Request {order_request.request_id} By Stockist",
                 transaction_status='SUCCESS',
-                is_refund=False
+                is_refund=False,
+                user_id=order_request.requested_by.unique_role_id
             )
         Notification.objects.create(
                 user=current_user,
@@ -1857,7 +1935,6 @@ class UpdateOrderRequestStatusView(APIView):
     permission_classes = [IsStockistOrResellerRole]
 
     def post(self, request, pk):
-        
         try:
             order_request = OrderRequest.objects.get(pk=pk)
         except OrderRequest.DoesNotExist:
@@ -1868,30 +1945,126 @@ class UpdateOrderRequestStatusView(APIView):
             return Response({"error": "Permission denied"}, status=403)
 
         serializer = OrderRequestStatusSerializer(order_request, data=request.data)
-        if serializer.is_valid():
-            new_status = serializer.validated_data['status']
-            old_status = order_request.status
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
 
-            # Validate status change
-            if not request.user.role == "stockist" and new_status == 'cancelled':
-                if old_status != 'pending':
-                    return Response({"error": "Can only cancel pending requests"}, status=400)
-            elif not request.user.role == "stockist":
-                return Response({"error": "Only stockist can update status"}, status=403)
+        new_status = serializer.validated_data['status']
+        old_status = order_request.status
 
-            with transaction.atomic():
-                order_request = serializer.save()
-                self._handle_status_change(
-                    order_request,
-                    old_status,
-                    new_status,
-                    order_request.requested_by,
-                    order_request.target_user
+        # Validate status change
+        if not request.user.role == "stockist" and new_status == 'cancelled':
+            if old_status != 'pending':
+                return Response({"error": "Can only cancel pending requests"}, status=400)
+        elif not request.user.role == "stockist":
+            return Response({"error": "Only stockist can update status"}, status=403)
+
+        # 🧠 Stock validation for stockist approving order
+        if request.user.role == "stockist" and new_status == "approved":
+            insufficient_items = []
+            for item in order_request.items.all():
+                stock = StockInventory.objects.filter(
+                    user=request.user,
+                    product=item.product.product,
+                    variant=item.variant
+                ).first()
+
+                if not stock:
+                    insufficient_items.append({
+                        "product": item.product.product.name,
+                        "variant": item.variant.name,
+                        "reason": "Not found in stock"
+                    })
+                elif stock.total_quantity < item.quantity:
+                    insufficient_items.append({
+                        "product": item.product.product.name,
+                        "variant": item.variant.name,
+                        "reason": f"Only {stock.total_quantity} available, need {item.quantity}"
+                    })
+
+            if insufficient_items:
+                # ✅ Check if transfer_due_at already exists and is still active
+                if order_request.transfer_due_at and order_request.transfer_due_at > timezone.now():
+                    remaining_time = order_request.transfer_due_at - timezone.now()
+                    hours, remainder = divmod(remaining_time.seconds, 3600)
+                    minutes = remainder // 60
+
+                    messages = [
+                        f"Dear {request.user.username},",
+                        f"This is a reminder regarding your order request (ID: {order_request.request_id}).",
+                        "You still don’t have enough stock for the following items:",
+                    ]
+
+                    for item in insufficient_items:
+                        messages.append(f"• {item['product']} — Variant ({item['variant']}) — {item['reason']}")
+
+                    messages.append(
+                        f"You have {hours} hours and {minutes} minutes remaining "
+                        "to update your stock before this order is automatically transferred "
+                        "to the default stockist."
+                    )
+
+                    send_html_email(
+                        to_email=request.user.email,
+                        subject="⏰ Reminder: Insufficient Stock for Order Request",
+                        messages=messages
+                    )
+
+                    return Response({
+                        "error": "Insufficient stock",
+                        "details": insufficient_items,
+                        "message": (
+                            f"You still have {hours} hours, "
+                            f"and {minutes} minutes to update your stock. "
+                            "The order is not yet approved — check your email for details."
+                        )
+                    }, status=400)
+
+                # 🕒 Otherwise, set a new 24-hour transfer window
+                order_request.transfer_due_at = timezone.now() + timedelta(hours=24)
+                order_request.save(update_fields=["status", "transfer_due_at"])
+
+                # 📧 Send email once when timer starts
+                messages = [
+                    f"Dear {request.user.username},",
+                    f"You approved an order request (ID: {order_request.request_id}), "
+                    "but you currently don’t have enough stock for the following items:",
+                ]
+
+                for item in insufficient_items:
+                    messages.append(f"• {item['product']} — Variant ({item['variant']}) — {item['reason']}")
+
+                messages.append(
+                    "Please restock or update your inventory within 24 hours. "
+                    "If not resolved, this request will automatically be transferred to the default stockist."
                 )
 
-            return Response(ResellerOrderRequestSerializer(order_request).data)
+                send_html_email(
+                    to_email=request.user.email,
+                    subject="⚠️ Insufficient Stock for Order Request Approval",
+                    messages=messages
+                )
 
-        return Response(serializer.errors, status=400)
+                return Response({
+                    "error": "Insufficient stock",
+                    "details": insufficient_items,
+                    "message": (
+                        "You have 24 hours to update your stock. "
+                        "The order hasn’t been approved yet — check your email for more details."
+                    )
+                }, status=400)
+
+        # ✅ Normal save if no stock issues
+        with transaction.atomic():
+            order_request = serializer.save()
+            self._handle_status_change(
+                order_request,
+                old_status,
+                new_status,
+                order_request.requested_by,
+                order_request.target_user
+            )
+
+        return Response(ResellerOrderRequestSerializer(order_request).data)
 
     @classmethod
     def _handle_status_change(cls, order_request, old_status, new_status, current_user, user):
@@ -2053,24 +2226,31 @@ class UpdateOrderRequestStatusView(APIView):
                 action="pending",
                 notes="Bulk order placed.",
             )
-
+ 
             # ✅ Step 5: Create Order Items using .save() (triggers custom save logic)
             for item in validated_items:
+                discount_percentage = item.get("discount_percentage", 0) or 0
+                gst_percentage = item.get("gst_percentage", 0) or 0
+                final_price = item["unit_price"]
+
+                # Calculate the base unit price (before discount and GST)
+                base_unit_price = final_price / ((1 + gst_percentage / 100) * (1 - discount_percentage / 100))
+
                 order_item = OrderItem(
                     order=order,
                     product=item["product"],
                     variant=item["variant"],
                     quantity=item["quantity"],
-                    unit_price=item["unit_price"],
-                    discount_percentage=item["discount_percentage"],
-                    gst_percentage=item["gst_percentage"],
+                    unit_price=base_unit_price,  # base price without GST and discount
+                    discount_percentage=discount_percentage,
+                    gst_percentage=gst_percentage,
                     role_based_product=RoleBasedProduct.objects.filter(
                         product=item["product"],
                         user=admin_user,
                         role=admin_user.role
                     ).first(),
                 )
-                order_item.save()  # ✅ Calls your save() method
+                order_item.save() # ✅ Calls your save() method
 
             # ✅ Step 6: Handle Stockist Commission Wallet Credit
             if total_stockist_commission > 0:
@@ -2286,7 +2466,6 @@ class ResellerOrderStatusMange(APIView):
                         variant=variant,
                         batch_number=item.batch_number,
                         defaults={
-                            "total_quantity": item.quantity,
                             "notes": f"Initial stock from Order #{order.id}",
                             "manufacture_date": item.manufacture_date,
                             "expiry_date": item.expiry_date
@@ -2417,18 +2596,32 @@ class ResellerProductsList(generics.ListAPIView):
         user = self.request.user
         return self.queryset.filter(user=user, role='reseller').prefetch_related('variants')
     
-class ResellerVaraintsList(generics.ListAPIView):
-    queryset = ProductVariant.objects.all()
+class ResellerVariantsList(generics.ListAPIView):
     serializer_class = ProductVariantSerializer
     permission_classes = [IsResellerRole]
 
-    def get_queryset(self,product_id=None):
-        product_id = self.request.query_params.get('product_id')
+    def get_queryset(self):
+        user = self.request.user
+        role_product_id = self.request.query_params.get('product_id')
 
-        if product_id:
-            role_prod=RoleBasedProduct.objects.get(id=int(product_id))
-            return self.queryset.filter(product_id=role_prod.product.id)
-        return self.queryset.filter(name="testting")  # return empty queryset
+        # If no product_id provided → return empty
+        if not role_product_id:
+            return ProductVariant.objects.none()
+
+        try:
+            # Get RoleBasedProduct for this reseller and product
+            role_product = RoleBasedProduct.objects.get(
+                id=role_product_id,
+                user=user,
+                role='reseller'
+            )
+
+            # Return only variants linked in RoleBasedProduct
+            return role_product.variants.all()
+
+        except RoleBasedProduct.DoesNotExist:
+            # No matching record found → return empty
+            return ProductVariant.objects.none()
 
 
 class CustomerPurchaseCreateView(generics.CreateAPIView):

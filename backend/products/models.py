@@ -311,7 +311,7 @@ class RoleBasedProduct(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='role_based_products')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
     variants = models.ManyToManyField(ProductVariant, blank=True, related_name='role_based_products')
-    is_featured = models.BooleanField(default=True)
+    is_featured = models.BooleanField(default=False)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -419,8 +419,26 @@ class StockInventory(models.Model):
             action=action,
             reference_id=reference_id,
         )
+        if change_quantity > 0 and self.user.role == 'stockist':
+            self._reset_transfer_due_orders()
 
         return self.total_quantity
+    
+    def _reset_transfer_due_orders(self):
+        """
+        Clear transfer_due_at for pending stock orders
+        when stock is replenished.
+        """
+        from orders.models import OrderRequest
+        pending_orders = OrderRequest.objects.filter(
+            target_user=self.user,
+            status="pending",
+            transfer_due_at__isnull=False,
+        )
+
+        if pending_orders.exists():
+            count = pending_orders.update(transfer_due_at=None)
+            print(f"✅ Cleared transfer_due_at for {count} pending orders of user {self.user.username}")
     
 class StockInventoryHistory(models.Model):
     stock_inventory = models.ForeignKey(

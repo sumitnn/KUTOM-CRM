@@ -12,7 +12,7 @@ const OrderRequestPage =lazy(() => import("../../pages/OrderRequestPage"));
 const ProtectedRoute = lazy(() => import("../ProtectedRoutes"));
 const CommonProductListPage = lazy(() => import("../../pages/CommonProductListPage"));
 const CommonProductDetailPage = lazy(() => import("../../pages/CommonProductDetailPage"));
-const MyCart = lazy(() => import("../../pages/MyCart"));
+const CommonMyCart = lazy(() => import("../../pages/CommonMyCart"));
 const Spinner = lazy(() => import("../../components/common/Spinner"));
 const StockistMainLayout = lazy(() => import("../../layout/stockist/StockistMainLayout"));
 const StockistDashboard = lazy(() => import("../../pages/stockist/StockistDashboard"));
@@ -269,7 +269,7 @@ const StockistRoutes = [
         <StockistMainLayout>
           <ErrorBoundary>
             <Suspense fallback={<Spinner />}>
-              <MyCart role="stockist" />
+              <CommonMyCart role="stockist" />
             </Suspense>
           </ErrorBoundary>
         </StockistMainLayout>

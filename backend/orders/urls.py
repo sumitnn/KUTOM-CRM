@@ -43,7 +43,7 @@ urlpatterns = [
 
     # customer 
     path('customer/products/', ResellerProductsList.as_view(), name='product-list'),
-    path('customer/varaints/', ResellerVaraintsList.as_view(), name='variant-list'),
+    path('customer/varaints/', ResellerVariantsList.as_view(), name='variant-list'),
     path('customer/purchases/', CustomerPurchaseListPaginatedView.as_view(), name='purchase-list'),
     path('customer/purchases/create/', CustomerPurchaseCreateView.as_view(), name='purchase-create'),
     path('customer/purchases/<uuid:id>/', CustomerPurchaseDetailView.as_view(), name='purchase-detail'),

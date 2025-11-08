@@ -474,7 +474,7 @@ class ProductCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         request = self.context["request"]
         user = request.user
-        import pdb; pdb.set_trace()
+       
 
         tags_data = validated_data.pop("tags", [])
         features_data = validated_data.pop("features", [])

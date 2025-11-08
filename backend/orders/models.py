@@ -377,6 +377,7 @@ class OrderRequest(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    transfer_due_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.requested_by} → {self.target_type} ({self.status})"

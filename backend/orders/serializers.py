@@ -328,6 +328,7 @@ class OrderRequestSerializer(serializers.ModelSerializer):
         admin_user = User.objects.filter(role='admin').first()
 
         total_amount = Decimal("0.00")
+ 
 
         # Calculate secure prices
         secure_items = []
@@ -352,15 +353,15 @@ class OrderRequestSerializer(serializers.ModelSerializer):
             
             if request_user and request_user.role =="stockist":
                 unit_price = price_obj.stockist_price
-                # discount = price_obj.discount
-                # gst_percentage = price_obj.gst_percentage
+                discount = price_obj.stockist_discount
+                gst_percentage = price_obj.stockist_gst
+            
+            if request_user and request_user.role =="reseller":
+                unit_price = price_obj.reseller_price
+                discount = price_obj.reseller_discount
+                gst_percentage = price_obj.reseller_gst
 
-            # Apply discount
-            # discounted_price = unit_price - (unit_price * Decimal(discount) / 100)
 
-            # GST calculation
-            # gst_tax = discounted_price * Decimal(gst_percentage) / 100
-            # final_price = discounted_price + gst_tax
 
             total_price = unit_price * quantity
             total_amount += total_price
@@ -369,8 +370,8 @@ class OrderRequestSerializer(serializers.ModelSerializer):
                 "variant": variant,
                 "quantity": quantity,
                 "unit_price": unit_price,
-                "discount": 0,
-                "gst_percentage": 0,
+                "discount": discount,
+                "gst_percentage": gst_percentage,
                 "gst_tax": 0,
                 "final_price": unit_price,
                 "total_price": total_price,
@@ -551,16 +552,9 @@ class ResellerOrderRequestSerializer(serializers.ModelSerializer):
             unit_price=100000
             if request_user and request_user.role =="reseller":
                 unit_price = price_obj.reseller_price
-            # unit_price = price_obj.price
-            # discount = price_obj.discount
-            # gst_percentage = price_obj.gst_percentage
+                discount = price_obj.reseller_discount
+                gst_percentage = price_obj.reseller_gst
 
-            # Apply discount
-            # discounted_price = unit_price - (unit_price * Decimal(discount) / 100)
-
-            # # GST calculation
-            # gst_tax = discounted_price * Decimal(gst_percentage) / 100
-            # final_price = discounted_price + gst_tax
 
             total_price = unit_price * quantity
             total_amount += total_price
@@ -569,8 +563,8 @@ class ResellerOrderRequestSerializer(serializers.ModelSerializer):
                 "variant_id": variant.id,
                 "quantity": quantity,
                 "unit_price": unit_price,
-                "discount": 0,
-                "gst_percentage": 0,
+                "discount": discount,
+                "gst_percentage": gst_percentage,
                 "gst_tax": 0,
                 "final_price": unit_price,
                 "total_price": total_price,

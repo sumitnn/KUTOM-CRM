@@ -46,6 +46,13 @@ const CustomerPurchasesList = ({ role }) => {
   const purchases = purchasesData?.results || [];
   const pagination = purchasesData || {};
 
+  // Calculate total revenue (selling_price - total_price)
+  const totalRevenue = purchases.reduce((sum, purchase) => {
+    const sellingPrice = parseFloat(purchase.selling_price) || 0;
+    const totalPrice = parseFloat(purchase.total_price) || 0;
+    return sum + (sellingPrice - totalPrice);
+  }, 0);
+
   return (
     <div className="min-h-screen py-4 cursor-default">
       <div className="max-w-8xl mx-auto">
@@ -96,7 +103,7 @@ const CustomerPurchasesList = ({ role }) => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Revenue</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(purchases.reduce((sum, purchase) => sum + parseFloat(purchase.total_price), 0))}
+                  {formatCurrency(totalRevenue)}
                 </p>
               </div>
             </div>
@@ -157,15 +164,17 @@ const CustomerPurchasesList = ({ role }) => {
                     Quantity
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Total Amount
+                    Buying Price
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Order Date
+                    Selling Price
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Purchased Date
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Payment Mode
                   </th>
-                  
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -195,8 +204,12 @@ const CustomerPurchasesList = ({ role }) => {
                       {purchase.quantity}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                      {purchase.total_price}
+                      {formatCurrency(purchase.total_price)}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">
+                      {formatCurrency(purchase.selling_price)}
+                    </td>
+                    
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(purchase.purchase_date)}
                     </td>
@@ -209,7 +222,6 @@ const CustomerPurchasesList = ({ role }) => {
                         {purchase.payment_method || 'Not specified'}
                       </span>
                     </td>
-                    
                   </tr>
                 ))}
               </tbody>

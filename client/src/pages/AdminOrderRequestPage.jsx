@@ -536,6 +536,14 @@ const AdminOrderRequestPage = ({ role }) => {
                               {activeTab === "accepted" && (
                                 <>
                                   <button 
+                                    className="btn btn-xs btn-info gap-1 font-bold animate-bounce"
+                                    onClick={() => handleBatchManagement(order)}
+                                    disabled={processingOrders.has(order.id)}
+                                  >
+                                    <FiEdit size={14} />
+                                    Enter Batch Details
+                                  </button>
+                                  <button 
                                     className="btn btn-xs btn-primary gap-1 font-bold"
                                     onClick={() => setSelectedOrder(order)}
                                     disabled={processingOrders.has(order.id)}
@@ -543,14 +551,7 @@ const AdminOrderRequestPage = ({ role }) => {
                                     <FiTruck size={14} />
                                     Dispatch
                                   </button>
-                                  <button 
-                                    className="btn btn-xs btn-info gap-1 font-bold"
-                                    onClick={() => handleBatchManagement(order)}
-                                    disabled={processingOrders.has(order.id)}
-                                  >
-                                    <FiEdit size={14} />
-                                    Batch
-                                  </button>
+                                  
                                 </>
                               )}
                               <button 
@@ -977,7 +978,7 @@ const AdminOrderRequestPage = ({ role }) => {
       {/* Batch Management Modal */}
       {showBatchModal && selectedOrderForBatch && (
         <ModalPortal>
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-bold text-gray-800">Manage Batch Details</h3>

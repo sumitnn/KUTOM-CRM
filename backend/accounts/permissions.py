@@ -42,6 +42,12 @@ class IsAdminOrVendorRole(BasePermission):
         return request.user and request.user.is_authenticated and (
             getattr(request.user, 'role', None) == 'admin' or getattr(request.user, 'role', None) == 'vendor'
         )
+
+class IsAdminOrVendorRoleorStockistRole(BasePermission):
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and (
+            getattr(request.user, 'role', None) == 'admin' or getattr(request.user, 'role', None) == 'vendor' or getattr(request.user, 'role', None) == 'stockist'
+        )
     
 class IsStockistOrResellerRole(BasePermission):
     def has_permission(self, request, view):
