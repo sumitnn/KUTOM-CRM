@@ -87,20 +87,30 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 # Local DB Settings
+if DEBUG:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+else:
 
-DATABASES = {
-'default': {
-    'ENGINE': config('AWS_DATABASE_ENGINE', default='django.db.backends.postgresql'),
-    'NAME': config('AWS_DATABASE_NAME'),
-    'USER': config('AWS_DATABASE_USER'),
-    'PASSWORD': config('AWS_DATABASE_PASSWORD'),
-    'HOST': config('AWS_DATABASE_HOST'),
-    'PORT': config('AWS_DATABASE_PORT'),
-    'OPTIONS': {
-        'connect_timeout': 30,  
-    },
-}
-}
+    # AWS RDS DB Settings
+
+    DATABASES = {
+    'default': {
+        'ENGINE': config('AWS_DATABASE_ENGINE', default='django.db.backends.postgresql'),
+        'NAME': config('AWS_DATABASE_NAME'),
+        'USER': config('AWS_DATABASE_USER'),
+        'PASSWORD': config('AWS_DATABASE_PASSWORD'),
+        'HOST': config('AWS_DATABASE_HOST'),
+        'PORT': config('AWS_DATABASE_PORT'),
+        'OPTIONS': {
+            'connect_timeout': 30,  
+        },
+    }
+    }
 
 
 
