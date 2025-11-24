@@ -79,6 +79,12 @@ class LoginView(APIView):
                 "message": "You can't log in now. Please wait for admin approval.",
                 "success": False
             }, status=status.HTTP_403_FORBIDDEN)
+        
+        if User.objects.filter(email=email, status="inactive_user").exists():
+            return Response({
+                "message": "You can't log in now. Your account is inactive. Please contact the admin.",
+                "success": False
+            }, status=status.HTTP_403_FORBIDDEN)
 
         user = authenticate(request, email=email, password=password)
 
