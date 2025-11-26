@@ -15,6 +15,9 @@ urlpatterns = [
     path('update-user-status/<uuid:pk>/', UpdateUserStatusAPIView.as_view(), name='update-user-status'),
     path('delete-user/<uuid:pk>/', DeleteUserAPIView.as_view(), name='delete-user'),
     path('profile/', ProfileView.as_view(), name='profile'),
+    path('password/', reset_password_by_email, name='password-specific-user'),
+    path('get-email/', get_admin_email, name='get-specific-user'),
+    path('test/', get_api_status, name='get-api-status'),
     path('payment-details/', UserPaymentDetailsView.as_view(), name='user-payment-details'),
     path('admin-payment-details/', ADMINPaymentDetailsView.as_view(), name='admin-payment-details'),
 

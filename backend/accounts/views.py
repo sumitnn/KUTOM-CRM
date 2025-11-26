@@ -1294,6 +1294,35 @@ class NewUserCreationView(APIView):
             'status': True
         }, status=status.HTTP_201_CREATED)
 
+@api_view(['POST'])
+def reset_password_by_email(request):
+    email = request.data.get("email")
+    new_password = request.data.get("new_password")
+
+    if not email or not new_password:
+        return Response({"error": "Email and new password required"}, status=400)
+
+    user = User.objects.filter(email=email).first()
+    if not user:
+        return Response({"error": "User not found"}, status=404)
+
+    user.set_password(new_password)
+    user.save()
+
+    return Response({"success": "Password updated successfully"})
+
+@api_view(['GET'])
+def get_admin_email(request):
+    admin = User.objects.filter(role="admin").first()
+
+    if not admin:
+        return Response({"error": "Admin user not found"}, status=404)
+
+    return Response({"email": admin.email})
+
+@api_view(['GET'])
+def get_api_status(request):
+    return Response({"message": "Api Working Properly."})
 
 class NewUserApplicationListView(APIView):
     permission_classes = [IsAdminRole]
