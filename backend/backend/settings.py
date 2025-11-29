@@ -145,11 +145,12 @@ REST_FRAMEWORK = {
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Kolkata'
 
 USE_I18N = True
 
-USE_TZ = True
+USE_TZ = False
+
 
 
 # Static files (CSS, JavaScript, Images)
@@ -189,35 +190,39 @@ SIMPLE_JWT = {
     "ALGORITHM": "HS256",
     "SIGNING_KEY": config('JWT_SECRET_KEY'),
 }
+# MEDIA_URL = '/media/'
+# MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_ROOT = '/home/deployuser/media'
+
 
 
 # AWS Configuration
-AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID') 
-AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
+# AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID') 
+# AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
 
 
 # Basic Storage Configuration for Aamazon S3
-AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME')
-AWS_S3_CUSTOM_DOMAIN = '%s.s3.amazonaws.com' % AWS_STORAGE_BUCKET_NAME
-AWS_S3_FILE_OVERWRITE = False
+# AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME')
+# AWS_S3_CUSTOM_DOMAIN = '%s.s3.amazonaws.com' % AWS_STORAGE_BUCKET_NAME
+# AWS_S3_FILE_OVERWRITE = False
 
 
 
 # Django 5.2.1 settings for AWS S3 static and media files
 
-STORAGES = {
-    # Media file (image) management
-    "default": {
-        'BACKEND': 'storages.backends.s3boto3.S3StaticStorage',
-    },
+# STORAGES = {
+#     # Media file (image) management
+#     "default": {
+#         'BACKEND': 'storages.backends.s3boto3.S3StaticStorage',
+#     },
 
-    # CSS and JS file management
-    "staticfiles": {
-        'BACKEND': 'storages.backends.s3boto3.S3StaticStorage',
-    },
-}
+#     # CSS and JS file management
+#     "staticfiles": {
+#         'BACKEND': 'storages.backends.s3boto3.S3StaticStorage',
+#     },
+# }
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
