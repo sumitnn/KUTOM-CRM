@@ -1,0 +1,1 @@
+import{bk as s,u,a as n,r as c,bl as g}from"./index-oHO_bMXB.js";const f=()=>{const[o]=s(),t=u(),e=n();return c.useEffect(()=>{(async()=>{const r=localStorage.getItem("refresh_token");try{r&&await o(r).unwrap()}catch(a){console.error("Logout API failed:",a)}finally{t(g()),e("/login",{replace:!0})}})()},[t,e,o]),null};export{f as default};
