@@ -23,7 +23,7 @@ DEBUG = config('DEBUG', cast=bool)
 if DEBUG:
     ALLOWED_HOSTS = ['*']  
 else:
-    ALLOWED_HOSTS = ['api.stocktn.com', 'www.api.stocktn.com']
+    ALLOWED_HOSTS = ['api.stocktn.com', 'www.api.stocktn.com','157.173.220.176','localhost']
 
 
 
@@ -164,7 +164,13 @@ USE_TZ = True
 
 
 STATIC_URL = '/static/'
-STATIC_ROOT=os.path.join(BASE_DIR, 'static/')
+if DEBUG:
+    STATIC_ROOT="/home/django_user/KUTOM-CRM/backend/staticfiles"
+    MEDIA_ROOT="/home/django_user/KUTOM-CRM/backend/media"
+else:
+    STATIC_ROOT=os.path.join(BASE_DIR, 'static/')
+    MEDIA_ROOT=os.path.join(BASE_DIR, 'media/')
+
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
