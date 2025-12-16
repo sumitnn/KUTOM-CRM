@@ -1,1 +1,0 @@
-import{r as e}from"./index-oHO_bMXB.js";import{r as a}from"./index-DsfZBStp.js";function u({children:r}){const[o,t]=e.useState(!1);return e.useEffect(()=>(t(!0),()=>t(!1)),[]),o?a.createPortal(r,document.getElementById("modal-root")):null}export{u as M};
