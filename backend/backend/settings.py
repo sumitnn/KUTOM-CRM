@@ -180,6 +180,19 @@ AUTH_USER_MODEL = 'accounts.User'
 
 
 
+# Add these to your settings.py for proper URL generation
+
+if DEBUG:
+    DOMAIN = 'localhost:8000'
+    PROTOCOL = 'http'
+    SITE_URL = f"{PROTOCOL}://{DOMAIN}"
+else:
+    DOMAIN = 'api.stocktn.com'
+    PROTOCOL = 'https'
+    SITE_URL = f"{PROTOCOL}://{DOMAIN}"
+
+
+
 # ✅ Secure settings toggle
 if not DEBUG:
     print("working in Production mode")

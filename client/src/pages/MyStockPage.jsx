@@ -704,28 +704,30 @@ const MyStockPage = ({ role }) => {
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">Manufacture Date</label>
-                  <input
-                    type="date"
-                    name="manufacture_date"
-                    value={formData.manufacture_date}
-                    onChange={handleInputChange}
-                    className="block w-full cursor-pointer px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">Expiry Date</label>
-                  <input
-                    type="date"
-                    name="expiry_date"
-                    value={formData.expiry_date}
-                    onChange={handleInputChange}
-                    className="block w-full cursor-pointer px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    required
-                  />
-                </div>
+  <label className="block text-sm font-medium text-gray-700">Manufacture Date</label>
+  <input
+    type="date"
+    name="manufacture_date"
+    value={formData.manufacture_date}
+    onChange={handleInputChange}
+    max={new Date().toISOString().split('T')[0]} // Max date is today
+    className="block w-full cursor-pointer px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+    required
+  />
+</div>
+
+<div className="space-y-2">
+  <label className="block text-sm font-medium text-gray-700">Expiry Date</label>
+  <input
+    type="date"
+    name="expiry_date"
+    value={formData.expiry_date}
+    onChange={handleInputChange}
+    min={new Date().toISOString().split('T')[0]} // Min date is today
+    className="block w-full cursor-pointer px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+    required
+  />
+</div>
                 
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">Status</label>
