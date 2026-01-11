@@ -1,4 +1,4 @@
-// AnnouncementsPage.jsx
+
 import React, { useState, lazy, Suspense } from 'react';
 import {
   useGetAnnouncementsQuery,
@@ -35,7 +35,7 @@ import {
   Notifications,
 } from '@mui/icons-material';
 
-const AnnouncementsPage = () => {
+const Announcepage = () => {
   const { data: announcements, error, isLoading } = useGetAnnouncementsQuery();
   const [deleteAnnouncement] = useDeleteAnnouncementMutation();
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -278,4 +278,4 @@ const AnnouncementsPage = () => {
   );
 };
 
-export default AnnouncementsPage;
+export default Announcepage;

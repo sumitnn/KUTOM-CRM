@@ -1,11 +1,12 @@
 import { lazy, Suspense } from "react";
 import { Route } from "react-router-dom";
+import Announcepage from "../../pages/admin/Announcepage";
 
 
 // Lazy-loaded page components
 const AdminExpiredAndReplacement =lazy(() => import("../../pages/admin/AdminExpiredAndReplacement"));
 const ExpiryReplacementPage =lazy(() => import("../../components/ExpiryReplacementPage"));
-const AnnouncementsPage =lazy(() => import("../../pages/admin/AnnounceMentsPage"));
+
 const OrderRequestReport = lazy(() => import("../../pages/OrderRequestReport"));
 const OrderRequestDetailsPage = lazy(() => import("../../pages/OrderRequestDetailsPage"));
 const OrderRequestPage = lazy(() => import("../../pages/OrderRequestPage"));
@@ -109,7 +110,7 @@ const AdminRoutes = [
       element={
         <AdminMainLayout>
           <Suspense fallback={<Spinner />}>
-            <AnnouncementsPage/>
+            <Announcepage/>
           </Suspense>
         </AdminMainLayout>
       }
