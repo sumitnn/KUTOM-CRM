@@ -7,7 +7,7 @@ import {
 } from "react-icons/fi";
 import {
   useGetAdminProductsQuery,
-} from "../features/adminproduct/adminProductApi";
+} from "../features/adminproductfold/AdminProductApi";
 import { useGetBrandsQuery } from "../features/brand/brandApi";
 import {
   useGetCategoriesQuery,
