@@ -23,12 +23,12 @@ import { notificationApi } from "../features/notification/notificationApi";
 import { newAccountApplicationApi } from "../features/newapplication/newAccountApplicationApi";
 import { salesApi } from "../features/sales/salesApi";
 import { commissionsApi } from "../features/commission/commissionApi";
-import { adminProductApi } from "../features/adminproduct/adminProductApi";
+
 import { orderRequestApi } from "../features/order/orderRequest";
 import { customerPurchaseApi } from "../features/customerpurchase/customerPurchaseApi";
 import { expiryApi } from "../features/expiry/expiryApi";
 import { replacementApi } from "../features/returned/replacementApi";
-
+import { adminProductApi } from "../features/adminproduct/adminProductApi";
 
 
 export const store = configureStore({
@@ -58,7 +58,8 @@ export const store = configureStore({
         [orderRequestApi.reducerPath]: orderRequestApi.reducer,
         [customerPurchaseApi.reducerPath]: customerPurchaseApi.reducer,
         [expiryApi.reducerPath]: expiryApi.reducer,
-        [replacementApi.reducerPath]:replacementApi.reducer
+        [replacementApi.reducerPath]: replacementApi.reducer
+       
         
     },
     middleware: (getDefaultMiddleware) =>
