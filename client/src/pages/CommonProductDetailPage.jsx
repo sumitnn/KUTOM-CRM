@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { addItem } from "../features/cart/cartSlice";
-import { useGetAdminProductByIdQuery } from "../features/adminProduct/adminProductApi";
+import { useGetAdminProductByIdQuery } from "../features/adminproduct/adminProductApi";
 import { toast } from "react-toastify";
 import { FiMinus, FiPlus, FiStar, FiTruck, FiShield, FiArrowLeft, FiPackage, FiShoppingCart, FiZoomIn, FiCheck, FiAlertCircle } from "react-icons/fi";
 import "react-toastify/dist/ReactToastify.css";
