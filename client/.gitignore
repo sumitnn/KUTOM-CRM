@@ -21,5 +21,6 @@ node_modules
 *.njsproj
 *.sln
 *.sw?
+dist
 
 .env

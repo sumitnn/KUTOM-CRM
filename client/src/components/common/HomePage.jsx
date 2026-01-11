@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, useInView, useAnimation } from "framer-motion";
+
 import { 
   MdTrendingUp, 
   MdInventory, 
@@ -704,7 +705,7 @@ const HomePage = () => {
             >
               <div className="  ">
                 <img 
-                  src="https://stocktn-bkt-1.s3.eu-north-1.amazonaws.com/frontend-images/undraw_groceries_4via.svg" 
+                  src="./main.svg" 
                   alt="StockTN Business Network"
                   className="w-full h-auto"
                 />
@@ -906,7 +907,7 @@ const HomePage = () => {
               className="relative"
             >
               <img 
-                src="https://stocktn-bkt-1.s3.eu-north-1.amazonaws.com/frontend-images/undraw_reviews_ukai.svg" 
+                src="./review.svg" 
                 alt="Happy Customers"
                 className=" w-full"
               />

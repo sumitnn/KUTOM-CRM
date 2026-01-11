@@ -1,9 +1,10 @@
 from rest_framework import serializers
-from .models import Order, OrderItem, OrderHistory, OrderPayment,OrderRequestItem,OrderRequest,CustomerPurchase
-from accounts.models import User, Address, Wallet, WalletTransaction,StockistAssignment
-from products.models import Product, ProductImage, ProductVariant, RoleBasedProduct, ProductVariantPrice,ProductFeatures
+from .models import Order, OrderItem, OrderHistory, OrderPayment, OrderRequestItem, OrderRequest, CustomerPurchase
+from accounts.models import User, Address, Wallet, WalletTransaction, StockistAssignment
+from products.models import Product, ProductImage, ProductVariant, RoleBasedProduct, ProductVariantPrice, ProductFeatures
 from decimal import Decimal
 from django.db.models import Sum
+from django.conf import settings
 from products.serializers import BrandSerializer, CategorySerializer, TagSerializer
 
 
@@ -46,9 +47,19 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
+    
     class Meta:
         model = ProductImage
-        fields = ['id', 'image', 'alt_text', 'is_featured']
+        fields = ['id', 'image', 'image_url', 'alt_text', 'is_featured']
+
+    def get_image_url(self, obj):
+        if obj.image and hasattr(obj.image, 'url'):
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return f"{settings.SITE_URL}{obj.image.url}"
+        return None
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -65,8 +76,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
         source='product',
         write_only=True
     )
-    item_name = serializers.CharField(read_only=True)  # Uses @property from model
-
+    item_name = serializers.CharField(read_only=True)
 
     class Meta:
         model = OrderItem
@@ -74,11 +84,10 @@ class OrderItemSerializer(serializers.ModelSerializer):
             'id', 'product', 'product_id', 'variant', 'variant_id', 
             'item_name', 'quantity', 'unit_price', 'discount_percentage', 
             'discount_amount', 'gst_percentage', 'gst_amount', 'final_price',
-            'role_based_product','bulk_price_applied','expiry_date','batch_number','manufacture_date',
+            'role_based_product', 'bulk_price_applied', 'expiry_date', 'batch_number', 'manufacture_date',
             'single_quantity_after_gst_and_discount_price'
         ]
         read_only_fields = ['final_price']
-
 
 
 class OrderItemDetailSerializer(serializers.ModelSerializer):
@@ -92,13 +101,13 @@ class OrderItemDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'item_name', 'unit_price', 'quantity', 
             'variant_name', 'discount_percentage', 'discount_amount',
-            'gst_percentage', 'gst_amount', 'images', 'final_price','single_quantity_after_gst_and_discount_price'
+            'gst_percentage', 'gst_amount', 'images', 'final_price', 'single_quantity_after_gst_and_discount_price'
         ]
 
     def get_images(self, obj):
-        # Get images from the product
         images = obj.product.images.all() if obj.product else []
-        return ProductImageSerializer(images, many=True).data
+        # Pass context to the nested serializer
+        return ProductImageSerializer(images, many=True, context=self.context).data
 
 
 class AddressSerializer(serializers.ModelSerializer):
@@ -117,7 +126,7 @@ class UserWithAddressSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'address', 'phone', 'whatsapp_number',"role_based_id"]
+        fields = ['id', 'username', 'email', 'address', 'phone', 'whatsapp_number', "role_based_id"]
 
     def get_address(self, obj):
         address = getattr(obj, "address", None)  
@@ -180,7 +189,6 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         for item_data in items_data:
             OrderItem.objects.create(order=order, **item_data)
         
-        # Calculate totals after creating items
         order.calculate_totals()
         return order
 
@@ -265,7 +273,6 @@ class OrderPaymentCreateSerializer(serializers.ModelSerializer):
         order = data['order']
         amount = data['amount']
         
-        # Check if payment exceeds order total
         total_paid = order.payments.filter(status='paid').aggregate(
             total=Sum('amount')
         )['total'] or Decimal('0.00')
@@ -276,20 +283,19 @@ class OrderPaymentCreateSerializer(serializers.ModelSerializer):
             )
         
         return data
-    
+
+
 class OrderRequestItemSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.product.name', read_only=True)
     product_sku = serializers.CharField(source='product.product.sku', read_only=True)
     product_type = serializers.CharField(source='product.product.product_type', read_only=True)
     
-    # Use rolebaseid as the main input field, mapped to product
     rolebaseid = serializers.PrimaryKeyRelatedField(
         queryset=RoleBasedProduct.objects.all(),
-        source='product',  # This maps rolebaseid to the product field
+        source='product',
         write_only=True
     )
     
-    # Keep product as read-only for response
     product = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -298,9 +304,8 @@ class OrderRequestItemSerializer(serializers.ModelSerializer):
             'id', 'product', 'rolebaseid', 'product_name', 'product_sku', 'product_type', 
             'quantity', 'unit_price', 'total_price', 'variant', 'gst_percentage', 'discount_percentage'
         ]
-        read_only_fields = ['total_price', 'product_name', 'product_sku', 'product_type', 'product','unit_price']
+        read_only_fields = ['total_price', 'product_name', 'product_sku', 'product_type', 'product', 'unit_price']
 
-# serializers.py
 
 class OrderRequestSerializer(serializers.ModelSerializer):
     items = OrderRequestItemSerializer(many=True)
@@ -328,16 +333,12 @@ class OrderRequestSerializer(serializers.ModelSerializer):
         admin_user = User.objects.filter(role='admin').first()
 
         total_amount = Decimal("0.00")
- 
 
-        # Calculate secure prices
         secure_items = []
         for item_data in items_data:
             variant = item_data.get("variant")
-            role_based_product = item_data.get("product")  # This comes from rolebaseid field
+            role_based_product = item_data.get("product")
             quantity = item_data.get("quantity", 1)
-            
-            # Get the actual Product from RoleBasedProduct
             actual_product = role_based_product.product
 
             try:
@@ -351,17 +352,15 @@ class OrderRequestSerializer(serializers.ModelSerializer):
                     "error": f"No valid price found for variant {variant.id} and role admin"
                 })
             
-            if request_user and request_user.role =="stockist":
+            if request_user and request_user.role == "stockist":
                 unit_price = price_obj.stockist_price
                 discount = price_obj.stockist_discount
                 gst_percentage = price_obj.stockist_gst
             
-            if request_user and request_user.role =="reseller":
+            if request_user and request_user.role == "reseller":
                 unit_price = price_obj.reseller_price
                 discount = price_obj.reseller_discount
                 gst_percentage = price_obj.reseller_gst
-
-
 
             total_price = unit_price * quantity
             total_amount += total_price
@@ -375,16 +374,14 @@ class OrderRequestSerializer(serializers.ModelSerializer):
                 "gst_tax": 0,
                 "final_price": unit_price,
                 "total_price": total_price,
-                "product": role_based_product  # RoleBasedProduct instance
+                "product": role_based_product
             })
 
-        # Default values
         validated_data['requested_by'] = request_user
         validated_data['target_user'] = admin_user
         validated_data.setdefault("requestor_type", "stockist")
         validated_data.setdefault("target_type", "admin")
 
-        # Wallet check for stockists
         wallet = None
         if validated_data["requestor_type"] == "stockist":
             try:
@@ -400,10 +397,8 @@ class OrderRequestSerializer(serializers.ModelSerializer):
                     "error": "Wallet not found for user"
                 })
 
-        # Create order request
         order_request = OrderRequest.objects.create(**validated_data)
         
-        # Create wallet transaction for stockist
         if wallet and validated_data["requestor_type"] == "stockist":
             WalletTransaction.objects.create(
                 wallet=wallet,
@@ -414,7 +409,6 @@ class OrderRequestSerializer(serializers.ModelSerializer):
                 order_id=order_request.id
             )
         
-        # Create order request items
         for item in secure_items:
             OrderRequestItem.objects.create(
                 order_request=order_request,
@@ -424,7 +418,7 @@ class OrderRequestSerializer(serializers.ModelSerializer):
                 discount_percentage=item["discount"],
                 gst_percentage=item["gst_percentage"],
                 total_price=item["total_price"],
-                product=item["product"]  # RoleBasedProduct instance
+                product=item["product"]
             )
 
         return order_request
@@ -440,6 +434,7 @@ class OrderRequestStatusSerializer(serializers.ModelSerializer):
         model = OrderRequest
         fields = ['status']
 
+
 class OrderRequestProductSerializer(serializers.ModelSerializer):
     brand = BrandSerializer(read_only=True)
     category = CategorySerializer(read_only=True)
@@ -450,20 +445,25 @@ class OrderRequestProductSerializer(serializers.ModelSerializer):
         queryset=ProductFeatures.objects.all(),
         required=False
     )
-    images = ProductImageSerializer(many=True, read_only=True)
+    images = serializers.SerializerMethodField()
     
     class Meta:
         model = Product
         fields = [
             'id', 'name', 'slug', 'description', 'short_description',
-            'sku', 'is_active',  'weight', 'weight_unit',
+            'sku', 'is_active', 'weight', 'weight_unit',
             'dimensions', 'currency', 'product_type', 'video_url', 'warranty',
             'brand', 'category', 'tags', 'features', 'images'
         ]
 
+    def get_images(self, obj):
+        images = obj.images.all()
+        return ProductImageSerializer(images, many=True, context=self.context).data
+
+
 class OrderRequestDetailItemSerializer(serializers.ModelSerializer):
-    product = OrderRequestProductSerializer(source='product.product',read_only=True)  # nested full product
-    variant = serializers.StringRelatedField()   # optional, to show variant name or implement a VariantSerializer
+    product = OrderRequestProductSerializer(source='product.product', read_only=True)
+    variant = serializers.StringRelatedField()
 
     class Meta:
         model = OrderRequestItem
@@ -476,8 +476,7 @@ class OrderRequestDetailItemSerializer(serializers.ModelSerializer):
 class OrderRequestDetailSerializer(serializers.ModelSerializer):
     items = OrderRequestDetailItemSerializer(many=True, read_only=True)
     total_amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
-    requested_by = UserBasicSerializer(read_only=True)  # your existing user serializer
-   
+    requested_by = UserBasicSerializer(read_only=True)
 
     class Meta:
         model = OrderRequest
@@ -498,7 +497,7 @@ class OrderRequestDetailSerializer(serializers.ModelSerializer):
 class ResellerOrderRequestSerializer(serializers.ModelSerializer):
     items = OrderRequestItemSerializer(many=True)
     total_amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
-    requested_by=UserBasicSerializer(read_only=True)
+    requested_by = UserBasicSerializer(read_only=True)
 
     class Meta:
         model = OrderRequest
@@ -516,7 +515,6 @@ class ResellerOrderRequestSerializer(serializers.ModelSerializer):
         }
 
     def create(self, validated_data):
-        
         request_user = self.context["request"].user
         items_data = validated_data.pop('items', [])
         stockist_user = (
@@ -524,7 +522,6 @@ class ResellerOrderRequestSerializer(serializers.ModelSerializer):
             .select_related("stockist")
             .last()
         )
-        
 
         stockist_user = stockist_user.stockist if stockist_user else (
             User.objects.filter(role="stockist", is_default_user=True).last()
@@ -532,12 +529,11 @@ class ResellerOrderRequestSerializer(serializers.ModelSerializer):
         
         total_amount = Decimal("0.00")
 
-        # Calculate secure prices
         secure_items = []
         for item_data in items_data:
-            variant= item_data.get("variant")
+            variant = item_data.get("variant")
             quantity = item_data.get("quantity", 1)
-            role_product= item_data.get("product")
+            role_product = item_data.get("product")
 
             try:
                 price_obj = ProductVariantPrice.objects.filter(
@@ -549,12 +545,12 @@ class ResellerOrderRequestSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"error": f"No valid price found for variant {variant.id} and role admin"}
                 )
-            unit_price=100000
-            if request_user and request_user.role =="reseller":
+            
+            unit_price = 100000
+            if request_user and request_user.role == "reseller":
                 unit_price = price_obj.reseller_price
                 discount = price_obj.reseller_discount
                 gst_percentage = price_obj.reseller_gst
-
 
             total_price = unit_price * quantity
             total_amount += total_price
@@ -571,13 +567,11 @@ class ResellerOrderRequestSerializer(serializers.ModelSerializer):
                 "product_id": role_product.id
             })
 
-        # Default values
         validated_data['requested_by'] = request_user
         validated_data['target_user'] = stockist_user
         validated_data.setdefault("requestor_type", "reseller")
         validated_data.setdefault("target_type", "stockist")
 
-        # Wallet check for stockists
         if validated_data["requestor_type"] == "reseller":
             wallet = Wallet.objects.select_for_update().get(user=request_user)
             if wallet.current_balance < total_amount:
@@ -587,18 +581,16 @@ class ResellerOrderRequestSerializer(serializers.ModelSerializer):
             wallet.current_balance -= total_amount
             wallet.save()
         
-            
-        # Create order + secure items
         order_request = OrderRequest.objects.create(**validated_data)
-        # Create wallet transaction for stockist
+        
         WalletTransaction.objects.create(
-                wallet=wallet,
-                transaction_type='DEBIT',
-                amount=total_amount,
-                description=f"Order Request #{order_request.id} placed",
-                transaction_status='SUCCESS',
-                order_id=order_request.id
-            )
+            wallet=wallet,
+            transaction_type='DEBIT',
+            amount=total_amount,
+            description=f"Order Request #{order_request.id} placed",
+            transaction_status='SUCCESS',
+            order_id=order_request.id
+        )
         
         for item in secure_items:
             OrderRequestItem.objects.create(
@@ -620,7 +612,6 @@ class ResellerOrderRequestSerializer(serializers.ModelSerializer):
         return representation
 
 
-
 class CustomerPurchaseSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
     variant_name = serializers.CharField(source='variant.name', read_only=True)
@@ -633,11 +624,9 @@ class CustomerPurchaseSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'total_price', 'vendor', 'created_at', 'updated_at')
 
     def create(self, validated_data):
-        
-        # Set the vendor to the current user
         validated_data['vendor'] = self.context['request'].user
         return super().create(validated_data)
-    
+
 
 class CustomerPurchaseRoleBasedProductSerializer(serializers.ModelSerializer):
     rolebaseproductid = serializers.UUIDField(source='id', read_only=True)
@@ -647,6 +636,7 @@ class CustomerPurchaseRoleBasedProductSerializer(serializers.ModelSerializer):
         model = RoleBasedProduct
         fields = ['rolebaseproductid', 'name', 'is_featured', 'price']
 
+
 class CustomerPurchaseListSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.product.name', read_only=True)
     variant_name = serializers.CharField(source='variant.name', read_only=True)
@@ -655,5 +645,9 @@ class CustomerPurchaseListSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = CustomerPurchase
-        fields = ['id','address','full_name','email','phone','product_name', 'variant_name', 'quantity', 'price_per_unit', 'total_price', 'payment_method', 'purchase_date', 'state_name', 'district_name','selling_price']
+        fields = [
+            'id', 'address', 'full_name', 'email', 'phone', 'product_name', 
+            'variant_name', 'quantity', 'price_per_unit', 'total_price', 
+            'payment_method', 'purchase_date', 'state_name', 'district_name', 'selling_price'
+        ]
         read_only_fields = ('id', 'total_price', 'vendor', 'created_at', 'updated_at')

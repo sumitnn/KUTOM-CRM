@@ -180,6 +180,19 @@ AUTH_USER_MODEL = 'accounts.User'
 
 
 
+# Add these to your settings.py for proper URL generation
+
+if DEBUG:
+    DOMAIN = 'localhost:8000'
+    PROTOCOL = 'http'
+    SITE_URL = f"{PROTOCOL}://{DOMAIN}"
+else:
+    DOMAIN = 'api.stocktn.com'
+    PROTOCOL = 'https'
+    SITE_URL = f"{PROTOCOL}://{DOMAIN}"
+
+
+
 # ✅ Secure settings toggle
 if not DEBUG:
     print("working in Production mode")
@@ -202,39 +215,11 @@ SIMPLE_JWT = {
     "ALGORITHM": "HS256",
     "SIGNING_KEY": config('JWT_SECRET_KEY'),
 }
-# MEDIA_URL = '/media/'
-# MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = '/home/deployuser/media'
-
-
-
-# AWS Configuration
-# AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID') 
-# AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
-
-
-# Basic Storage Configuration for Aamazon S3
-# AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME')
-# AWS_S3_CUSTOM_DOMAIN = '%s.s3.amazonaws.com' % AWS_STORAGE_BUCKET_NAME
-# AWS_S3_FILE_OVERWRITE = False
-
-
-
-# Django 5.2.1 settings for AWS S3 static and media files
-
-# STORAGES = {
-#     # Media file (image) management
-#     "default": {
-#         'BACKEND': 'storages.backends.s3boto3.S3StaticStorage',
-#     },
-
-#     # CSS and JS file management
-#     "staticfiles": {
-#         'BACKEND': 'storages.backends.s3boto3.S3StaticStorage',
-#     },
-# }
+# Email Configuration
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"

@@ -219,11 +219,11 @@ const BusinessPage = () => {
             <div className="relative flex items-center justify-center bg-gradient-to-br p-6">
               <FloatingElement>
                 <img
-                  src="https://stocktn-bkt-1.s3.eu-north-1.amazonaws.com/frontend-images/4700b0d5-8d30-44a8-84e3-b3ba64d43a06.png"
+                  src="./about.svg"
                   alt="Business Vision"
                   className="w-full h-full object-contain"
                   onError={(e) => {
-                    e.target.src = "https://stocktn-bkt-1.s3.eu-north-1.amazonaws.com/frontend-images/4700b0d5-8d30-44a8-84e3-b3ba64d43a06.png";
+                    e.target.src = "./about.svg";
                   }}
                 />
               </FloatingElement>
