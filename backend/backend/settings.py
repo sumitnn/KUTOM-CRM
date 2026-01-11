@@ -23,7 +23,7 @@ DEBUG = config('DEBUG', cast=bool)
 if DEBUG:
     ALLOWED_HOSTS = ['*']  
 else:
-    ALLOWED_HOSTS = ['api.stocktn.com', 'www.api.stocktn.com','157.173.220.176','localhost']
+    ALLOWED_HOSTS = ['*']
 
 
 
@@ -95,9 +95,7 @@ if DEBUG:
         }
     }
 else:
-
     # AWS RDS DB Settings
-
     DATABASES = {
     'default': {
         'ENGINE': config('AWS_DATABASE_ENGINE', default='django.db.backends.postgresql'),
