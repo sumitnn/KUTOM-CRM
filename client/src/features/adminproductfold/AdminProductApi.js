@@ -1,8 +1,8 @@
-// src/features/adminproduct/adminProductApi.js
+
 import { createApi } from '@reduxjs/toolkit/query/react';
 import axiosBaseQuery from '../../utils/axiosBaseQuery';
 
-export const adminProductApi = createApi({
+export const AdminProductApi = createApi({
     reducerPath: 'adminProductApi',
     baseQuery: axiosBaseQuery({ baseUrl: import.meta.env.VITE_BACKEND_API_URL }),
     tagTypes: ['AdminProduct'],
@@ -43,4 +43,4 @@ export const {
     useGetAdminProductsQuery,
     useGetAdminProductByIdQuery,
     useAddToCartMutation,
-} = adminProductApi;
+} = AdminProductApi;

@@ -28,7 +28,8 @@ import { orderRequestApi } from "../features/order/orderRequest";
 import { customerPurchaseApi } from "../features/customerpurchase/customerPurchaseApi";
 import { expiryApi } from "../features/expiry/expiryApi";
 import { replacementApi } from "../features/returned/replacementApi";
-import { adminProductApi } from '../features/adminproduct/adminProductApi';
+import { AdminProductApi } from "../features/adminproductfold/AdminProductApi";
+
 
 
 export const store = configureStore({
@@ -54,11 +55,12 @@ export const store = configureStore({
         [newAccountApplicationApi.reducerPath]: newAccountApplicationApi.reducer,
         [salesApi.reducerPath]: salesApi.reducer,
         [commissionsApi.reducerPath]: commissionsApi.reducer,
-        [adminProductApi.reducerPath]: adminProductApi.reducer,
+        
         [orderRequestApi.reducerPath]: orderRequestApi.reducer,
         [customerPurchaseApi.reducerPath]: customerPurchaseApi.reducer,
         [expiryApi.reducerPath]: expiryApi.reducer,
-        [replacementApi.reducerPath]: replacementApi.reducer
+        [replacementApi.reducerPath]: replacementApi.reducer,
+        [AdminProductApi.reducerPath]:AdminProductApi.reducer
        
         
     },
@@ -79,10 +81,11 @@ export const store = configureStore({
             newAccountApplicationApi.middleware,
             salesApi.middleware,
             commissionsApi.middleware,
-            adminProductApi.middleware,
+         
             orderRequestApi.middleware,
             customerPurchaseApi.middleware,
             replacementApi.middleware,
-            expiryApi.middleware
+            expiryApi.middleware,
+            AdminProductApi.middleware
         ),
 });
