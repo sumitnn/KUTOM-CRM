@@ -23,7 +23,7 @@ DEBUG = config('DEBUG', cast=bool)
 if DEBUG:
     ALLOWED_HOSTS = ['*']  
 else:
-    ALLOWED_HOSTS = ['api.stocktn.com', 'www.api.stocktn.com','157.173.220.176','localhost']
+    ALLOWED_HOSTS = ['*']
 
 
 
