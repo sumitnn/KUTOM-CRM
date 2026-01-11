@@ -95,9 +95,7 @@ if DEBUG:
         }
     }
 else:
-
     # AWS RDS DB Settings
-
     DATABASES = {
     'default': {
         'ENGINE': config('AWS_DATABASE_ENGINE', default='django.db.backends.postgresql'),
