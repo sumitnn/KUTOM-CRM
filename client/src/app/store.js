@@ -23,7 +23,7 @@ import { notificationApi } from "../features/notification/notificationApi";
 import { newAccountApplicationApi } from "../features/newapplication/newAccountApplicationApi";
 import { salesApi } from "../features/sales/salesApi";
 import { commissionsApi } from "../features/commission/commissionApi";
-import { adminProductApi } from "../features/adminProduct/adminProductApi";
+import { adminProductApi } from "../features/adminproduct/adminProductApi";
 import { orderRequestApi } from "../features/order/orderRequest";
 import { customerPurchaseApi } from "../features/customerpurchase/customerPurchaseApi";
 import { expiryApi } from "../features/expiry/expiryApi";
