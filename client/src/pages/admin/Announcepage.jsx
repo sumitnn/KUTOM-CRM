@@ -6,7 +6,7 @@ import {
 } from '../../features/announcement/announcementApi';
 
 const CreateAnnouncementModal = lazy(() =>
-  import('./CreateAnnouncementModal')
+  import('../../pages/admin/CreateAnnouncementModal')
 );
 const EditAnnouncementModal = lazy(() =>
   import('./EditAnnouncementModal')

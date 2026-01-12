@@ -14,7 +14,7 @@ import {
 } from 'react-icons/fa';
 import { format } from 'date-fns';
 import ProgressBar from '../ProgressBar';
-import { useGetStockistAssignmentQuery } from "../../features/stockist/stockistApi";
+import { useGetStockistAssignmentQuery } from "../../features/stockist/StockistApi";
 
 export default function VendorTableRow({ 
   vendor, 

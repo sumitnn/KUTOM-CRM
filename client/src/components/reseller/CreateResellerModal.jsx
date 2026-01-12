@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useGetStatesQuery } from '../../features/location/locationApi';
-import { useFetchStockistsByStateQuery } from "../../features/stockist/stockistApi";
+import { useFetchStockistsByStateQuery } from "../../features/stockist/StockistApi";
 
 const CreateResellerModal = ({ onClose, onAddVendor, loading, error }) => {
   const [form, setForm] = useState({
