@@ -40,6 +40,8 @@ jobs:
             npm run build
 
             echo "🌐 Reload Nginx"
-            sudo systemctl reload nginx
+            
+            sudo systemctl restart gunicorn
+            sudo systemctl restart nginx
 
             echo "✅ DEPLOYMENT SUCCESSFUL"

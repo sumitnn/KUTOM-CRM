@@ -1322,7 +1322,7 @@ def get_admin_email(request):
 
 @api_view(['GET'])
 def get_api_status(request):
-    return Response({"message": "Api Working Properly. With Automation"})
+    return Response({"message": "Api Working Properly. With Automation testing"})
 
 class NewUserApplicationListView(APIView):
     permission_classes = [IsAdminRole]
