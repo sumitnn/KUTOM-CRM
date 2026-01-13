@@ -13,6 +13,9 @@ __pycache__/
 venv/
 env/
 myenv/
+static/
+media/*
+staticfiles/*
 
 # VSCode settings
 .vscode/
