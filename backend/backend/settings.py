@@ -44,7 +44,7 @@ INSTALLED_APPS = [
     'products',
     'orders',
     'storages',
-    'whitenoise.runserver_nostatic', #This is used to serve static files in production.
+ 
     'django_crontab',
 ]
 
