@@ -24,7 +24,7 @@ jobs:
 
             echo "🚀 Pulling latest code"
             cd /var/www/KUTOM-CRM
-            git pull origin firstchange
+            git pull
 
             echo "🐍 Backend: Django deploy"
             cd backend
