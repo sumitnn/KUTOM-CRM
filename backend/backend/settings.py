@@ -163,12 +163,12 @@ USE_TZ = True
 
 MEDIA_ROOT=os.path.join(BASE_DIR, 'media/')
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 # Where Django looks for static files (DEVELOPMENT)
 STATICFILES_DIRS = [BASE_DIR / 'static']
 # Where collectstatic puts files (PRODUCTION)
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 
 # Default primary key field type
@@ -217,7 +217,7 @@ SIMPLE_JWT = {
 
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = '/home/deployuser/media'
+
 # Email Configuration
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
