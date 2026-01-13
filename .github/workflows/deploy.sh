@@ -3,7 +3,7 @@ name: Deploy Django + Vite (Production)
 on:
   push:
     branches:
-      - main
+      - firstchange
 
 jobs:
   deploy:
@@ -24,7 +24,7 @@ jobs:
 
             echo "🚀 Pulling latest code"
             cd /var/www/KUTOM-CRM
-            git pull origin main
+            git pull origin firstchange
 
             echo "🐍 Backend: Django deploy"
             cd backend
