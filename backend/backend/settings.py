@@ -161,15 +161,16 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 
-STATIC_URL = '/static/'
-if DEBUG:
-    STATIC_ROOT="/home/django_user/KUTOM-CRM/backend/staticfiles"
-    MEDIA_ROOT="/home/django_user/KUTOM-CRM/backend/media"
-else:
-    STATIC_ROOT=os.path.join(BASE_DIR, 'static/')
-    MEDIA_ROOT=os.path.join(BASE_DIR, 'media/')
+MEDIA_ROOT=os.path.join(BASE_DIR, 'media/')
 
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATIC_URL = 'static/'
+# Where Django looks for static files (DEVELOPMENT)
+STATICFILES_DIRS = [BASE_DIR / 'static']
+# Where collectstatic puts files (PRODUCTION)
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
