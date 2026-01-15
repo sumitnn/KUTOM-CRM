@@ -8,4 +8,7 @@ urlpatterns = [
     path('api/', include('accounts.urls')),
     path('api/', include('products.urls')),
     path('api/', include('orders.urls'))
-]+ static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+]
+if True:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

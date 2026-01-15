@@ -161,14 +161,16 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 
-MEDIA_ROOT=os.path.join(BASE_DIR, 'media/')
-
+#  Static files configuration
 STATIC_URL = '/static/'
-# Where Django looks for static files (DEVELOPMENT)
 STATICFILES_DIRS = [BASE_DIR / 'static']
-# Where collectstatic puts files (PRODUCTION)
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+# Media files configuration
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 
 
 # Default primary key field type
@@ -178,33 +180,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'accounts.User'
 
 
-
-# Add these to your settings.py for proper URL generation
-
-if DEBUG:
-    DOMAIN = 'localhost:8000'
-    PROTOCOL = 'http'
-    SITE_URL = f"{PROTOCOL}://{DOMAIN}"
-else:
-    DOMAIN = 'api.stocktn.com'
-    PROTOCOL = 'https'
-    SITE_URL = f"{PROTOCOL}://{DOMAIN}"
-
-
-
-# ✅ Secure settings toggle
-if not DEBUG:
-    print("working in Production mode")
-
-    CORS_ALLOWED_URLL = config('CORS_ALLOWED_URL', cast=Csv())
-    CORS_ALLOWED_ORIGINS = CORS_ALLOWED_URLL
-    
-    CORS_ALLOW_CREDENTIALS = True
-else:
-    print("working in Development mode")
-    CORS_ALLOW_ALL_ORIGINS = True
-
-
+# JWT Configuration
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
@@ -216,7 +192,7 @@ SIMPLE_JWT = {
 }
 
 
-MEDIA_URL = '/media/'
+
 
 # Email Configuration
 
@@ -239,3 +215,44 @@ CRONJOBS = [
 
 # Optional: store cron logs
 CRONTAB_COMMAND_SUFFIX = '>> /home/ubuntu/backend/cron_expiry.log 2>&1'
+
+
+if DEBUG:
+    # For local development
+    DOMAIN = 'localhost:8000'
+    PROTOCOL = 'http'
+    SITE_URL = f"{PROTOCOL}://{DOMAIN}"
+    print(f"Development mode - SITE_URL: {SITE_URL}")
+    
+    # ALLOWED_HOSTS for development
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '[::1]']
+    
+    # CORS for development
+    CORS_ALLOW_ALL_ORIGINS = True
+    CORS_ALLOW_CREDENTIALS = True
+    
+    # Add these for better development experience
+    CORS_ALLOWED_ORIGIN_REGEXES = [
+        r"^http://localhost:\d+$",
+        r"^http://127.0.0.1:\d+$",
+    ]
+    
+else:
+    # For production
+    DOMAIN = config('DOMAIN', default='api.stocktn.com')
+    PROTOCOL = 'https'
+    SITE_URL = f"{PROTOCOL}://{DOMAIN}"
+    print(f"Production mode - SITE_URL: {SITE_URL}")
+    
+    # ALLOWED_HOSTS for production
+    ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='api.stocktn.com').split(',')
+    
+    # CORS for production
+    CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='').split(',')
+    CORS_ALLOW_CREDENTIALS = True
+    
+    # Security settings for production
+    SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True

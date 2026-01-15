@@ -612,7 +612,7 @@ class ProfileView(APIView):
 
     def get(self, request):
         user = request.user
-        serializer = NewUserFullDetailSerializer(user)
+        serializer = NewUserFullDetailSerializer(user, context={'request': request})
         return Response(serializer.data)
 
     def patch(self, request):
