@@ -248,7 +248,17 @@ else:
     ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='api.stocktn.com').split(',')
     
     # CORS for production
-    CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='').split(',')
+    CORS_ALLOWED_ORIGINS = [
+            f'https://{DOMAIN}',
+            f'https://www.{DOMAIN}',
+        ]
+    
+    # Add your frontend domain(s) here
+    CORS_ALLOWED_ORIGINS.extend([
+        'https://stocktn.com',
+        'https://www.stocktn.com',
+        # Add any other frontend domains
+    ])
     CORS_ALLOW_CREDENTIALS = True
     
     # Security settings for production
@@ -256,3 +266,6 @@ else:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    
+    
+    print(f"CORS_ALLOWED_ORIGINS: {CORS_ALLOWED_ORIGINS}")
