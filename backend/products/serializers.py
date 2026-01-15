@@ -12,11 +12,11 @@ from django.conf import settings
 from datetime import date
 from decimal import Decimal
 from django.contrib.auth import get_user_model
-
+from accounts.mixins import ImageSerializerMixin
 User = get_user_model()
 
 
-class BrandSerializer(serializers.ModelSerializer):
+class BrandSerializer(ImageSerializerMixin,serializers.ModelSerializer):
     owner = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -27,10 +27,6 @@ class BrandSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         request = self.context.get('request')
-
-        # Convert logo to absolute URL
-        if data.get('logo') and request:
-            data['logo'] = request.build_absolute_uri(data['logo'])
 
         # Format dates as ISO strings
         if data.get('created_at'):
@@ -127,7 +123,7 @@ class ProductFeaturesSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class ProductImageSerializer(serializers.ModelSerializer):
+class ProductImageSerializer(ImageSerializerMixin,serializers.ModelSerializer):
     class Meta:
         model = ProductImage
         fields = ["id", "image", "alt_text", "is_featured", "is_default", "created_at"]
@@ -137,9 +133,7 @@ class ProductImageSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         request = self.context.get('request')
 
-        # Convert image field to absolute URL
-        if data.get('image') and request:
-            data['image'] = request.build_absolute_uri(data['image'])
+        
 
         # Format created_at as ISO string
         if data.get('created_at'):
@@ -914,7 +908,7 @@ class ProductVariantMiniSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "name"]
 
 
-class RequestImageSerializer(serializers.ModelSerializer):
+class RequestImageSerializer(ImageSerializerMixin,serializers.ModelSerializer):
     class Meta:
         model = RequestImage
         fields = ['id', 'image', 'uploaded_at']
@@ -924,9 +918,7 @@ class RequestImageSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         request = self.context.get('request')
 
-        # Convert image field to absolute URL
-        if data.get('image') and request:
-            data['image'] = request.build_absolute_uri(data['image'])
+        
 
         # Format uploaded_at as ISO date
         if data.get('uploaded_at'):

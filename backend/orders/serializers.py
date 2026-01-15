@@ -6,7 +6,7 @@ from decimal import Decimal
 from django.db.models import Sum
 from django.conf import settings
 from products.serializers import BrandSerializer, CategorySerializer, TagSerializer
-
+from accounts.mixins import ImageSerializerMixin
 
 class UserBasicSerializer(serializers.ModelSerializer):
     role_based_id = serializers.SerializerMethodField()
@@ -46,21 +46,13 @@ class ProductVariantSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'sku']
 
 
-class ProductImageSerializer(serializers.ModelSerializer):
+class ProductImageSerializer(ImageSerializerMixin,serializers.ModelSerializer):
     class Meta:
         model = ProductImage
         fields = ['id', 'image', 'alt_text', 'is_featured']
         read_only_fields = ['id']
 
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        request = self.context.get('request')
-
-        # Convert 'image' to absolute URL
-        if data.get('image') and request:
-            data['image'] = request.build_absolute_uri(data['image'])
-
-        return data
+    
 
 
 
@@ -144,7 +136,7 @@ class UserWithAddressSerializer(serializers.ModelSerializer):
         return None
 
 
-class OrderSerializer(serializers.ModelSerializer):
+class OrderSerializer(ImageSerializerMixin,serializers.ModelSerializer):
     buyer = UserWithAddressSerializer(read_only=True)
     seller = UserBasicSerializer(read_only=True)
     items = OrderItemSerializer(many=True, read_only=True)
@@ -215,7 +207,7 @@ class OrderHistorySerializer(serializers.ModelSerializer):
         ]
 
 
-class OrderDispatchSerializer(serializers.ModelSerializer):
+class OrderDispatchSerializer(ImageSerializerMixin,serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = [
@@ -225,7 +217,7 @@ class OrderDispatchSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
 
-class OrderDetailSerializer(serializers.ModelSerializer):
+class OrderDetailSerializer(ImageSerializerMixin,serializers.ModelSerializer):
     buyer = UserWithAddressSerializer(read_only=True)
     seller = UserBasicSerializer(read_only=True)
     items = OrderItemDetailSerializer(many=True, read_only=True)
