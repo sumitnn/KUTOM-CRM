@@ -361,7 +361,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         ]
 
         for field in image_fields:
-            if data.get(field):
+            if data.get(field) and request:
                 data[field] = request.build_absolute_uri(data[field])
 
         return data
@@ -657,7 +657,6 @@ class NewUserRegistrationSerializer(serializers.ModelSerializer):
 
 
 class NewProfileSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Profile
         fields = "__all__"
@@ -676,7 +675,8 @@ class NewProfileSerializer(serializers.ModelSerializer):
         ]
 
         for field in image_fields:
-            if data.get(field):
+            # Only build absolute URI if request exists and field has a value
+            if request and data.get(field):
                 data[field] = request.build_absolute_uri(data[field])
 
         return data
