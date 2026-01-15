@@ -22,26 +22,32 @@ jobs:
           script: |
             set -e
 
-            echo "🚀 Pulling latest code"
+            echo "Syncing code with GitHub"
             cd /var/www/KUTOM-CRM
-            git pull
+            git fetch origin firstchange
+            git reset --hard origin/firstchange
+            git clean -fd
 
-            echo "🐍 Backend: Django deploy"
+            echo "Current commit:"
+            git rev-parse HEAD
+
+            echo " Backend: Django deploy"
             cd backend
             source venv/bin/activate
             pip install -r requirements.txt
             python manage.py migrate --noinput
             python manage.py collectstatic --noinput
+
+            echo " Restarting Gunicorn"
             sudo systemctl restart gunicorn
 
-            echo "⚛️ Frontend: Vite build"
+            echo " Frontend: Vite build"
             cd ../client
+            rm -rf dist
             npm install
             npm run build
 
-            echo "🌐 Reload Nginx"
-            
-            sudo systemctl restart gunicorn
+            echo "🌐 Restarting Nginx"
             sudo systemctl restart nginx
 
-            echo "✅ DEPLOYMENT SUCCESSFUL"
+            echo "✅ DEPLOYMENT COMPLETED"

@@ -47,19 +47,21 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
-    image_url = serializers.SerializerMethodField()
-    
     class Meta:
         model = ProductImage
-        fields = ['id', 'image', 'image_url', 'alt_text', 'is_featured']
+        fields = ['id', 'image', 'alt_text', 'is_featured']
+        read_only_fields = ['id']
 
-    def get_image_url(self, obj):
-        if obj.image and hasattr(obj.image, 'url'):
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.image.url)
-            return f"{settings.SITE_URL}{obj.image.url}"
-        return None
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+
+        # Convert 'image' to absolute URL
+        if data.get('image') and request:
+            data['image'] = request.build_absolute_uri(data['image'])
+
+        return data
+
 
 
 class OrderItemSerializer(serializers.ModelSerializer):

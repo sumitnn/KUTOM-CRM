@@ -17,41 +17,37 @@ User = get_user_model()
 
 
 class BrandSerializer(serializers.ModelSerializer):
-    created_at = serializers.SerializerMethodField()
-    updated_at = serializers.SerializerMethodField()
     owner = serializers.PrimaryKeyRelatedField(read_only=True)
-    logo_url = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Brand
-        fields = ["id", "name", "logo", "logo_url", "is_active", "description", "created_at", "updated_at", "owner"]
-        read_only_fields = ["created_at", "updated_at", "owner", "logo_url"]
+        fields = ["id", "name", "logo", "is_active", "description", "created_at", "updated_at", "owner"]
+        read_only_fields = ["id", "created_at", "updated_at", "owner"]
 
-    def get_logo_url(self, obj):
-        if obj.logo and hasattr(obj.logo, 'url'):
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.logo.url)
-            return f"{settings.SITE_URL}{obj.logo.url}"
-        return None
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
 
-    def get_created_at(self, obj):
-        return obj.created_at.date().isoformat()  
+        # Convert logo to absolute URL
+        if data.get('logo') and request:
+            data['logo'] = request.build_absolute_uri(data['logo'])
 
-    def get_updated_at(self, obj):
-        return obj.updated_at.date().isoformat()
+        # Format dates as ISO strings
+        if data.get('created_at'):
+            data['created_at'] = instance.created_at.date().isoformat()
+        if data.get('updated_at'):
+            data['updated_at'] = instance.updated_at.date().isoformat()
+
+        return data
 
     def update(self, instance, validated_data):
-        for attr in ['name', 'is_active']:
-            if attr in validated_data:
-                setattr(instance, attr, validated_data[attr])
-
-        logo = validated_data.get('logo')
-        if logo:
-            instance.logo = logo
-
+        # Update allowed fields
+        for field in ['name', 'is_active', 'description', 'logo']:
+            if field in validated_data:
+                setattr(instance, field, validated_data[field])
         instance.save()
         return instance
+
 
 
 class MainCategorySerializer(serializers.ModelSerializer):
@@ -132,20 +128,25 @@ class ProductFeaturesSerializer(serializers.ModelSerializer):
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
-    image_url = serializers.SerializerMethodField()
-    
     class Meta:
         model = ProductImage
-        fields = ["id", "image", "image_url", "alt_text", "is_featured", "is_default", "created_at"]
-        read_only_fields = ['created_at', 'image_url']
+        fields = ["id", "image", "alt_text", "is_featured", "is_default", "created_at"]
+        read_only_fields = ["id", "created_at"]
 
-    def get_image_url(self, obj):
-        if obj.image and hasattr(obj.image, 'url'):
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.image.url)
-            return f"{settings.SITE_URL}{obj.image.url}"
-        return None
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+
+        # Convert image field to absolute URL
+        if data.get('image') and request:
+            data['image'] = request.build_absolute_uri(data['image'])
+
+        # Format created_at as ISO string
+        if data.get('created_at'):
+            data['created_at'] = instance.created_at.date().isoformat()
+
+        return data
+
 
 
 class ProductVariantBulkPriceSerializer(serializers.ModelSerializer):
@@ -914,20 +915,25 @@ class ProductVariantMiniSerializer(serializers.ModelSerializer):
 
 
 class RequestImageSerializer(serializers.ModelSerializer):
-    image_url = serializers.SerializerMethodField()
-    
     class Meta:
         model = RequestImage
-        fields = ['id', 'image', 'image_url', 'uploaded_at']
-        read_only_fields = ['image_url', 'uploaded_at']
+        fields = ['id', 'image', 'uploaded_at']
+        read_only_fields = ['id', 'uploaded_at']
 
-    def get_image_url(self, obj):
-        if obj.image and hasattr(obj.image, 'url'):
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.image.url)
-            return f"{settings.SITE_URL}{obj.image.url}"
-        return None
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+
+        # Convert image field to absolute URL
+        if data.get('image') and request:
+            data['image'] = request.build_absolute_uri(data['image'])
+
+        # Format uploaded_at as ISO date
+        if data.get('uploaded_at'):
+            data['uploaded_at'] = instance.uploaded_at.date().isoformat()
+
+        return data
+
 
 
 class StockTransferRequestSerializer(serializers.ModelSerializer):

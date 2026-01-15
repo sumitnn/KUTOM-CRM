@@ -85,60 +85,58 @@ class WalletSerializer(serializers.ModelSerializer):
         read_only_fields = ['user', 'current_balance', 'payout_balance']
 
 
-class TopupRequestSerializer(serializers.ModelSerializer, ImageUrlMixin):
+class TopupRequestSerializer(serializers.ModelSerializer):
     approved_by = serializers.SerializerMethodField()
     user = serializers.SerializerMethodField()
-    screenshot_url = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = TopupRequest
         fields = [
-            'id', 'amount', 'user', 'payment_method', 'screenshot', 
-            'screenshot_url', 'payment_details', 'approved_by', 
-            'rejected_reason', 'reviewed_at', 'note', 'status', 'created_at'
+            'id', 'amount', 'user', 'payment_method', 'screenshot',
+            'payment_details', 'approved_by',
+            'rejected_reason', 'reviewed_at', 'note',
+            'status', 'created_at'
         ]
         read_only_fields = ['id', 'status', 'created_at']
-        
+
     def validate_amount(self, value):
         if value <= 0:
             raise serializers.ValidationError("Amount must be greater than zero")
         return value
-    
+
     def get_approved_by(self, obj):
-        if obj.approved_by:
-            return obj.approved_by.username
-        return "Not Approved Yet"
-    
+        return obj.approved_by.username if obj.approved_by else "Not Approved Yet"
+
     def get_user(self, obj):
-        try:
-            user = obj.user
-            return UserListSerializer(user, context=self.context).data
-        except User.DoesNotExist:
-            return None
-    
-    def get_screenshot_url(self, obj):
-        if obj.screenshot:
-            return get_full_image_url(obj.screenshot.url, self.context.get('request'))
-        return None
+        return UserListSerializer(obj.user, context=self.context).data if obj.user else None
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
 
-class WithdrawalRequestSerializer(serializers.ModelSerializer, ImageUrlMixin):
+        if data.get('screenshot'):
+            data['screenshot'] = request.build_absolute_uri(data['screenshot'])
+
+        return data
+class WithdrawalRequestSerializer(serializers.ModelSerializer):
     wallet = WalletSerializer(read_only=True)
-    screenshot_url = serializers.SerializerMethodField()
 
     class Meta:
         model = WithdrawalRequest
         fields = [
-            'id', 'amount', 'payment_method', 'status', 'payment_details', 
-            'wallet', 'created_at', 'screenshot', 'screenshot_url', 
-            'rejected_reason', 'transaction_id'
+            'id', 'amount', 'payment_method', 'status',
+            'payment_details', 'wallet', 'created_at',
+            'screenshot', 'rejected_reason', 'transaction_id'
         ]
-        read_only_fields = ['id', 'status', 'created_at', 'wallet', 'transaction_id']
+        read_only_fields = [
+            'id', 'status', 'created_at',
+            'wallet', 'transaction_id'
+        ]
 
     def create(self, validated_data):
         user = self.context['request'].user
         amount = validated_data.get('amount')
- 
+
         if amount is None or amount <= 0:
             raise ValidationError({"status": False, "message": "Amount must be greater than zero"})
 
@@ -146,7 +144,11 @@ class WithdrawalRequestSerializer(serializers.ModelSerializer, ImageUrlMixin):
         if wallet is None:
             raise ValidationError({"status": False, "message": "Wallet not found"})
 
-        balance_field = 'payout_balance' if user.role in ["stockist", "reseller"] else 'current_balance'
+        balance_field = (
+            'payout_balance'
+            if user.role in ["stockist", "reseller"]
+            else 'current_balance'
+        )
 
         if getattr(wallet, balance_field) < amount:
             raise ValidationError({"status": False, "message": "Insufficient wallet balance"})
@@ -155,8 +157,10 @@ class WithdrawalRequestSerializer(serializers.ModelSerializer, ImageUrlMixin):
             setattr(wallet, balance_field, getattr(wallet, balance_field) - amount)
             wallet.save()
 
-            validated_data['wallet'] = wallet
-            validated_data['user'] = user
+            validated_data.update({
+                'wallet': wallet,
+                'user': user
+            })
 
             withdrawal = super().create(validated_data)
 
@@ -180,11 +184,15 @@ class WithdrawalRequestSerializer(serializers.ModelSerializer, ImageUrlMixin):
                 )
 
         return withdrawal
-    
-    def get_screenshot_url(self, obj):
-        if obj.screenshot:
-            return get_full_image_url(obj.screenshot.url, self.context.get('request'))
-        return None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+
+        if data.get('screenshot'):
+            data['screenshot'] = request.build_absolute_uri(data['screenshot'])
+
+        return data
 
 
 class StateSerializer(serializers.ModelSerializer):
@@ -317,7 +325,7 @@ class BasicUserProfileSerializer(serializers.ModelSerializer):
         fields = ['username', 'email', 'phone']
 
 
-class ProfileSerializer(serializers.ModelSerializer, ImageUrlMixin):
+class ProfileSerializer(serializers.ModelSerializer):
     user = BasicUserProfileSerializer(read_only=True)
     address = serializers.SerializerMethodField()
     date_of_birth = serializers.DateField(
@@ -325,23 +333,13 @@ class ProfileSerializer(serializers.ModelSerializer, ImageUrlMixin):
         required=False,
         allow_null=True
     )
-    
-    # Image URL fields
-    profile_picture_url = serializers.SerializerMethodField()
-    passbook_pic_url = serializers.SerializerMethodField()
-    adhaar_card_pic_url = serializers.SerializerMethodField()
-    pancard_pic_url = serializers.SerializerMethodField()
-    kyc_other_document_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Profile
         fields = '__all__'
-        read_only_fields = ['id', 'user', 'kyc_verified', 'kyc_verified_at', 'created_at', 'updated_at']
-        
-        # Add the URL fields to exclude list for base fields
-        extra_fields = [
-            'profile_picture_url', 'passbook_pic_url', 'adhaar_card_pic_url',
-            'pancard_pic_url', 'kyc_other_document_url'
+        read_only_fields = [
+            'id', 'user', 'kyc_verified', 'kyc_verified_at',
+            'created_at', 'updated_at'
         ]
 
     def get_address(self, obj):
@@ -350,46 +348,24 @@ class ProfileSerializer(serializers.ModelSerializer, ImageUrlMixin):
             return AddressSerializer(address, context=self.context).data
         return None
 
-    def get_profile_picture_url(self, obj):
-        if obj.profile_picture:
-            return get_full_image_url(obj.profile_picture.url, self.context.get('request'))
-        return None
-    
-    def get_passbook_pic_url(self, obj):
-        if obj.passbook_pic:
-            return get_full_image_url(obj.passbook_pic.url, self.context.get('request'))
-        return None
-    
-    def get_adhaar_card_pic_url(self, obj):
-        if obj.adhaar_card_pic:
-            return get_full_image_url(obj.adhaar_card_pic.url, self.context.get('request'))
-        return None
-    
-    def get_pancard_pic_url(self, obj):
-        if obj.pancard_pic:
-            return get_full_image_url(obj.pancard_pic.url, self.context.get('request'))
-        return None
-    
-    def get_kyc_other_document_url(self, obj):
-        if obj.kyc_other_document:
-            return get_full_image_url(obj.kyc_other_document.url, self.context.get('request'))
-        return None
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
 
-    def update(self, instance, validated_data):
-        address_data = self.context.get('request').data.get('address', {})
-        
-        for attr, value in validated_data.items():
-            if value is not None or attr in ['profile_picture', 'passbook_pic', 'adhaar_card_pic', 'pancard_pic', 'kyc_other_document']:
-                setattr(instance, attr, value)
+        image_fields = [
+            'profile_picture',
+            'passbook_pic',
+            'adhaar_card_pic',
+            'pancard_pic',
+            'kyc_other_document',
+        ]
 
-        if address_data:
-            address, created = Address.objects.get_or_create(user=instance.user)
-            for attr, value in address_data.items():
-                setattr(address, attr, value)
-            address.save()
+        for field in image_fields:
+            if data.get(field):
+                data[field] = request.build_absolute_uri(data[field])
 
-        instance.save()
-        return instance
+        return data
+
 
 
 class BroadcastMessageSerializer(serializers.ModelSerializer):
@@ -402,20 +378,29 @@ class BroadcastMessageSerializer(serializers.ModelSerializer):
         read_only_fields = ['admin', 'created_at', 'updated_at']
 
 
-class UserPaymentDetailsSerializer(serializers.ModelSerializer, ImageUrlMixin):
-    passbook_pic_url = serializers.SerializerMethodField()
-    
+class UserPaymentDetailsSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = Profile
         fields = [
-            "upi_id", 'bank_upi', 'account_holder_name', 'account_number',
-            'ifsc_code', 'bank_name', 'passbook_pic', 'passbook_pic_url'
+            "upi_id",
+            "bank_upi",
+            "account_holder_name",
+            "account_number",
+            "ifsc_code",
+            "bank_name",
+            "passbook_pic",
         ]
-    
-    def get_passbook_pic_url(self, obj):
-        if obj.passbook_pic:
-            return get_full_image_url(obj.passbook_pic.url, self.context.get('request'))
-        return None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+
+        if data.get('passbook_pic'):
+            data['passbook_pic'] = request.build_absolute_uri(data['passbook_pic'])
+
+        return data
+
 
 
 class NotificationSerializer(serializers.ModelSerializer):
@@ -437,121 +422,93 @@ class UserAddressSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class UserProfileSerializer(serializers.ModelSerializer, ImageUrlMixin):
+class UserProfileSerializer(serializers.ModelSerializer):
     created_at = serializers.SerializerMethodField()
     updated_at = serializers.SerializerMethodField()
-    
-    # Image URL fields
-    profile_picture_url = serializers.SerializerMethodField()
-    passbook_pic_url = serializers.SerializerMethodField()
-    adhaar_card_pic_url = serializers.SerializerMethodField()
-    pancard_pic_url = serializers.SerializerMethodField()
-    kyc_other_document_url = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Profile
         fields = "__all__"
-        extra_fields = [
-            'profile_picture_url', 'passbook_pic_url', 'adhaar_card_pic_url',
-            'pancard_pic_url', 'kyc_other_document_url'
-        ]
-        
+
     def get_created_at(self, obj):
         return obj.created_at.date() if obj.created_at else None
 
     def get_updated_at(self, obj):
         return obj.updated_at.date() if obj.updated_at else None
-    
-    def get_profile_picture_url(self, obj):
-        if obj.profile_picture:
-            return get_full_image_url(obj.profile_picture.url, self.context.get('request'))
-        return None
-    
-    def get_passbook_pic_url(self, obj):
-        if obj.passbook_pic:
-            return get_full_image_url(obj.passbook_pic.url, self.context.get('request'))
-        return None
-    
-    def get_adhaar_card_pic_url(self, obj):
-        if obj.adhaar_card_pic:
-            return get_full_image_url(obj.adhaar_card_pic.url, self.context.get('request'))
-        return None
-    
-    def get_pancard_pic_url(self, obj):
-        if obj.pancard_pic:
-            return get_full_image_url(obj.pancard_pic.url, self.context.get('request'))
-        return None
-    
-    def get_kyc_other_document_url(self, obj):
-        if obj.kyc_other_document:
-            return get_full_image_url(obj.kyc_other_document.url, self.context.get('request'))
-        return None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+
+        image_fields = [
+            'profile_picture',
+            'passbook_pic',
+            'adhaar_card_pic',
+            'pancard_pic',
+            'kyc_other_document',
+        ]
+
+        for field in image_fields:
+            if data.get(field):
+                data[field] = request.build_absolute_uri(data[field])
+
+        return data
 
 
-class CompanySerializer(serializers.ModelSerializer, ImageUrlMixin):
+
+class CompanySerializer(serializers.ModelSerializer):
     state = StateSerializer(read_only=True)
     district = DistrictSerializer(read_only=True)
+
     state_id = serializers.PrimaryKeyRelatedField(
-        queryset=State.objects.all(), 
-        source='state', 
-        write_only=True, 
+        queryset=State.objects.all(),
+        source='state',
+        write_only=True,
         required=False
     )
     district_id = serializers.PrimaryKeyRelatedField(
-        queryset=District.objects.all(), 
-        source='district', 
-        write_only=True, 
+        queryset=District.objects.all(),
+        source='district',
+        write_only=True,
         required=False
     )
-    
+
     joining_date = serializers.DateField(format="%Y-%m-%d", required=False, allow_null=True)
     verified_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M", required=False, allow_null=True)
+
     created_at = serializers.SerializerMethodField()
     updated_at = serializers.SerializerMethodField()
-    
-    # Image URL fields
-    gst_certificate_url = serializers.SerializerMethodField()
-    pan_card_url = serializers.SerializerMethodField()
-    business_registration_doc_url = serializers.SerializerMethodField()
-    food_license_doc_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Company
         fields = "__all__"
         read_only_fields = ['user', 'created_at', 'updated_at']
-        extra_fields = [
-            'gst_certificate_url', 'pan_card_url', 
-            'business_registration_doc_url', 'food_license_doc_url'
-        ]
-    
+
     def get_created_at(self, obj):
         return obj.created_at.date() if obj.created_at else None
 
     def get_updated_at(self, obj):
         return obj.updated_at.date() if obj.updated_at else None
-    
-    def get_gst_certificate_url(self, obj):
-        if obj.gst_certificate:
-            return get_full_image_url(obj.gst_certificate.url, self.context.get('request'))
-        return None
-    
-    def get_pan_card_url(self, obj):
-        if obj.pan_card:
-            return get_full_image_url(obj.pan_card.url, self.context.get('request'))
-        return None
-    
-    def get_business_registration_doc_url(self, obj):
-        if obj.business_registration_doc:
-            return get_full_image_url(obj.business_registration_doc.url, self.context.get('request'))
-        return None
-    
-    def get_food_license_doc_url(self, obj):
-        if obj.food_license_doc:
-            return get_full_image_url(obj.food_license_doc.url, self.context.get('request'))
-        return None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+
+        image_fields = [
+            'gst_certificate',
+            'pan_card',
+            'business_registration_doc',
+            'food_license_doc',
+        ]
+
+        for field in image_fields:
+            if data.get(field):
+                data[field] = request.build_absolute_uri(data[field])
+
+        return data
 
 
-class UserListSerializer(serializers.ModelSerializer, ImageUrlMixin):
+class UserListSerializer(serializers.ModelSerializer):
     address = UserAddressSerializer(read_only=True)
     profile = UserProfileSerializer(read_only=True)
     company = CompanySerializer(read_only=True)
@@ -561,10 +518,14 @@ class UserListSerializer(serializers.ModelSerializer, ImageUrlMixin):
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'role', 'role_display', 'username', 'phone', 'status', 'status_display',
-            'address', 'profile', 'company', 'reseller_id', 'stockist_id', 'vendor_id',
-            'is_active', 'is_profile_completed', 'completion_percentage', 'created_at'
+            'id', 'email', 'role', 'role_display', 'username', 'phone',
+            'status', 'status_display',
+            'address', 'profile', 'company',
+            'reseller_id', 'stockist_id', 'vendor_id',
+            'is_active', 'is_profile_completed',
+            'completion_percentage', 'created_at'
         ]
+
 
 
 class ProfileApprovalStatusSerializer(serializers.ModelSerializer):
@@ -602,28 +563,52 @@ class CurrentUserSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class AdminWithdrawalRequestSerializer(serializers.ModelSerializer, ImageUrlMixin):
+class AdminWithdrawalRequestSerializer(serializers.ModelSerializer):
     user = UserListSerializer(read_only=True)
     wallet = WalletSerializer(read_only=True)
     approved_by = CurrentUserSerializer(read_only=True)
-    payment_method_display = serializers.CharField(source='get_payment_method_display', read_only=True)
-    screenshot_url = serializers.SerializerMethodField()
+
+    payment_method_display = serializers.CharField(
+        source='get_payment_method_display',
+        read_only=True
+    )
 
     class Meta:
         model = WithdrawalRequest
         fields = [
-            'id', 'user', 'amount', 'payment_method', 'payment_method_display', 'status',
-            'payment_details', 'wallet', 'approved_by', 'created_at',
-            'updated_at', 'screenshot', 'screenshot_url', 'rejected_reason', 'transaction_id'
+            'id',
+            'user',
+            'amount',
+            'payment_method',
+            'payment_method_display',
+            'status',
+            'payment_details',
+            'wallet',
+            'approved_by',
+            'created_at',
+            'updated_at',
+            'screenshot',
+            'rejected_reason',
+            'transaction_id',
         ]
         read_only_fields = [
-            'id', 'user', 'wallet', 'approved_by', 'created_at', 'updated_at'
+            'id',
+            'user',
+            'wallet',
+            'approved_by',
+            'created_at',
+            'updated_at',
         ]
-    
-    def get_screenshot_url(self, obj):
-        if obj.screenshot:
-            return get_full_image_url(obj.screenshot.url, self.context.get('request'))
-        return None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+
+        if data.get('screenshot'):
+            data['screenshot'] = request.build_absolute_uri(data['screenshot'])
+
+        return data
+
 
 
 class StockistAssignmentSerializer(serializers.ModelSerializer):
@@ -671,47 +656,31 @@ class NewUserRegistrationSerializer(serializers.ModelSerializer):
         return user
 
 
-class NewProfileSerializer(serializers.ModelSerializer, ImageUrlMixin):
-    # Add URL fields
-    profile_picture_url = serializers.SerializerMethodField()
-    passbook_pic_url = serializers.SerializerMethodField()
-    adhaar_card_pic_url = serializers.SerializerMethodField()
-    pancard_pic_url = serializers.SerializerMethodField()
-    kyc_other_document_url = serializers.SerializerMethodField()
-    
+class NewProfileSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = Profile
         fields = "__all__"
         read_only_fields = ["id", "user", "created_at", "updated_at"]
-        extra_fields = [
-            'profile_picture_url', 'passbook_pic_url', 'adhaar_card_pic_url',
-            'pancard_pic_url', 'kyc_other_document_url'
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+
+        image_fields = [
+            'profile_picture',
+            'passbook_pic',
+            'adhaar_card_pic',
+            'pancard_pic',
+            'kyc_other_document',
         ]
-    
-    def get_profile_picture_url(self, obj):
-        if obj.profile_picture:
-            return get_full_image_url(obj.profile_picture.url, self.context.get('request'))
-        return None
-    
-    def get_passbook_pic_url(self, obj):
-        if obj.passbook_pic:
-            return get_full_image_url(obj.passbook_pic.url, self.context.get('request'))
-        return None
-    
-    def get_adhaar_card_pic_url(self, obj):
-        if obj.adhaar_card_pic:
-            return get_full_image_url(obj.adhaar_card_pic.url, self.context.get('request'))
-        return None
-    
-    def get_pancard_pic_url(self, obj):
-        if obj.pancard_pic:
-            return get_full_image_url(obj.pancard_pic.url, self.context.get('request'))
-        return None
-    
-    def get_kyc_other_document_url(self, obj):
-        if obj.kyc_other_document:
-            return get_full_image_url(obj.kyc_other_document.url, self.context.get('request'))
-        return None
+
+        for field in image_fields:
+            if data.get(field):
+                data[field] = request.build_absolute_uri(data[field])
+
+        return data
+
 
 
 class NewAddressSerializer(serializers.ModelSerializer):
@@ -724,44 +693,32 @@ class NewAddressSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "user"]
 
 
-class NewCompanySerializer(serializers.ModelSerializer, ImageUrlMixin):
+class NewCompanySerializer(serializers.ModelSerializer):
     state = StateSerializer(read_only=True)
     district = DistrictSerializer(read_only=True)
-    
-    # Image URL fields
-    gst_certificate_url = serializers.SerializerMethodField()
-    pan_card_url = serializers.SerializerMethodField()
-    business_registration_doc_url = serializers.SerializerMethodField()
-    food_license_doc_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Company
         fields = "__all__"
         read_only_fields = ["id", "user", "created_at", "updated_at"]
-        extra_fields = [
-            'gst_certificate_url', 'pan_card_url', 
-            'business_registration_doc_url', 'food_license_doc_url'
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+
+        image_fields = [
+            'gst_certificate',
+            'pan_card',
+            'business_registration_doc',
+            'food_license_doc',
         ]
-    
-    def get_gst_certificate_url(self, obj):
-        if obj.gst_certificate:
-            return get_full_image_url(obj.gst_certificate.url, self.context.get('request'))
-        return None
-    
-    def get_pan_card_url(self, obj):
-        if obj.pan_card:
-            return get_full_image_url(obj.pan_card.url, self.context.get('request'))
-        return None
-    
-    def get_business_registration_doc_url(self, obj):
-        if obj.business_registration_doc:
-            return get_full_image_url(obj.business_registration_doc.url, self.context.get('request'))
-        return None
-    
-    def get_food_license_doc_url(self, obj):
-        if obj.food_license_doc:
-            return get_full_image_url(obj.food_license_doc.url, self.context.get('request'))
-        return None
+
+        for field in image_fields:
+            if data.get(field):
+                data[field] = request.build_absolute_uri(data[field])
+
+        return data
+
 
 
 class CASEAddressSerializer(serializers.ModelSerializer):
@@ -789,7 +746,7 @@ class CASEAddressSerializer(serializers.ModelSerializer):
         ]
 
 
-class NewUserFullDetailSerializer(serializers.ModelSerializer, ImageUrlMixin):
+class NewUserFullDetailSerializer(serializers.ModelSerializer):
     profile = NewProfileSerializer(read_only=True)
     address = CASEAddressSerializer(read_only=True)
     company = NewCompanySerializer(read_only=True)
@@ -799,12 +756,17 @@ class NewUserFullDetailSerializer(serializers.ModelSerializer, ImageUrlMixin):
     class Meta:
         model = User
         fields = [
-            "id", "email", "phone", "username", "role", "role_display", 
-            "status", "status_display", "vendor_id", "stockist_id", "reseller_id",
-            "is_active", "is_staff", "is_default_user", "is_profile_completed", 
-            "completion_percentage", "created_at", "profile", "address", "company", "unique_role_id"
+            "id", "email", "phone", "username",
+            "role", "role_display",
+            "status", "status_display",
+            "vendor_id", "stockist_id", "reseller_id",
+            "is_active", "is_staff", "is_default_user",
+            "is_profile_completed", "completion_percentage",
+            "created_at", "profile", "address", "company",
+            "unique_role_id"
         ]
         read_only_fields = ["id", "created_at"]
+
 
 
 class UserStatusUpdateSerializer(serializers.ModelSerializer):
