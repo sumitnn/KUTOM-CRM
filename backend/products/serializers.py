@@ -309,13 +309,14 @@ class RoleBasedProductSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.username', read_only=True)
     user_unique_id = serializers.CharField(source='user.unique_role_id', read_only=True)
     role_display = serializers.CharField(source='get_role_display', read_only=True)
+    commission = serializers.SerializerMethodField()
 
     class Meta:
         model = RoleBasedProduct
         fields = [
             'id', 'product', 'product_id', 'product_detail', 'user', 'user_name',
             'role', 'role_display', 'variants', 'variant_ids', 'variants_detail',
-            'is_featured', 'price', 'created_at', 'updated_at', 'user_unique_id'
+            'is_featured', 'price', 'created_at', 'updated_at', 'user_unique_id','commission'
         ]
         read_only_fields = ['user', 'user_unique_id']
 
@@ -330,6 +331,12 @@ class RoleBasedProductSerializer(serializers.ModelSerializer):
             data['price'] = None
             
         return data
+    def get_commission(self, obj):
+        commissions = ProductCommission.objects.filter(role_product=obj).select_related('variant')
+
+        if commissions.exists():
+            return ProductCommissionByRoleTypeSerializer(commissions, many=True, context=self.context).data
+        return []
 
 
 class StockInventorySerializer(serializers.ModelSerializer):
@@ -354,6 +361,30 @@ class ProductCommissionSerializer(serializers.ModelSerializer):
             "admin_commission_value",
             "updated_at"
         ]
+
+class ProductCommissionByRoleTypeSerializer(serializers.ModelSerializer):
+    commission_value = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProductCommission
+        fields = [
+            "id",
+            "commission_type",
+            "commission_value",
+            "updated_at",
+        ]
+
+    def get_commission_value(self, obj):
+        request = self.context.get("request")
+        role = getattr(request.user, "role", None) if request else None
+
+        if role == "stockist":
+            return obj.stockist_commission_value
+        elif role == "reseller":
+            return obj.reseller_commission_value
+        elif role == "admin":
+            return obj.admin_commission_value
+        return None
 
 
 class ADMINRoleBasedProductSerializer(serializers.ModelSerializer):

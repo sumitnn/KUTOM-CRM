@@ -19,8 +19,13 @@ import {
   FiArrowLeft,
   FiCheck,
   FiAlertCircle,
-  FiArrowRight
+  FiArrowRight,
+  FiSave
 } from "react-icons/fi";
+
+// Local storage key for drafts
+const DRAFT_STORAGE_KEY = 'product_draft_data';
+const DRAFT_TIMESTAMP_KEY = 'product_draft_timestamp';
 
 const CreateProductPage = () => {
   const navigate = useNavigate();
@@ -28,6 +33,7 @@ const CreateProductPage = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [tagInput, setTagInput] = useState("");
   const [activeSection, setActiveSection] = useState("basic");
+  const [isDraftAvailable, setIsDraftAvailable] = useState(false);
 
   // Define sections in order
   const sections = [
@@ -38,7 +44,8 @@ const CreateProductPage = () => {
     { id: "images", label: "Images", icon: FiImage }
   ];
 
-  const [product, setProduct] = useState({
+  // Initial product state
+  const initialProductState = {
     name: "",
     description: "",
     short_description: "",
@@ -55,10 +62,9 @@ const CreateProductPage = () => {
     video_url: "",
     warranty: "",
     features: [],
-  });
+  };
 
-  const [preview, setPreview] = useState(null);
-  const [sizes, setSizes] = useState([{ 
+  const initialSizesState = [{ 
     size: "",
     unit: "gram", 
     price: "", 
@@ -67,7 +73,46 @@ const CreateProductPage = () => {
     gst_percentage: "0",
     final_price: "0.00",
     is_default: false,
-  }]);
+  }];
+
+  const [product, setProduct] = useState(initialProductState);
+  const [preview, setPreview] = useState(null);
+  const [sizes, setSizes] = useState(initialSizesState);
+  const [images, setImages] = useState([]);
+  const [featureInput, setFeatureInput] = useState("");
+
+  // Initialize priceTiers with calculated final_bulk_price
+  const calculateFinalBulkPrice = useCallback((tier) => {
+    const price = parseFloat(tier.price) || 0;
+    const discountPercentage = parseFloat(tier.discount_percentage) || 0;
+    const gstPercentage = parseFloat(tier.gst_percentage) || 0;
+    
+    const priceAfterDiscount = price - (price * discountPercentage / 100);
+    const gstAmount = priceAfterDiscount * gstPercentage / 100;
+    const finalBulkPrice = priceAfterDiscount + gstAmount;
+    
+    return finalBulkPrice.toFixed(2);
+  }, []);
+
+  const [priceTiers, setPriceTiers] = useState(() => [{
+    sizeIndex: 0,
+    min_quantity: "",
+    price: "",
+    discount_percentage: "0",
+    gst_percentage: "0",
+    final_bulk_price: "0.00"
+  }].map(tier => ({
+    ...tier,
+    final_bulk_price: calculateFinalBulkPrice(tier)
+  })));
+
+  const { data: categories = [] } = useGetCategoriesQuery();
+  const { data: brands = [] } = useGetBrandsQuery();
+  const { data: subcategoriesData = [] } = useGetSubcategoriesByCategoryQuery(selectedCategoryId, {
+    skip: !selectedCategoryId,
+  });
+
+  const subcategories = Array.isArray(subcategoriesData) ? subcategoriesData : [];
 
   // Calculate final price for a single size
   const calculateFinalPrice = useCallback((size) => {
@@ -81,43 +126,6 @@ const CreateProductPage = () => {
     
     return finalPrice.toFixed(2);
   }, []);
-
-  // Calculate final bulk price for price tiers
-  const calculateFinalBulkPrice = useCallback((tier) => {
-    const price = parseFloat(tier.price) || 0;
-    const discountPercentage = parseFloat(tier.discount_percentage) || 0;
-    const gstPercentage = parseFloat(tier.gst_percentage) || 0;
-    
-    const priceAfterDiscount = price - (price * discountPercentage / 100);
-    const gstAmount = priceAfterDiscount * gstPercentage / 100;
-    const finalBulkPrice = priceAfterDiscount + gstAmount;
-    
-    return finalBulkPrice.toFixed(2);
-  }, []);
-
-  // Initialize priceTiers with calculated final_bulk_price
-  const [priceTiers, setPriceTiers] = useState(() => [{
-    sizeIndex: 0,
-    min_quantity: "",
-    price: "",
-    discount_percentage: "0",
-    gst_percentage: "0",
-    final_bulk_price: "0.00"
-  }].map(tier => ({
-    ...tier,
-    final_bulk_price: calculateFinalBulkPrice(tier)
-  })));
-
-  const [images, setImages] = useState([]);
-  const [featureInput, setFeatureInput] = useState("");
-
-  const { data: categories = [] } = useGetCategoriesQuery();
-  const { data: brands = [] } = useGetBrandsQuery();
-  const { data: subcategoriesData = [] } = useGetSubcategoriesByCategoryQuery(selectedCategoryId, {
-    skip: !selectedCategoryId,
-  });
-
-  const subcategories = Array.isArray(subcategoriesData) ? subcategoriesData : [];
 
   // Update sizes final prices
   useEffect(() => {
@@ -188,6 +196,176 @@ const CreateProductPage = () => {
     value: i.toString(),
     label: `${i}% GST`
   }));
+
+  // Save draft to localStorage
+  const saveDraft = useCallback(() => {
+    try {
+      const draftData = {
+        product: {
+          ...product,
+          image: null, // Don't save files to localStorage
+        },
+        sizes,
+        priceTiers,
+        images: images.map(img => ({
+          // Store minimal image data (files can't be stored in localStorage)
+          name: img.file.name,
+          type: img.file.type,
+          size: img.file.size,
+        })),
+        preview,
+        activeSection,
+        selectedCategoryId,
+        featureInput,
+        tagInput,
+        timestamp: Date.now(),
+      };
+
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draftData));
+      localStorage.setItem(DRAFT_TIMESTAMP_KEY, Date.now().toString());
+      
+      toast.info("💾 Draft saved automatically", {
+        autoClose: 1000,
+        hideProgressBar: true,
+      });
+    } catch (error) {
+      console.error("Error saving draft:", error);
+    }
+  }, [product, sizes, priceTiers, images, preview, activeSection, selectedCategoryId, featureInput, tagInput]);
+
+  // Load draft from localStorage
+  const loadDraft = () => {
+    try {
+      const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (savedDraft) {
+        const draft = JSON.parse(savedDraft);
+        
+        // Restore product data
+        setProduct({
+          ...initialProductState,
+          ...draft.product,
+          image: null, // Reset image as files can't be restored
+        });
+        
+        // Restore sizes and price tiers
+        if (draft.sizes && draft.sizes.length > 0) {
+          setSizes(draft.sizes);
+        }
+        
+        if (draft.priceTiers && draft.priceTiers.length > 0) {
+          setPriceTiers(updatePriceTiersWithCalculations(draft.priceTiers));
+        }
+        
+        // Restore selected category
+        if (draft.selectedCategoryId) {
+          setSelectedCategoryId(draft.selectedCategoryId);
+        }
+        
+        // Restore active section
+        if (draft.activeSection) {
+          setActiveSection(draft.activeSection);
+        }
+        
+        // Restore other states
+        if (draft.featureInput) setFeatureInput(draft.featureInput);
+        if (draft.tagInput) setTagInput(draft.tagInput);
+        if (draft.preview) setPreview(draft.preview);
+        
+        setIsDraftAvailable(true);
+        toast.success("📝 Loaded saved draft", {
+          autoClose: 2000,
+        });
+        
+        return true;
+      }
+    } catch (error) {
+      console.error("Error loading draft:", error);
+      clearDraft();
+    }
+    return false;
+  };
+
+  // Clear draft from localStorage
+  const clearDraft = () => {
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
+    localStorage.removeItem(DRAFT_TIMESTAMP_KEY);
+    setIsDraftAvailable(false);
+  };
+
+  // Clear draft manually
+  const handleClearDraft = () => {
+    clearDraft();
+    
+    // Reset all form states
+    setProduct(initialProductState);
+    setSizes(initialSizesState);
+    setPriceTiers([{
+      sizeIndex: 0,
+      min_quantity: "",
+      price: "",
+      discount_percentage: "0",
+      gst_percentage: "0",
+      final_bulk_price: "0.00"
+    }]);
+    setImages([]);
+    setPreview(null);
+    setActiveSection("basic");
+    setSelectedCategoryId("");
+    setFeatureInput("");
+    setTagInput("");
+    
+    toast.success("🧹 Draft cleared", {
+      autoClose: 1000,
+    });
+  };
+
+  // Check for draft on component mount
+  useEffect(() => {
+    const hasDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (hasDraft) {
+      setIsDraftAvailable(true);
+      
+      // Show notification about available draft
+      toast.info(
+        <div>
+          <p>You have a saved draft</p>
+          <button 
+            onClick={() => {
+              loadDraft();
+              toast.dismiss();
+            }}
+            className="mt-2 px-3 py-1 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors cursor-pointer"
+          >
+            Load Draft
+          </button>
+        </div>,
+        {
+          autoClose: 10000,
+          closeButton: true,
+        }
+      );
+    }
+  }, []);
+
+  // Auto-save draft when form changes (with debounce)
+  useEffect(() => {
+    const saveTimer = setTimeout(() => {
+      // Only save if there's some data entered
+      const hasData = 
+        product.name || 
+        product.description || 
+        product.brand || 
+        product.category || 
+        sizes.some(size => size.size || size.price) ||
+        images.length > 0;
+      
+      if (hasData) {
+        saveDraft();
+      }
+    }, 5000); // Debounce for 2 seconds
+
+    return () => clearTimeout(saveTimer);
+  }, [product, sizes, priceTiers, images, saveDraft]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -404,11 +582,16 @@ const CreateProductPage = () => {
       });
 
       await createProduct(formData).unwrap();
+      
+      // Clear draft after successful creation
+      clearDraft();
+      
       toast.success("🎉 Product created successfully!");
       navigate("/vendor/products");
     } catch (err) {
-      toast.error(err.data?.message || "Failed to create product");
-      console.error("Product creation error:", err);
+      toast.error("Failed to create product");
+ 
+      console.log("Product creation error:", err);
     }
   };
 
@@ -418,6 +601,26 @@ const CreateProductPage = () => {
 
   const isLastSection = activeSection === sections[sections.length - 1].id;
   const isFirstSection = activeSection === sections[0].id;
+
+  // Get draft age in human readable format
+  const getDraftAge = () => {
+    const timestamp = localStorage.getItem(DRAFT_TIMESTAMP_KEY);
+    if (!timestamp) return null;
+    
+    const draftTime = parseInt(timestamp);
+    const now = Date.now();
+    const diffMs = now - draftTime;
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    
+    if (diffMins < 1) return "just now";
+    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+    
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  };
 
   return (
     <div className="min-h-screen ">
@@ -433,25 +636,57 @@ const CreateProductPage = () => {
                 <FiArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
                 <span className="font-semibold">Back to Products</span>
               </button>
-              <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                Create New Product
-              </h1>
+              <div className="flex items-center gap-4">
+                <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                  Create New Product
+                </h1>
+                {isDraftAvailable && (
+                  <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-semibold flex items-center gap-2">
+                    <FiSave className="w-3 h-3" />
+                    Draft • {getDraftAge()}
+                  </span>
+                )}
+              </div>
               <p className="text-gray-600 mt-2 text-lg">
                 Fill in the details to add a new product to your catalog
               </p>
             </div>
             
-            {/* Progress Indicator */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm border border-gray-200/50">
-              <div className="flex items-center gap-4">
-                <div className={`w-3 h-3 rounded-full ${isFormValid ? 'bg-green-500' : 'bg-yellow-500'} animate-pulse`}></div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-700">
-                    {isFormValid ? 'Ready to create' : 'Complete all required fields'}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Step {sections.findIndex(s => s.id === activeSection) + 1} of {sections.length} • {sizes.length} size{sizes.length !== 1 ? 's' : ''} • {images.length} image{images.length !== 1 ? 's' : ''}
-                  </p>
+            {/* Draft Actions */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              {isDraftAvailable && (
+                <>
+                  <button
+                    type="button"
+                    onClick={loadDraft}
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-yellow-500 text-white rounded-xl font-semibold hover:bg-yellow-600 transition-all duration-300 cursor-pointer"
+                  >
+                    <FiArrowRight className="w-4 h-4" />
+                    Load Draft
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearDraft}
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 transition-all duration-300 cursor-pointer"
+                  >
+                    <FiTrash2 className="w-4 h-4" />
+                    Clear Draft
+                  </button>
+                </>
+              )}
+              
+              {/* Progress Indicator */}
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm border border-gray-200/50">
+                <div className="flex items-center gap-4">
+                  <div className={`w-3 h-3 rounded-full ${isFormValid ? 'bg-green-500' : 'bg-yellow-500'} animate-pulse`}></div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700">
+                      {isFormValid ? 'Ready to create' : 'Complete all required fields'}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Step {sections.findIndex(s => s.id === activeSection) + 1} of {sections.length} • {sizes.length} size{sizes.length !== 1 ? 's' : ''} • {images.length} image{images.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1151,10 +1386,13 @@ const CreateProductPage = () => {
                   <div className="flex gap-4">
                     <button
                       type="button"
-                      onClick={() => navigate("/vendor/products")}
+                      onClick={() => {
+                        saveDraft(); // Save before leaving
+                        navigate("/vendor/products");
+                      }}
                       className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-300 cursor-pointer"
                     >
-                      Cancel
+                      Save & Exit
                     </button>
                     
                     {!isLastSection ? (
@@ -1195,6 +1433,36 @@ const CreateProductPage = () => {
           {/* Sidebar - Quick Navigation & Progress */}
           <div className="lg:col-span-1">
             <div className="sticky top-6 space-y-6">
+              {/* Draft Status Card */}
+              {isDraftAvailable && (
+                <div className="bg-yellow-50/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-yellow-200">
+                  <h4 className="text-lg font-bold text-yellow-900 mb-3">📝 Draft Available</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <FiSave className="w-5 h-5 text-yellow-600" />
+                      <div>
+                        <p className="text-sm font-semibold text-yellow-800">Last saved {getDraftAge()}</p>
+                        <p className="text-xs text-yellow-700">Auto-save enabled</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={loadDraft}
+                        className="flex-1 px-3 py-2 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 transition-colors cursor-pointer text-sm"
+                      >
+                        Load Draft
+                      </button>
+                      <button
+                        onClick={handleClearDraft}
+                        className="flex-1 px-3 py-2 bg-yellow-100 text-yellow-800 rounded-lg font-semibold hover:bg-yellow-200 transition-colors cursor-pointer text-sm"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Progress Card */}
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
                 <h4 className="text-lg font-bold text-gray-900 mb-4">Creation Progress</h4>
@@ -1285,6 +1553,9 @@ const CreateProductPage = () => {
                   <li>• Set competitive bulk pricing</li>
                   <li>• Include detailed descriptions</li>
                   <li>• Add relevant tags for search</li>
+                  {isDraftAvailable && (
+                    <li className="font-semibold text-blue-900">• Your draft is auto-saved every 2 seconds</li>
+                  )}
                 </ul>
               </div>
             </div>

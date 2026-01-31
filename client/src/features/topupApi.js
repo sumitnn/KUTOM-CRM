@@ -5,19 +5,23 @@ import axiosBaseQuery from '../utils/axiosBaseQuery';
 export const topupApi = createApi({
     reducerPath: 'topupApi',
     baseQuery: axiosBaseQuery({ baseUrl: import.meta.env.VITE_BACKEND_API_URL }),
+    tagTypes: ['Topup'], 
     endpoints: (builder) => ({
         getTopupRequest: builder.query({
-            query: () => ({
+            query: (params) => ({ // Accept parameters
                 url: '/topup-request/',
                 method: 'GET',
+                params, // Pass query parameters to Django
             }),
+            providesTags: ['Topup'], // Add for cache invalidation
         }),
         updateTopupRequest: builder.mutation({
             query: ({ topupId, data }) => ({
                 url: `/topup-request/update/${topupId}/`,
                 method: 'PUT',
-                data, 
+                data,
             }),
+            invalidatesTags: ['Topup'], // Invalidate cache when updating
         }),
 
         GetMyTopupRequest: builder.query({

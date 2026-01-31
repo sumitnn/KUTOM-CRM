@@ -3,6 +3,8 @@ from  .models import Notification,User
 from django.core.mail import send_mail
 from django.core.mail import EmailMultiAlternatives
 from email.utils import formataddr
+from django.core.signing import Signer
+
 
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
@@ -143,3 +145,14 @@ def send_html_email(to_email, subject, messages):
 
     except Exception as e:
         print(f"Error sending HTML email to {to_email}: {e}")
+
+
+
+
+signer = Signer()
+
+def encrypt_url(url: str) -> str:
+    signed = signer.sign(url)
+    base, sig = signed.rsplit(":", 1)
+    return f"{base}?enc={sig}"
+

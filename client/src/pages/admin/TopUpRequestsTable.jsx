@@ -18,6 +18,8 @@ import {
   FiChevronLeft,
   FiChevronRight,
   FiInfo,
+  FiHash,
+  FiClock,
 } from "react-icons/fi";
 import { FaRupeeSign } from "react-icons/fa";
 import ModalPortal from "../../components/ModalPortal";
@@ -45,50 +47,57 @@ const paymentMethodColors = {
 const ITEMS_PER_PAGE = 10;
 
 const TopUpRequestsTable = () => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setCurrentPage(1); // Reset to first page when search changes
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+  
+  // Build query parameters
+  const queryParams = {
+    page: currentPage,
+    page_size: ITEMS_PER_PAGE,
+  };
+  
+  if (debouncedSearch) {
+    queryParams.search = debouncedSearch;
+  }
+  
+  if (filterStatus !== "ALL") {
+    queryParams.status = filterStatus;
+  }
+  
   const {
-    data: response = { results: [] },
+    data: response = { results: [], count: 0 },
     isLoading,
     refetch,
     error,
     isError,
-  } = useGetTopupRequestQuery();
+  } = useGetTopupRequestQuery(queryParams);
 
   const requests = response.results || [];
-
+  const totalCount = response.count || 0;
+  
   const [updateTopupRequest, { isLoading: updating }] = useUpdateTopupRequestMutation();
   const [modalImage, setModalImage] = useState(null);
   const [rejectModal, setRejectModal] = useState({ open: false, requestId: null });
   const [rejectedReason, setRejectedReason] = useState("");
   const [rejectedDescription, setRejectedDescription] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [filterStatus, setFilterStatus] = useState("ALL");
   const [expandedRow, setExpandedRow] = useState(null);
 
   const defaultScreenshot = "https://via.placeholder.com/150?text=No+Image";
 
-  // Filter and search logic
-  const filteredRequests = requests.filter((req) => {
-    const matchesSearch = 
-      req.user?.username?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      req.user?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      req.user?.phone?.includes(searchTerm) ||
-      req.user?.stockist_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      req.user?.reseller_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      req.amount?.toString().includes(searchTerm) ||
-      req.status?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = filterStatus === "ALL" || req.status === filterStatus;
-    
-    return matchesSearch && matchesStatus;
-  });
-
-  // Pagination logic
-  const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE);
-  const paginatedRequests = filteredRequests.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
+  // Calculate total pages
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
   const openModal = (imageUrl) => {
     setModalImage(imageUrl || defaultScreenshot);
@@ -141,8 +150,13 @@ const TopUpRequestsTable = () => {
   };
 
   const formatDate = (dateString) => {
-    const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+    const options = { year: 'numeric', month: 'short', day: 'numeric'};
     return new Date(dateString).toLocaleDateString(undefined, options);
+  };
+
+  const formatTime = (dateString) => {
+    const options = { hour: '2-digit', minute: '2-digit', hour12: true };
+    return new Date(dateString).toLocaleTimeString(undefined, options);
   };
 
   const getUserIdentifier = (user) => {
@@ -157,10 +171,10 @@ const TopUpRequestsTable = () => {
     setExpandedRow(expandedRow === requestId ? null : requestId);
   };
 
-  // Reset to first page when filters change
+  // Reset page when filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterStatus]);
+  }, [filterStatus]);
 
   return (
     <div className="container mx-auto px-0">
@@ -171,19 +185,19 @@ const TopUpRequestsTable = () => {
             <div className="flex-1">
               <h2 className="text-2xl font-bold text-gray-900">Top-up Requests</h2>
               <div className="text-sm text-gray-600 mt-1">
-                {filteredRequests.length} request{filteredRequests.length !== 1 ? 's' : ''} found
-                {response.count !== undefined && ` (${response.count} total)`}
+                {requests.length} request{requests.length !== 1 ? 's' : ''} on this page
+                {totalCount !== 0 && ` (${totalCount} total)`}
               </div>
             </div>
             
             <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
-              <div className="relative flex-grow max-w-md">
+              <div className="relative flex-grow max-w-xl">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <FiSearch className="text-gray-400 h-5 w-5" />
                 </div>
                 <input
                   type="text"
-                  placeholder="Search by user, email, phone, ID..."
+                  placeholder="Search by email, username, amount ..."
                   className="pl-10 pr-4 py-3 border border-gray-300 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -196,11 +210,9 @@ const TopUpRequestsTable = () => {
                 onChange={(e) => setFilterStatus(e.target.value)}
               >
                 <option value="ALL">All Statuses</option>
-                <option value="PENDING">Pending</option>
-                <option value="APPROVED">Approved</option>
-                <option value="INVALID_SCREENSHOT">Invalid Screenshot</option>
-                <option value="INVALID_AMOUNT">Invalid Amount</option>
-                <option value="REJECTED">Rejected</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
               </select>
             </div>
           </div>
@@ -220,7 +232,7 @@ const TopUpRequestsTable = () => {
               Retry
             </button>
           </div>
-        ) : filteredRequests.length === 0 ? (
+        ) : requests.length === 0 ? (
           <div className="text-center py-20 text-gray-500">
             <div className="text-6xl mb-4">🔍</div>
             <div className="text-xl font-medium mb-2">No requests found</div>
@@ -228,25 +240,31 @@ const TopUpRequestsTable = () => {
           </div>
         ) : (
           <>
-            {/* Mobile Cards View */}
+            {/* Mobile Cards View - Updated with Request ID and Date */}
             <div className="lg:hidden">
-              {paginatedRequests.map((req) => (
+              {requests.map((req) => (
                 <div key={req.id} className="border-b border-gray-200 last:border-b-0 p-6 hover:bg-gray-50 transition-colors duration-150">
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                          {req.user?.username?.charAt(0) || "U"}
-                        </div>
-                        <div>
-                          <div className="font-semibold text-gray-900">{req.user?.username}</div>
-                          <div className="text-xs text-gray-500 capitalize">{req.user?.role || "N/A"}</div>
-                        </div>
-                      </div>
+                  {/* Request ID and Status Header */}
+                  <div className="flex justify-between items-center mb-4">
+                    <div className="flex items-center gap-2">
+                      <FiHash className="w-4 h-4 text-gray-400" />
+                      <span className="font-mono text-sm font-medium text-gray-700">
+                        ID: {req.id || "N/A"}
+                      </span>
                     </div>
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[req.status] || 'bg-gray-100 text-gray-800'}`}>
                       {req.status}
                     </span>
+                  </div>
+
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                      {req.user?.username?.charAt(0) || "U"}
+                    </div>
+                    <div>
+                      <div className="font-semibold text-gray-900">{req.user?.username}</div>
+                      <div className="text-xs text-gray-500 capitalize">{req.user?.role || "N/A"}</div>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 text-sm mb-4">
@@ -263,12 +281,18 @@ const TopUpRequestsTable = () => {
                       </div>
                     </div>
                     <div>
-                      <div className="text-gray-500 text-xs">User ID</div>
-                      <div className="font-medium text-gray-900">{getUserIdentifier(req.user)}</div>
+                      <div className="text-gray-500 text-xs">Created Date</div>
+                      <div className="font-medium text-gray-900 text-xs flex items-center gap-1">
+                        <FiCalendar className="w-3 h-3" />
+                        {formatDate(req.created_at)}
+                      </div>
                     </div>
                     <div>
-                      <div className="text-gray-500 text-xs">Date</div>
-                      <div className="font-medium text-gray-900 text-xs">{formatDate(req.created_at)}</div>
+                      <div className="text-gray-500 text-xs">Created Time</div>
+                      <div className="font-medium text-gray-900 text-xs flex items-center gap-1">
+                        <FiClock className="w-3 h-3" />
+                        {formatTime(req.created_at)}
+                      </div>
                     </div>
                   </div>
 
@@ -298,6 +322,10 @@ const TopUpRequestsTable = () => {
                               <FiPhone className="w-4 h-4 text-gray-400" />
                               {req.user?.phone || "N/A"}
                             </div>
+                          </div>
+                          <div>
+                            <div className="text-gray-500 text-xs">User ID</div>
+                            <div className="font-medium text-gray-900">{getUserIdentifier(req.user)}</div>
                           </div>
                           <div>
                             <div className="text-gray-500 text-xs">Payment Details</div>
@@ -353,11 +381,14 @@ const TopUpRequestsTable = () => {
               ))}
             </div>
 
-            {/* Desktop Table View */}
+            {/* Desktop Table View - Updated with new columns */}
             <div className="hidden lg:block overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
+                    <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Request ID
+                    </th>
                     <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       User Details
                     </th>
@@ -365,7 +396,10 @@ const TopUpRequestsTable = () => {
                       Payment Info
                     </th>
                     <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Status & Date
+                      Status
+                    </th>
+                    <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Created Date
                     </th>
                     <th scope="col" className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Actions
@@ -373,28 +407,39 @@ const TopUpRequestsTable = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {paginatedRequests.map((req) => (
+                  {requests.map((req) => (
                     <tr key={req.id} className="hover:bg-gray-50 transition-colors duration-150">
+                      {/* Request ID Column */}
                       <td className="px-6 py-4">
                         <div className="flex items-center">
-                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm mr-4">
+                          <FiHash className="w-3 h-5 text-gray-400 mr-1" />
+                         
+                            <div className="font-mono text-sm font-medium text-gray-900">
+                              000{req.id || "N/A"}
+                            </div>
+                           
+                          
+                        </div>
+                      </td>
+                      
+                      {/* User Details Column */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm mr-4">
                             {req.user?.username?.charAt(0) || "U"}
                           </div>
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                               <div className="font-semibold text-gray-900">{req.user?.username}</div>
-                              <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 capitalize">
-                                {req.user?.role || "N/A"}
-                              </span>
                             </div>
                             <div className="text-sm text-gray-600 space-y-1">
                               <div className="flex items-center gap-2">
                                 <FiMail className="w-4 h-4" />
-                                {req.user?.email}
+                                {req.user?.email || "N/A"}
                               </div>
                               <div className="flex items-center gap-2">
                                 <FiPhone className="w-4 h-4" />
-                                {req.user?.phone}
+                                {req.user?.phone || "N/A"}
                               </div>
                               <div className="flex items-center gap-2">
                                 <FiCreditCard className="w-4 h-4" />
@@ -404,13 +449,15 @@ const TopUpRequestsTable = () => {
                           </div>
                         </div>
                       </td>
+                      
+                      {/* Payment Info Column */}
                       <td className="px-6 py-4">
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
                             <div className="font-semibold text-green-600 flex items-center text-lg">
                               <FaRupeeSign className="mr-1" /> {req.amount}
                             </div>
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${paymentMethodColors[req.payment_method] || 'bg-gray-100 text-gray-800'}`}>
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${paymentMethodColors[req.payment_method] || 'bg-gray-100 text-cyan-500'}`}>
                               {getPaymentMethodDisplay(req.payment_method)}
                             </span>
                           </div>
@@ -433,17 +480,29 @@ const TopUpRequestsTable = () => {
                           </div>
                         </div>
                       </td>
+                      
+                      {/* Status Column */}
                       <td className="px-6 py-4">
-                        <div className="space-y-2">
-                          <span className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${statusColors[req.status] || 'bg-gray-100 text-gray-800'}`}>
-                            {req.status}
-                          </span>
-                          <div className="text-sm text-gray-500 flex items-center gap-2">
-                            <FiCalendar className="w-4 h-4" />
+                        <span className={`px-3 py-2 inline-flex text-sm leading-5 font-semibold rounded-full ${statusColors[req.status] || 'bg-gray-100 text-gray-800'}`}>
+                          {req.status?.toUpperCase() || "N/A"}
+                        </span>
+                      </td>
+                      
+                      {/* Created Date Column */}
+                      <td className="px-6 py-4">
+                        <div className="space-y-1">
+                          <div className="text-sm text-gray-900 font-medium flex items-center gap-2">
+                            <FiCalendar className="w-4 h-4 text-gray-400" />
                             {formatDate(req.created_at)}
+                          </div>
+                          <div className="text-xs text-gray-500 flex items-center gap-2">
+                            <FiClock className="w-3 h-3" />
+                            {formatTime(req.created_at)}
                           </div>
                         </div>
                       </td>
+                      
+                      {/* Actions Column */}
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end space-x-2">
                           <button
@@ -485,9 +544,9 @@ const TopUpRequestsTable = () => {
                 <div className="text-sm text-gray-600">
                   Showing <span className="font-semibold">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to{' '}
                   <span className="font-semibold">
-                    {Math.min(currentPage * ITEMS_PER_PAGE, filteredRequests.length)}
+                    {Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}
                   </span>{' '}
-                  of <span className="font-semibold">{filteredRequests.length}</span> results
+                  of <span className="font-semibold">{totalCount}</span> results
                 </div>
                 <div className="flex items-center space-x-2">
                   <button

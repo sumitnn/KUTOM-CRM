@@ -577,7 +577,8 @@ const CommonLayout = ({ children }) => {
                 onChange={handleNameChange}
                 placeholder="Full Name"
                 error={errors.full_name}
-                icon={MdPerson}
+                  icon={MdPerson}
+                  autoComplete="off"
               />
 
               <InputField
@@ -588,7 +589,8 @@ const CommonLayout = ({ children }) => {
                 onChange={handleChange}
                 placeholder="Email"
                 error={errors.email}
-                icon={MdEmail}
+                  icon={MdEmail}
+                  autoComplete="off"
               />
 
               <InputField
@@ -600,7 +602,8 @@ const CommonLayout = ({ children }) => {
                 placeholder="Phone Number"
                 error={errors.phone}
                 icon={MdPhone}
-                maxLength={10}
+                  maxLength={10}
+                  autoComplete="off"
               />
 
               {/* Submit Button */}

@@ -440,15 +440,40 @@ class ProductListCreateAPIView(APIView):
         return Response(serializer.data)
 
     def post(self, request):
-      
-        data = request.data
+        data = request.data.copy()  # Make a mutable copy
         
+        # Truncate short_description if needed
         if "short_description" in data and len(data["short_description"]) > 450:
             data["short_description"] = data["short_description"][:450]
         
+        # Validate and clean video_url field
+        if "video_url" in data:
+            video_url = data["video_url"]
+            
+            # If video_url is provided, validate it
+            if video_url and video_url.strip():
+                import re
+                # Check if it's a valid URL
+                url_pattern = re.compile(
+                    r'^(https?:\/\/)?'  # http:// or https://
+                    r'(www\.)?'  # www.
+                    r'[a-zA-Z0-9-]+\.[a-zA-Z]{2,}'  # domain
+                    r'(\/[^\s]*)?$'  # path
+                )
+                
+                if not url_pattern.match(video_url):
+                    # If invalid URL, set it to empty string instead of raising error
+                    data["video_url"] = ""
+            else:
+                # If empty or whitespace, set to empty string
+                data["video_url"] = ""
+        
         serializer = ProductCreateSerializer(data=data, context={"request": request})
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"message": "Validation failed", "errors": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         with transaction.atomic():
             product = serializer.save()
@@ -664,34 +689,51 @@ class ProductByStatusAPIView(APIView):
         if request.user.role == 'admin':
             # For admin, count distinct products for each status
             total_counts = {
-                'total_draft': base_queryset.filter(product__status='draft').values('product').distinct().count(),
-                'total_published': base_queryset.filter(product__status='published').values('product').distinct().count(),
-                'total_active': base_queryset.filter(is_featured=True).values('product').distinct().count(),
-                'total_inactive': base_queryset.filter(is_featured=False).values('product').distinct().count(),
+                'total_draft': base_queryset.filter(product__status='draft',is_featured=False).values('product').distinct().count(),
+                'total_published': base_queryset.filter(product__status='published',is_featured=False).values('product').distinct().count(),
+                'total_active': base_queryset.filter(is_featured=True,product__status='published').values('product').distinct().count(),
+                'total_inactive': base_queryset.filter(is_featured=False,product__status='published').values('product').distinct().count(),
                 'total_products': base_queryset.values('product').distinct().count()
             }
         else:
             # For vendors, use regular counts
             total_counts = {
-                'total_draft': base_queryset.filter(product__status='draft').count(),
-                'total_published': base_queryset.filter(product__status='published').count(),
-                'total_active': base_queryset.filter(is_featured=True).count(),
-                'total_inactive': base_queryset.filter(is_featured=False).count(),
+                'total_draft': base_queryset.filter(
+                    product__status='draft',
+                    is_featured=False
+                ).count(),
+
+                'total_published': base_queryset.filter(
+                    product__status='published',
+                    is_featured=False
+                ).count(),
+
+                'total_active': base_queryset.filter(
+                    product__status='published',
+                    is_featured=True
+                ).count(),
+
+                'total_inactive': base_queryset.filter(
+                    product__status='published',
+                    is_featured=False
+                ).count(),
+
                 'total_products': base_queryset.count()
             }
 
+
         # Filter for current status
         if status_param == "active":
-            current_products = base_queryset.filter(is_featured=True)
+            current_products = base_queryset.filter(is_featured=True,product__status='published')
         elif status_param == "inactive":
-            current_products = base_queryset.filter(is_featured=False)
+            current_products = base_queryset.filter(is_featured=False,product__status='published')
         elif status_param in ["draft", "published"]:
-            current_products = base_queryset.filter(product__status=status_param)
+            current_products = base_queryset.filter(product__status=status_param,is_featured=False)
         else:
             current_products = base_queryset.none()
 
         if featured and featured.lower() in ["1", "true", "yes"]:
-            current_products = current_products.filter(is_featured=True)
+            current_products = current_products.filter(is_featured=True,product__status='published')
 
         # Get count for current status
         current_status_count = current_products.count()

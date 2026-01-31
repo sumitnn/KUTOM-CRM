@@ -18,6 +18,14 @@ const CreateTopupRequest = ({role}) => {
   const { data: paymentDetails } = useGetAdminPaymentDetailsQuery();
   const [createTopup] = useCreateTopupRequestMutation();
 
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -92,7 +100,7 @@ const CreateTopupRequest = ({role}) => {
         {/* Header */}
         <div className="text-center mb-6">
           <h1 className="text-2xl font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-            Create Topup Reqeust
+            Create Topup Request
           </h1>
           <p className="mt-2 text-sm text-gray-600">
             Request wallet topup to admin
@@ -208,7 +216,7 @@ const CreateTopupRequest = ({role}) => {
                       <p><span className="font-bold">IFSC Code:</span> {paymentDetails.ifsc_code}</p>
                     </div>
                   ) : (
-                    <p className="text-xs text-red-600">Please add payment details in profile</p>
+                    <p className="text-xs text-red-600">⚠️ Admin payment details are not available. Please contact the administrator.</p>
                   )}
                 </div>
               )}
@@ -242,6 +250,53 @@ const CreateTopupRequest = ({role}) => {
                           </svg>
                         </button>
                       </div>
+                      
+                      {/* File Information Section */}
+                      {screenshot && (
+                        <div className="mt-3 p-2 bg-white rounded border border-gray-200">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-gray-800 truncate" title={screenshot.name}>
+                                📄 {screenshot.name}
+                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-xs text-gray-600">
+                                  Size: {formatFileSize(screenshot.size)}
+                                </span>
+                                <span className="text-xs text-gray-600">
+                                  • Type: {screenshot.type.split('/')[1]?.toUpperCase() || 'Image'}
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPreviewImage(null);
+                                setScreenshot(null);
+                              }}
+                              className="ml-2 text-xs text-red-600 hover:text-red-800 font-medium cursor-pointer"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                          
+                          {/* Progress bar for file size visualization */}
+                          <div className="mt-2">
+                            <div className="flex justify-between text-xs text-gray-600 mb-1">
+                              <span>File Size</span>
+                              <span>{formatFileSize(screenshot.size)} / 5MB</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-1.5">
+                              <div 
+                                className="bg-blue-600 h-1.5 rounded-full transition-all duration-300" 
+                                style={{ 
+                                  width: `${Math.min((screenshot.size / (5 * 1024 * 1024)) * 100, 100)}%` 
+                                }}
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <label className="cursor-pointer">
@@ -323,26 +378,27 @@ const CreateTopupRequest = ({role}) => {
         {/* Passbook Modal */}
         {showPassbook && paymentDetails?.passbook_pic && (
           <ModalPortal>
-          <div className="fixed inset-0 bg-black/50  flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-sm w-full p-4">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="font-semibold">Passbook</h3>
-                <button
-                  onClick={() => setShowPassbook(false)}
-                  className="text-gray-500 hover:text-gray-700 cursor-pointer"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-lg max-w-sm w-full p-4">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="font-semibold">Passbook</h3>
+                  <button
+                    onClick={() => setShowPassbook(false)}
+                    className="text-gray-500 hover:text-gray-700 cursor-pointer"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <img 
+                  src={paymentDetails.passbook_pic} 
+                  alt="Passbook" 
+                  className="w-full rounded border"
+                />
               </div>
-              <img 
-                src={paymentDetails.passbook_pic} 
-                alt="Passbook" 
-                className="w-full rounded border"
-              />
             </div>
-          </div></ModalPortal>
+          </ModalPortal>
         )}
       </div>
     </div>

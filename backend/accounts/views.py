@@ -37,7 +37,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 import json
 from django.core.mail import send_mail
-
+from accounts.utils import send_html_email
 
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 10
@@ -796,17 +796,42 @@ class BroadcastMessageDetailAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class CustomPagination(PageNumberPagination):
+    page_size_query_param = 'page_size'
+    max_page_size = 40
+
 class TopUpRequestListCreateView(generics.ListCreateAPIView):
     serializer_class = TopupRequestSerializer
     permission_classes = [IsAuthenticated]
-
+    pagination_class = CustomPagination
+    
     def get_queryset(self):
         user = self.request.user
+        
+        # Start with base queryset
         if user.role == "admin":
-            return TopupRequest.objects.all().order_by('-created_at')
-        return TopupRequest.objects.filter(user=user).order_by('-created_at')
-
+            queryset = TopupRequest.objects.all()
+        else:
+            queryset = TopupRequest.objects.filter(user=user)
+        
+        # Apply search filter
+        search = self.request.query_params.get('search', '')
+        if search:
+            queryset = queryset.filter(
+                Q(user__username__icontains=search) |
+                Q(user__email__icontains=search) |
+                Q(amount__icontains=search)
+            )
+        
+        # Apply status filter
+        status = self.request.query_params.get('status', '')
+        if status and status != 'ALL':
+            queryset = queryset.filter(status=status)
+        
+        return queryset.order_by('-created_at')
+    
     def perform_create(self, serializer):
+        messages=[]
         topup = serializer.save(user=self.request.user)
 
         # 🔔 Notify Admins
@@ -819,6 +844,28 @@ class TopUpRequestListCreateView(generics.ListCreateAPIView):
                 f"requested by {self.request.user.role}",
                 related_url=""
             )
+            
+            if self.request.user.email:
+                # send email to current user 
+                wallet=Wallet.objects.get(user=self.request.user)
+                messages.extend([
+                    "Your top-up request has been submitted successfully.",
+                    "<strong>Details:</strong>",
+                    f"Amount: ₹{topup.amount}",
+                    f"Current Balance: ₹{wallet.current_balance}",
+                    "Status: Pending",
+                    "We will notify you once it is reviewed."
+                ])
+
+                send_html_email(
+                    to_email=self.request.user.email,
+                    subject="Top-Up Request Submitted Successfully",
+                    messages=messages
+                )
+
+
+
+    
 
 
 class TopUpRequestUpdateView(generics.UpdateAPIView):

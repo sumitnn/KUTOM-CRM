@@ -47,6 +47,25 @@ const LoadingFallback = () => (
   </div>
 );
 
+// Helper function to check if edit should be disabled
+const shouldDisableEdit = (profile, section) => {
+  // If user is admin, always enable editing
+  if (profile.role === "admin") {
+    return false;
+  }
+  
+  // Check if user is stockist, vendor, or reseller with approved KYC
+  const isRestrictedRole = ["stockist", "vendor", "reseller"].includes(profile.role);
+  const isKycApproved = profile.kyc_status === "APPROVED";
+  
+  // Disable editing for restricted roles when KYC is approved
+  if (isRestrictedRole && isKycApproved) {
+    return true;
+  }
+  
+  return false;
+};
+
 export default function Profile() {
   const [activeEditSection, setActiveEditSection] = useState(null);
   const { data: profileData, isLoading, isError, refetch } = useGetProfileQuery();
@@ -389,8 +408,9 @@ export default function Profile() {
                 </h2>
                 <button 
                   onClick={() => setActiveEditSection('personal')}
-                  className="btn btn-primary btn-sm gap-2 hover:scale-105 transition-transform"
-                  disabled={isUpdating}
+                  className="btn btn-primary btn-sm gap-2 hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={shouldDisableEdit(profile, 'personal') || isUpdating}
+                  title={shouldDisableEdit(profile, 'personal') ? "Editing disabled for approved KYC" : ""}
                 >
                   <FaEdit /> Edit
                 </button>
@@ -441,8 +461,9 @@ export default function Profile() {
                 </h2>
                 <button 
                   onClick={() => setActiveEditSection('business')}
-                  className="btn btn-primary btn-sm gap-2 hover:scale-105 transition-transform"
-                  disabled={isUpdating}
+                  className="btn btn-primary btn-sm gap-2 hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={shouldDisableEdit(profile, 'business') || isUpdating}
+                  title={shouldDisableEdit(profile, 'business') ? "Editing disabled for approved KYC" : ""}
                 >
                   <FaEdit /> Edit
                 </button>
@@ -550,8 +571,9 @@ export default function Profile() {
                 </h2>
                 <button 
                   onClick={() => setActiveEditSection('address')}
-                  className="btn btn-primary btn-sm gap-2 hover:scale-105 transition-transform"
-                  disabled={isUpdating}
+                  className="btn btn-primary btn-sm gap-2 hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={shouldDisableEdit(profile, 'address') || isUpdating}
+                  title={shouldDisableEdit(profile, 'address') ? "Editing disabled for approved KYC" : ""}
                 >
                   <FaEdit /> Edit
                 </button>
@@ -596,8 +618,9 @@ export default function Profile() {
                 </h2>
                 <button 
                   onClick={() => setActiveEditSection('payment')}
-                  className="btn btn-primary btn-sm gap-2 hover:scale-105 transition-transform"
-                  disabled={isUpdating}
+                  className="btn btn-primary btn-sm gap-2 hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={shouldDisableEdit(profile, 'payment') || isUpdating}
+                  title={shouldDisableEdit(profile, 'payment') ? "Editing disabled for approved KYC" : ""}
                 >
                   <FaEdit /> Edit
                 </button>
@@ -706,7 +729,7 @@ export default function Profile() {
               type: 'select', 
               options: ['male', 'female', 'other'], 
               icon: <FaVenusMars />,
-              required: true
+              required: false
             },
             { 
               name: 'date_of_birth', 
@@ -738,7 +761,8 @@ export default function Profile() {
               name: 'bio', 
               label: 'Bio', 
               type: 'textarea', 
-              icon: <FaInfoCircle /> 
+              icon: <FaInfoCircle />,
+              required: false
             },
             {
               name: 'adhaar_card_number',
@@ -764,7 +788,7 @@ export default function Profile() {
               type: 'file',
               accept: 'image/*,application/pdf',
               icon: <FaIdCard />,
-              required: true
+              required: false
             },
             {
               name: 'pancard_pic',
@@ -772,38 +796,43 @@ export default function Profile() {
               type: 'file',
               accept: 'image/*,application/pdf',
               icon: <FaPassport />,
-              required: true
+              required: false
             },
             { 
               name: 'facebook', 
               label: 'Facebook', 
               type: 'url', 
-              icon: <FaFacebook /> 
+              icon: <FaFacebook />,
+              required: false
             },
             { 
               name: 'twitter', 
               label: 'Twitter', 
               type: 'url', 
-              icon: <FaTwitter /> 
+              icon: <FaTwitter />,
+              required: false
             },
             { 
               name: 'instagram', 
               label: 'Instagram', 
               type: 'url', 
-              icon: <FaInstagram /> 
+              icon: <FaInstagram />,
+              required: false
             },
             { 
               name: 'youtube', 
               label: 'YouTube', 
               type: 'url', 
-              icon: <FaYoutube /> 
+              icon: <FaYoutube />,
+              required: false
             },
             { 
               name: 'profile_picture', 
               label: 'Profile Picture', 
               type: 'file', 
               accept: 'image/*', 
-              icon: <FaUser /> 
+              icon: <FaUser />,
+              required: false
             }
           ]}
           initialData={{
@@ -893,21 +922,21 @@ export default function Profile() {
               label: 'Company Name', 
               type: 'text', 
               icon: <BsBuilding />,
-              required: true
+              required: false
             },
             { 
               name: 'company_email', 
               label: 'Company Email', 
               type: 'email', 
               icon: <MdEmail />,
-              required: true
+              required: false
             },
             { 
               name: 'company_phone', 
               label: 'Company Phone', 
               type: 'tel', 
               icon: <FaPhone />,
-              required: true,
+              required: false,
               pattern: "[0-9]{10}",
               title: "10 digit phone number"
             },
@@ -916,7 +945,7 @@ export default function Profile() {
               label: 'Designation', 
               type: 'text', 
               icon: <FaUserTie />,
-              required: true
+              required: false
             },
             { 
               name: 'business_type', 
@@ -924,7 +953,7 @@ export default function Profile() {
               type: 'select', 
               options: ['business','individual','proprietorship', 'public_limited', 'private_limited', 'partnership', 'llp', 'other'], 
               icon: <FaIndustry />,
-              required: true
+              required: false
             },
             { 
               name: 'business_category', 
@@ -932,14 +961,14 @@ export default function Profile() {
               type: 'select', 
               options: ['service_provider','production','trading','restaurant','manufacturer', 'wholesaler', 'other'], 
               icon: <MdBusinessCenter />,
-              required: true
+              required: false
             },
             { 
               name: 'business_description', 
               label: 'Business Description', 
               type: 'textarea', 
               icon: <FaInfoCircle />,
-              required: true
+              required: false
             },
             { 
               name: 'gst_number', 
@@ -970,28 +999,29 @@ export default function Profile() {
               name: 'food_license_number', 
               label: 'Food License', 
               type: 'text', 
-              icon: <FaCalendarAlt /> 
+              icon: <FaCalendarAlt />,
+              required: false
             },
             { 
               name: 'registered_address', 
               label: 'Registered Street Address', 
               type: 'textarea', 
               icon: <FaHome />,
-              required: true
+              required: false
             },
             { 
               name: 'operational_address', 
               label: 'Company Registered Street Address', 
               type: 'textarea', 
               icon: <FaHome />,
-              required: true
+              required: false
             },
             { 
               name: 'pincode', 
               label: 'Pincode', 
               type: 'text', 
               icon: <FaAddressCard />,
-              required: true,
+              required: false,
               pattern: "[0-9]{6}",
               title: "6 digit pincode",
             },
@@ -1000,14 +1030,14 @@ export default function Profile() {
               label: 'State', 
               type: 'state', 
               icon: <FaGlobe />,
-              required: true
+              required: false
             },
             { 
               name: 'district', 
               label: 'District', 
               type: 'district', 
               icon: <FaMapMarkerAlt />,
-              required: true
+              required: false
             },
             { 
               name: 'gst_certificate', 
@@ -1023,6 +1053,7 @@ export default function Profile() {
               type: 'file', 
               accept: 'image/*,.pdf', 
               icon: <FaPassport />,
+              required: false
 
             },
             { 
@@ -1038,7 +1069,8 @@ export default function Profile() {
               label: 'Food License Doc', 
               type: 'file', 
               accept: 'image/*,.pdf', 
-              icon: <FaCalendarAlt /> 
+              icon: <FaCalendarAlt />,
+              required: false
           }
           ]}
           initialData={profile.company}
@@ -1056,7 +1088,7 @@ export default function Profile() {
               label: 'UPI ID', 
               type: 'text', 
               icon: <MdPayment />,
-              required: true
+              required: false
             },
             { 
               name: 'account_holder_name', 
@@ -1092,7 +1124,7 @@ export default function Profile() {
               type: 'file', 
               accept: 'image/*,.pdf',
               icon: <FaFileImage />,
-              required: true
+              required: false
             }
           ]}
           initialData={{

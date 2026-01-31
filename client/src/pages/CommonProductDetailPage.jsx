@@ -4,7 +4,11 @@ import { useDispatch, useSelector } from "react-redux";
 import { addItem } from "../features/cart/cartSlice";
 import { useGetAdminProductByIdQuery } from "../features/adminproductfold/AdminProductApi";
 import { toast } from "react-toastify";
-import { FiMinus, FiPlus, FiStar, FiTruck, FiShield, FiArrowLeft, FiPackage, FiShoppingCart, FiZoomIn, FiCheck, FiAlertCircle } from "react-icons/fi";
+import { 
+  FiMinus, FiPlus, FiStar, FiTruck, FiShield, FiArrowLeft, 
+  FiPackage, FiShoppingCart, FiZoomIn, FiCheck, FiAlertCircle,
+  FiPercent, FiDollarSign, FiInfo, FiCreditCard, FiTrendingUp
+} from "react-icons/fi";
 import "react-toastify/dist/ReactToastify.css";
 
 const CommonProductDetailPage = ({ role }) => {
@@ -25,6 +29,7 @@ const CommonProductDetailPage = ({ role }) => {
   const product = productData?.product_detail;
   const variantsDetail = productData?.variants_detail || [];
   const rolebasedproductid = productData?.id;
+  const commission = productData?.commission || []; // Commission data from API
 
   useEffect(() => {
     if (product) {
@@ -39,6 +44,22 @@ const CommonProductDetailPage = ({ role }) => {
       }
     }
   }, [product, variantsDetail]);
+
+  // Get commission display data - directly from API
+  const getCommissionData = () => {
+    if (!commission || commission.length === 0) {
+      return null;
+    }
+    
+    const commissionData = commission[0];
+    return {
+      type: commissionData.commission_type, // "flat" or "percentage"
+      value: commissionData.commission_value, // 500.0 or percentage value
+      updatedAt: commissionData.updated_at
+    };
+  };
+
+  const commissionData = getCommissionData();
 
   // Image zoom functionality
   const handleImageMouseMove = (e) => {
@@ -410,6 +431,56 @@ const CommonProductDetailPage = ({ role }) => {
             )}
           </div>
 
+          {/* Commission Section */}
+          {commissionData && (
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-6 shadow-sm border border-purple-100">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                  <FiTrendingUp className="text-2xl text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Commission Details</h3>
+                  <p className="text-sm text-gray-600">Earnings on each sale</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white/70 p-4 rounded-xl border border-purple-100">
+                  <div className="text-sm text-purple-600 font-semibold mb-1">Commission Type</div>
+                  <div className="flex items-center gap-2">
+                    {commissionData.type === "percentage" ? (
+                      <FiPercent className="text-purple-500" />
+                    ) : (
+                      <FiDollarSign className="text-purple-500" />
+                    )}
+                    <span className="text-xl font-bold text-gray-900 capitalize">
+                      {commissionData.type}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="bg-white/70 p-4 rounded-xl border border-purple-100">
+                  <div className="text-sm text-purple-600 font-semibold mb-1">Commission Value</div>
+                  <div className="flex items-center gap-2">
+                    <FiCreditCard className="text-purple-500" />
+                    <span className="text-xl font-bold text-gray-900">
+                      {commissionData.type === "percentage" 
+                        ? `${commissionData.value}%` 
+                        : `₹${commissionData.value.toFixed(2)}`
+                      }
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              {commissionData.updatedAt && (
+                <div className="mt-4 text-xs text-gray-500 text-center">
+                  Last updated: {new Date(commissionData.updatedAt).toLocaleDateString()}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Enhanced Price Section */}
           <div className="bg-gradient-to-br from-white to-blue-50 rounded-2xl p-6 shadow-sm border border-blue-100">
             <div className="flex items-baseline gap-3 flex-wrap mb-4">
@@ -701,10 +772,10 @@ const CommonProductDetailPage = ({ role }) => {
             </div>
           </div>
 
-          {/* Tabs */}
+          {/* Tabs - Updated to include commission tab */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="flex border-b border-gray-200">
-              {["description", "details", "pricing"].map((tab) => (
+              {["description", "details", "pricing", "commission"].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -818,6 +889,96 @@ const CommonProductDetailPage = ({ role }) => {
                       </div>
                     );
                   })}
+                </div>
+              )}
+
+              {activeTab === "commission" && (
+                <div className="space-y-6">
+                  {commissionData ? (
+                    <>
+                      <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-xl border border-purple-200">
+                        <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                          <FiTrendingUp className="text-purple-500" />
+                          Commission Information
+                        </h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="bg-white p-5 rounded-lg border border-purple-100 shadow-sm">
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                {commissionData.type === "percentage" ? (
+                                  <FiPercent className="text-purple-600 text-lg" />
+                                ) : (
+                                  <FiDollarSign className="text-purple-600 text-lg" />
+                                )}
+                              </div>
+                              <div>
+                                <div className="text-sm text-gray-500">Commission Type</div>
+                                <div className="text-2xl font-bold text-gray-900 capitalize">
+                                  {commissionData.type}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-sm text-gray-600 mt-2">
+                              {commissionData.type === "percentage" 
+                                ? "Percentage-based commission on each sale"
+                                : "Fixed commission amount on each sale"
+                              }
+                            </div>
+                          </div>
+                          
+                          <div className="bg-white p-5 rounded-lg border border-purple-100 shadow-sm">
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                <FiCreditCard className="text-green-600 text-lg" />
+                              </div>
+                              <div>
+                                <div className="text-sm text-gray-500">Commission Value</div>
+                                <div className="text-2xl font-bold text-gray-900">
+                                  {commissionData.type === "percentage" 
+                                    ? `${commissionData.value}%` 
+                                    : `₹${commissionData.value.toFixed(2)}`
+                                  }
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-sm text-gray-600 mt-2">
+                              This is the {commissionData.type === "percentage" ? "percentage" : "amount"} you earn per sale
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-6 p-4 bg-white/80 rounded-lg border border-gray-200">
+                          <div className="flex items-center gap-3">
+                            <FiInfo className="text-blue-500 flex-shrink-0" />
+                            <div className="text-sm text-gray-700">
+                              <strong>Note:</strong> Commission is applied per unit sold. This commission structure is managed by the admin and may be updated periodically.
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {commissionData.updatedAt && (
+                          <div className="mt-4 text-sm text-gray-500 text-center">
+                            Last updated: {new Date(commissionData.updatedAt).toLocaleDateString('en-IN', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-10">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <FiInfo className="text-gray-400 text-2xl" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-700 mb-2">No Commission Information</h3>
+                      <p className="text-gray-500">This product doesn't have any commission details available.</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
