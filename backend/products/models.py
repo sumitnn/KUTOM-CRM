@@ -192,6 +192,10 @@ class ProductVariant(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='variants')
     name = models.CharField(max_length=50)
     sku = models.CharField(max_length=50, unique=True, blank=True)
+    # Add these fields to variant
+    weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    weight_unit = models.CharField(max_length=2, choices=Product.WEIGHT_UNIT_CHOICES, default='kg')
+    dimensions = models.CharField(max_length=100, blank=True, null=True)
     is_default = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

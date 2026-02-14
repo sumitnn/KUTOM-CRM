@@ -183,7 +183,7 @@ class ProductVariantSerializer(serializers.ModelSerializer):
         model = ProductVariant
         fields = [
             "id", "name", "sku", "is_default", "is_active",
-            "created_at", "updated_at", "product_variant_prices", "bulk_prices"
+            "created_at", "updated_at", "product_variant_prices", "bulk_prices","dimensions","weight_unit","weight"
         ]
         read_only_fields = ['sku']
 
@@ -471,8 +471,8 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             "id", "name", "description", "short_description", "brand", "category",
-            "subcategory", "tags", "features", "currency", "weight", "weight_unit",
-            "dimensions", "product_type", "video_url", "warranty", "status",
+            "subcategory", "tags", "features", "currency",  # Removed weight, weight_unit, dimensions
+            "product_type", "video_url", "warranty", "status",
             "sizes", "price_tiers"
         ]
 
@@ -509,6 +509,11 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         features_data = validated_data.pop("features", [])
         sizes_data = validated_data.pop("sizes", [])
         price_tiers_data = validated_data.pop("price_tiers", [])
+
+        # Remove weight/dimensions from product if they exist in validated_data
+        validated_data.pop('weight', None)
+        validated_data.pop('weight_unit', None)
+        validated_data.pop('dimensions', None)
 
         product = Product.objects.create(owner=user, **validated_data)
 
@@ -569,6 +574,10 @@ class ProductCreateSerializer(serializers.ModelSerializer):
             variant = ProductVariant.objects.create(
                 product=product,
                 name=size.get("size") or f"Variant {idx+1}",
+                # Add weight and dimensions for each variant
+                weight=size.get("weight"),
+                weight_unit=size.get("weight_unit", "kg"),
+                dimensions=size.get("dimensions"),
                 is_default=(idx == 0),
                 is_active=True,
             )
@@ -781,17 +790,20 @@ class ProductUpdateSerializer(serializers.ModelSerializer):
                 )
 
         product_owner = getattr(instance, "owner", user)
-        role_based_product = RoleBasedProduct.objects.filter(
-            product=instance, user=product_owner
-        ).first()
 
-        if not role_based_product:
-            role_based_product = RoleBasedProduct.objects.create(
-                product=instance,
-                user=product_owner,
-                role=product_owner.role,
-                is_featured=True,
-            )
+        role_based_product, created = RoleBasedProduct.objects.get_or_create(
+            product=instance,
+            user=product_owner,
+            defaults={
+                "role": product_owner.role,
+                "is_featured": False,
+            }
+        )
+
+        # Force update even if already exists
+        if role_based_product.is_featured:
+            role_based_product.is_featured = False
+            role_based_product.save()
 
         if variant_objects:
             role_based_product.variants.set(variant_objects)

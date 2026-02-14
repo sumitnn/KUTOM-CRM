@@ -1,11 +1,22 @@
 // components/modals/ProductDetailsModal.jsx
-import React from "react";
-import { FiX, FiPackage, FiDollarSign, FiTrendingUp, FiInfo } from "react-icons/fi";
+
+import { FiX, FiPackage, FiDollarSign, FiTrendingUp, FiInfo, FiZoomIn } from "react-icons/fi";
 import ModalPortal from "../../components/ModalPortal";
+import { useState } from "react";
 
 const ProductDetailsModal = ({ product, isOpen, onClose }) => {
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [isZoomed, setIsZoomed] = useState(false);
+    const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+    
     if (!isOpen || !product) return null;
     
+    // Get all images
+    const getAllImages = () => {
+        const images = product.product_detail?.images || [];
+        return images.map(img => img.image);
+    };
+
     // Get first image
     const getFirstImage = () => {
         const images = product.product_detail?.images || [];
@@ -30,7 +41,7 @@ const ProductDetailsModal = ({ product, isOpen, onClose }) => {
     const getVariantPrices = (variantId) => {
         const variant = product.variants_detail?.find(v => v.id === variantId);
         if (variant?.product_variant_prices?.length > 0) {
-            const priceData = variant.product_variant_prices[0]; // Latest price
+            const priceData = variant.product_variant_prices[0];
             return {
                 admin: `₹${priceData.actual_price || '0'}`,
                 stockist: `₹${priceData.stockist_price || '0'}`,
@@ -47,6 +58,17 @@ const ProductDetailsModal = ({ product, isOpen, onClose }) => {
     // Get variant commission
     const getVariantCommission = (variantId) => {
         return product.commission?.find(comm => comm.variant === variantId);
+    };
+
+    const handleImageClick = (image) => {
+        setSelectedImage(image);
+    };
+
+    const handleMouseMove = (e) => {
+        const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+        const x = ((e.pageX - left) / width) * 100;
+        const y = ((e.pageY - top) / height) * 100;
+        setMousePosition({ x, y });
     };
 
     return (
@@ -77,13 +99,32 @@ const ProductDetailsModal = ({ product, isOpen, onClose }) => {
                             <div className="space-y-6">
                                 {/* Product Images */}
                                 <div className="bg-gray-50 rounded-xl p-4">
-                                    <div className="bg-white rounded-lg p-4 mb-4 shadow-sm">
+                                    {/* Main Image with Zoom */}
+                                    <div 
+                                        className="relative bg-white rounded-lg p-4 mb-4 shadow-sm overflow-hidden cursor-zoom-in"
+                                        onMouseEnter={() => setIsZoomed(true)}
+                                        onMouseLeave={() => setIsZoomed(false)}
+                                        onMouseMove={handleMouseMove}
+                                    >
                                         <img
-                                            src={getFirstImage()}
+                                            src={selectedImage || getFirstImage()}
                                             alt={product.product_detail?.name}
-                                            className="w-full h-80 object-contain"
+                                            className={`w-full h-80 object-contain transition-transform duration-300 ${
+                                                isZoomed ? 'scale-150' : 'scale-100'
+                                            }`}
+                                            style={{
+                                                transformOrigin: `${mousePosition.x}% ${mousePosition.y}%`
+                                            }}
                                         />
+                                        {!isZoomed && (
+                                            <div className="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded-lg text-xs flex items-center gap-1">
+                                                <FiZoomIn />
+                                                Hover to zoom
+                                            </div>
+                                        )}
                                     </div>
+                                    
+                                    {/* Thumbnail Images */}
                                     {product.product_detail?.images && product.product_detail.images.length > 1 && (
                                         <div className="flex gap-3 overflow-x-auto pb-2">
                                             {product.product_detail.images.map((img, index) => (
@@ -91,7 +132,15 @@ const ProductDetailsModal = ({ product, isOpen, onClose }) => {
                                                     key={img.id}
                                                     src={img.image}
                                                     alt={`${product.product_detail.name} ${index + 1}`}
-                                                    className="w-20 h-20 object-cover rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-colors cursor-pointer"
+                                                    onClick={() => {
+                                                        setSelectedImage(img.image);
+                                                        setIsZoomed(false);
+                                                    }}
+                                                    className={`w-20 h-20 object-cover rounded-lg border-2 transition-all cursor-pointer ${
+                                                        (selectedImage || getFirstImage()) === img.image
+                                                            ? 'border-blue-500 ring-2 ring-blue-200'
+                                                            : 'border-gray-200 hover:border-blue-300'
+                                                    }`}
                                                 />
                                             ))}
                                         </div>

@@ -324,7 +324,8 @@ const AdminOrderRequestPage = ({ role }) => {
         name: order.seller?.username || "N/A",
         email: order.seller?.email || "N/A",
         roleId: order.seller?.role_based_id || "N/A",
-        phone: order.seller?.phone || "N/A"
+        phone: order.seller?.phone || "N/A",
+        address: order.seller?.address || {}
       },
       items: order.items.map(item => ({
         id: item.id,

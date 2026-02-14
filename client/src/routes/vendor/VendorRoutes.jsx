@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Route } from "react-router-dom";
-import React from "react";
+
 
 
 // Components that don't need lazy loading (used in fallback or wrappers)

@@ -1935,6 +1935,7 @@ class UpdateOrderRequestStatusView(APIView):
     permission_classes = [IsStockistOrResellerRole]
 
     def post(self, request, pk):
+
         try:
             order_request = OrderRequest.objects.get(pk=pk)
         except OrderRequest.DoesNotExist:
@@ -2070,6 +2071,7 @@ class UpdateOrderRequestStatusView(APIView):
     def _handle_status_change(cls, order_request, old_status, new_status, current_user, user):
         total_amount = sum(item.total_price for item in order_request.items.all())
         
+        
         if new_status == 'approved' and old_status == 'pending':
             # Add amount to admin wallet
 
@@ -2128,6 +2130,7 @@ class UpdateOrderRequestStatusView(APIView):
 
     @classmethod
     def _update_inventory(cls, order_request):
+
         reseller_user = order_request.requested_by  # buyer (reseller)
         target_user = order_request.target_user     # stockist 
         admin_user = User.objects.filter(role="admin").first()  # admin
@@ -2229,12 +2232,14 @@ class UpdateOrderRequestStatusView(APIView):
  
             # ✅ Step 5: Create Order Items using .save() (triggers custom save logic)
             for item in validated_items:
-                discount_percentage = item.get("discount_percentage", 0) or 0
-                gst_percentage = item.get("gst_percentage", 0) or 0
+                discount_percentage = item.get("discount_percentage", Decimal("0")) or Decimal("0")
+                gst_percentage = item.get("gst_percentage", Decimal("0")) or Decimal("0")
                 final_price = item["unit_price"]
 
-                # Calculate the base unit price (before discount and GST)
-                base_unit_price = final_price / ((1 + gst_percentage / 100) * (1 - discount_percentage / 100))
+                base_unit_price = final_price / (
+                    (Decimal("1") + gst_percentage / Decimal("100")) *
+                    (Decimal("1") - discount_percentage / Decimal("100"))
+                )
 
                 order_item = OrderItem(
                     order=order,

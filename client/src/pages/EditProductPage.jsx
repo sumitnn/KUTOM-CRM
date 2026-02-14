@@ -24,7 +24,8 @@ import {
   FiAlertCircle,
   FiEdit3,
   FiSave,
-  FiLock
+  FiLock,
+  FiArrowRight
 } from "react-icons/fi";
 
 const EditProductPage = ({ role = "vendor" }) => {
@@ -45,6 +46,15 @@ const EditProductPage = ({ role = "vendor" }) => {
 
   const subcategories = Array.isArray(subcategoriesData) ? subcategoriesData : [];
   const isAdmin = role === "admin";
+
+  // Define sections in order (matching create page)
+  const sections = [
+    { id: "basic", label: "Basic Info", icon: FiPackage },
+    { id: "categories", label: "Categories", icon: FiTag },
+    { id: "specs", label: "Specifications", icon: FiSettings },
+    { id: "pricing", label: "Pricing", icon: FiDollarSign },
+    { id: "images", label: "Images", icon: FiImage }
+  ];
 
   // Calculate final price for a single size
   const calculateFinalPrice = useCallback((size) => {
@@ -111,9 +121,6 @@ const EditProductPage = ({ role = "vendor" }) => {
     image: null,
     tags: [],
     currency: "INR",
-    weight: "",
-    weight_unit: "kg",
-    dimensions: "",
     product_type: "physical",
     video_url: "",
     warranty: "",
@@ -129,6 +136,9 @@ const EditProductPage = ({ role = "vendor" }) => {
     gst_percentage: "0",
     final_price: "0.00",
     is_default: false,
+    weight: "",
+    weight_unit: "kg",
+    dimensions: "",
   }]);
 
   // Initialize priceTiers with calculated final_bulk_price
@@ -191,9 +201,6 @@ const EditProductPage = ({ role = "vendor" }) => {
         subcategory: productDetail?.subcategory || "",
         tags: productDetail?.tags || [],
         currency: productDetail?.currency || "INR",
-        weight: productDetail?.weight || "",
-        weight_unit: productDetail?.weight_unit || "kg",
-        dimensions: productDetail?.dimensions || "",
         product_type: productDetail?.product_type || "physical",
         video_url: productDetail?.video_url || "",
         warranty: productDetail?.warranty || "",
@@ -227,11 +234,14 @@ const EditProductPage = ({ role = "vendor" }) => {
             size: variant.name,
             unit: unit,
             price: priceData.price || "0.00",
-            quantity: "",
+            quantity: priceData.quantity || "",
             discount_percentage: priceData.discount ? priceData.discount.toString() : "0",
             gst_percentage: priceData.gst_percentage ? priceData.gst_percentage.toString() : "0",
             final_price: priceData.actual_price || "0.00",
             is_default: variant.is_default || false,
+            weight: variant.weight || productDetail?.weight || "",
+            weight_unit: variant.weight_unit || productDetail?.weight_unit || "kg",
+            dimensions: variant.dimensions || productDetail?.dimensions || "",
           };
         });
         setSizes(sizesData);
@@ -425,6 +435,9 @@ const EditProductPage = ({ role = "vendor" }) => {
       gst_percentage: "0",
       final_price: "0.00",
       is_default: false,
+      weight: "",
+      weight_unit: "kg",
+      dimensions: "",
     }]);
   };
 
@@ -480,6 +493,38 @@ const EditProductPage = ({ role = "vendor" }) => {
       const updatedTiers = prev.filter((_, i) => i !== index);
       return updatePriceTiersWithCalculations(updatedTiers);
     });
+  };
+
+  // Navigation functions
+  const goToNextSection = () => {
+    const currentIndex = sections.findIndex(section => section.id === activeSection);
+    if (currentIndex < sections.length - 1) {
+      setActiveSection(sections[currentIndex + 1].id);
+    }
+  };
+
+  const goToPreviousSection = () => {
+    const currentIndex = sections.findIndex(section => section.id === activeSection);
+    if (currentIndex > 0) {
+      setActiveSection(sections[currentIndex - 1].id);
+    }
+  };
+
+  const isCurrentSectionValid = () => {
+    switch (activeSection) {
+      case "basic":
+        return formData.name && formData.brand && formData.short_description && formData.description;
+      case "categories":
+        return formData.category;
+      case "pricing":
+        return !formErrors.sizes;
+      case "images":
+        return !formErrors.image;
+      case "specs":
+        return true;
+      default:
+        return false;
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -545,14 +590,8 @@ const EditProductPage = ({ role = "vendor" }) => {
     formData.name && formData.description && formData.short_description && 
     formData.brand && formData.category;
 
-  // Navigation sections
-  const sections = [
-    { id: "basic", label: "Basic Info", icon: FiPackage },
-    { id: "categories", label: "Categories", icon: FiTag },
-    { id: "specs", label: "Specifications", icon: FiSettings },
-    { id: "pricing", label: "Pricing", icon: FiDollarSign },
-    { id: "images", label: "Images", icon: FiImage }
-  ];
+  const isLastSection = activeSection === sections[sections.length - 1].id;
+  const isFirstSection = activeSection === sections[0].id;
 
   if (isLoading) return (
     <div className="min-h-screen flex items-center justify-center">
@@ -601,7 +640,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                   <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
                     Edit Product
                   </h1>
-                  <p className="text-blue-600  font-extrabold mt-2 text-lg">
+                  <p className="text-blue-600 font-extrabold mt-2 text-lg">
                     Update product details{isAdmin ? " (Price editing disabled for admin)" : ""}
                   </p>
                 </div>
@@ -630,7 +669,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                     {isFormValid ? 'Ready to update' : 'Complete all required fields'}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {sizes.length} size{sizes.length !== 1 ? 's' : ''} • {existingImages.length + newImages.length} image{(existingImages.length + newImages.length) !== 1 ? 's' : ''}
+                    Step {sections.findIndex(s => s.id === activeSection) + 1} of {sections.length} • {sizes.length} size{sizes.length !== 1 ? 's' : ''} • {existingImages.length + newImages.length} image{(existingImages.length + newImages.length) !== 1 ? 's' : ''}
                   </p>
                 </div>
               </div>
@@ -640,8 +679,9 @@ const EditProductPage = ({ role = "vendor" }) => {
           {/* Navigation Tabs */}
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-sm border border-gray-200/50">
             <div className="flex overflow-x-auto scrollbar-hide">
-              {sections.map((section) => {
+              {sections.map((section, index) => {
                 const Icon = section.icon;
+                const isCompleted = index < sections.findIndex(s => s.id === activeSection);
                 return (
                   <button
                     key={section.id}
@@ -649,10 +689,16 @@ const EditProductPage = ({ role = "vendor" }) => {
                     className={`flex items-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all duration-300 whitespace-nowrap cursor-pointer ${
                       activeSection === section.id
                         ? 'bg-primary text-white shadow-lg'
+                        : isCompleted
+                        ? 'bg-green-100 text-green-700 hover:bg-green-200'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                     }`}
                   >
-                    <Icon className="w-4 h-4" />
+                    {isCompleted ? (
+                      <FiCheck className="w-4 h-4" />
+                    ) : (
+                      <Icon className="w-4 h-4" />
+                    )}
                     {section.label}
                   </button>
                 );
@@ -666,7 +712,7 @@ const EditProductPage = ({ role = "vendor" }) => {
           <div className="lg:col-span-3">
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Basic Information Section */}
-              {(activeSection === "basic" || activeSection === "all") && (
+              {activeSection === "basic" && (
                 <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-2 h-6 bg-gradient-to-b from-primary to-primary/70 rounded-full"></div>
@@ -813,7 +859,7 @@ const EditProductPage = ({ role = "vendor" }) => {
               )}
 
               {/* Categories Section */}
-              {(activeSection === "categories" || activeSection === "all") && (
+              {activeSection === "categories" && (
                 <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-2 h-6 bg-gradient-to-b from-green-500 to-green-400 rounded-full"></div>
@@ -863,7 +909,7 @@ const EditProductPage = ({ role = "vendor" }) => {
               )}
 
               {/* Product Specifications Section */}
-              {(activeSection === "specs" || activeSection === "all") && (
+              {activeSection === "specs" && (
                 <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-2 h-6 bg-gradient-to-b from-purple-500 to-purple-400 rounded-full"></div>
@@ -871,44 +917,6 @@ const EditProductPage = ({ role = "vendor" }) => {
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="block text-sm font-semibold text-gray-700">Weight</label>
-                      <div className="flex gap-3">
-                        <input
-                          type="number"
-                          name="weight"
-                          min="0"
-                          step="0.01"
-                          className="flex-1 px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
-                          value={formData.weight}
-                          onChange={handleChange}
-                          placeholder="Product weight"
-                        />
-                        <select
-                          name="weight_unit"
-                          className="w-32 px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer"
-                          value={formData.weight_unit}
-                          onChange={handleChange}
-                        >
-                          {weightUnitOptions.map(option => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <label className="block text-sm font-semibold text-gray-700">Dimensions</label>
-                      <input
-                        type="text"
-                        name="dimensions"
-                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
-                        value={formData.dimensions}
-                        onChange={handleChange}
-                        placeholder="e.g., 10x5x2 cm"
-                      />
-                    </div>
-                    
                     <div className="space-y-2">
                       <label className="block text-sm font-semibold text-gray-700">Warranty Information</label>
                       <input
@@ -965,14 +973,14 @@ const EditProductPage = ({ role = "vendor" }) => {
                 </div>
               )}
 
-              {/* Product Sizes & Pricing Section */}
-              {(activeSection === "pricing" || activeSection === "all") && (
+              {/* Product Sizes & Pricing Section - WITH WEIGHT AND DIMENSIONS */}
+              {activeSection === "pricing" && (
                 <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                     <div className="flex items-center gap-3">
                       <div className="w-2 h-6 bg-gradient-to-b from-orange-500 to-orange-400 rounded-full"></div>
                       <h3 className="text-xl font-bold text-gray-900">
-                        Product Sizes & Pricing
+                        Product Variants & Pricing
                         {isAdmin && <span className="text-sm font-normal text-gray-500 ml-2">(View Only)</span>}
                       </h3>
                     </div>
@@ -983,7 +991,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                         className="flex items-center gap-2 px-4 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-xl"
                       >
                         <FiPlus className="w-4 h-4" />
-                        Add Size
+                        Add Variant
                       </button>
                     )}
                   </div>
@@ -993,8 +1001,8 @@ const EditProductPage = ({ role = "vendor" }) => {
                       <FiAlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
                       <p className="text-red-700 font-semibold">
                         {sizes.length === 0 
-                          ? "At least one product size is required" 
-                          : "Please fill all required size fields (size name and price)"}
+                          ? "At least one product variant is required" 
+                          : "Please fill all required variant fields (variant name and price)"}
                       </p>
                     </div>
                   )}
@@ -1012,11 +1020,11 @@ const EditProductPage = ({ role = "vendor" }) => {
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
                           <div className="space-y-2">
                             <label className="block text-sm font-semibold text-gray-700">
-                              Size (Variant) <span className="text-red-500">*</span>
+                              Variant Name <span className="text-red-500">*</span>
                             </label>
                             <input
                               type="text"
-                              placeholder="e.g., Medium, 500g, 1L"
+                              placeholder="e.g., Red, Large, 500ml"
                               className={`w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 ${
                                 isAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
                               }`}
@@ -1025,27 +1033,6 @@ const EditProductPage = ({ role = "vendor" }) => {
                               required
                               disabled={isAdmin}
                             />
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <label className="block text-sm font-semibold text-gray-700">
-                              Unit <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                              className={`w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer ${
-                                isAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
-                              }`}
-                              value={size.unit}
-                              onChange={(e) => handleSizeChange(index, "unit", e.target.value)}
-                              required
-                              disabled={isAdmin}
-                            >
-                              <option value="gram">Gram</option>
-                              <option value="kg">Kilogram</option>
-                              <option value="ml">ML</option>
-                              <option value="litre">Litre</option>
-                              <option value="pcs">Pieces</option>
-                            </select>
                           </div>
                           
                           <div className="space-y-2">
@@ -1064,6 +1051,64 @@ const EditProductPage = ({ role = "vendor" }) => {
                               placeholder="0.00"
                               required
                               disabled={isAdmin}
+                            />
+                          </div>
+                        </div>
+
+                        {/* NEW: Weight and Dimensions Section for each variant */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+                          <div className="space-y-2">
+                            <label className="block text-sm font-semibold text-gray-700">
+                              Weight 
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder="Enter weight eg:10"
+                              className={`w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 ${
+                                isAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
+                              }`}
+                              value={size.weight || ''}
+                              onChange={(e) => handleSizeChange(index, "weight", e.target.value)}
+                              disabled={isAdmin}
+                              required
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <label className="block text-sm font-semibold text-gray-700">
+                              Weight Unit
+                            </label>
+                            <select
+                              className={`w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer ${
+                                isAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
+                              }`}
+                              value={size.weight_unit || 'kg'}
+                              onChange={(e) => handleSizeChange(index, "weight_unit", e.target.value)}
+                              disabled={isAdmin}
+                            >
+                              <option value="kg">Kilogram (kg)</option>
+                              <option value="g">Gram (g)</option>
+                              <option value="lb">Pound (lb)</option>
+                              <option value="oz">Ounce (oz)</option>
+                            </select>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <label className="block text-sm font-semibold text-gray-700">
+                              Dimensions 
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="e.g., 10x5x2 cm"
+                              className={`w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 ${
+                                isAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
+                              }`}
+                              value={size.dimensions || ''}
+                              onChange={(e) => handleSizeChange(index, "dimensions", e.target.value)}
+                              disabled={isAdmin}
+                              required
                             />
                           </div>
                         </div>
@@ -1110,7 +1155,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                           </div>
                         </div>
                         
-                        {/* Price Tiers for this size */}
+                        {/* Price Tiers for this variant */}
                         <div className="mt-6">
                           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
                             <h4 className="text-lg font-semibold text-gray-800">
@@ -1239,7 +1284,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                               className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
                               disabled={isAdmin}
                             />
-                            Set as default size
+                            Set as default variant
                           </label>
                           
                           {sizes.length > 1 && !isAdmin && (
@@ -1249,7 +1294,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                               className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-all duration-300 cursor-pointer"
                             >
                               <FiTrash2 className="w-4 h-4" />
-                              Remove Size
+                              Remove Variant
                             </button>
                           )}
                         </div>
@@ -1260,7 +1305,7 @@ const EditProductPage = ({ role = "vendor" }) => {
               )}
 
               {/* Product Images Section */}
-              {(activeSection === "images" || activeSection === "all") && (
+              {activeSection === "images" && (
                 <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-2 h-6 bg-gradient-to-b from-pink-500 to-pink-400 rounded-full"></div>
@@ -1408,33 +1453,61 @@ const EditProductPage = ({ role = "vendor" }) => {
                 </div>
               )}
 
-              {/* Submit Button */}
+              {/* Navigation Buttons */}
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
-                <div className="flex flex-col sm:flex-row justify-end gap-4">
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/${role}/products`)}
-                    className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-300 cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={!isFormValid || isUpdating}
-                    className="flex items-center justify-center gap-3 px-8 py-3 bg-gradient-to-r from-primary to-primary/90 text-white rounded-xl font-semibold hover:from-primary/90 hover:to-primary transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-lg hover:shadow-xl"
-                  >
-                    {isUpdating ? (
-                      <>
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Updating Product...
-                      </>
-                    ) : (
-                      <>
-                        <FiSave className="w-5 h-5" />
-                        Update Product
-                      </>
+                <div className="flex flex-col sm:flex-row justify-between gap-4">
+                  <div>
+                    {!isFirstSection && (
+                      <button
+                        type="button"
+                        onClick={goToPreviousSection}
+                        className="flex items-center gap-2 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-300 cursor-pointer"
+                      >
+                        <FiArrowLeft className="w-4 h-4" />
+                        Previous
+                      </button>
                     )}
-                  </button>
+                  </div>
+                  
+                  <div className="flex gap-4">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/${role}/products`)}
+                      className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-300 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    
+                    {!isLastSection ? (
+                      <button
+                        type="button"
+                        onClick={goToNextSection}
+                        disabled={!isCurrentSectionValid()}
+                        className="flex items-center justify-center gap-3 px-8 py-3 bg-gradient-to-r from-primary to-primary/90 text-white rounded-xl font-semibold hover:from-primary/90 hover:to-primary transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-lg hover:shadow-xl"
+                      >
+                        Next
+                        <FiArrowRight className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <button
+                        type="submit"
+                        disabled={!isFormValid || isUpdating}
+                        className="flex items-center justify-center gap-3 px-8 py-3 bg-gradient-to-r from-primary to-primary/90 text-white rounded-xl font-semibold hover:from-primary/90 hover:to-primary transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-lg hover:shadow-xl"
+                      >
+                        {isUpdating ? (
+                          <>
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Updating Product...
+                          </>
+                        ) : (
+                          <>
+                            <FiSave className="w-5 h-5" />
+                            Update Product
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </form>
@@ -1447,49 +1520,80 @@ const EditProductPage = ({ role = "vendor" }) => {
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
                 <h4 className="text-lg font-bold text-gray-900 mb-4">Edit Progress</h4>
                 <div className="space-y-4">
-                  {sections.map((section) => (
-                    <button
-                      key={section.id}
-                      onClick={() => setActiveSection(section.id)}
-                      className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-300 cursor-pointer ${
-                        activeSection === section.id
-                          ? 'bg-primary text-white shadow-lg'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      <div className={`w-2 h-2 rounded-full ${
-                        activeSection === section.id ? 'bg-white' : 'bg-gray-400'
-                      }`}></div>
-                      <span className="font-semibold text-sm">{section.label}</span>
-                    </button>
-                  ))}
+                  {sections.map((section, index) => {
+                    const isCompleted = index < sections.findIndex(s => s.id === activeSection);
+                    const isCurrent = section.id === activeSection;
+                    return (
+                      <button
+                        key={section.id}
+                        onClick={() => setActiveSection(section.id)}
+                        className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-300 cursor-pointer ${
+                          isCurrent
+                            ? 'bg-primary text-white shadow-lg'
+                            : isCompleted
+                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        <div className={`w-2 h-2 rounded-full ${
+                          isCurrent ? 'bg-white' : isCompleted ? 'bg-green-500' : 'bg-gray-400'
+                        }`}></div>
+                        <span className="font-semibold text-sm">{section.label}</span>
+                        {isCompleted && <FiCheck className="w-4 h-4 ml-auto" />}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               {/* Requirements Card */}
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
-                <h4 className="text-lg font-bold text-gray-900 mb-4">Requirements</h4>
+                <h4 className="text-lg font-bold text-gray-900 mb-4">Current Step Requirements</h4>
                 <div className="space-y-3">
-                  <div className={`flex items-center gap-3 ${formData.name ? 'text-green-600' : 'text-gray-400'}`}>
-                    <FiCheck className="w-5 h-5" />
-                    <span className="text-sm font-semibold">Product Name</span>
-                  </div>
-                  <div className={`flex items-center gap-3 ${formData.brand ? 'text-green-600' : 'text-gray-400'}`}>
-                    <FiCheck className="w-5 h-5" />
-                    <span className="text-sm font-semibold">Brand</span>
-                  </div>
-                  <div className={`flex items-center gap-3 ${formData.category ? 'text-green-600' : 'text-gray-400'}`}>
-                    <FiCheck className="w-5 h-5" />
-                    <span className="text-sm font-semibold">Category</span>
-                  </div>
-                  <div className={`flex items-center gap-3 ${!formErrors.sizes ? 'text-green-600' : 'text-red-400'}`}>
-                    <FiCheck className="w-5 h-5" />
-                    <span className="text-sm font-semibold">Pricing & Sizes</span>
-                  </div>
-                  <div className={`flex items-center gap-3 ${!formErrors.image ? 'text-green-600' : 'text-red-400'}`}>
-                    <FiCheck className="w-5 h-5" />
-                    <span className="text-sm font-semibold">Main Image</span>
-                  </div>
+                  {activeSection === "basic" && (
+                    <>
+                      <div className={`flex items-center gap-3 ${formData.name ? 'text-green-600' : 'text-gray-400'}`}>
+                        <FiCheck className="w-5 h-5" />
+                        <span className="text-sm font-semibold">Product Name</span>
+                      </div>
+                      <div className={`flex items-center gap-3 ${formData.brand ? 'text-green-600' : 'text-gray-400'}`}>
+                        <FiCheck className="w-5 h-5" />
+                        <span className="text-sm font-semibold">Brand</span>
+                      </div>
+                      <div className={`flex items-center gap-3 ${formData.short_description ? 'text-green-600' : 'text-gray-400'}`}>
+                        <FiCheck className="w-5 h-5" />
+                        <span className="text-sm font-semibold">Short Description</span>
+                      </div>
+                      <div className={`flex items-center gap-3 ${formData.description ? 'text-green-600' : 'text-gray-400'}`}>
+                        <FiCheck className="w-5 h-5" />
+                        <span className="text-sm font-semibold">Description</span>
+                      </div>
+                    </>
+                  )}
+                  {activeSection === "categories" && (
+                    <div className={`flex items-center gap-3 ${formData.category ? 'text-green-600' : 'text-red-400'}`}>
+                      <FiCheck className="w-5 h-5" />
+                      <span className="text-sm font-semibold">Category Selection</span>
+                    </div>
+                  )}
+                  {activeSection === "pricing" && (
+                    <div className={`flex items-center gap-3 ${!formErrors.sizes ? 'text-green-600' : 'text-red-400'}`}>
+                      <FiCheck className="w-5 h-5" />
+                      <span className="text-sm font-semibold">Valid Variants & Pricing</span>
+                    </div>
+                  )}
+                  {activeSection === "images" && (
+                    <div className={`flex items-center gap-3 ${!formErrors.image ? 'text-green-600' : 'text-red-400'}`}>
+                      <FiCheck className="w-5 h-5" />
+                      <span className="text-sm font-semibold">Main Image</span>
+                    </div>
+                  )}
+                  {activeSection === "specs" && (
+                    <div className="text-green-600 flex items-center gap-3">
+                      <FiCheck className="w-5 h-5" />
+                      <span className="text-sm font-semibold">Optional - Ready to proceed</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1500,7 +1604,7 @@ const EditProductPage = ({ role = "vendor" }) => {
                   <ul className="space-y-2 text-sm text-yellow-800">
                     <li>• Cannot modify product prices</li>
                     <li>• Cannot modify bulk pricing</li>
-                    <li>• Cannot add/remove sizes</li>
+                    <li>• Cannot add/remove variants</li>
                     <li>• Cannot add/remove price tiers</li>
                     <li>• Can update product information</li>
                   </ul>
@@ -1530,6 +1634,18 @@ const EditProductPage = ({ role = "vendor" }) => {
                     <span>{new Date(product?.created_at).toLocaleDateString()}</span>
                   </div>
                 </div>
+              </div>
+
+              {/* Tips Card */}
+              <div className="bg-blue-50/80 backdrop-blur-sm rounded-2xl p-6 border border-blue-200">
+                <h4 className="text-lg font-bold text-blue-900 mb-3">💡 Quick Tips</h4>
+                <ul className="space-y-2 text-sm text-blue-800">
+                  <li>• Use clear, high-quality images</li>
+                  <li>• Add multiple variants (size/color/weight)</li>
+                  <li>• Set competitive bulk pricing</li>
+                  <li>• Include detailed descriptions</li>
+                  <li>• Add relevant tags for search</li>
+                </ul>
               </div>
             </div>
           </div>

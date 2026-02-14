@@ -6,7 +6,7 @@ import { useGetProductByIdQuery } from "../features/product/productApi";
 import { toast } from "react-toastify";
 import {
   FiMinus, FiPlus, FiChevronRight, FiShoppingCart, FiArrowLeft,
-  FiTag, FiStar, FiTruck, FiShield, FiCheck
+  FiTag, FiStar, FiTruck, FiShield, FiCheck, FiPackage
 } from "react-icons/fi";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -165,6 +165,21 @@ export const getPriceAfterDiscount = (variant, quantity) => {
   return 0;
 };
 
+// Get variant weight
+export const getVariantWeight = (variant) => {
+  return variant?.weight || null;
+};
+
+// Get variant weight unit
+export const getVariantWeightUnit = (variant) => {
+  return variant?.weight_unit || 'kg';
+};
+
+// Get variant dimensions
+export const getVariantDimensions = (variant) => {
+  return variant?.dimensions || null;
+};
+
 const ProductDetailsPage = ({ role }) => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -227,6 +242,11 @@ const ProductDetailsPage = ({ role }) => {
   const discountPercentage = selectedVariant ? getDiscountPercentage(selectedVariant, quantity) : 0;
   const gstPercentage = selectedVariant ? getGSTPercentage(selectedVariant, quantity) : 0;
   const priceAfterDiscount = selectedVariant ? getPriceAfterDiscount(selectedVariant, quantity) : 0;
+
+  // Get variant-specific weight, dimensions, and weight unit
+  const variantWeight = selectedVariant ? getVariantWeight(selectedVariant) : null;
+  const variantWeightUnit = selectedVariant ? getVariantWeightUnit(selectedVariant) : 'kg';
+  const variantDimensions = selectedVariant ? getVariantDimensions(selectedVariant) : null;
 
   // Final price calculation
   const calculateFinalPrice = () => {
@@ -311,7 +331,10 @@ const ProductDetailsPage = ({ role }) => {
       image: mainImage,
       variant: selectedVariant,
       bulk_price: bulkPrice,
-      max_available: maxAvailable
+      max_available: maxAvailable,
+      weight: variantWeight,
+      weight_unit: variantWeightUnit,
+      dimensions: variantDimensions
     };
 
     dispatch(addItem(cartItem));
@@ -785,7 +808,7 @@ const ProductDetailsPage = ({ role }) => {
             {/* Specifications */}
             <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
               <h2 className="text-xl font-bold mb-4 text-gray-900 flex items-center gap-2">
-                <FiTruck className="text-purple-500" />
+                <FiPackage className="text-purple-500" />
                 Specifications
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-gray-700">
@@ -802,16 +825,19 @@ const ProductDetailsPage = ({ role }) => {
                     <strong className="text-gray-900">Subcategory:</strong> 
                     <span>{product.subcategory_name || "N/A"}</span>
                   </div>
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <strong className="text-gray-900">Weight:</strong> 
-                    <span>{product.weight} {product.weight_unit}</span>
-                  </div>
+                  
+                  
+                  
+                  {/* Variant-specific dimensions - UPDATED */}
+                  {selectedVariant && variantDimensions && (
+                    <div className="flex justify-between py-2 border-b border-gray-100">
+                      <strong className="text-gray-900">Dimensions:</strong> 
+                      <span>{variantDimensions}</span>
+                    </div>
+                  )}
                 </div>
+                
                 <div className="space-y-3">
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <strong className="text-gray-900">Dimensions:</strong> 
-                    <span>{product.dimensions}</span>
-                  </div>
                   <div className="flex justify-between items-center py-2 border-b border-gray-100">
                     <strong className="text-gray-900">Status:</strong>
                     <div className="flex gap-2">
@@ -831,6 +857,8 @@ const ProductDetailsPage = ({ role }) => {
                       </span>
                     </div>
                   </div>
+                  
+                  {/* Warranty */}
                   <div className="flex justify-between py-2 border-b border-gray-100">
                     <strong className="text-gray-900">Warranty:</strong> 
                     <span className="flex items-center gap-1">
@@ -838,10 +866,20 @@ const ProductDetailsPage = ({ role }) => {
                       {product.warranty || '0'} year(s)
                     </span>
                   </div>
+                  
+                  {/* Variant SKU */}
                   {selectedVariant && (
                     <div className="flex justify-between py-2 border-b border-gray-100">
                       <strong className="text-gray-900">Variant SKU:</strong> 
                       <span className="font-mono">{selectedVariant.sku}</span>
+                    </div>
+                  )}
+                  
+                  {/* Additional variant info - Weight per unit if available */}
+                  {selectedVariant && variantWeight && (
+                    <div className="flex justify-between py-2 border-b border-gray-100">
+                      <strong className="text-gray-900">Weight per unit:</strong> 
+                      <span>{variantWeight} {variantWeightUnit}</span>
                     </div>
                   )}
                 </div>

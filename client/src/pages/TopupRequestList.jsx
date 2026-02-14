@@ -205,7 +205,7 @@ const TopupRequestsList = ({ role }) => {
                       scope="col"
                       className="px-4 sm:px-6 py-3 text-left text-xs font-bold text-black uppercase tracking-wider"
                     >
-                      Date
+                     Requested Date
                     </th>
                     <th
                       scope="col"

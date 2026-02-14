@@ -55,9 +55,6 @@ const CreateProductPage = () => {
     image: null,
     tags: [],
     currency: "INR",
-    weight: "",
-    weight_unit: "kg",
-    dimensions: "",
     product_type: "physical",
     video_url: "",
     warranty: "",
@@ -73,6 +70,9 @@ const CreateProductPage = () => {
     gst_percentage: "0",
     final_price: "0.00",
     is_default: false,
+    weight: "",           // Added weight field
+    weight_unit: "kg",    // Added weight unit field
+    dimensions: "",       // Added dimensions field
   }];
 
   const [product, setProduct] = useState(initialProductState);
@@ -362,7 +362,7 @@ const CreateProductPage = () => {
       if (hasData) {
         saveDraft();
       }
-    }, 5000); // Debounce for 2 seconds
+    }, 5000); // Debounce for 5 seconds
 
     return () => clearTimeout(saveTimer);
   }, [product, sizes, priceTiers, images, saveDraft]);
@@ -468,6 +468,9 @@ const CreateProductPage = () => {
       gst_percentage: "0",
       final_price: "0.00",
       is_default: false,
+      weight: "",           // Added weight field
+      weight_unit: "kg",    // Added weight unit field
+      dimensions: "",       // Added dimensions field
     }]);
   };
 
@@ -924,7 +927,7 @@ const CreateProductPage = () => {
                 </div>
               )}
 
-              {/* Product Specifications Section */}
+              {/* Product Specifications Section - REMOVED WEIGHT AND DIMENSIONS */}
               {activeSection === "specs" && (
                 <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
                   <div className="flex items-center gap-3 mb-6">
@@ -933,43 +936,7 @@ const CreateProductPage = () => {
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="block text-sm font-semibold text-gray-700">Weight</label>
-                      <div className="flex gap-3">
-                        <input
-                          type="number"
-                          name="weight"
-                          min="0"
-                          step="0.01"
-                          className="flex-1 px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
-                          value={product.weight}
-                          onChange={handleChange}
-                          placeholder="Product weight"
-                        />
-                        <select
-                          name="weight_unit"
-                          className="w-32 px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer"
-                          value={product.weight_unit}
-                          onChange={handleChange}
-                        >
-                          {weightUnitOptions.map(option => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <label className="block text-sm font-semibold text-gray-700">Dimensions</label>
-                      <input
-                        type="text"
-                        name="dimensions"
-                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
-                        value={product.dimensions}
-                        onChange={handleChange}
-                        placeholder="e.g., 10x5x2 cm"
-                      />
-                    </div>
+                    {/* Weight and Dimensions fields removed from here */}
                     
                     <div className="space-y-2">
                       <label className="block text-sm font-semibold text-gray-700">Warranty Information</label>
@@ -1027,13 +994,13 @@ const CreateProductPage = () => {
                 </div>
               )}
 
-              {/* Product Sizes & Pricing Section */}
+              {/* Product Sizes & Pricing Section - WITH WEIGHT AND DIMENSIONS ADDED */}
               {activeSection === "pricing" && (
                 <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                     <div className="flex items-center gap-3">
                       <div className="w-2 h-6 bg-gradient-to-b from-orange-500 to-orange-400 rounded-full"></div>
-                      <h3 className="text-xl font-bold text-gray-900">Product Sizes & Pricing</h3>
+                      <h3 className="text-xl font-bold text-gray-900">Product Variants & Pricing</h3>
                     </div>
                     <button
                       type="button"
@@ -1041,14 +1008,14 @@ const CreateProductPage = () => {
                       className="flex items-center gap-2 px-4 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-xl"
                     >
                       <FiPlus className="w-4 h-4" />
-                      Add Size
+                      Add Variant
                     </button>
                   </div>
                   
                   {formErrors.sizes && (
                     <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
                       <FiAlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                      <p className="text-red-700 font-semibold">Please fill all required size fields (size name and price)</p>
+                      <p className="text-red-700 font-semibold">Please fill all required variant fields (variant name and price)</p>
                     </div>
                   )}
                   
@@ -1058,11 +1025,11 @@ const CreateProductPage = () => {
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
                           <div className="space-y-2">
                             <label className="block text-sm font-semibold text-gray-700">
-                              Size (Variant) <span className="text-red-500">*</span>
+                              Variant Name <span className="text-red-500">*</span>
                             </label>
                             <input
                               type="text"
-                              placeholder="e.g.Color,Size,Name"
+                              placeholder="e.g., Red, Large, 500ml"
                               className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
                               value={size.size}
                               onChange={(e) => handleSizeChange(index, "size", e.target.value)}
@@ -1070,23 +1037,7 @@ const CreateProductPage = () => {
                             />
                           </div>
                           
-                          <div className="space-y-2">
-                            <label className="block text-sm font-semibold text-gray-700">
-                              Variant Unit Type <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer"
-                              value={size.unit}
-                              onChange={(e) => handleSizeChange(index, "unit", e.target.value)}
-                              required
-                            >
-                              <option value="gram">Gram</option>
-                              <option value="kg">Kilogram</option>
-                              <option value="ml">ML</option>
-                              <option value="litre">Litre</option>
-                              <option value="pcs">Pieces</option>
-                            </select>
-                          </div>
+                         
                           
                           <div className="space-y-2">
                             <label className="block text-sm font-semibold text-gray-700">
@@ -1100,6 +1051,55 @@ const CreateProductPage = () => {
                               value={size.price}
                               onChange={(e) => handleSizeChange(index, "price", e.target.value)}
                               placeholder="0.00"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        {/* NEW: Weight and Dimensions Section for each variant */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+                          <div className="space-y-2">
+                            <label className="block text-sm font-semibold text-gray-700">
+                              Weight 
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder="Enter weight eg:10"
+                              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
+                              value={size.weight || ''}
+                              onChange={(e) => handleSizeChange(index, "weight", e.target.value)}
+                              required
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <label className="block text-sm font-semibold text-gray-700">
+                              Weight Unit
+                            </label>
+                            <select
+                              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer"
+                              value={size.weight_unit || 'kg'}
+                              onChange={(e) => handleSizeChange(index, "weight_unit", e.target.value)}
+                            >
+                              <option value="kg">Kilogram (kg)</option>
+                              <option value="g">Gram (g)</option>
+                              <option value="lb">Pound (lb)</option>
+                              <option value="oz">Ounce (oz)</option>
+                            </select>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <label className="block text-sm font-semibold text-gray-700">
+                              Dimensions 
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="e.g., 10x5x2 cm"
+                              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
+                              value={size.dimensions || ''}
+                              onChange={(e) => handleSizeChange(index, "dimensions", e.target.value)}
                               required
                             />
                           </div>
@@ -1141,7 +1141,7 @@ const CreateProductPage = () => {
                           </div>
                         </div>
                         
-                        {/* Price Tiers for this size */}
+                        {/* Price Tiers for this variant */}
                         <div className="mt-6">
                           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
                             <h4 className="text-lg font-semibold text-gray-800">Bulk Pricing Tiers</h4>
@@ -1246,7 +1246,7 @@ const CreateProductPage = () => {
                               className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-all duration-300 cursor-pointer"
                             >
                               <FiTrash2 className="w-4 h-4" />
-                              Remove Size
+                              Remove Variant
                             </button>
                           </div>
                         )}
@@ -1526,7 +1526,7 @@ const CreateProductPage = () => {
                   {activeSection === "pricing" && (
                     <div className={`flex items-center gap-3 ${!formErrors.sizes ? 'text-green-600' : 'text-red-400'}`}>
                       <FiCheck className="w-5 h-5" />
-                      <span className="text-sm font-semibold">Valid Pricing & Sizes</span>
+                      <span className="text-sm font-semibold">Valid Variants & Pricing</span>
                     </div>
                   )}
                   {activeSection === "images" && (
@@ -1549,12 +1549,12 @@ const CreateProductPage = () => {
                 <h4 className="text-lg font-bold text-blue-900 mb-3">💡 Quick Tips</h4>
                 <ul className="space-y-2 text-sm text-blue-800">
                   <li>• Use clear, high-quality images</li>
-                  <li>• Add multiple size options</li>
+                  <li>• Add multiple variants (size/color/weight)</li>
                   <li>• Set competitive bulk pricing</li>
                   <li>• Include detailed descriptions</li>
                   <li>• Add relevant tags for search</li>
                   {isDraftAvailable && (
-                    <li className="font-semibold text-blue-900">• Your draft is auto-saved every 2 seconds</li>
+                    <li className="font-semibold text-blue-900">• Your draft is auto-saved every 5 seconds</li>
                   )}
                 </ul>
               </div>

@@ -441,6 +441,7 @@ class ProductListCreateAPIView(APIView):
 
     def post(self, request):
         data = request.data.copy()  # Make a mutable copy
+
         
         # Truncate short_description if needed
         if "short_description" in data and len(data["short_description"]) > 450:

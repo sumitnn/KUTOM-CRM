@@ -325,14 +325,22 @@ const SalesPage = ({ role }) => {
           country: "India"
         },
         phone: order.buyer?.phone || 'N/A',
-        whatsapp: order.buyer?.whatsapp || 'N/A'
+        whatsapp: order.buyer?.whatsapp_number || 'N/A'
       },
       seller: {
         id: order.seller?.id || '',
         name: order.seller?.username || 'N/A',
         email: order.seller?.email || 'N/A',
         roleId: order.seller?.role_based_id || 'N/A',
-        phone: order.seller?.phone || 'N/A'
+        phone: order.seller?.phone || 'N/A',
+        address: order.seller?.address || {
+          street_address: null,
+          city: null,
+          state: "",
+          district: "",
+          postal_code: null,
+          country: "India"
+        }
       },
       items: order.items?.map(item => ({
         id: item.id,

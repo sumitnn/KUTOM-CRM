@@ -10,10 +10,11 @@ from accounts.mixins import ImageSerializerMixin
 
 class UserBasicSerializer(serializers.ModelSerializer):
     role_based_id = serializers.SerializerMethodField()
+    address = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'role_based_id', 'phone']
+        fields = ['id', 'username', 'email', 'role', 'role_based_id', 'phone','address']
 
     def get_role_based_id(self, obj):
         if hasattr(obj, 'vendor_id') and obj.role == 'vendor':
@@ -23,6 +24,10 @@ class UserBasicSerializer(serializers.ModelSerializer):
         elif hasattr(obj, 'reseller_id') and obj.role == 'reseller':
             return obj.reseller_id
         return None
+    
+    def get_address(self, obj):
+        address = getattr(obj, "address", None)  
+        return AddressSerializer(address).data if address else {}
 
 
 class ProductSerializer(serializers.ModelSerializer):
