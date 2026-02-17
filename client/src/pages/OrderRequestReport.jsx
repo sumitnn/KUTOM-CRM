@@ -195,10 +195,10 @@ const OrderRequestReport = () => {
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-900">{format(new Date(label), 'dd MMM yyyy')}</p>
+        <div className="bg-white/90 backdrop-blur-sm p-2 border border-slate-200/60 rounded-lg shadow-lg max-w-[200px]">
+          <p className="font-semibold text-gray-900 text-xs">{format(new Date(label), 'dd MMM yyyy')}</p>
           {payload.map((entry, index) => (
-            <p key={index} className="text-sm" style={{ color: entry.color }}>
+            <p key={index} className="text-xs" style={{ color: entry.color }}>
               {entry.dataKey === 'daily_sales' ? 'Sales Amount: ' + formatCurrency(entry.value) : 
                entry.dataKey === 'sales_amount' ? 'Sales: ' + formatCurrency(entry.value) :
                entry.name + ': ' + entry.value}
@@ -210,457 +210,459 @@ const OrderRequestReport = () => {
     return null;
   };
 
- 
-
   // Pagination controls
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
   const nextPage = () => setCurrentPage(prev => Math.min(prev + 1, totalPages));
   const prevPage = () => setCurrentPage(prev => Math.max(prev - 1, 1));
 
   return (
-    <div className="min-h-screen ">
-      <div className="max-w-8xl mx-auto py-4 ">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+    <div className="w-full max-w-full overflow-x-hidden">
+      {/* Header */}
+      <div className="mb-4 sm:mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900">Order Requests Report</h1>
+            <p className="text-xs text-gray-600 mt-0.5">
+              Track and analyze your order requests and sales performance
+            </p>
+          </div>
+          <button
+            onClick={handleExport}
+            className="inline-flex items-center px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors duration-200 text-xs sm:text-sm font-medium shadow-sm gap-1.5 w-full sm:w-auto justify-center"
+          >
+            <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Export CSV
+          </button>
+        </div>
+      </div>
+
+      {/* Summary Cards - Responsive grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3 mb-4 sm:mb-6">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-3 sm:p-4 rounded-xl shadow-lg text-white">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Order Requests Report</h1>
-              <p className="mt-1 text-sm text-gray-600">
-                Track and analyze your order requests and sales performance
-              </p>
+              <p className="text-blue-100 text-[10px] sm:text-xs font-medium opacity-90">Total Requests</p>
+              <p className="text-base sm:text-xl font-bold mt-0.5 sm:mt-1">{summary.total_requests || 0}</p>
             </div>
-            <div className="mt-4 lg:mt-0 flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={handleExport}
-                className="px-6 py-2.5 cursor-pointer bg-green-600 text-white rounded-xl hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors duration-200 font-medium shadow-sm flex items-center gap-2"
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Export CSV
-              </button>
+            <div className="p-1.5 sm:p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+              <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
             </div>
           </div>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-6 rounded-2xl shadow-lg text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-blue-100 text-sm font-medium">Total Requests</p>
-                <p className="text-3xl font-bold mt-2">{summary.total_requests || 0}</p>
-              </div>
-              <div className="p-3 bg-blue-400/20 rounded-xl">
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              </div>
+        <div className="bg-gradient-to-br from-green-500 to-green-600 p-3 sm:p-4 rounded-xl shadow-lg text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-green-100 text-[10px] sm:text-xs font-medium opacity-90">Total Sales</p>
+              <p className="text-sm sm:text-lg font-bold mt-0.5 sm:mt-1 truncate max-w-[100px] sm:max-w-none">{formatCurrency(summary.total_sales_amount)}</p>
             </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-green-500 to-green-600 p-6 rounded-2xl shadow-lg text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-100 text-sm font-medium">Total Sales</p>
-                <p className="text-2xl font-bold mt-2">{formatCurrency(summary.total_sales_amount)}</p>
-              </div>
-              <div className="p-3 bg-green-400/20 rounded-xl">
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-6 rounded-2xl shadow-lg text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-purple-100 text-sm font-medium">Total Items</p>
-                <p className="text-3xl font-bold mt-2">{summary.total_items_quantity || 0}</p>
-              </div>
-              <div className="p-3 bg-purple-400/20 rounded-xl">
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-6 rounded-2xl shadow-lg text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-orange-100 text-sm font-medium">Avg Order Value</p>
-                <p className="text-2xl font-bold mt-2">{formatCurrency(summary.average_order_value)}</p>
-              </div>
-              <div className="p-3 bg-orange-400/20 rounded-xl">
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 p-6 rounded-2xl shadow-lg text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-cyan-100 text-sm font-medium">Approval Rate</p>
-                <p className="text-3xl font-bold mt-2">{summary.approval_rate || 0}%</p>
-              </div>
-              <div className="p-3 bg-cyan-400/20 rounded-xl">
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
+            <div className="p-1.5 sm:p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+              <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+              </svg>
             </div>
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
-          <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-3 sm:p-4 rounded-xl shadow-lg text-white">
+          <div className="flex items-center justify-between">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { key: 'today', label: 'Today' },
-                  { key: 'last_3_days', label: 'Last 3 Days' },
-                  { key: 'this_week', label: 'This Week' },
-                  { key: 'last_month', label: 'Last Month' }
-                ].map(({ key, label }) => (
-                  <button
-                    key={key}
-                    onClick={() => handleRangeFilterChange(key)}
-                    className={`px-3 py-1.5 rounded-lg cursor-pointer text-sm font-medium transition-all duration-200 ${
-                      rangeFilter === key 
-                        ? 'bg-blue-600 text-white shadow-sm' 
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <p className="text-purple-100 text-[10px] sm:text-xs font-medium opacity-90">Total Items</p>
+              <p className="text-base sm:text-xl font-bold mt-0.5 sm:mt-1">{summary.total_items_quantity || 0}</p>
             </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
-              <input
-                type="date"
-                name="startDate"
-                className="w-full px-3 py-2.5 cursor-pointer border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                value={dateRange.startDate}
-                onChange={handleDateChange}
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
-              <input
-                type="date"
-                name="endDate"
-                className="w-full px-3 py-2.5 border cursor-pointer border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                value={dateRange.endDate}
-                onChange={handleDateChange}
-                min={dateRange.startDate}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-              <select
-                className="w-full px-3 py-2.5 cursor-pointer border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                value={statusFilter}
-                onChange={(e) => handleStatusFilterChange(e.target.value)}
-              >
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Items per page</label>
-              <select
-                className="w-full px-3 py-2.5 cursor-pointer border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                value={itemsPerPage}
-                onChange={handleItemsPerPageChange}
-              >
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-              </select>
-            </div>
-
-            <div className="flex items-end">
-              <button
-                onClick={() => refetch()}
-                className="w-full px-4 py-2.5 cursor-pointer bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors duration-200 font-medium flex items-center justify-center gap-2"
-              >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Refresh
-              </button>
+            <div className="p-1.5 sm:p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+              <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+              </svg>
             </div>
           </div>
         </div>
 
-        {/* Charts - Only Status Distribution Chart remains */}
-        <div className="grid grid-cols-1 gap-8 mb-8">
-          {/* Status Distribution Chart */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900">Status Distribution</h3>
-              <div className="text-sm text-gray-500">Count & Sales Amount</div>
+        <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-3 sm:p-4 rounded-xl shadow-lg text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-orange-100 text-[10px] sm:text-xs font-medium opacity-90">Avg Order Value</p>
+              <p className="text-sm sm:text-lg font-bold mt-0.5 sm:mt-1 truncate max-w-[100px] sm:max-w-none">{formatCurrency(summary.average_order_value)}</p>
             </div>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={statusDistributionData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis 
-                    dataKey="status" 
-                    tickFormatter={(status) => getStatusDisplay(status)}
-                    stroke="#6b7280"
-                    fontSize={12}
-                  />
-                  <YAxis 
-                    stroke="#6b7280"
-                    fontSize={12}
-                  />
-                  <Tooltip 
-                    formatter={(value, name) => [
-                      name === 'sales_amount' ? formatCurrency(value) : value,
-                      name === 'sales_amount' ? 'Sales Amount' : 'Count'
-                    ]}
-                    labelFormatter={(label) => `Status: ${getStatusDisplay(label)}`}
-                  />
-                  <Legend />
-                  <Bar 
-                    dataKey="count" 
-                    name="Request Count"
-                    fill={chartColors.primary}
-                    radius={[4, 4, 0, 0]}
-                  />
-                  <Bar 
-                    dataKey="sales_amount" 
-                    name="Sales Amount"
-                    fill={chartColors.secondary}
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="p-1.5 sm:p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+              <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
             </div>
           </div>
         </div>
 
-        {/* Order Requests Table */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          {/* Loading State */}
-          {isLoading && (
-            <div className="p-12 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-              <p className="mt-4 text-gray-600 font-medium">Loading order requests data...</p>
+        <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 p-3 sm:p-4 rounded-xl shadow-lg text-white sm:col-span-1 col-span-2 sm:col-auto">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-cyan-100 text-[10px] sm:text-xs font-medium opacity-90">Approval Rate</p>
+              <p className="text-base sm:text-xl font-bold mt-0.5 sm:mt-1">{summary.approval_rate || 0}%</p>
             </div>
-          )}
-
-          {/* Error State */}
-          {isError && (
-            <div className="p-12 text-center">
-              <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to load order requests</h3>
-              <p className="text-gray-600 mb-4">Please check your connection and try again</p>
-              <button
-                onClick={refetch}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                Retry
-              </button>
+            <div className="p-1.5 sm:p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+              <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
             </div>
-          )}
+          </div>
+        </div>
+      </div>
 
-          {/* Table Content */}
-          {!isLoading && !isError && (
-            <>
-              <div className="px-6 py-4 border-b border-gray-100">
-                <h3 className="text-lg font-semibold text-gray-900">Order Requests Details</h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  {orderRequests.length} records found {searchTerm && `for "${searchTerm}"`}
-                </p>
+      {/* Filters - Responsive */}
+      <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/60 p-3 sm:p-4 mb-4 sm:mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+          <div className="sm:col-span-2 lg:col-span-1">
+            <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Date Range</label>
+            <div className="flex flex-wrap gap-1">
+              {[
+                { key: 'today', label: 'Today' },
+                { key: 'last_3_days', label: '3 Days' },
+                { key: 'this_week', label: 'Week' },
+                { key: 'last_month', label: 'Month' }
+              ].map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => handleRangeFilterChange(key)}
+                  className={`px-2 py-1 rounded-lg cursor-pointer text-[10px] sm:text-xs font-medium transition-all duration-200 flex-1 sm:flex-none ${
+                    rangeFilter === key 
+                      ? 'bg-blue-600 text-white shadow-sm' 
+                      : 'bg-gray-100/80 text-gray-700 hover:bg-gray-200/80'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Start Date</label>
+            <input
+              type="date"
+              name="startDate"
+              className="w-full px-2 py-1.5 cursor-pointer border border-slate-200/60 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/50 backdrop-blur-sm text-xs"
+              value={dateRange.startDate}
+              onChange={handleDateChange}
+            />
+          </div>
+          
+          <div>
+            <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">End Date</label>
+            <input
+              type="date"
+              name="endDate"
+              className="w-full px-2 py-1.5 border cursor-pointer border-slate-200/60 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/50 backdrop-blur-sm text-xs"
+              value={dateRange.endDate}
+              onChange={handleDateChange}
+              min={dateRange.startDate}
+            />
+          </div>
+
+          <div>
+            <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Status</label>
+            <select
+              className="w-full px-2 py-1.5 cursor-pointer border border-slate-200/60 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/50 backdrop-blur-sm text-xs"
+              value={statusFilter}
+              onChange={(e) => handleStatusFilterChange(e.target.value)}
+            >
+              <option value="all">All</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Items/Page</label>
+            <select
+              className="w-full px-2 py-1.5 cursor-pointer border border-slate-200/60 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/50 backdrop-blur-sm text-xs"
+              value={itemsPerPage}
+              onChange={handleItemsPerPageChange}
+            >
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+
+          <div className="flex items-end">
+            <button
+              onClick={() => refetch()}
+              className="w-full px-3 py-1.5 cursor-pointer bg-gray-100/80 text-gray-700 rounded-lg hover:bg-gray-200/80 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors duration-200 font-medium flex items-center justify-center gap-1 text-xs"
+            >
+              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-4 sm:mb-6">
+        {/* Status Distribution Chart */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/60 p-3 sm:p-4">
+          <div className="flex items-center justify-between mb-2 sm:mb-3">
+            <h3 className="text-xs sm:text-sm font-semibold text-gray-900">Status Distribution</h3>
+            <span className="text-[10px] sm:text-xs text-gray-500 bg-gray-100/80 px-2 py-1 rounded-lg">Count & Sales</span>
+          </div>
+          <div className="h-60 sm:h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={statusDistributionData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis 
+                  dataKey="status" 
+                  tickFormatter={(status) => getStatusDisplay(status)}
+                  stroke="#64748b"
+                  fontSize={10}
+                  tick={{ fill: '#64748b' }}
+                  interval={0}
+                  angle={-15}
+                  textAnchor="end"
+                  height={50}
+                />
+                <YAxis 
+                  stroke="#64748b"
+                  fontSize={10}
+                  tick={{ fill: '#64748b' }}
+                  width={35}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} />
+                <Bar 
+                  dataKey="count" 
+                  name="Count"
+                  fill={chartColors.primary}
+                  radius={[4, 4, 0, 0]}
+                  barSize={15}
+                />
+                <Bar 
+                  dataKey="sales_amount" 
+                  name="Sales"
+                  fill={chartColors.secondary}
+                  radius={[4, 4, 0, 0]}
+                  barSize={15}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* Order Requests Table - Responsive with horizontal scroll only on table */}
+      <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/60 overflow-hidden">
+        {/* Loading State */}
+        {isLoading && (
+          <div className="p-6 sm:p-10 text-center">
+            <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-500 mx-auto"></div>
+            <p className="mt-2 sm:mt-3 text-xs text-gray-600">Loading order requests data...</p>
+          </div>
+        )}
+
+        {/* Error State */}
+        {isError && (
+          <div className="p-6 sm:p-10 text-center">
+            <div className="mx-auto w-10 h-10 sm:w-12 sm:h-12 bg-red-100 rounded-full flex items-center justify-center mb-2 sm:mb-3">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 className="text-xs sm:text-sm font-semibold text-gray-900 mb-1 sm:mb-2">Failed to load order requests</h3>
+            <p className="text-[10px] sm:text-xs text-gray-600 mb-3 sm:mb-4">Please check your connection and try again</p>
+            <button
+              onClick={refetch}
+              className="px-3 sm:px-4 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* Table Content */}
+        {!isLoading && !isError && (
+          <>
+            <div className="px-3 sm:px-4 py-2 sm:py-3 border-b border-slate-200/60">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs sm:text-sm font-semibold text-gray-900">Order Requests Details</h3>
+                  <p className="text-[10px] sm:text-xs text-gray-600 mt-0.5">
+                    {orderRequests.length} records found {searchTerm && `for "${searchTerm}"`}
+                  </p>
+                </div>
               </div>
+            </div>
 
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Request ID
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Requested By
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Type
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Target
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Amount
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Quantity
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Date
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Notes
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {currentItems.length > 0 ? (
-                      currentItems.map((request) => (
-                        <tr key={request.id} className="hover:bg-gray-50/50 transition-colors duration-150">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{request.request_id}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {request.requested_by?.name}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                {request.requested_by?.email}
-                              </div>
+            {/* Table with horizontal scroll only */}
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200/60">
+                <thead className="bg-slate-50/50">
+                  <tr>
+                    <th scope="col" className="px-2 sm:px-4 py-2 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Request ID
+                    </th>
+                    <th scope="col" className="px-2 sm:px-4 py-2 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Requested By
+                    </th>
+                    <th scope="col" className="px-2 sm:px-4 py-2 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Type
+                    </th>
+                    <th scope="col" className="px-2 sm:px-4 py-2 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Target
+                    </th>
+                    <th scope="col" className="px-2 sm:px-4 py-2 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Status
+                    </th>
+                    <th scope="col" className="px-2 sm:px-4 py-2 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Amount
+                    </th>
+                    <th scope="col" className="px-2 sm:px-4 py-2 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Qty
+                    </th>
+                    <th scope="col" className="px-2 sm:px-4 py-2 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Date
+                    </th>
+                    <th scope="col" className="px-2 sm:px-4 py-2 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Notes
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white/50 divide-y divide-slate-200/60">
+                  {currentItems.length > 0 ? (
+                    currentItems.map((request) => (
+                      <tr key={request.id} className="hover:bg-slate-50/50 transition-colors duration-150">
+                        <td className="px-2 sm:px-4 py-2 whitespace-nowrap">
+                          <div className="text-[10px] sm:text-xs font-medium text-gray-900">{request.request_id}</div>
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 whitespace-nowrap">
+                          <div>
+                            <div className="text-[10px] sm:text-xs font-medium text-gray-900">
+                              {request.requested_by?.name}
                             </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 capitalize">
-                            {request.requestor_type}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 capitalize">
-                            {request.target_type}
-                            {request.target_user && (
-                              <div className="text-xs text-gray-500">
-                                {request.target_user.name}
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span 
-                              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize"
-                              style={{ 
-                                backgroundColor: `${getStatusColor(request.status)}20`,
-                                color: getStatusColor(request.status)
-                              }}
-                            >
-                              {getStatusDisplay(request.status)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">
-                            {formatCurrency(request.total_amount)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {request.total_quantity}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatDate(request.created_at)}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                            {request.note || '-'}
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="9" className="px-6 py-12 text-center">
-                          <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
+                            <div className="text-[8px] sm:text-xs text-gray-500">
+                              {request.requested_by?.email}
+                            </div>
                           </div>
-                          <h3 className="text-lg font-semibold text-gray-900 mb-2">No order requests found</h3>
-                          <p className="text-gray-600">Try adjusting your filters or search terms</p>
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 whitespace-nowrap text-[10px] sm:text-xs text-gray-900 capitalize">
+                          {request.requestor_type}
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 whitespace-nowrap text-[10px] sm:text-xs text-gray-900 capitalize">
+                          {request.target_type}
+                          {request.target_user && (
+                            <div className="text-[8px] sm:text-xs text-gray-500">
+                              {request.target_user.name}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 whitespace-nowrap">
+                          <span 
+                            className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] sm:text-xs font-medium capitalize"
+                            style={{ 
+                              backgroundColor: `${getStatusColor(request.status)}20`,
+                              color: getStatusColor(request.status)
+                            }}
+                          >
+                            {getStatusDisplay(request.status)}
+                          </span>
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 whitespace-nowrap text-[10px] sm:text-xs font-semibold text-green-600">
+                          {formatCurrency(request.total_amount)}
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 whitespace-nowrap text-[10px] sm:text-xs text-gray-900">
+                          {request.total_quantity}
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 whitespace-nowrap text-[8px] sm:text-xs text-gray-500">
+                          {formatDate(request.created_at)}
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 text-[8px] sm:text-xs text-gray-500 max-w-[80px] sm:max-w-[120px] truncate">
+                          {request.note || '-'}
                         </td>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="9" className="px-2 sm:px-4 py-6 sm:py-8 text-center">
+                        <div className="mx-auto w-10 h-10 sm:w-12 sm:h-12 bg-gray-100 rounded-full flex items-center justify-center mb-2 sm:mb-3">
+                          <svg className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
+                        <h3 className="text-xs sm:text-sm font-semibold text-gray-900 mb-1">No order requests found</h3>
+                        <p className="text-[10px] sm:text-xs text-gray-600">Try adjusting your filters or search terms</p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-              {/* Pagination */}
-              {currentItems.length > 0 && (
-                <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="text-sm text-gray-700">
-                      Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to{' '}
-                      <span className="font-medium">{Math.min(indexOfLastItem, orderRequests.length)}</span> of{' '}
-                      <span className="font-medium">{orderRequests.length}</span> results
+            {/* Pagination */}
+            {currentItems.length > 0 && (
+              <div className="px-3 sm:px-4 py-2 sm:py-3 border-t border-slate-200/60 bg-slate-50/50">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+                  <div className="text-[10px] sm:text-xs text-gray-700">
+                    Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to{' '}
+                    <span className="font-medium">{Math.min(indexOfLastItem, orderRequests.length)}</span> of{' '}
+                    <span className="font-medium">{orderRequests.length}</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-1 sm:gap-2">
+                    <button
+                      onClick={prevPage}
+                      disabled={currentPage === 1}
+                      className="px-2 sm:px-3 py-1 rounded-lg border border-slate-200/60 bg-white/80 text-[10px] sm:text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 backdrop-blur-sm"
+                    >
+                      Prev
+                    </button>
+                    
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(3, totalPages) }, (_, i) => {
+                        let pageNumber;
+                        if (totalPages <= 3) {
+                          pageNumber = i + 1;
+                        } else if (currentPage <= 2) {
+                          pageNumber = i + 1;
+                        } else if (currentPage >= totalPages - 1) {
+                          pageNumber = totalPages - 2 + i;
+                        } else {
+                          pageNumber = currentPage - 1 + i;
+                        }
+                        
+                        return (
+                          <button
+                            key={pageNumber}
+                            onClick={() => paginate(pageNumber)}
+                            className={`px-2 sm:px-3 py-1 rounded-lg text-[10px] sm:text-xs font-medium transition-colors duration-200 ${
+                              currentPage === pageNumber
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-white/80 text-gray-700 hover:bg-gray-100 border border-slate-200/60 backdrop-blur-sm'
+                            }`}
+                          >
+                            {pageNumber}
+                          </button>
+                        );
+                      })}
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={prevPage}
-                        disabled={currentPage === 1}
-                        className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-                      >
-                        Previous
-                      </button>
-                      
-                      <div className="flex items-center gap-1">
-                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                          let pageNumber;
-                          if (totalPages <= 5) {
-                            pageNumber = i + 1;
-                          } else if (currentPage <= 3) {
-                            pageNumber = i + 1;
-                          } else if (currentPage >= totalPages - 2) {
-                            pageNumber = totalPages - 4 + i;
-                          } else {
-                            pageNumber = currentPage - 2 + i;
-                          }
-                          
-                          return (
-                            <button
-                              key={pageNumber}
-                              onClick={() => paginate(pageNumber)}
-                              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                                currentPage === pageNumber
-                                  ? 'bg-blue-600 text-white'
-                                  : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
-                              }`}
-                            >
-                              {pageNumber}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      
-                      <button
-                        onClick={nextPage}
-                        disabled={currentPage === totalPages}
-                        className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-                      >
-                        Next
-                      </button>
-                    </div>
+                    <button
+                      onClick={nextPage}
+                      disabled={currentPage === totalPages}
+                      className="px-2 sm:px-3 py-1 rounded-lg border border-slate-200/60 bg-white/80 text-[10px] sm:text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 backdrop-blur-sm"
+                    >
+                      Next
+                    </button>
                   </div>
                 </div>
-              )}
-            </>
-          )}
-        </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

@@ -31,6 +31,7 @@ const ResellerOrderRequestDetail = ({ role }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [actionLoading, setActionLoading] = useState(null);
+  const [selectedProductIndex, setSelectedProductIndex] = useState(0);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   const { 
@@ -58,6 +59,11 @@ const ResellerOrderRequestDetail = ({ role }) => {
 
   const canCancel = role === 'reseller' && orderRequest?.status === 'pending';
   const canApproveReject = role === 'stockist' && orderRequest?.status === 'pending';
+
+  const handleProductChange = (index) => {
+    setSelectedProductIndex(index);
+    setSelectedImageIndex(0); // Reset image index when changing product
+  };
 
   if (isLoading) {
     return (
@@ -92,10 +98,11 @@ const ResellerOrderRequestDetail = ({ role }) => {
   const statusConfig = getStatusConfig(orderRequest.status);
   const StatusIcon = statusConfig.icon;
 
-  const mainProduct = orderRequest.items?.[0]?.product;
+  const selectedItem = orderRequest.items?.[selectedProductIndex];
+  const selectedProduct = selectedItem?.product;
 
   return (
-    <div className=" py-4 max-w-8xl mx-auto">
+    <div className="py-4 max-w-8xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div className="flex items-center gap-4">
@@ -119,36 +126,68 @@ const ResellerOrderRequestDetail = ({ role }) => {
         </div>
       </div>
 
+      {/* Product Selection Tabs */}
+      {orderRequest.items?.length > 1 && (
+        <div className="mb-6 overflow-x-auto">
+          <div className="flex space-x-2 pb-2">
+            {orderRequest.items.map((item, index) => (
+              <button
+                key={item.id}
+                onClick={() => handleProductChange(index)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all whitespace-nowrap ${
+                  selectedProductIndex === index
+                    ? 'bg-blue-50 border-blue-500 text-blue-700'
+                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <FiPackage className="w-4 h-4" />
+                <span className="font-medium">{item.product?.name}</span>
+                <span className="text-sm bg-gray-200 px-2 py-0.5 rounded-full">
+                  Qty: {item.quantity}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         {/* Main Content */}
         <div className="xl:col-span-2 space-y-8">
           {/* Product Details Card */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-              <FiPackage className="w-6 h-6 text-blue-600" />
-              Product Details
-            </h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-3">
+                <FiPackage className="w-6 h-6 text-blue-600" />
+                Product Details
+              </h2>
+              {orderRequest.items?.length > 1 && (
+                <span className="text-sm text-gray-500">
+                  Product {selectedProductIndex + 1} of {orderRequest.items.length}
+                </span>
+              )}
+            </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Product Images */}
               <div className="space-y-4">
                 <div className="aspect-square rounded-lg bg-gray-100 overflow-hidden">
-                  {mainProduct?.images?.length > 0 ? (
+                  {selectedProduct?.images?.length > 0 ? (
                     <img 
-                      src={mainProduct.images[selectedImageIndex]?.image} 
-                      alt={mainProduct.images[selectedImageIndex]?.alt_text || mainProduct.name}
-                      className="w-full h-full object-cover "
+                      src={selectedProduct.images[selectedImageIndex]?.image} 
+                      alt={selectedProduct.images[selectedImageIndex]?.alt_text || selectedProduct.name}
+                      className="w-full h-full object-cover"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <FiImage className="w-12 h-12 text-gray-400 " />
+                      <FiImage className="w-12 h-12 text-gray-400" />
                     </div>
                   )}
                 </div>
                 
-                {mainProduct?.images?.length > 1 && (
+                {selectedProduct?.images?.length > 1 && (
                   <div className="grid grid-cols-4 gap-2">
-                    {mainProduct.images.map((image, index) => (
+                    {selectedProduct.images.map((image, index) => (
                       <button
                         key={image.id}
                         onClick={() => setSelectedImageIndex(index)}
@@ -170,26 +209,48 @@ const ResellerOrderRequestDetail = ({ role }) => {
               {/* Product Information */}
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-2xl font-bold text-gray-900 mb-2">{mainProduct?.name}</h3>
-                  <p className="text-gray-600">{mainProduct?.short_description}</p>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">{selectedProduct?.name}</h3>
+                  <p className="text-gray-600">{selectedProduct?.short_description}</p>
                 </div>
+
+                {/* Selected Variant Info */}
+                {selectedItem?.variant && (
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <label className="text-sm font-medium text-blue-700">Selected Variant</label>
+                    <p className="font-semibold text-blue-900">{selectedItem.variant}</p>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium text-gray-500">SKU</label>
-                    <p className="font-semibold">{mainProduct?.sku}</p>
+                    <p className="font-semibold">{selectedProduct?.sku}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Product Type</label>
-                    <p className="font-semibold capitalize">{mainProduct?.product_type}</p>
+                    <p className="font-semibold capitalize">{selectedProduct?.product_type}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Weight</label>
-                    <p className="font-semibold">{mainProduct?.weight} {mainProduct?.weight_unit}</p>
+                    <p className="font-semibold">{selectedProduct?.weight} {selectedProduct?.weight_unit}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Dimensions</label>
-                    <p className="font-semibold">{mainProduct?.dimensions}</p>
+                    <p className="font-semibold">{selectedProduct?.dimensions}</p>
+                  </div>
+                </div>
+
+                {/* Order Quantity Info */}
+                <div className="bg-green-50 p-3 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <label className="text-sm font-medium text-green-700">Order Quantity</label>
+                      <p className="text-2xl font-bold text-green-700">{selectedItem?.quantity}</p>
+                    </div>
+                    <div className="text-right">
+                      <label className="text-sm font-medium text-green-700">Unit Price</label>
+                      <p className="text-xl font-bold text-green-700">₹{selectedItem?.unit_price}</p>
+                    </div>
                   </div>
                 </div>
 
@@ -201,14 +262,14 @@ const ResellerOrderRequestDetail = ({ role }) => {
                       Brand
                     </label>
                     <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                      {mainProduct?.brand?.logo && (
+                      {selectedProduct?.brand?.logo && (
                         <img 
-                          src={mainProduct.brand.logo} 
-                          alt={mainProduct.brand.name}
+                          src={selectedProduct.brand.logo} 
+                          alt={selectedProduct.brand.name}
                           className="w-8 h-8 object-contain"
                         />
                       )}
-                      <span className="font-semibold">{mainProduct?.brand?.name}</span>
+                      <span className="font-semibold">{selectedProduct?.brand?.name}</span>
                     </div>
                   </div>
                   
@@ -218,20 +279,20 @@ const ResellerOrderRequestDetail = ({ role }) => {
                       Category
                     </label>
                     <div className="p-3 bg-gray-50 rounded-lg">
-                      <p className="font-semibold">{mainProduct?.category?.main_category_name} → {mainProduct?.category?.name}</p>
+                      <p className="font-semibold">{selectedProduct?.category?.main_category_name} → {selectedProduct?.category?.name}</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Tags */}
-                {mainProduct?.tags?.length > 0 && (
+                {selectedProduct?.tags?.length > 0 && (
                   <div>
                     <label className="text-sm font-medium text-gray-500 flex items-center gap-2 mb-2">
                       <FiTag className="w-4 h-4" />
                       Tags
                     </label>
                     <div className="flex flex-wrap gap-2">
-                      {mainProduct.tags.map(tag => (
+                      {selectedProduct.tags.map(tag => (
                         <span key={tag.id} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
                           {tag.name}
                         </span>
@@ -241,14 +302,14 @@ const ResellerOrderRequestDetail = ({ role }) => {
                 )}
 
                 {/* Features */}
-                {mainProduct?.features?.length > 0 && (
+                {selectedProduct?.features?.length > 0 && (
                   <div>
                     <label className="text-sm font-medium text-gray-500 flex items-center gap-2 mb-2">
                       <FiInfo className="w-4 h-4" />
                       Features
                     </label>
                     <div className="flex flex-wrap gap-2">
-                      {mainProduct.features.map((feature, index) => (
+                      {selectedProduct.features.map((feature, index) => (
                         <span key={index} className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
                           {feature}
                         </span>
@@ -260,24 +321,32 @@ const ResellerOrderRequestDetail = ({ role }) => {
             </div>
 
             {/* Full Description */}
-            {mainProduct?.description && (
+            {selectedProduct?.description && (
               <div className="mt-6 pt-6 border-t border-gray-200">
                 <h4 className="text-lg font-semibold text-gray-900 mb-3">Full Description</h4>
-                <p className="text-gray-700 whitespace-pre-line">{mainProduct.description}</p>
+                <p className="text-gray-700 whitespace-pre-line">{selectedProduct.description}</p>
               </div>
             )}
           </div>
 
-          {/* Order Items Card */}
+          {/* Order Items Card - Shows all items with quick view */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
               <FiDollarSign className="w-6 h-6 text-green-600" />
-              Order Items
+              All Order Items
             </h2>
             
             <div className="space-y-4">
-              {orderRequest.items?.map((item) => (
-                <div key={item.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              {orderRequest.items?.map((item, index) => (
+                <div 
+                  key={item.id} 
+                  className={`flex items-center justify-between p-4 rounded-lg cursor-pointer transition-all ${
+                    selectedProductIndex === index 
+                      ? 'bg-blue-50 border-2 border-blue-200' 
+                      : 'bg-gray-50 hover:bg-gray-100'
+                  }`}
+                  onClick={() => handleProductChange(index)}
+                >
                   <div className="flex items-center gap-4">
                     {item.product?.images?.[0] && (
                       <img 
@@ -371,7 +440,7 @@ const ResellerOrderRequestDetail = ({ role }) => {
                 </div>
                 <div className="flex justify-between text-sm text-gray-600">
                   <span>Currency</span>
-                  <span>{mainProduct?.currency || 'INR'}</span>
+                  <span>{selectedProduct?.currency || 'INR'}</span>
                 </div>
               </div>
             </div>

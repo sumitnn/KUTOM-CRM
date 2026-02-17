@@ -1,5 +1,5 @@
 // CreateCustomerPurchase.jsx
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   useCreateCustomerPurchaseMutation,
   useGetCustomerPurchaseVaraiantListQuery,
@@ -51,20 +51,11 @@ const CreateCustomerPurchase = ({ role }) => {
   
   const [createPurchase, { isLoading: isCreating }] = useCreateCustomerPurchaseMutation();
   const [triggerSearch, { data: searchedCustomers, isLoading: isSearching }] = useLazySearchCustomersQuery();
-  
-  // FIX: Use the regular query with skip option
-  const [selectedVariantForPrice, setSelectedVariantForPrice] = useState(null);
-  const { data: priceData, isLoading: isLoadingPrice } = useGetVariantBuyingPriceQuery(
-    { 
-      variantId: selectedVariantForPrice,  
-      role: role || 'admin' 
-    },
-    { 
-      skip: !selectedVariantForPrice || !currentUser?.id 
-    }
-  );
 
-  // Form state
+  // State for tracking price fetching per product
+  const [fetchingPriceFor, setFetchingPriceFor] = useState(null);
+
+  // Form state for customer info
   const [formData, setFormData] = useState({
     full_name: "",
     phone: "",
@@ -74,24 +65,35 @@ const CreateCustomerPurchase = ({ role }) => {
     state: "",
     district: "",
     postal_code: "",
-    product: "",
-    variant: "",
-    quantity: 1,
-    price_per_unit: "",
-    selling_price: "",
     payment_method: "",
     transaction_id: "",
     purchase_date: new Date().toISOString().split('T')[0],
     notes: ""
   });
 
+  // Multiple products state
+  const [products, setProducts] = useState([
+    {
+      id: Date.now(), // temporary unique id
+      product: "",
+      variant: "",
+      quantity: 1,
+      price_per_unit: "",
+      selling_price: "",
+      total: 0
+    }
+  ]);
+
+  // Store price data for each variant
+  const [priceDataMap, setPriceDataMap] = useState({});
+
   // UI state
   const [customerSearch, setCustomerSearch] = useState("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [priceDetails, setPriceDetails] = useState(null);
+  const [selectedProductId, setSelectedProductId] = useState("");
   const [formErrors, setFormErrors] = useState({});
+  const [productErrors, setProductErrors] = useState({});
 
   // Refs
   const searchTimeoutRef = useRef(null);
@@ -104,10 +106,59 @@ const CreateCustomerPurchase = ({ role }) => {
   });
 
   const { data: productsData, isLoading: isLoadingProducts, error: productsError } = useGetCustomerPurchasesProductListQuery();
-  const [selectedProductId, setSelectedProductId] = useState("");
-  const { data: variantsData, isLoading: isLoadingVariants, error: variantsError } = useGetCustomerPurchaseVaraiantListQuery(selectedProductId, {
-    skip: !selectedProductId,
-  });
+  
+  // Fetch price for variant when selected
+  const { data: priceData, isLoading: isLoadingPrice } = useGetVariantBuyingPriceQuery(
+    { 
+      variantId: fetchingPriceFor,  
+      role: role || 'admin' 
+    },
+    { 
+      skip: !fetchingPriceFor || !currentUser?.id 
+    }
+  );
+
+  // Handle price data when it arrives
+  useEffect(() => {
+    if (priceData && fetchingPriceFor) {
+      if (priceData.success) {
+        // Store price data in map
+        setPriceDataMap(prev => ({
+          ...prev,
+          [fetchingPriceFor]: priceData
+        }));
+
+        // Update the product that triggered this fetch
+        setProducts(prev => prev.map(product => {
+          if (product.variant === fetchingPriceFor) {
+            return {
+              ...product,
+              price_per_unit: priceData.actual_price
+            };
+          }
+          return product;
+        }));
+
+        // Clear product error for this variant
+        setProductErrors(prev => {
+          const newErrors = { ...prev };
+          Object.keys(newErrors).forEach(key => {
+            if (key.includes(`price_${fetchingPriceFor}`)) {
+              delete newErrors[key];
+            }
+          });
+          return newErrors;
+        });
+      } else {
+        toast.error(priceData.error || "Failed to fetch price");
+        setProductErrors(prev => ({
+          ...prev,
+          [`price_${fetchingPriceFor}`]: 'Price not available for this variant'
+        }));
+      }
+      setFetchingPriceFor(null);
+    }
+  }, [priceData, fetchingPriceFor]);
 
   // Handle API errors
   useEffect(() => {
@@ -122,28 +173,7 @@ const CreateCustomerPurchase = ({ role }) => {
       console.error("Products API error:", productsError);
       toast.error("Failed to load products");
     }
-    if (variantsError) {
-      console.error("Variants API error:", variantsError);
-      toast.error("Failed to load variants");
-    }
-  }, [statesError, districtsError, productsError, variantsError]);
-
-  // Handle price data when it arrives
-  useEffect(() => {
-    if (priceData && selectedVariantForPrice) {
-      if (priceData.success) {
-        setPriceDetails(priceData);
-        setFormData(prev => ({
-          ...prev,
-          price_per_unit: priceData.actual_price
-        }));
-        setFormErrors(prev => ({ ...prev, price_per_unit: '' }));
-      } else {
-        toast.error(priceData.error || "Failed to fetch price");
-        setFormErrors(prev => ({ ...prev, price_per_unit: 'Price not available for this variant' }));
-      }
-    }
-  }, [priceData, selectedVariantForPrice]);
+  }, [statesError, districtsError, productsError]);
 
   // Filter featured products safely
   const featuredProducts = productsData?.results || [];
@@ -155,7 +185,7 @@ const CreateCustomerPurchase = ({ role }) => {
     }
 
     searchTimeoutRef.current = setTimeout(() => {
-      if (customerSearch.trim().length > 2 && !selectedCustomer) { // Only search if no customer is selected
+      if (customerSearch.trim().length > 2 && !selectedCustomer) {
         triggerSearch(customerSearch.trim()).catch(error => {
           console.error("Search error:", error);
           toast.error("Failed to search customers");
@@ -171,7 +201,7 @@ const CreateCustomerPurchase = ({ role }) => {
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [customerSearch, triggerSearch, selectedCustomer]); // Added selectedCustomer to dependencies
+  }, [customerSearch, triggerSearch, selectedCustomer]);
 
   // Event handlers
   const handleCustomerSelect = (customer) => {
@@ -179,7 +209,7 @@ const CreateCustomerPurchase = ({ role }) => {
     
     setSelectedCustomer(customer);
     setCustomerSearch(customer.full_name || "");
-    setShowCustomerDropdown(false); // Hide dropdown when customer is selected
+    setShowCustomerDropdown(false);
     
     setFormData(prev => ({
       ...prev,
@@ -195,68 +225,6 @@ const CreateCustomerPurchase = ({ role }) => {
 
     if (customer.state) {
       setSelectedStateId(customer.state);
-    }
-  };
-
-  const handleProductChange = (e) => {
-    const productId = e.target.value;
-    const product = featuredProducts.find(p => p.rolebaseproductid === productId);
-    
-    setSelectedProductId(productId);
-    setSelectedProduct(product);
-    setPriceDetails(null);
-    setSelectedVariantForPrice(null);
-    
-    setFormData(prev => ({
-      ...prev,
-      product: productId,
-      variant: "",
-      price_per_unit: "",
-      selling_price: ""
-    }));
-  };
-
-  const handleVariantChange = (e) => {
-    const variantId = e.target.value;
-    
-    setFormData(prev => ({
-      ...prev,
-      variant: variantId,
-      price_per_unit: "",
-      selling_price: ""
-    }));
-
-    if (variantId) {
-      setSelectedVariantForPrice(variantId);
-    } else {
-      setPriceDetails(null);
-      setSelectedVariantForPrice(null);
-      setFormErrors(prev => ({ ...prev, price_per_unit: '' }));
-    }
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-
-    // Clear error when user starts typing
-    if (formErrors[name]) {
-      setFormErrors(prev => ({ ...prev, [name]: '' }));
-    }
-
-    if (name === 'full_name' && value !== selectedCustomer?.full_name) {
-      setSelectedCustomer(null);
-      // Show dropdown again if user starts typing a different name
-      if (value.trim().length > 2) {
-        setShowCustomerDropdown(true);
-      }
-    }
-
-    if (name === 'state') {
-      setSelectedStateId(value);
     }
   };
 
@@ -283,66 +251,155 @@ const CreateCustomerPurchase = ({ role }) => {
     }
   };
 
+  // Product handlers
+  const addProduct = () => {
+    setProducts(prev => [
+      ...prev,
+      {
+        id: Date.now(),
+        product: "",
+        variant: "",
+        quantity: 1,
+        price_per_unit: "",
+        selling_price: "",
+        total: 0
+      }
+    ]);
+  };
+
+  const removeProduct = (productId) => {
+    if (products.length > 1) {
+      setProducts(prev => prev.filter(p => p.id !== productId));
+      // Clean up errors for removed product
+      setProductErrors(prev => {
+        const newErrors = { ...prev };
+        Object.keys(newErrors).forEach(key => {
+          if (key.includes(productId)) {
+            delete newErrors[key];
+          }
+        });
+        return newErrors;
+      });
+    } else {
+      toast.warning("At least one product is required");
+    }
+  };
+
+  const handleProductChange = (productId, field, value) => {
+    setProducts(prev => prev.map(product => {
+      if (product.id === productId) {
+        const updatedProduct = { ...product, [field]: value };
+        
+        // If product changed, reset variant and price
+        if (field === 'product') {
+          updatedProduct.variant = "";
+          updatedProduct.price_per_unit = "";
+          updatedProduct.selling_price = "";
+          updatedProduct.total = 0;
+        }
+        
+        // If variant changed, fetch price
+        if (field === 'variant' && value) {
+          setFetchingPriceFor(value);
+        }
+        
+        // Calculate total when quantity or selling price changes
+        if (field === 'quantity' || field === 'selling_price') {
+          const quantity = parseFloat(updatedProduct.quantity) || 0;
+          const sellingPrice = parseFloat(updatedProduct.selling_price) || 0;
+          updatedProduct.total = quantity * sellingPrice;
+        }
+        
+        return updatedProduct;
+      }
+      return product;
+    }));
+
+    // Clear error for this field
+    setProductErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[`${productId}_${field}`];
+      return newErrors;
+    });
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+
+    if (formErrors[name]) {
+      setFormErrors(prev => ({ ...prev, [name]: '' }));
+    }
+
+    if (name === 'full_name' && value !== selectedCustomer?.full_name) {
+      setSelectedCustomer(null);
+      if (value.trim().length > 2) {
+        setShowCustomerDropdown(true);
+      }
+    }
+
+    if (name === 'state') {
+      setSelectedStateId(value);
+    }
+  };
+
   // Validation function
   const validateForm = () => {
     const errors = {};
+    const prodErrors = {};
     
+    // Validate customer info
     if (!formData.full_name?.trim()) errors.full_name = "Full name is required";
-    if (!formData.product) errors.product = "Product selection is required";
-    if (!formData.variant) errors.variant = "Variant selection is required";
-    if (!formData.quantity || formData.quantity < 1) errors.quantity = "Valid quantity is required";
-    if (!formData.price_per_unit || parseFloat(formData.price_per_unit) <= 0) errors.price_per_unit = "Valid buying price is required";
-    if (!formData.selling_price || parseFloat(formData.selling_price) <= 0) errors.selling_price = "Valid selling price is required";
+    
+    // Validate each product
+    products.forEach((product, index) => {
+      if (!product.product) prodErrors[`${product.id}_product`] = "Product is required";
+      if (!product.variant) prodErrors[`${product.id}_variant`] = "Variant is required";
+      if (!product.quantity || product.quantity < 1) prodErrors[`${product.id}_quantity`] = "Valid quantity is required";
+      if (!product.price_per_unit || parseFloat(product.price_per_unit) <= 0) {
+        prodErrors[`${product.id}_price`] = "Valid buying price is required";
+      }
+      if (!product.selling_price || parseFloat(product.selling_price) <= 0) {
+        prodErrors[`${product.id}_selling`] = "Valid selling price is required";
+      }
+    });
     
     setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    setProductErrors(prodErrors);
+    
+    return Object.keys(errors).length === 0 && Object.keys(prodErrors).length === 0;
   };
 
-  // Calculations with safe parsing
+  // Calculations
+  const calculateSubtotal = () => {
+    return products.reduce((sum, product) => {
+      return sum + (parseFloat(product.total) || 0);
+    }, 0).toFixed(2);
+  };
+
   const calculateTotalCost = () => {
-    try {
-      const quantity = parseFloat(formData.quantity) || 0;
-      const buyingPrice = parseFloat(formData.price_per_unit) || 0;
-      return (quantity * buyingPrice).toFixed(2);
-    } catch (error) {
-      console.error("Calculation error:", error);
-      return "0.00";
-    }
+    return products.reduce((sum, product) => {
+      const quantity = parseFloat(product.quantity) || 0;
+      const buyingPrice = parseFloat(product.price_per_unit) || 0;
+      return sum + (quantity * buyingPrice);
+    }, 0).toFixed(2);
   };
 
-  const calculateTotalRevenue = () => {
-    try {
-      const quantity = parseFloat(formData.quantity) || 0;
-      const sellingPrice = parseFloat(formData.selling_price) || 0;
-      return (quantity * sellingPrice).toFixed(2);
-    } catch (error) {
-      console.error("Calculation error:", error);
-      return "0.00";
-    }
-  };
-
-  const calculateProfit = () => {
-    try {
-      const totalCost = parseFloat(calculateTotalCost()) || 0;
-      const totalRevenue = parseFloat(calculateTotalRevenue()) || 0;
-      return (totalRevenue - totalCost).toFixed(2);
-    } catch (error) {
-      console.error("Calculation error:", error);
-      return "0.00";
-    }
+  const calculateTotalProfit = () => {
+    const revenue = parseFloat(calculateSubtotal()) || 0;
+    const cost = parseFloat(calculateTotalCost()) || 0;
+    return (revenue - cost).toFixed(2);
   };
 
   const calculateProfitPercentage = () => {
-    try {
-      const totalCost = parseFloat(calculateTotalCost()) || 0;
-      const profit = parseFloat(calculateProfit()) || 0;
-      
-      if (totalCost === 0) return "0.00";
-      return ((profit / totalCost) * 100).toFixed(2);
-    } catch (error) {
-      console.error("Calculation error:", error);
-      return "0.00";
-    }
+    const cost = parseFloat(calculateTotalCost()) || 0;
+    const profit = parseFloat(calculateTotalProfit()) || 0;
+    
+    if (cost === 0) return "0.00";
+    return ((profit / cost) * 100).toFixed(2);
   };
 
   // Form submission
@@ -360,8 +417,17 @@ const CreateCustomerPurchase = ({ role }) => {
 
     setIsSubmitting(true);
 
+    // Prepare data for API
+    const purchaseData = {
+      ...formData,
+      items: products.map(({ id, total, ...product }) => ({
+        ...product,
+        total_price: total
+      }))
+    };
+
     try {
-      await createPurchase(formData).unwrap();
+      await createPurchase(purchaseData).unwrap();
       toast.success("Customer purchase created successfully!");
       navigate(`/${role}/customer-purchases`);
     } catch (error) {
@@ -369,7 +435,6 @@ const CreateCustomerPurchase = ({ role }) => {
       const errorMessage = error?.data?.message || error?.data?.detail || "Failed to create purchase";
       toast.error(errorMessage);
       
-      // Handle field-specific errors from backend
       if (error?.data) {
         const backendErrors = {};
         Object.keys(error.data).forEach(key => {
@@ -390,7 +455,6 @@ const CreateCustomerPurchase = ({ role }) => {
   const safeSearchedCustomers = Array.isArray(searchedCustomers) ? searchedCustomers : [];
   const safeStates = Array.isArray(statesData) ? statesData : [];
   const safeDistricts = Array.isArray(districtsData) ? districtsData : [];
-  const safeVariants = Array.isArray(variantsData?.results) ? variantsData.results : [];
 
   return (
     <ErrorBoundary>
@@ -407,7 +471,7 @@ const CreateCustomerPurchase = ({ role }) => {
               Create Customer Purchase
             </h1>
             <p className="mt-2 text-lg text-gray-600 max-w-2xl mx-auto">
-              Record a new customer purchase with real-time pricing and profit calculations
+              Record a new customer purchase with multiple products
             </p>
           </div>
 
@@ -450,7 +514,7 @@ const CreateCustomerPurchase = ({ role }) => {
                       </button>
                     )}
                     
-                    {/* Customer Dropdown - Only show if no customer is selected */}
+                    {/* Customer Dropdown */}
                     {showCustomerDropdown && !selectedCustomer && (
                       <div className="absolute z-20 w-full mt-2 bg-white border-2 border-blue-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
                         {isSearching ? (
@@ -540,134 +604,129 @@ const CreateCustomerPurchase = ({ role }) => {
                 </div>
               </section>
 
-              {/* Purchase Details Section */}
+              {/* Products Section */}
               <section className="space-y-6">
-                <div className="flex items-center space-x-3">
-                  <div className="w-2 h-8 bg-gradient-to-b from-green-600 to-emerald-600 rounded-full"></div>
-                  <h3 className="text-xl font-bold text-gray-800">Purchase Details</h3>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-2 h-8 bg-gradient-to-b from-green-600 to-emerald-600 rounded-full"></div>
+                    <h3 className="text-xl font-bold text-gray-800">Products</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addProduct}
+                    className="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 font-semibold transition-all duration-200 flex items-center space-x-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    <span>Add Another Products</span>
+                  </button>
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {/* Product Selection */}
-                  <div className="lg:col-span-2">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Product *
-                    </label>
-                    <select
-                      name="product"
-                      value={formData.product || ""}
-                      onChange={handleProductChange}
-                      className={`w-full px-4 py-3 text-sm border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all cursor-pointer bg-white ${
-                        formErrors.product ? 'border-red-300' : 'border-gray-200'
-                      }`}
-                      required
-                      disabled={isLoadingProducts}
-                    >
-                      <option value="">Select Product</option>
-                      {featuredProducts.map((product) => (
-                        <option key={product.rolebaseproductid} value={product.rolebaseproductid}>
-                          {product.name} - ₹{product.price}
-                        </option>
-                      ))}
-                    </select>
-                    {formErrors.product && (
-                      <p className="text-red-500 text-xs mt-1">{formErrors.product}</p>
+
+                {/* Products List */}
+                {products.map((product, index) => (
+                  <div key={product.id} className="bg-gray-50 rounded-xl p-4 border-2 border-gray-200 relative">
+                    {products.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeProduct(product.id)}
+                        className="absolute top-2 right-2 text-red-500 hover:text-red-700 transition-colors"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
                     )}
-                    {isLoadingProducts && (
-                      <div className="text-xs text-gray-500 mt-2 flex items-center">
-                        <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent mr-2"></div>
-                        Loading products...
+                    
+                    <div className="text-sm font-semibold text-gray-600 mb-3">Product #{index + 1}</div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {/* Product Selection */}
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          Product *
+                        </label>
+                        <select
+                          value={product.product}
+                          onChange={(e) => handleProductChange(product.id, 'product', e.target.value)}
+                          className={`w-full px-4 py-3 text-sm border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all cursor-pointer bg-white ${
+                            productErrors[`${product.id}_product`] ? 'border-red-300' : 'border-gray-200'
+                          }`}
+                          disabled={isLoadingProducts}
+                        >
+                          <option value="">Select Product</option>
+                          {featuredProducts.map((p) => (
+                            <option key={p.rolebaseproductid} value={p.rolebaseproductid}>
+                              {p.name} - ₹{p.price}
+                            </option>
+                          ))}
+                        </select>
+                        {productErrors[`${product.id}_product`] && (
+                          <p className="text-red-500 text-xs mt-1">{productErrors[`${product.id}_product`]}</p>
+                        )}
                       </div>
-                    )}
-                  </div>
 
-                  {/* Variant Selection */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Variant *
-                    </label>
-                    <select
-                      name="variant"
-                      value={formData.variant || ""}
-                      onChange={handleVariantChange}
-                      className={`w-full px-4 py-3 text-sm border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all cursor-pointer bg-white ${
-                        formErrors.variant ? 'border-red-300' : 'border-gray-200'
-                      }`}
-                      required
-                      disabled={!selectedProductId || isLoadingVariants}
-                    >
-                      <option value="">Select Variant</option>
-                      {safeVariants.map((variant) => (
-                        <option key={variant.id} value={variant.id}>
-                          {variant.name}
-                        </option>
-                      ))}
-                    </select>
-                    {formErrors.variant && (
-                      <p className="text-red-500 text-xs mt-1">{formErrors.variant}</p>
-                    )}
-                    {isLoadingVariants && (
-                      <div className="text-xs text-gray-500 mt-2 flex items-center">
-                        <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent mr-2"></div>
-                        Loading variants...
+                      {/* Variant Selection */}
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          Variant *
+                        </label>
+                        <VariantDropdown
+                          productId={product.product}
+                          value={product.variant}
+                          onChange={(value) => handleProductChange(product.id, 'variant', value)}
+                          error={productErrors[`${product.id}_variant`]}
+                        />
                       </div>
-                    )}
-                  </div>
 
-                  {/* Quantity */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Quantity *
-                    </label>
-                    <input
-                      type="number"
-                      name="quantity"
-                      value={formData.quantity || 1}
-                      onChange={handleChange}
-                      min="1"
-                      className={`w-full px-4 py-3 text-sm border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all cursor-pointer ${
-                        formErrors.quantity ? 'border-red-300' : 'border-gray-200'
-                      }`}
-                      required
-                    />
-                    {formErrors.quantity && (
-                      <p className="text-red-500 text-xs mt-1">{formErrors.quantity}</p>
-                    )}
-                  </div>
+                      {/* Quantity */}
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          Quantity *
+                        </label>
+                        <input
+                          type="number"
+                          value={product.quantity}
+                          onChange={(e) => handleProductChange(product.id, 'quantity', parseInt(e.target.value) || 1)}
+                          min="1"
+                          className={`w-full px-4 py-3 text-sm border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
+                            productErrors[`${product.id}_quantity`] ? 'border-red-300' : 'border-gray-200'
+                          }`}
+                        />
+                        {productErrors[`${product.id}_quantity`] && (
+                          <p className="text-red-500 text-xs mt-1">{productErrors[`${product.id}_quantity`]}</p>
+                        )}
+                      </div>
 
-                  {/* Price Information */}
-                  <div className="space-y-4 lg:col-span-2">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* Buying Price */}
                       <div className="relative">
                         <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          Buying Price Per Unit (₹) *
+                          Buying Price (₹) *
                         </label>
                         <div className="relative">
                           <input
                             type="number"
-                            name="price_per_unit"
-                            value={formData.price_per_unit || ""}
-                            onChange={handleChange}
+                            value={product.price_per_unit}
+                            onChange={(e) => handleProductChange(product.id, 'price_per_unit', e.target.value)}
                             step="0.01"
                             min="0"
                             className={`w-full px-4 py-3 text-sm border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-gray-50 pr-12 ${
-                              formErrors.price_per_unit ? 'border-red-300' : 'border-gray-200'
+                              productErrors[`${product.id}_price`] ? 'border-red-300' : 'border-gray-200'
                             }`}
                             placeholder="0.00"
                             disabled={true}
                           />
-                          {isLoadingPrice && (
+                          {fetchingPriceFor === product.variant && (
                             <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                               <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
                             </div>
                           )}
                         </div>
-                        {formErrors.price_per_unit ? (
-                          <p className="text-red-500 text-xs mt-1">{formErrors.price_per_unit}</p>
+                        {productErrors[`${product.id}_price`] ? (
+                          <p className="text-red-500 text-xs mt-1">{productErrors[`${product.id}_price`]}</p>
                         ) : (
                           <p className="text-xs text-gray-500 mt-1">
-                            {priceDetails ? "Auto-fetched based on variant" : "Select variant to auto-fetch price"}
+                            Auto-fetched from variant
                           </p>
                         )}
                       </div>
@@ -675,151 +734,149 @@ const CreateCustomerPurchase = ({ role }) => {
                       {/* Selling Price */}
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          Selling Price Per Unit (₹) *
+                          Selling Price (₹) *
                         </label>
                         <input
                           type="number"
-                          name="selling_price"
-                          value={formData.selling_price || ""}
-                          onChange={handleChange}
+                          value={product.selling_price}
+                          onChange={(e) => handleProductChange(product.id, 'selling_price', e.target.value)}
                           step="0.01"
                           min="0"
                           className={`w-full px-4 py-3 text-sm border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
-                            formErrors.selling_price ? 'border-red-300' : 'border-gray-200'
+                            productErrors[`${product.id}_selling`] ? 'border-red-300' : 'border-gray-200'
                           }`}
                           placeholder="0.00"
-                          required
                         />
-                        {formErrors.selling_price && (
-                          <p className="text-red-500 text-xs mt-1">{formErrors.selling_price}</p>
+                        {productErrors[`${product.id}_selling`] && (
+                          <p className="text-red-500 text-xs mt-1">{productErrors[`${product.id}_selling`]}</p>
                         )}
-                        {!formErrors.selling_price && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            Enter your selling price to customer
-                          </p>
-                        )}
+                      </div>
+
+                      {/* Item Total */}
+                      <div className="bg-blue-50 rounded-xl p-3 flex items-center justify-between">
+                        <span className="text-sm font-semibold text-gray-700">Item Total:</span>
+                        <span className="text-lg font-bold text-blue-600">₹{product.total.toFixed(2)}</span>
                       </div>
                     </div>
 
-                    {/* Price Breakdown */}
-                    {priceDetails && (
-                      <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4">
-                        <h4 className="text-sm font-semibold text-green-800 mb-2">Price Breakdown</h4>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                    {/* Price Breakdown for this product */}
+                    {priceDataMap[product.variant] && (
+                      <div className="mt-3 bg-green-50 border-2 border-green-200 rounded-xl p-3">
+                        <div className="grid grid-cols-4 gap-3 text-xs">
                           <div>
                             <span className="text-gray-600">Base Price:</span>
-                            <div className="font-semibold">₹{priceDetails.price}</div>
+                            <div className="font-semibold">₹{priceDataMap[product.variant].price}</div>
                           </div>
-                          {priceDetails.discount > 0 && (
+                          {priceDataMap[product.variant].discount > 0 && (
                             <div>
                               <span className="text-gray-600">Discount:</span>
-                              <div className="font-semibold text-green-600">{priceDetails.discount}%</div>
+                              <div className="font-semibold text-green-600">{priceDataMap[product.variant].discount}%</div>
                             </div>
                           )}
-                          {priceDetails.gst_percentage > 0 && (
+                          {priceDataMap[product.variant].gst_percentage > 0 && (
                             <div>
                               <span className="text-gray-600">GST:</span>
-                              <div className="font-semibold">{priceDetails.gst_percentage}%</div>
+                              <div className="font-semibold">{priceDataMap[product.variant].gst_percentage}%</div>
                             </div>
                           )}
                           <div>
                             <span className="text-gray-600">Final Price:</span>
-                            <div className="font-semibold text-blue-600">₹{priceDetails.actual_price}</div>
+                            <div className="font-semibold text-blue-600">₹{priceDataMap[product.variant].actual_price}</div>
                           </div>
                         </div>
                       </div>
                     )}
                   </div>
-                </div>
-
-                {/* Financial Summary */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-blue-200">
-                  <h4 className="text-lg font-bold text-gray-800 mb-4">💰 Financial Summary</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {[
-                      { label: "Total Cost", value: `₹${calculateTotalCost()}`, color: "text-blue-600" },
-                      { label: "Total Revenue", value: `₹${calculateTotalRevenue()}`, color: "text-green-600" },
-                      { 
-                        label: "Profit", 
-                        value: `₹${calculateProfit()}`,
-                        color: calculateProfit() >= 0 ? "text-green-600" : "text-red-600"
-                      },
-                      { 
-                        label: "Profit %", 
-                        value: `${calculateProfitPercentage()}%`,
-                        color: calculateProfitPercentage() >= 0 ? "text-green-600" : "text-red-600"
-                      }
-                    ].map((item, index) => (
-                      <div key={index} className="text-center bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-                        <p className="text-sm font-semibold text-gray-600 mb-1">{item.label}</p>
-                        <p className={`text-2xl font-bold ${item.color}`}>{item.value}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Additional Details */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Payment Method
-                    </label>
-                    <select
-                      name="payment_method"
-                      value={formData.payment_method || ""}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 text-sm border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all cursor-pointer bg-white"
-                    >
-                      <option value="">Select Payment Method</option>
-                      <option value="cash">💵 Cash</option>
-                      <option value="card">💳 Card</option>
-                      <option value="upi">📱 UPI</option>
-                      <option value="bank_transfer">🏦 Bank Transfer</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Transaction ID
-                    </label>
-                    <input
-                      type="text"
-                      name="transaction_id"
-                      value={formData.transaction_id || ""}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 text-sm border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                      placeholder="Enter transaction ID"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Purchase Date
-                    </label>
-                    <input
-                      type="date"
-                      name="purchase_date"
-                      value={formData.purchase_date}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 text-sm border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Notes
-                    </label>
-                    <textarea
-                      name="notes"
-                      value={formData.notes || ""}
-                      onChange={handleChange}
-                      rows={3}
-                      className="w-full px-4 py-3 text-sm border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none transition-all"
-                      placeholder="Additional notes or comments about this purchase..."
-                    />
-                  </div>
-                </div>
+                ))}
               </section>
+
+              {/* Financial Summary */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-blue-200">
+                <h4 className="text-lg font-bold text-gray-800 mb-4">💰 Financial Summary</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: "Total Cost", value: `₹${calculateTotalCost()}`, color: "text-blue-600" },
+                    { label: "Total Revenue", value: `₹${calculateSubtotal()}`, color: "text-green-600" },
+                    { 
+                      label: "Total Profit", 
+                      value: `₹${calculateTotalProfit()}`,
+                      color: calculateTotalProfit() >= 0 ? "text-green-600" : "text-red-600"
+                    },
+                    { 
+                      label: "Profit %", 
+                      value: `${calculateProfitPercentage()}%`,
+                      color: calculateProfitPercentage() >= 0 ? "text-green-600" : "text-red-600"
+                    }
+                  ].map((item, index) => (
+                    <div key={index} className="text-center bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                      <p className="text-sm font-semibold text-gray-600 mb-1">{item.label}</p>
+                      <p className={`text-2xl font-bold ${item.color}`}>{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Additional Details */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Payment Method
+                  </label>
+                  <select
+                    name="payment_method"
+                    value={formData.payment_method || ""}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 text-sm border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all cursor-pointer bg-white"
+                  >
+                    <option value="">Select Payment Method</option>
+                    <option value="cash">💵 Cash</option>
+                    <option value="card">💳 Card</option>
+                    <option value="upi">📱 UPI</option>
+                    <option value="bank_transfer">🏦 Bank Transfer</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Transaction ID
+                  </label>
+                  <input
+                    type="text"
+                    name="transaction_id"
+                    value={formData.transaction_id || ""}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 text-sm border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    placeholder="Enter transaction ID"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Purchase Date
+                  </label>
+                  <input
+                    type="date"
+                    name="purchase_date"
+                    value={formData.purchase_date}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 text-sm border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Notes
+                  </label>
+                  <textarea
+                    name="notes"
+                    value={formData.notes || ""}
+                    onChange={handleChange}
+                    rows={3}
+                    className="w-full px-4 py-3 text-sm border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none transition-all"
+                    placeholder="Additional notes or comments about this purchase..."
+                  />
+                </div>
+              </div>
 
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
@@ -827,7 +884,7 @@ const CreateCustomerPurchase = ({ role }) => {
                   type="button"
                   onClick={() => navigate(-1)}
                   disabled={isLoading}
-                  className="flex-1 px-6  py-4 border-2 border-gray-300 text-gray-700 bg-white rounded-xl hover:bg-gray-50 font-semibold transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-6 py-4 border-2 border-gray-300 text-gray-700 bg-white rounded-xl hover:bg-gray-50 font-semibold transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   ← Cancel
                 </button>
@@ -851,6 +908,42 @@ const CreateCustomerPurchase = ({ role }) => {
         </div>
       </div>
     </ErrorBoundary>
+  );
+};
+
+// Variant Dropdown Component
+const VariantDropdown = ({ productId, value, onChange, error }) => {
+  const { data: variantsData, isLoading: isLoadingVariants } = useGetCustomerPurchaseVaraiantListQuery(productId, {
+    skip: !productId,
+  });
+
+  const safeVariants = Array.isArray(variantsData?.results) ? variantsData.results : [];
+
+  return (
+    <div>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`w-full px-4 py-3 text-sm border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all cursor-pointer bg-white ${
+          error ? 'border-red-300' : 'border-gray-200'
+        }`}
+        disabled={!productId || isLoadingVariants}
+      >
+        <option value="">Select Variant</option>
+        {safeVariants.map((variant) => (
+          <option key={variant.id} value={variant.id}>
+            {variant.name}
+          </option>
+        ))}
+      </select>
+      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+      {isLoadingVariants && (
+        <div className="text-xs text-gray-500 mt-2 flex items-center">
+          <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent mr-2"></div>
+          Loading variants...
+        </div>
+      )}
+    </div>
   );
 };
 

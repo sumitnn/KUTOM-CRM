@@ -611,6 +611,43 @@ class ResellerOrderRequestSerializer(serializers.ModelSerializer):
         return representation
 
 
+class CustomerPurchaseCreateSerializer(serializers.Serializer):
+    # Customer details
+    full_name = serializers.CharField(max_length=100)
+    phone = serializers.CharField(max_length=15, required=False, allow_blank=True, allow_null=True)
+    email = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
+    address = serializers.CharField(max_length=255, required=False, allow_blank=True, allow_null=True)
+    city = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    state = serializers.IntegerField(required=False, allow_null=True)
+    district = serializers.IntegerField(required=False, allow_null=True)
+    postal_code = serializers.CharField(max_length=10, required=False, allow_blank=True, allow_null=True)
+    payment_method = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
+    transaction_id = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    purchase_date = serializers.DateField(required=False, allow_null=True)
+    notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    
+    # Items array
+    items = serializers.ListField(
+        child=serializers.DictField(),
+        required=True,
+        min_length=1
+    )
+
+    def validate_items(self, value):
+        for item in value:
+            if 'product' not in item:
+                raise serializers.ValidationError("Each item must have a product")
+            if 'variant' not in item:
+                raise serializers.ValidationError("Each item must have a variant")
+            if 'quantity' not in item:
+                raise serializers.ValidationError("Each item must have a quantity")
+            if 'price_per_unit' not in item:
+                raise serializers.ValidationError("Each item must have a price_per_unit")
+            if 'selling_price' not in item:
+                raise serializers.ValidationError("Each item must have a selling_price")
+        return value
+
+
 class CustomerPurchaseSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
     variant_name = serializers.CharField(source='variant.name', read_only=True)
@@ -622,9 +659,7 @@ class CustomerPurchaseSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ('id', 'total_price', 'vendor', 'created_at', 'updated_at')
 
-    def create(self, validated_data):
-        validated_data['vendor'] = self.context['request'].user
-        return super().create(validated_data)
+
 
 
 class CustomerPurchaseRoleBasedProductSerializer(serializers.ModelSerializer):

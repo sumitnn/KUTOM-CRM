@@ -38,6 +38,8 @@ from django.views.decorators.http import require_http_methods
 import json
 from django.core.mail import send_mail
 from accounts.utils import send_html_email
+from django.db import connection
+from django.db.models.functions import TruncDate
 
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 10
@@ -981,6 +983,7 @@ class DashboardAPIView(APIView):
 
     def get(self, request):
         user = request.user
+        
         role = user.role
         period = request.query_params.get('period', 'monthly').lower()
 
@@ -1068,18 +1071,41 @@ class DashboardAPIView(APIView):
             date_field = "created_at"
             filter_kwargs = {'seller': user, 'status': 'delivered', f'{date_field}__range': [date_from, date_to]}
 
-        # 🔹 Aggregate sales total grouped by day
-        queryset = (
-            model.objects.filter(**filter_kwargs)
-            .annotate(day=TruncDate(date_field))
-            .values('day')
-            .annotate(total=Sum('total_price'))
-            .order_by('day')
-        )
-
-        # 🔹 Extract lists for charting or summaries
-        days = [item['day'].strftime('%Y-%m-%d') for item in queryset]
-        amounts = [float(item['total'] or 0) for item in queryset]
+        # Check database backend
+        db_backend = connection.vendor
+        
+        if db_backend == 'sqlite':
+            # SQLite: Use extra() with SQLite's DATE function
+            queryset = (
+                model.objects.filter(**filter_kwargs)
+                .extra(select={'day': f"DATE({date_field})"})
+                .values('day')
+                .annotate(total=Sum('total_price'))
+                .order_by('day')
+            )
+        else:
+            # PostgreSQL/MySQL: Use TruncDate
+            queryset = (
+                model.objects.filter(**filter_kwargs)
+                .annotate(day=TruncDate(date_field))
+                .values('day')
+                .annotate(total=Sum('total_price'))
+                .order_by('day')
+            )
+        
+        # Extract data safely
+        days = []
+        amounts = []
+        
+        for item in queryset:
+            day_value = item.get('day')
+            if day_value:
+                # Handle different date formats
+                if hasattr(day_value, 'strftime'):
+                    days.append(day_value.strftime('%Y-%m-%d'))
+                else:
+                    days.append(str(day_value))
+                amounts.append(float(item.get('total') or 0))
 
         return {
             "days": days,

@@ -398,7 +398,7 @@ def parse_json_field(data, field, default=None):
             return default or []
     return default or []
 
-
+import copy
 class ProductListCreateAPIView(APIView):
     def get_permissions(self):
         if self.request.method == "POST":
@@ -439,16 +439,31 @@ class ProductListCreateAPIView(APIView):
         )
         return Response(serializer.data)
 
-    def post(self, request):
-        data = request.data.copy()  # Make a mutable copy
+    
 
+    def post(self, request):
+        try:
+            # Try to copy the data
+            data = request.data.copy()
+        except (TypeError, ValueError):
+            # If copy fails, create a new dict manually
+            data = {}
+            for key, value in request.data.items():
+                if hasattr(value, 'read'):  # Skip file objects for deep copy
+                    data[key] = value
+                else:
+                    try:
+                        data[key] = copy.deepcopy(value)
+                    except:
+                        data[key] = value
         
         # Truncate short_description if needed
-        if "short_description" in data and len(data["short_description"]) > 450:
-            data["short_description"] = data["short_description"][:450]
+        if "short_description" in data and isinstance(data["short_description"], str):
+            if len(data["short_description"]) > 450:
+                data["short_description"] = data["short_description"][:450]
         
         # Validate and clean video_url field
-        if "video_url" in data:
+        if "video_url" in data and isinstance(data["video_url"], str):
             video_url = data["video_url"]
             
             # If video_url is provided, validate it
@@ -494,7 +509,6 @@ class ProductListCreateAPIView(APIView):
             ProductSerializer(product, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
         )
-
 
 class ProductDetailAPIView(APIView):
     permission_classes = [IsAdminOrVendorRole]

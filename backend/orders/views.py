@@ -2631,12 +2631,72 @@ class ResellerVariantsList(generics.ListAPIView):
 
 class CustomerPurchaseCreateView(generics.CreateAPIView):
     queryset = CustomerPurchase.objects.all()
-    serializer_class = CustomerPurchaseSerializer
-    permission_classes = [IsResellerRole]  # You can also chain with IsAuthenticated
+    permission_classes = [IsResellerRole]
 
-    def perform_create(self, serializer):
-        purchase = serializer.save(vendor=self.request.user)
-        self.process_customer_purchase(purchase)
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return CustomerPurchaseCreateSerializer
+        return CustomerPurchaseSerializer
+
+    def create(self, request, *args, **kwargs):
+        # Use the create serializer for validation
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        data = serializer.validated_data
+        items = data.pop('items', [])
+        
+        if not items:
+            return Response(
+                {"error": "At least one product item is required"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        created_purchases = []
+        
+        # Create a separate purchase for each item
+        with transaction.atomic():
+            for item in items:
+                # Create purchase data by combining customer data with item data
+                purchase_data = {
+                    'vendor': request.user,
+                    'full_name': data.get('full_name'),
+                    'phone': data.get('phone'),
+                    'email': data.get('email'),
+                    'address': data.get('address'),
+                    'city': data.get('city'),
+                    'state_id': data.get('state'),
+                    'district_id': data.get('district'),
+                    'postal_code': data.get('postal_code'),
+                    'payment_method': data.get('payment_method'),
+                    'transaction_id': data.get('transaction_id'),
+                    'purchase_date': data.get('purchase_date'),
+                    'notes': data.get('notes'),
+                    'product_id': item.get('product'),
+                    'variant_id': item.get('variant'),
+                    'quantity': item.get('quantity'),
+                    'price_per_unit': item.get('price_per_unit'),
+                    'selling_price': item.get('selling_price'),
+                }
+                
+                # Create the purchase
+                purchase = CustomerPurchase.objects.create(**purchase_data)
+                
+                # Process this purchase (stock, commission, wallet, etc.)
+                self.process_customer_purchase(purchase)
+                
+                created_purchases.append(purchase)
+            
+            # Prepare response data using the regular serializer
+            response_serializer = CustomerPurchaseSerializer(created_purchases, many=True)
+            
+            return Response(
+                {
+                    "message": f"{len(created_purchases)} purchase(s) created successfully",
+                    "purchases": response_serializer.data
+                },
+                status=status.HTTP_201_CREATED
+            )
 
     def process_customer_purchase(self, purchase: CustomerPurchase):
         with transaction.atomic():
@@ -2648,7 +2708,7 @@ class CustomerPurchaseCreateView(generics.CreateAPIView):
                     user=purchase.vendor
                 )
             except StockInventory.DoesNotExist:
-                raise ValueError("No stock found for this product and variant.")
+                raise ValueError(f"No stock found for product {purchase.product.name} and variant {purchase.variant.name if purchase.variant else 'None'}.")
 
             inventory.adjust_stock(
                 -purchase.quantity,
@@ -2668,7 +2728,7 @@ class CustomerPurchaseCreateView(generics.CreateAPIView):
                     role="admin"
                 )
             except RoleBasedProduct.DoesNotExist:
-                raise ValueError("Admin role-based product not found for commission calculation.")
+                raise ValueError(f"Admin role-based product not found for commission calculation on {purchase.product.name}.")
 
             # 3️⃣ Get commission record
             commission = ProductCommission.objects.filter(
@@ -2677,7 +2737,7 @@ class CustomerPurchaseCreateView(generics.CreateAPIView):
             ).first()
 
             if not commission:
-                return  # No commission defined — skip wallet ops
+                return  # No commission defined — skip wallet ops for this item
 
             # 4️⃣ Compute commission
             if commission.commission_type == "percent":
@@ -2691,7 +2751,7 @@ class CustomerPurchaseCreateView(generics.CreateAPIView):
             admin_wallet, _ = Wallet.objects.get_or_create(user=admin_user)
 
             if admin_wallet.current_balance < total_to_deduct:
-                raise ValueError("Admin wallet does not have enough balance to pay commission.")
+                raise ValueError(f"Admin wallet does not have enough balance to pay commission for {purchase.product.name}.")
 
             admin_wallet.current_balance -= total_to_deduct
             admin_wallet.save(update_fields=["current_balance"])
@@ -2706,18 +2766,17 @@ class CustomerPurchaseCreateView(generics.CreateAPIView):
                 wallet=reseller_wallet,
                 transaction_type="CREDIT",
                 amount=total_to_deduct,
-                description=f"Reseller commission For Selling Products to Customer,Customer Puchase ID:{purchase.id}",
+                description=f"Reseller commission for selling {purchase.product.product.name} (Qty: {purchase.quantity}) to {purchase.full_name}",
                 transaction_status="SUCCESS",
-                order_id=purchase.email
+                order_id=purchase.transaction_id or str(purchase.id)
             )
 
             WalletTransaction.objects.create(
                 wallet=admin_wallet,
                 transaction_type="DEBIT",
                 amount=total_to_deduct,
-                description=f"Commission payout to reseller for Selling Products To Customer ",
+                description=f"Commission payout to {purchase.vendor.username} for selling {purchase.product.product.name}",
                 transaction_status="SUCCESS",
-                order_id="",
                 user_id=purchase.vendor.unique_role_id
             )
 
@@ -2725,7 +2784,7 @@ class CustomerPurchaseCreateView(generics.CreateAPIView):
             create_notification(
                 user=purchase.vendor,
                 title="Commission Earned",
-                message=f"You earned a commission of ₹{total_to_deduct:.2f} from Selling Products To Customer #{purchase.email}.",
+                message=f"You earned a commission of ₹{total_to_deduct:.2f} from selling {purchase.product.product.name} to {purchase.full_name}.",
                 notification_type="commission",
                 related_url="/wallet/"
             )
@@ -2733,11 +2792,10 @@ class CustomerPurchaseCreateView(generics.CreateAPIView):
             create_notification(
                 user=admin_user,
                 title="Commission Paid",
-                message=f"You paid ₹{total_to_deduct:.2f} as commission for Selling Products to Customer",
+                message=f"You paid ₹{total_to_deduct:.2f} as commission to {purchase.vendor.username} for {purchase.product.product.name}",
                 notification_type="commission",
                 related_url="/wallet/"
             )
-
 
 
 

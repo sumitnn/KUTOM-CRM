@@ -471,34 +471,49 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             "id", "name", "description", "short_description", "brand", "category",
-            "subcategory", "tags", "features", "currency",  # Removed weight, weight_unit, dimensions
+            "subcategory", "tags", "features", "currency",
             "product_type", "video_url", "warranty", "status",
             "sizes", "price_tiers"
         ]
 
     def to_internal_value(self, data):
-        def parse_json_field(field):
-            raw_value = data.get(field)
-            if isinstance(raw_value, list) and raw_value:
-                raw_value = raw_value[0]
-            if isinstance(raw_value, str) and raw_value.startswith("["):
+        # Create a mutable copy of data
+        mutable_data = data.copy() if hasattr(data, 'copy') else dict(data)
+        
+        # Helper function to parse JSON fields
+        def parse_field(field_name):
+            value = mutable_data.get(field_name)
+            
+            # If it's a list with one element that might be JSON string
+            if isinstance(value, list) and len(value) == 1 and isinstance(value[0], str):
                 try:
-                    return json.loads(raw_value)
+                    return json.loads(value[0])
+                except (json.JSONDecodeError, TypeError):
+                    return value
+            # If it's a string that looks like JSON array
+            elif isinstance(value, str) and value.strip().startswith('['):
+                try:
+                    return json.loads(value)
                 except json.JSONDecodeError:
                     return []
-            return raw_value or []
+            # If it's already a list
+            elif isinstance(value, list):
+                return value
+            # Default to empty list
+            return []
+        
+        # Parse each field
+        mutable_data['tags'] = parse_field('tags')
+        mutable_data['features'] = parse_field('features')
+        mutable_data['sizes'] = parse_field('sizes')
+        mutable_data['price_tiers'] = parse_field('price_tiers')
+        
+        # Call parent's to_internal_value with parsed data
+        return super().to_internal_value(mutable_data)
 
-        data = super().to_internal_value(data)
-        data["tags"] = [str(t) for t in parse_json_field("tags")]
-        data["features"] = [str(f) for f in parse_json_field("features")]
-        data["sizes"] = parse_json_field("sizes")
-        data["price_tiers"] = parse_json_field("price_tiers")
-
-        for tier in data.get("price_tiers", []):
-            if "sizeIndex" in tier and "variantIndex" not in tier:
-                tier["variantIndex"] = tier.pop("sizeIndex")
-
-        return data
+    def validate(self, attrs):
+        # Additional validation if needed
+        return attrs
 
     @transaction.atomic
     def create(self, validated_data):
@@ -510,6 +525,20 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         sizes_data = validated_data.pop("sizes", [])
         price_tiers_data = validated_data.pop("price_tiers", [])
 
+        # Ensure sizes_data is a list
+        if isinstance(sizes_data, str):
+            try:
+                sizes_data = json.loads(sizes_data)
+            except json.JSONDecodeError:
+                sizes_data = []
+        
+        # Ensure price_tiers_data is a list
+        if isinstance(price_tiers_data, str):
+            try:
+                price_tiers_data = json.loads(price_tiers_data)
+            except json.JSONDecodeError:
+                price_tiers_data = []
+
         # Remove weight/dimensions from product if they exist in validated_data
         validated_data.pop('weight', None)
         validated_data.pop('weight_unit', None)
@@ -517,35 +546,38 @@ class ProductCreateSerializer(serializers.ModelSerializer):
 
         product = Product.objects.create(owner=user, **validated_data)
 
+        # Process tags
         for tag_name in tags_data:
-            tag_name = tag_name.strip()
-            tag_slug = slugify(tag_name)
+            if isinstance(tag_name, str):
+                tag_name = tag_name.strip()
+                if tag_name:
+                    tag_slug = slugify(tag_name)
+                    try:
+                        tag, _ = Tag.objects.get_or_create(
+                            slug=tag_slug,
+                            defaults={"name": tag_name, "owner": user}
+                        )
+                    except IntegrityError:
+                        tag = Tag.objects.filter(slug=tag_slug).first()
+                    if tag:
+                        product.tags.add(tag)
 
-            try:
-                tag, _ = Tag.objects.get_or_create(
-                    slug=tag_slug,
-                    defaults={"name": tag_name, "owner": user}
-                )
-            except IntegrityError:
-                tag = Tag.objects.filter(slug=tag_slug).first()
-
-            if tag:
-                product.tags.add(tag)
-
+        # Process features
         for feature_name in features_data:
-            feature_name = feature_name.strip()
+            if isinstance(feature_name, str):
+                feature_name = feature_name.strip()
+                if feature_name:
+                    try:
+                        feature, _ = ProductFeatures.objects.get_or_create(
+                            name=feature_name,
+                            defaults={"owner": user}
+                        )
+                    except IntegrityError:
+                        feature = ProductFeatures.objects.filter(name=feature_name).first()
+                    if feature:
+                        product.features.add(feature)
 
-            try:
-                feature, _ = ProductFeatures.objects.get_or_create(
-                    name=feature_name,
-                    defaults={"owner": user}
-                )
-            except IntegrityError:
-                feature = ProductFeatures.objects.filter(name=feature_name).first()
-
-            if feature:
-                product.features.add(feature)
-
+        # Process main image
         for idx, f in enumerate(request.FILES.getlist("image")):
             img_obj = ProductImage.objects.create(
                 image=f,
@@ -556,6 +588,7 @@ class ProductCreateSerializer(serializers.ModelSerializer):
             product.images.add(img_obj)
             break
 
+        # Process additional images
         images_to_add = []
         for idx, f in enumerate(request.FILES.getlist("additional_images")):
             img_obj = ProductImage.objects.create(
@@ -569,12 +602,22 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         if images_to_add:
             product.images.add(*images_to_add)
 
+        # Process variants (sizes)
         variant_objects = []
         for idx, size in enumerate(sizes_data):
+            # Ensure size is a dict
+            if isinstance(size, str):
+                try:
+                    size = json.loads(size)
+                except json.JSONDecodeError:
+                    continue
+            
+            if not isinstance(size, dict):
+                continue
+                
             variant = ProductVariant.objects.create(
                 product=product,
-                name=size.get("size") or f"Variant {idx+1}",
-                # Add weight and dimensions for each variant
+                name=size.get("size") or size.get("name") or f"Variant {idx+1}",
                 weight=size.get("weight"),
                 weight_unit=size.get("weight_unit", "kg"),
                 dimensions=size.get("dimensions"),
@@ -583,28 +626,40 @@ class ProductCreateSerializer(serializers.ModelSerializer):
             )
             variant_objects.append(variant)
 
+            # Create variant price
             ProductVariantPrice.objects.create(
                 product=product,
                 variant=variant,
                 user=user,
-                price=Decimal(size.get("price") or 0),
+                price=Decimal(str(size.get("price") or 0)),
                 role=user.role,
                 discount=int(size.get("discount_percentage") or 0),
                 gst_percentage=int(size.get("gst_percentage") or 0),
             )
 
+            # Process price tiers for this variant
             for tier in price_tiers_data:
-                if tier.get("variantIndex") == idx:
+                if isinstance(tier, str):
+                    try:
+                        tier = json.loads(tier)
+                    except json.JSONDecodeError:
+                        continue
+                
+                if not isinstance(tier, dict):
+                    continue
+                    
+                if tier.get("variantIndex") == idx or tier.get("sizeIndex") == idx:
                     qty = int(tier.get("min_quantity") or tier.get("max_quantity") or 0)
                     ProductVariantBulkPrice.objects.create(
                         product=product,
                         variant=variant,
                         max_quantity=qty,
-                        price=Decimal(tier.get("price") or 0),
+                        price=Decimal(str(tier.get("price") or 0)),
                         gst_percentage=int(tier.get("gst_percentage") or 0),
                         discount=int(tier.get("discount_percentage") or 0),
                     )
 
+        # Create role-based product
         role_based_product = RoleBasedProduct.objects.create(
             product=product,
             user=user,
