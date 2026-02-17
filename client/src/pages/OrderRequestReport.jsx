@@ -54,6 +54,16 @@ const OrderRequestReport = () => {
     }
   };
 
+  const formatDateShort = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return isNaN(date.getTime()) ? 'Invalid Date' : format(date, 'dd MMM yyyy');
+    } catch (error) {
+      return 'Invalid Date';
+    }
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -191,12 +201,25 @@ const OrderRequestReport = () => {
   // Chart data
   const statusDistributionData = orderRequestsData?.charts?.status_distribution || [];
 
-  // Custom tooltip for charts
+  // Fixed CustomTooltip component
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
+      // Safely format the date
+      let formattedDate = 'Invalid Date';
+      if (label) {
+        try {
+          const date = new Date(label);
+          if (!isNaN(date.getTime())) {
+            formattedDate = format(date, 'dd MMM yyyy');
+          }
+        } catch (error) {
+          formattedDate = 'Invalid Date';
+        }
+      }
+
       return (
         <div className="bg-white/90 backdrop-blur-sm p-2 border border-slate-200/60 rounded-lg shadow-lg max-w-[200px]">
-          <p className="font-semibold text-gray-900 text-xs">{format(new Date(label), 'dd MMM yyyy')}</p>
+          <p className="font-semibold text-gray-900 text-xs">{formattedDate}</p>
           {payload.map((entry, index) => (
             <p key={index} className="text-xs" style={{ color: entry.color }}>
               {entry.dataKey === 'daily_sales' ? 'Sales Amount: ' + formatCurrency(entry.value) : 
@@ -214,6 +237,13 @@ const OrderRequestReport = () => {
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
   const nextPage = () => setCurrentPage(prev => Math.min(prev + 1, totalPages));
   const prevPage = () => setCurrentPage(prev => Math.max(prev - 1, 1));
+
+  // Handle keyboard search submit
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSearchSubmit();
+    }
+  };
 
   return (
     <div className="w-full max-w-full overflow-x-hidden">
@@ -313,7 +343,7 @@ const OrderRequestReport = () => {
 
       {/* Filters - Responsive */}
       <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/60 p-3 sm:p-4 mb-4 sm:mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
           <div className="sm:col-span-2 lg:col-span-1">
             <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Date Range</label>
             <div className="flex flex-wrap gap-1">
@@ -388,6 +418,26 @@ const OrderRequestReport = () => {
               <option value="50">50</option>
               <option value="100">100</option>
             </select>
+          </div>
+
+          <div>
+            <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Search</label>
+            <div className="flex gap-1">
+              <input
+                type="text"
+                placeholder="Search requests..."
+                className="flex-1 px-2 py-1.5 border border-slate-200/60 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/50 backdrop-blur-sm text-xs"
+                value={searchInput}
+                onChange={handleSearchChange}
+                onKeyPress={handleKeyPress}
+              />
+              <button
+                onClick={handleSearchSubmit}
+                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs whitespace-nowrap"
+              >
+                Search
+              </button>
+            </div>
           </div>
 
           <div className="flex items-end">
@@ -622,16 +672,16 @@ const OrderRequestReport = () => {
                     </button>
                     
                     <div className="flex items-center gap-1">
-                      {Array.from({ length: Math.min(3, totalPages) }, (_, i) => {
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                         let pageNumber;
-                        if (totalPages <= 3) {
+                        if (totalPages <= 5) {
                           pageNumber = i + 1;
-                        } else if (currentPage <= 2) {
+                        } else if (currentPage <= 3) {
                           pageNumber = i + 1;
-                        } else if (currentPage >= totalPages - 1) {
-                          pageNumber = totalPages - 2 + i;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNumber = totalPages - 4 + i;
                         } else {
-                          pageNumber = currentPage - 1 + i;
+                          pageNumber = currentPage - 2 + i;
                         }
                         
                         return (
