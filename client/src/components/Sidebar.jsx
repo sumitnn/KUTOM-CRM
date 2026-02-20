@@ -305,7 +305,7 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
         }`}
       >
         {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b border-slate-700 shrink-0">
+        <div className="flex justify-between items-center p-6 mt-6 border-b border-slate-700 shrink-0">
           {expanded && (
             <div>
               <span className="text-xl font-bold text-white capitalize">{role} Portal</span>

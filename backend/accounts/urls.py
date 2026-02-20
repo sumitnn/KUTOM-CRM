@@ -53,6 +53,8 @@ urlpatterns = [
 
     # notification
     path('notifications/today/', TodayNotificationListAPIView.as_view(), name='today-notifications'),
+    path('notifications/<int:pk>/read/', MarkNotificationAsReadAPIView.as_view(), name='mark-notification-read'),
+    path('notifications/mark-all-read/', MarkAllNotificationsAsReadAPIView.as_view(), name='mark-all-notifications-read'),
 
     # DashboardAPI
     path('dashboard-summary/', DashboardAPIView.as_view(), name='dashboard-summary'),

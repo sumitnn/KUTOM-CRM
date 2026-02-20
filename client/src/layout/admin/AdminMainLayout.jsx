@@ -50,12 +50,12 @@ const AdminMainLayout = ({ children }) => {
         />
       </Suspense>
       
-      {/* Adjusted top padding to account for navbar + announcements bar */}
-      <div className="flex pt-21"> {/* Changed from pt-16 to pt-21 (84px) */}
-        {/* Desktop Sidebar - Always visible on desktop with expand/collapse */}
-        <div className="hidden lg:block">
+      {/* FIXED: Proper layout with fixed sidebar and scrollable content */}
+      <div className="flex pt-16 h-screen">
+        {/* Desktop Sidebar - Fixed position */}
+        <div className="hidden lg:block h-[calc(100vh-4rem)] fixed left-0 top-16">
           <Suspense fallback={
-            <div className="w-20 h-screen bg-gradient-to-b from-slate-900 to-slate-800 animate-pulse"></div>
+            <div className={`h-full bg-gradient-to-b from-slate-900 to-slate-800 animate-pulse ${expanded ? 'w-60' : 'w-20'}`}></div>
           }>
             <Sidebar 
               expanded={expanded} 
@@ -65,7 +65,7 @@ const AdminMainLayout = ({ children }) => {
           </Suspense>
         </div>
 
-        {/* Mobile Sidebar - Conditionally rendered */}
+        {/* Mobile Sidebar - Fixed overlay */}
         {isMobileSidebarOpen && (
           <div className="fixed inset-0 z-40 lg:hidden">
             <Suspense fallback={
@@ -82,61 +82,57 @@ const AdminMainLayout = ({ children }) => {
           </div>
         )}
         
-        {/* Main Content - Fluid and responsive */}
-        <main className="flex-1 min-h-[calc(100vh-5.25rem)] w-full">
-          <div className="p-4 md:p-6 h-full">
-            <div className="w-full mx-auto h-full">
-              
-              {/* Mobile Menu Toggle Button - Only show when sidebar is closed on mobile */}
-              {!isMobileSidebarOpen && (
-                <div className="lg:hidden mb-4 mt-4">
-                  <button
-                    onClick={toggleMobileSidebar}
-                    className="w-full bg-gradient-to-r cursor-pointer from-blue-500 to-purple-500 hover:from-purple-600 hover:to-blue-600 text-white py-3 px-4 rounded-xl font-medium flex items-center justify-center gap-2 transition-all duration-200 shadow-lg shadow-blue-500/25 hover:shadow-blue-600/25"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                    Show Menu
-                  </button>
-                </div>
-              )}
+        {/* Main Content - Scrollable area with proper margin */}
+        <main 
+          className="flex-1 h-[calc(100vh-4rem)] overflow-y-auto transition-all duration-300"
+          style={{ 
+            marginLeft: window.innerWidth >= 1024 ? (expanded ? '15rem' : '5rem') : '0' 
+          }}
+        >
+          <div className="p-4 md:p-6">
+            {/* Mobile Menu Toggle Button */}
+            {!isMobileSidebarOpen && (
+              <div className="lg:hidden mb-4">
+                <button
+                  onClick={toggleMobileSidebar}
+                  className="w-full bg-gradient-to-r cursor-pointer from-blue-500 to-purple-500 hover:from-purple-600 hover:to-blue-600 text-white py-3 px-4 rounded-xl font-medium flex items-center justify-center gap-2 transition-all duration-200 shadow-lg shadow-blue-500/25 hover:shadow-blue-600/25"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                  Show Menu
+                </button>
+              </div>
+            )}
 
-              {/* Main Content Area - Modern Glass Morphism Design */}
-              <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden w-full ">
-                {/* Content Header */}
-            
+            {/* Main Content Area */}
+            <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden">
+              <div className="p-4 md:p-6 lg:p-8">
+                {children}
+              </div>
+            </div>
 
-                {/* Content Area - Fully Fluid */}
-                <div className="w-full">
-                  <div className="p-4 md:p-6 lg:px-8">
-                    {children}
+            {/* Footer */}
+            <footer className="mt-6 md:mt-8">
+              <div className="bg-white/50 backdrop-blur-sm rounded-xl p-4 border border-slate-200/40">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div className="text-center md:text-left">
+                    <p className="text-slate-600 text-sm">
+                      © {new Date().getFullYear()} Admin Portal • 
+                      <span className="text-blue-600 font-medium ml-1">
+                        All rights reserved to Stocktn
+                      </span>
+                    </p>
+                  </div>
+                  <div className="flex justify-center md:justify-end gap-4">
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      System Online
+                    </div>
                   </div>
                 </div>
               </div>
-
-              {/* Modern Footer */}
-              <footer className="mt-6 md:mt-8">
-                <div className="bg-white/50 backdrop-blur-sm rounded-xl p-4 border border-slate-200/40">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                    <div className="text-center md:text-left">
-                      <p className="text-slate-600 text-sm">
-                        © {new Date().getFullYear()} Admin Portal • 
-                        <span className="text-blue-600 font-medium ml-1">
-                          All rights reserved to Stocktn
-                        </span>
-                      </p>
-                    </div>
-                    <div className="flex justify-center md:justify-end gap-4">
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        System Online
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </footer>
-            </div>
+            </footer>
           </div>
         </main>
       </div>

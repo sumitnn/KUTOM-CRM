@@ -91,7 +91,6 @@ const CreateCustomerPurchase = ({ role }) => {
   const [customerSearch, setCustomerSearch] = useState("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [selectedProductId, setSelectedProductId] = useState("");
   const [formErrors, setFormErrors] = useState({});
   const [productErrors, setProductErrors] = useState({});
 
@@ -203,6 +202,19 @@ const CreateCustomerPurchase = ({ role }) => {
     };
   }, [customerSearch, triggerSearch, selectedCustomer]);
 
+  // Get selected product IDs (excluding current product if editing)
+  const getSelectedProductIds = (currentProductId = null) => {
+    return products
+      .filter(p => p.product && p.id !== currentProductId)
+      .map(p => p.product);
+  };
+
+  // Filter available products for a specific product row
+  const getAvailableProducts = (currentProductId) => {
+    const selectedProductIds = getSelectedProductIds(currentProductId);
+    return featuredProducts.filter(product => !selectedProductIds.includes(product.rolebaseproductid));
+  };
+
   // Event handlers
   const handleCustomerSelect = (customer) => {
     if (!customer) return;
@@ -253,6 +265,14 @@ const CreateCustomerPurchase = ({ role }) => {
 
   // Product handlers
   const addProduct = () => {
+    // Check if all products have been selected
+    const availableProducts = getAvailableProducts(null);
+    
+    if (availableProducts.length === 0) {
+      toast.warning("All available products have been selected!");
+      return;
+    }
+
     setProducts(prev => [
       ...prev,
       {
@@ -606,23 +626,6 @@ const CreateCustomerPurchase = ({ role }) => {
 
               {/* Products Section */}
               <section className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-2 h-8 bg-gradient-to-b from-green-600 to-emerald-600 rounded-full"></div>
-                    <h3 className="text-xl font-bold text-gray-800">Products</h3>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={addProduct}
-                    className="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 font-semibold transition-all duration-200 flex items-center space-x-2"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                    <span>Add Another Products</span>
-                  </button>
-                </div>
-
                 {/* Products List */}
                 {products.map((product, index) => (
                   <div key={product.id} className="bg-gray-50 rounded-xl p-4 border-2 border-gray-200 relative">
@@ -630,7 +633,7 @@ const CreateCustomerPurchase = ({ role }) => {
                       <button
                         type="button"
                         onClick={() => removeProduct(product.id)}
-                        className="absolute top-2 right-2 text-red-500 hover:text-red-700 transition-colors"
+                        className="absolute top-2 right-2 text-red-500 hover:text-red-700 transition-colors cursor-pointer"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -655,7 +658,7 @@ const CreateCustomerPurchase = ({ role }) => {
                           disabled={isLoadingProducts}
                         >
                           <option value="">Select Product</option>
-                          {featuredProducts.map((p) => (
+                          {getAvailableProducts(product.id).map((p) => (
                             <option key={p.rolebaseproductid} value={p.rolebaseproductid}>
                               {p.name} - ₹{p.price}
                             </option>
@@ -788,6 +791,23 @@ const CreateCustomerPurchase = ({ role }) => {
                     )}
                   </div>
                 ))}
+                
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-2 h-8 bg-gradient-to-b from-green-600 to-emerald-600 rounded-full"></div>
+                    <h3 className="text-xl font-bold text-gray-800">Products</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addProduct}
+                    className="px-4 py-2 bg-green-600 cursor-pointer text-white rounded-xl hover:bg-green-700 font-semibold transition-all duration-200 flex items-center space-x-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    <span>Add Another Product</span>
+                  </button>
+                </div>
               </section>
 
               {/* Financial Summary */}

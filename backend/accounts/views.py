@@ -1332,6 +1332,60 @@ class TodayNotificationListAPIView(APIView):
         serializer = NotificationSerializer(notifications, many=True)
         return Response(serializer.data)
 
+class MarkNotificationAsReadAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk):
+        try:
+            notification = Notification.objects.get(id=pk)
+            notification.is_read = True
+            notification.save()
+            
+
+            return Response({
+                'success': True,
+                'message': 'Notification marked as read'
+            }, status=status.HTTP_200_OK)
+            
+        except Notification.DoesNotExist:
+            return Response({
+                'success': False,
+                'error': 'Notification not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+            
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class MarkAllNotificationsAsReadAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            # Get all unread notifications for the user
+            unread_notifications = Notification.objects.filter(
+                user=request.user,
+                is_read=False
+            )
+            
+            # Mark all as read
+            unread_notifications.update(is_read=True)
+            
+            return Response({
+                'success': True,
+                'message': f'notifications marked as read'
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 
 class NewUserCreationView(APIView):
     permission_classes = [AllowAny]

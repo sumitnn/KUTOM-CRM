@@ -2,11 +2,15 @@ import { useState, useEffect, useRef } from "react";
 import logo from "../assets/icons/fev.png";
 import { MdOutlineNotificationAdd } from "react-icons/md";
 import { Link } from "react-router-dom";
-import { useGetTodayNotificationsQuery } from "../features/notification/notificationApi";
+import { 
+  useGetTodayNotificationsQuery,
+  useMarkNotificationAsReadMutation,
+  useMarkAllNotificationsAsReadMutation 
+} from "../features/notification/notificationApi";
 import { useGetAnnouncementsQuery } from "../features/announcement/announcementApi";
 import Marquee from "react-fast-marquee";
 import ModalPortal from "./ModalPortal";
-
+import { toast } from "react-toastify";
 
 const Navbar = ({ role }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -15,8 +19,12 @@ const Navbar = ({ role }) => {
   const [userData, setUserData] = useState(null);
   const dropdownRef = useRef(null);
   const notificationRef = useRef(null);
+  
+  // API hooks
   const { data: notifications, refetch } = useGetTodayNotificationsQuery();
   const { data: announcements, isLoading } = useGetAnnouncementsQuery();
+  const [markNotificationAsRead, { isLoading: isMarkingRead }] = useMarkNotificationAsReadMutation();
+  const [markAllNotificationsAsRead, { isLoading: isMarkingAllRead }] = useMarkAllNotificationsAsReadMutation();
 
   useEffect(() => {
     const loadUserData = () => {
@@ -47,6 +55,33 @@ const Navbar = ({ role }) => {
   }, []);
 
   const unreadCount = notifications?.filter(notif => !notif.is_read).length || 0;
+
+  // Handle marking a single notification as read
+  const handleNotificationClick = async (notification) => {
+    if (!notification.is_read) {
+      try {
+        await markNotificationAsRead(notification.id).unwrap();
+        // Optional: Show success message
+        // toast.success("Notification marked as read");
+      } catch (error) {
+        console.error("Failed to mark notification as read:", error);
+        toast.error("Failed to mark notification as read");
+      }
+    }
+  };
+
+  // Handle marking all notifications as read
+  const handleMarkAllAsRead = async () => {
+    if (unreadCount === 0) return;
+    
+    try {
+      await markAllNotificationsAsRead().unwrap();
+      toast.success("All notifications marked as read");
+    } catch (error) {
+      console.error("Failed to mark all notifications as read:", error);
+      toast.error("Failed to mark all notifications as read");
+    }
+  };
 
   const handleLogoutClick = (e) => {
     e.preventDefault();
@@ -91,33 +126,34 @@ const Navbar = ({ role }) => {
         {/* Logout Confirmation Modal */}
         {showLogoutConfirm && (
           <ModalPortal>
-          <div className="fixed top-30 inset-0 bg-black/50 flex items-center justify-center z-500 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border border-gray-100">
-              <div className="text-center">
-                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
+            <div className="fixed top-30 inset-0 bg-black/50 flex items-center justify-center z-500 backdrop-blur-sm">
+              <div className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border border-gray-100">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Confirm Logout</h3>
+                  <p className="text-gray-600 mb-6">Are you sure you want to logout?</p>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Confirm Logout</h3>
-                <p className="text-gray-600 mb-6">Are you sure you want to logout?</p>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowLogoutConfirm(false)}
-                  className="flex-1 px-4 py-3 border cursor-pointer border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-colors duration-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConfirmLogout}
-                  className="flex-1 px-4 py-3 bg-gradient-to-r cursor-pointer from-red-600 to-red-500 text-white font-semibold rounded-xl hover:from-red-700 hover:to-red-600 transition-all duration-200 shadow-lg shadow-red-200"
-                >
-                  Logout
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowLogoutConfirm(false)}
+                    className="flex-1 px-4 py-3 border cursor-pointer border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmLogout}
+                    className="flex-1 px-4 py-3 bg-gradient-to-r cursor-pointer from-red-600 to-red-500 text-white font-semibold rounded-xl hover:from-red-700 hover:to-red-600 transition-all duration-200 shadow-lg shadow-red-200"
+                  >
+                    Logout
+                  </button>
+                </div>
               </div>
             </div>
-          </div></ModalPortal>
+          </ModalPortal>
         )}
 
         <div className="max-w-8xl mx-auto px-4 sm:px-6">
@@ -157,6 +193,7 @@ const Navbar = ({ role }) => {
                   }}
                   className="relative p-2.5 cursor-pointer rounded-2xl bg-white border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 hover:border-gray-300 group"
                   aria-label="Notifications"
+                  disabled={isMarkingRead || isMarkingAllRead}
                 >
                   <MdOutlineNotificationAdd className="text-xl text-gray-600 group-hover:text-gray-800 transition-colors" />
                   {unreadCount > 0 && (
@@ -174,11 +211,32 @@ const Navbar = ({ role }) => {
                     <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-gray-100/50">
                       <div className="flex items-center justify-between">
                         <h3 className="font-bold text-gray-800 text-lg">Notifications</h3>
-                        {unreadCount > 0 && (
-                          <span className="px-3 py-1 bg-gradient-to-r from-red-500 to-red-600 text-white text-sm font-bold rounded-full shadow-sm">
+                        <div className="flex items-center gap-2">
+                          {unreadCount > 0 && (
+                            <button
+                              onClick={handleMarkAllAsRead}
+                              disabled={isMarkingAllRead}
+                              className="px-3 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {isMarkingAllRead ? (
+                                <span className="flex items-center gap-1">
+                                  <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                  </svg>
+                                  <span>Marking...</span>
+                                </span>
+                              ) : (
+                                "Mark all as read"
+                              )}
+                            </button>
+                          )}
+                          <span className={`px-3 py-1 bg-gradient-to-r from-red-500 to-red-600 text-white text-sm font-bold rounded-full shadow-sm ${
+                            unreadCount === 0 ? 'opacity-50' : ''
+                          }`}>
                             {unreadCount} new
                           </span>
-                        )}
+                        </div>
                       </div>
                     </div>
                     
@@ -187,7 +245,8 @@ const Navbar = ({ role }) => {
                         notifications.map((notification) => (
                           <div
                             key={notification.id}
-                            className={`p-4 border-b border-gray-100 last:border-b-0 transition-all duration-200 group hover:bg-gray-50/80 ${
+                            onClick={() => handleNotificationClick(notification)}
+                            className={`p-4 border-b border-gray-100 last:border-b-0 transition-all duration-200 group hover:bg-gray-50/80 cursor-pointer ${
                               notification.is_read 
                                 ? 'bg-white' 
                                 : 'bg-blue-50/50 border-l-4 border-l-blue-500'
@@ -222,9 +281,18 @@ const Navbar = ({ role }) => {
                                       day: 'numeric'
                                     })}
                                   </span>
-                                  {!notification.is_read && (
-                                    <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
-                                  )}
+                                  <div className="flex items-center gap-2">
+                                    {!notification.is_read && (
+                                      <>
+                                        <span className="text-xs text-blue-600 font-medium">
+                                          Click to mark as read
+                                        </span>
+                                        {isMarkingRead && (
+                                          <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -334,7 +402,7 @@ const Navbar = ({ role }) => {
 
       {/* Announcements Bar - Below Navbar with h-5 */}
       {!isLoading && announcements && announcements.length > 0 && (
-        <div className="fixed top-16  left-0 right-0 z-40 h-9 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 shadow-md">
+        <div className="fixed top-16 left-0 right-0 z-40 h-9 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 shadow-md">
           <Marquee
             speed={70}
             pauseOnHover
