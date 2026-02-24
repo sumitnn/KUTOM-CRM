@@ -82,7 +82,7 @@ class WalletAdmin(admin.ModelAdmin):
 
 @admin.register(WalletTransaction)
 class WalletTransactionAdmin(admin.ModelAdmin):
-    list_display = ("wallet", "transaction_type", "transaction_status", "amount", "is_refund", "created_at")
+    list_display = ("wallet", "transaction_type", "transaction_status", "amount", "is_refund", "created_at",'balanceafter_transaction')
     list_filter = ("transaction_type", "transaction_status", "is_refund")
     search_fields = ("wallet__user__email", "order_id", "user_id")
 

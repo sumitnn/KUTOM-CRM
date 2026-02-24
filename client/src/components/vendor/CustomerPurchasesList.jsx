@@ -60,7 +60,7 @@ const CustomerPurchasesList = ({ role }) => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
           <div>
             <h1 className="text-3xl font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              Customer Purchases
+              Purchase History
             </h1>
             <p className="mt-2 text-sm text-gray-600">
               Manage and view all customer purchase records
@@ -101,7 +101,7 @@ const CustomerPurchasesList = ({ role }) => {
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                <p className="text-sm font-medium text-gray-600">Total Sales</p>
                 <p className="text-2xl font-bold text-gray-900">
                   {formatCurrency(totalRevenue)}
                 </p>
@@ -189,9 +189,10 @@ const CustomerPurchasesList = ({ role }) => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
-                        <div className="text-sm font-medium text-gray-900">{purchase.address}</div>
+                        <div className="text-sm font-medium text-gray-900">Address: {purchase.address}</div>
                         <div className="text-sm text-gray-500">State {purchase.state_name}</div>
                         <div className="text-sm text-gray-500">District {purchase.district_name}</div>
+                        <div className="text-sm text-gray-500">PIN {purchase.postal_code}</div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

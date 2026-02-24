@@ -421,6 +421,7 @@ class WalletTransactionListView(generics.ListAPIView):
 
     def get_queryset(self):
         queryset = WalletTransaction.objects.filter(wallet__user=self.request.user)
+
         
         transaction_type = self.request.query_params.get('type')
         status = self.request.query_params.get('status')

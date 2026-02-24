@@ -2,7 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from .manager import UserManager
 import uuid
-
+from django.db import models, transaction
 
 
 # Create your models here.
@@ -135,11 +135,25 @@ class WalletTransaction(models.Model):
 
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     description = models.TextField(blank=True)
+    balanceafter_transaction = models.DecimalField(max_digits=12, decimal_places=2)
     
     user_id=models.CharField(max_length=50,null=True,blank=True)
     order_id=models.CharField(max_length=50,null=True,blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self.pk:  # Only calculate on new transaction
+
+            with transaction.atomic():
+                wallet = self.wallet
+                if self.transaction_status == "SUCCESS":
+                    self.balanceafter_transaction = wallet.balance
+                else:
+                    # If transaction not success, balance stays same
+                    self.balanceafter_transaction = wallet.balance
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.wallet.user.username} - {self.transaction_type} - ₹{self.amount}"

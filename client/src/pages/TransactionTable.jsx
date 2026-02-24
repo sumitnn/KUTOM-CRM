@@ -56,6 +56,7 @@ const TransactionTable = ({ transactions, isLoading, error }) => {
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Type</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Amount</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Balance After</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Description</th>
             </tr>
           </thead>
@@ -106,6 +107,9 @@ const TransactionRow = ({ transaction: tx }) => {
       </td>
       <td className="px-4 py-3">
         <StatusBadge status={tx.transaction_status} />
+      </td>
+      <td className="px-4 py-3">
+        {tx.balanceafter_transaction} 
       </td>
       <td className="px-4 py-3">
         <div className="max-w-xs">

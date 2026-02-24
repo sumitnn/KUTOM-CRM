@@ -170,6 +170,7 @@ const WalletTransactionTable = () => {
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Order ID</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Type</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Balance After</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Description</th>
               </tr>
             </thead>
@@ -234,6 +235,11 @@ const WalletTransactionTable = () => {
                       }`}>
                         {tx.transaction_type === "CREDIT" ? "+" : "-"}₹{parseFloat(tx.amount).toLocaleString('en-IN')}
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-700 bg-blue-100 px-2 py-1 rounded-md">
+                        {tx.balanceafter_transaction || '0'}
+                      </span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-700 max-w-xs truncate" title={tx.description}>

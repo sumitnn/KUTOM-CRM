@@ -37,7 +37,7 @@ const WalletSummary = ({ totalWithdrawals, totalSales, currentBalance }) => {
           </div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <span className="text-xs text-green-600 font-medium">Ready for withdrawals</span>
+            <span className="text-xs text-green-600 font-medium">Ready for Purchase</span>
           </div>
         </div>
 
@@ -47,8 +47,8 @@ const WalletSummary = ({ totalWithdrawals, totalSales, currentBalance }) => {
             <div className="p-2 bg-green-100 rounded-lg">
               <div className="w-6 h-6 bg-green-600 rounded-md"></div>
             </div>
-            <div className="text-gray-700 text-sm font-semibold uppercase">
-              Total Revenue
+            <div className="text-gray-800 text-sm font-semibold uppercase">
+              Available Commission Balance
             </div>
           </div>
           <div className="text-3xl font-bold text-gray-900 mb-2">
@@ -58,7 +58,7 @@ const WalletSummary = ({ totalWithdrawals, totalSales, currentBalance }) => {
             <svg className="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
             </svg>
-            <span className="text-xs text-green-600 font-medium">All-time sales</span>
+            <span className="text-xs text-green-600 font-medium">Ready for withdrawals</span>
           </div>
         </div>
 

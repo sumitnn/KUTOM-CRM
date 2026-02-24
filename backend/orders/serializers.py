@@ -676,12 +676,13 @@ class CustomerPurchaseListSerializer(serializers.ModelSerializer):
     variant_name = serializers.CharField(source='variant.name', read_only=True)
     state_name = serializers.CharField(source='state.name', read_only=True)
     district_name = serializers.CharField(source='district.name', read_only=True)
+
     
     class Meta:
         model = CustomerPurchase
         fields = [
             'id', 'address', 'full_name', 'email', 'phone', 'product_name', 
             'variant_name', 'quantity', 'price_per_unit', 'total_price', 
-            'payment_method', 'purchase_date', 'state_name', 'district_name', 'selling_price'
+            'payment_method', 'purchase_date', 'state_name', 'district_name', 'selling_price','postal_code'
         ]
         read_only_fields = ('id', 'total_price', 'vendor', 'created_at', 'updated_at')

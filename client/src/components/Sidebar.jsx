@@ -195,10 +195,10 @@ const Sidebar = ({ expanded, setExpanded, role = "admin", onMobileClose, isMobil
       },
       {
         icon: <FaBoxArchive />,
-        label: "Customers",
+        label: "Purchases",
         children: [
-          { label: "Create New Customer", path: "/reseller/customer-purchases/create" },
-          { label: "My Customer List", path: "/reseller/customer-purchases" },
+          { label: "Create New Purchase", path: "/reseller/customer-purchases/create" },
+          { label: "Purchase History", path: "/reseller/customer-purchases" },
         ],
       },
       {

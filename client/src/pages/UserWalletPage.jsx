@@ -154,7 +154,7 @@ const UserWalletPage = ({ role }) => {
           <Suspense fallback={<LoadingCard />}>
             <WalletSummary 
               currentBalance={summaryData?.current_balance || 0}
-              totalSales={summaryData?.total_sales || 0}
+              totalSales={summaryData?.commission_balance || 0}
               totalWithdrawals={summaryData?.total_withdrawals || 0}
             />
           </Suspense>
