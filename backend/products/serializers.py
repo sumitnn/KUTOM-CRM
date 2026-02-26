@@ -462,10 +462,10 @@ class SimpleUserSerializer(serializers.ModelSerializer):
 
 
 class ProductCreateSerializer(serializers.ModelSerializer):
-    tags = serializers.ListField(child=serializers.CharField(), write_only=True, required=False)
-    features = serializers.ListField(child=serializers.CharField(), write_only=True, required=False)
-    sizes = serializers.ListField(write_only=True, required=False)
-    price_tiers = serializers.ListField(write_only=True, required=False)
+    tags = serializers.JSONField(write_only=True, required=False)
+    features = serializers.JSONField(write_only=True, required=False)
+    sizes = serializers.JSONField(write_only=True, required=False)
+    price_tiers = serializers.JSONField(write_only=True, required=False)
 
     class Meta:
         model = Product
@@ -476,40 +476,7 @@ class ProductCreateSerializer(serializers.ModelSerializer):
             "sizes", "price_tiers"
         ]
 
-    def to_internal_value(self, data):
-        # Create a mutable copy of data
-        mutable_data = data.copy() if hasattr(data, 'copy') else dict(data)
-        
-        # Helper function to parse JSON fields
-        def parse_field(field_name):
-            value = mutable_data.get(field_name)
-            
-            # If it's a list with one element that might be JSON string
-            if isinstance(value, list) and len(value) == 1 and isinstance(value[0], str):
-                try:
-                    return json.loads(value[0])
-                except (json.JSONDecodeError, TypeError):
-                    return value
-            # If it's a string that looks like JSON array
-            elif isinstance(value, str) and value.strip().startswith('['):
-                try:
-                    return json.loads(value)
-                except json.JSONDecodeError:
-                    return []
-            # If it's already a list
-            elif isinstance(value, list):
-                return value
-            # Default to empty list
-            return []
-        
-        # Parse each field
-        mutable_data['tags'] = parse_field('tags')
-        mutable_data['features'] = parse_field('features')
-        mutable_data['sizes'] = parse_field('sizes')
-        mutable_data['price_tiers'] = parse_field('price_tiers')
-        
-        # Call parent's to_internal_value with parsed data
-        return super().to_internal_value(mutable_data)
+    
 
     def validate(self, attrs):
         # Additional validation if needed
