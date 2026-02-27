@@ -1450,7 +1450,7 @@ def get_admin_email(request):
 
 @api_view(['GET'])
 def get_api_status(request):
-    return Response({"message": "Api Working Properly. First 2"})
+    return Response({"message": "Api Working Properly. First 3"})
 
 class NewUserApplicationListView(APIView):
     permission_classes = [IsAdminRole]
