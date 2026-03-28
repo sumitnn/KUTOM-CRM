@@ -148,10 +148,10 @@ class WalletTransaction(models.Model):
             with transaction.atomic():
                 wallet = self.wallet
                 if self.transaction_status == "SUCCESS":
-                    self.balanceafter_transaction = wallet.balance
+                    self.balanceafter_transaction = wallet.current_balance
                 else:
                     # If transaction not success, balance stays same
-                    self.balanceafter_transaction = wallet.balance
+                    self.balanceafter_transaction = wallet.current_balance
 
         super().save(*args, **kwargs)
 

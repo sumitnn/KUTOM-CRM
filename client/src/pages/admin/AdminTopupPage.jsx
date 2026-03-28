@@ -1,11 +1,41 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { lazy, Suspense } from 'react'
 import { BiMoney } from 'react-icons/bi'
+import { useGetTopupRequestQuery } from '../../features/topupApi'
 
 // Lazy import for the table component
 const TopUpRequestsTable = lazy(() => import('./TopUpRequestsTable'))
 
 const AdminTopupPage = () => {
+  // Fetch initial data for counts only (without pagination to get all)
+  const { data: allRequestsData, isLoading: countsLoading } = useGetTopupRequestQuery({
+    page: 1,
+    page_size: 1000, // Get all requests for counting
+  });
+
+  const [pendingCount, setPendingCount] = useState(0);
+  const [todayCount, setTodayCount] = useState(0);
+
+
+  // Calculate counts whenever data changes
+  useEffect(() => {
+    if (allRequestsData?.results) {
+      const requests = allRequestsData.results;
+      
+      // Calculate pending count
+      const pending = requests.filter(req => req.status === 'pending').length;
+      setPendingCount(pending);
+      
+      // Calculate today's count (requests created today)
+      const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
+      const todayRequests = requests.filter(req => {
+        const requestDate = new Date(req.created_at).toISOString().split('T')[0];
+        return requestDate === today;
+      }).length;
+      setTodayCount(todayRequests.length);
+    }
+  }, [allRequestsData]);
+
   return (
     <section className="py-6 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
       <div className="max-w-8xl mx-auto">
@@ -29,15 +59,27 @@ const AdminTopupPage = () => {
               </div>
             </div>
             
-            {/* Stats Cards - You can make these dynamic based on API response */}
+            {/* Stats Cards - Dynamic counts based on API response */}
             <div className="flex gap-4">
               <div className="bg-white/80 backdrop-blur-sm px-6 py-3 rounded-2xl shadow-sm border border-gray-200">
                 <div className="text-sm text-gray-600">Pending</div>
-                <div className="text-2xl font-bold text-yellow-600">12</div>
+                <div className="text-2xl font-bold text-yellow-600">
+                  {countsLoading ? (
+                    <div className="w-8 h-8 bg-yellow-100 rounded-lg animate-pulse"></div>
+                  ) : (
+                    pendingCount
+                  )}
+                </div>
               </div>
               <div className="bg-white/80 backdrop-blur-sm px-6 py-3 rounded-2xl shadow-sm border border-gray-200">
                 <div className="text-sm text-gray-600">Today</div>
-                <div className="text-2xl font-bold text-blue-600">5</div>
+                <div className="text-2xl font-bold text-blue-600">
+                  {countsLoading ? (
+                    <div className="w-8 h-8 bg-blue-100 rounded-lg animate-pulse"></div>
+                  ) : (
+                    todayCount || 0
+                  )}
+                </div>
               </div>
             </div>
           </div>

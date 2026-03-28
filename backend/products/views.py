@@ -689,7 +689,8 @@ class ProductByStatusAPIView(APIView):
             ).values_list('product_id', flat=True).distinct()
             
             base_queryset = RoleBasedProduct.objects.filter(
-                product_id__in=product_ids,user__status="active_user"
+                product_id__in=product_ids,
+                user__status__in=["active_user", "inactive_user", "pending_user"]
             ).order_by('-created_at')
         else:
             # For vendors, get their products only
