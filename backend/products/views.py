@@ -413,7 +413,7 @@ class ProductListCreateAPIView(APIView):
 
         # Get role-based products for the current user
         if request.user.role == "admin":
-            role_products = RoleBasedProduct.objects.filter(role="vendor",is_featured=True,user__status="active_user")
+            role_products = RoleBasedProduct.objects.filter(role="vendor",is_featured=True,user__status__in=["active_user", "inactive_user", "pending_user"])
         else:
             role_products = RoleBasedProduct.objects.filter(user=request.user)
         
